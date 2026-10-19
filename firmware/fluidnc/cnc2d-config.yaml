@@ -36,9 +36,24 @@ axes:
 
   # X = trave del portale (staffa LL): il carrello che porta la penna.
   x:
-    # DA TARARE: 80 vale per cinghia GT2 + puleggia 20 denti + microstep 1/16.
-    # Formula: (200 * microstep) / (passo_cinghia * denti_puleggia)
-    steps_per_mm: 80.000
+    # 33,953 = (200 * 16) / (pi * 1,5 * 20).
+    #
+    # Questa macchina NON ha cinghie: ha cremagliera e pignone z20 in modulo
+    # 1,5, quindi un giro di pignone avanza di pi*m*z = 94,2478 mm. Il valore
+    # 80 che stava qui prima era la formula della cinghia GT2, copiata da un
+    # esempio: con 80 la macchina muove 2,356 volte quello che le si chiede,
+    # e un quadrato da 100 mm uscirebbe da 235,6 — cioe' finirebbe contro il
+    # finecorsa al primo movimento. Il numero qui sotto e' quello che il
+    # firmware della dashboard usa da settembre e con cui le prove di
+    # movimento sono riuscite (vedi stepsPerMm() in cnc2d_dashboard.ino).
+    #
+    # Dipende dai ponticelli MS1/MS2/MS3 del driver: 1/8 -> 16,977;
+    # 1/16 -> 33,953; 1/32 -> 67,906.
+    #
+    # DA TARARE resta la terza cifra, misurando una corsa lunga: il
+    # ritiro di stampa della cremagliera cambia il passo reale, ed e' il
+    # motivo per cui X e Y avranno due valori diversi.
+    steps_per_mm: 33.953
     max_rate_mm_per_min: 2000.000
     acceleration_mm_per_sec2: 200.000
     max_travel_mm: 300.000     # DA TARARE sulla corsa reale della guida
@@ -57,7 +72,10 @@ axes:
   # Y = rotaie di base (staffe TT): ci scorre sopra tutto il portale,
   # motorizzato su un lato solo.
   y:
-    steps_per_mm: 80.000
+    # Vedi la nota su X. Stesso nominale, ma le due cremagliere sono state
+    # stampate separatamente: dopo la taratura questi due numeri NON saranno
+    # uguali, ed e' corretto che non lo siano.
+    steps_per_mm: 33.953
     max_rate_mm_per_min: 2000.000
     acceleration_mm_per_sec2: 200.000
     max_travel_mm: 300.000     # DA TARARE
@@ -74,6 +92,12 @@ axes:
   z:
     # Z non è un asse vero: è il servo del pen-lift, pilotato come asse
     # così il G-code può dire "G0 Z5" per alzare e "G0 Z0" per appoggiare.
+    #
+    # Geometria del pen-lift, dal CAD prova_4: pignone z25 modulo 1,5, raggio
+    # primitivo 18,750, quindi 0,32725 mm di penna per grado di servo. La
+    # corsa meccanica totale della guida e' 26,350 mm (11,000 in discesa e
+    # 15,350 in salita dalla posizione modellata), cioe' 80,5 gradi di servo
+    # sui ~180 disponibili.
     steps_per_mm: 100.000
     max_rate_mm_per_min: 1000.000
     acceleration_mm_per_sec2: 100.000
@@ -87,6 +111,20 @@ axes:
         # DA TARARE guardando la penna: min = Z0 (appoggiata), max = Z10 (alzata).
         # Partire vicino al centro e allargare a piccoli passi: portare un SG90
         # a fine corsa meccanica lo fa ronzare e ne forza gli ingranaggi.
+        #
+        # I due numeri si ricavano dai tre angoli da rilevare a penna montata,
+        # e la dashboard e' lo strumento giusto per rilevarli: ha lo slider
+        # manuale e parte in stato "free" (nessun impulso, servo morbido).
+        #   1. angolo di BATTUTA: i cuscinetti arrivano in fondo ai blocchi
+        #      inferiori. Limite meccanico, il PWM non deve mai arrivarci.
+        #   2. angolo di APPOGGIO: sopra la battuta. E' anche l'angolo a cui
+        #      tenere il servo mentre si infila la penna e si stringono i
+        #      morsetti. -> min_pulse_us
+        #   3. angolo di PENNA ALZATA: appoggio + 2/3 mm, cioe' 6,1/9,2 gradi.
+        #      -> max_pulse_us
+        # Con max_travel_mm 10 il mapping e' lineare fra i due impulsi, quindi
+        # G0 Z0 = appoggio e G0 Z10 = alzata, e l'alzata utile si comanda con
+        # una quota intermedia invece di allargare gli impulsi.
         min_pulse_us: 1000
         max_pulse_us: 2000
 

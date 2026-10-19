@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 32
-**Ultimo aggiornamento:** 2026-10-17 09:24
+**Versione:** 33
+**Ultimo aggiornamento:** 2026-10-19 10:10
 
 ## Regole di co-editing
 
@@ -173,7 +173,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 
 ### Step 3 — Configurazione FluidNC
 
-**Stato:** completato
+**Stato:** riaperto il 2026-10-19 — era completato sul banco (quadrato e cerchio verificati a vista sui motori il 2026-09-21), ma il file non porta due decisioni prese dopo, e su macchina montata FluidNC non è mai stato acceso
 
 **Obiettivo:** FluidNC installato e configurato come firmware definitivo della macchina, con movimento coordinato X/Y e pen-lift sul servo
 
@@ -202,6 +202,10 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 - [2026-09-21] Microstepping 1/16 verificato su entrambi gli assi: 40 mm comandati (3200 microscatti con `steps_per_mm: 80`) producono un giro esatto dell'albero. A passo intero ne avrebbero prodotti sedici, quindi il test è inequivocabile a occhio. Ponticelli realizzati a catena RST→MS3→MS2→MS1, sfruttando il fatto che RST è già a VDD ed è adiacente a MS3: tre ponticelli cortissimi per driver, nessun filo lungo
 - [2026-09-21] **Step completato**: quadrato da 40 mm e cerchio da raggio 20 mm eseguiti correttamente, con ritorno alle coordinate di partenza. Il criterio di completamento è soddisfatto
 - [2026-10-06] **`steps_per_mm` nella configurazione è sbagliato di 2,36×, ed è il primo numero da correggere.** `cnc2d-config.yaml` porta ancora `steps_per_mm: 80` con il commento "vale per cinghia GT2 + puleggia 20 denti". La macchina non ha più cinghie: con pignone e cremagliera m1.5 z=20 il giro vale `π · m · z = 94,2478` mm (= 20 denti × passo 4,7124), e con 200 passi × 16 microstep fa **33,953 passi/mm**. Finché quel numero è sbagliato ogni limite inserito è sbagliato dello stesso fattore — si scrive "300 mm di corsa" e la macchina ne percorre 707 — e nessun pannello può intercettarlo, perché il pannello parla in mm e il mm è falso. Il criterio di completamento dello step resta soddisfatto (quadrato e cerchio verificati a vista sui motori), ma le quote erano 2,36× quelle comandate
+- [2026-10-19] **`steps_per_mm` corretto nel file: 80 → 33,953.** Il bug era registrato il 2026-10-06 e il numero giusto era già scritto in quella nota; non è stato trovato ora, è stato finalmente applicato. Nel frattempo la dashboard usava il valore giusto (`stepsPerMm()` lo calcola da `MM_PER_REV = π·1,5·20`), quindi le prove di movimento riuscite non lo hanno mai esercitato: il numero sbagliato stava solo nel ramo FluidNC, che non è mai partito. Aggiunto nel file il perché, le varianti per 1/8 e 1/32, e il fatto che dopo la taratura X e Y **non** saranno uguali
+- [2026-10-19] **Il file non porta la decisione sull'azzeramento.** `soft_limits: false`, `must_home: false` e nessun blocco `homing:`, mentre la decisione presa dopo dice il contrario (azzeramento sui due pulsanti d'angolo, `soft_limits` attivi, `must_home` vero). È lavoro di solo YAML, non serve la macchina: va fatto prima di accendere FluidNC, altrimenti il primo movimento avviene senza la protezione che la decisione prevedeva
+- [2026-10-19] **`max_rate_mm_per_min: 2000` è da rivedere al rialzo**, conseguenza del rapporto corretto: con 33,953 passi/mm sono 1132 microstep/s, contro i ~8000 che il motore ha dimostrato di reggere. Non è un bug, è un limite lasciato dal rapporto sbagliato
+- [2026-10-19] **Nota di metodo per la tab Impostazioni, dal nostro stesso collaudo del 2026-09-21:** su FluidNC 4.1.0 il comando di modifica a runtime (`$/axes/...=`) **non restituisce nulla** e non ha effetto; quello che funziona è ricaricare il file e riavviare con `$Bye`. Confermato indirettamente dalla documentazione FluidNC, secondo cui le modifiche `$` vivono solo in memoria volatile e vanno scritte con `$CD=config.yaml` per sopravvivere al riavvio, e secondo cui le definizioni dei pin richiedono comunque un riavvio. Conseguenza di progetto: una tab Impostazioni che scrive nella macchina deve **generare il file e caricarlo**, non toccare le impostazioni a runtime
 - [2026-10-06] Conseguenze collaterali del rapporto vero: risoluzione **0,0295 mm per microstep** (il gioco di 0,235 è 8× il passo, quindi è il gioco a dominare, non la risoluzione) e `max_rate_mm_per_min: 2000` corrisponde ora a 1132 microstep/s invece di 2667, cioè **un settimo** di quello che la meccanica regge (il motore è validato a 500 passi interi/s ≈ 235 mm/s). Verifica del rapporto: `G91 G0 X100`, misurare col calibro, correggere in proporzione
 
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
@@ -482,6 +486,31 @@ mano a mano che le misure arrivano):
 - [2026-10-16] **Pignone grande o piccolo, per la forza del servo: non è un criterio.** Forza alla cremagliera = coppia / raggio. Con 1,8 kg·cm (≈177 N·mm) e r = 18,750 escono **9,4 N**; con r = 10,5 (z14) 16,9 N. Ma la massa flottante da sollevare è 0,55÷0,60 N, quindi il margine è **15×** già col pignone grande. Quello che il pignone grande compra davvero: la cremagliera cade sulla parete di `pz2` invece che su una mensola (meno massa flottante, che è il parametro fuori budget) ed è **1,8× più veloce** nell'alzata (0,051 s contro 0,091 per 10 mm), il che però conta poco contro il tempo di assestamento. Criterio vero: la geometria, non la coppia
 
 ## Storico sessioni
+
+### [2026-10-19 10:10] (meccanica) Due giorni senza macchina: si apre il cantiere GDC CNC 2D SLICER, e il primo numero sbagliato era in casa
+
+**Riepilogo:** in attesa dei cuscinetti per chiudere il modulo penna si passa al software, e il primo controllo sul ramo FluidNC trova applicato il bug già registrato il 2026-10-06 — `steps_per_mm: 80` invece di 33,953 — più due decisioni prese e mai scritte nel file.
+
+**Cosa è stato fatto:**
+- **Corretto `steps_per_mm` in `cnc2d-config.yaml`**, da 80,000 a 33,953 su X e Y, con la derivazione nel file
+- **Verificato che il file resta YAML valido** dopo la modifica
+- **Documentato nel file i tre angoli del servo** da rilevare a penna montata, e perché la dashboard è lo strumento giusto per rilevarli (slider manuale e stato `free` all'accensione)
+- **Rilevate due altre divergenze fra decisioni e file**: manca il blocco `homing:` con `soft_limits`/`must_home`, e `max_rate_mm_per_min` è tarato sul rapporto sbagliato
+- **Accertato come la tab Impostazioni può scrivere nella macchina**, incrociando il nostro collaudo del 2026-09-21 con la documentazione FluidNC: non con le modifiche a runtime, ma generando il file e caricandolo
+
+**Bug: il ramo FluidNC ha girato tre settimane con il rapporto di trasmissione della cinghia**
+
+**Sintomo:** `cnc2d-config.yaml` portava `steps_per_mm: 80.000`, che è la formula di una cinghia GT2 con puleggia a 20 denti. Questa macchina ha cremagliera e pignone m1.5 z20, dove un giro vale `π·1,5·20 = 94,2478` mm, cioè **33,953** passi/mm a 1/16. Con 80 la macchina percorre 2,356 volte quello che le si chiede: un quadrato da 100 mm uscirebbe da 235,6 e finirebbe contro il finecorsa al primo movimento.
+**Causa:** valore copiato da un esempio di configurazione quando la macchina era ancora prevista a cinghia, e mai aggiornato al cambio di trasmissione. Non si è manifestato perché **FluidNC non è mai stato acceso sulla macchina montata**: tutte le prove di movimento sono passate dalla dashboard, che calcola il rapporto da `MM_PER_REV` e quindi ha sempre usato il numero giusto. Il bug era già stato trovato e registrato il 2026-10-06, con il numero corretto scritto nella nota: è rimasto non applicato per tredici giorni.
+**Fix applicato:** `steps_per_mm: 33.953` su X e Y, con nel file la derivazione, le varianti per 1/8 e 1/32, e l'avvertenza che dopo la taratura i due assi non avranno lo stesso valore (le due cremagliere sono state stampate separatamente). Verificato che il YAML resta valido; **non verificato sulla macchina**, perché FluidNC non è ancora stato acceso.
+
+**File consegnati/modificati:**
+- `firmware/fluidnc/cnc2d-config.yaml` — `steps_per_mm` corretto su X e Y; commenti sulla derivazione del rapporto, sulle varianti di microstep e sui tre angoli del servo da rilevare
+- `documento-sessione-cnc-2d.md` — v33
+
+**Impatto su Vision/Pipeline:** Step 3 **riaperto**. Era segnato completato, e lo era rispetto al suo criterio (quadrato e cerchio a vista sui motori, 2026-09-21), ma il criterio è stato soddisfatto sul banco e non sulla macchina, e il file non porta due decisioni prese dopo. Le tre note nuove dicono cosa manca.
+
+---
 
 ### [2026-10-17 09:24] (meccanica) prova_4: la cremagliera è esatta e a gioco zero, lo schema descrive una macchina che non esiste, e i denti restano dritti
 
