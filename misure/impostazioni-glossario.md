@@ -123,11 +123,27 @@ appoggiano i carrelli. Quello è il punto di homing.
 | Scostamento dalla battuta | `scostamento` | **da misurare**: quanto il blocco di homing sta dentro rispetto alla battuta meccanica |
 | Ripetibilità | `ripetibilita` | **da misurare**: di quanto balla la posizione ripetendo l'appoggio |
 
-La ripetibilità è il numero che **giustifica il margine di sicurezza**, ed è
-misurabile con quello che c'è già: si appoggia il carrello al blocco cinque o
-sei volte azzerando ogni volta e si guarda di quanto ballano i passi sul DRO.
-Quella dispersione *è* il margine minimo. Finché non c'è, il margine sta a 8 mm
-per prudenza.
+Lo **scostamento** si ricava con la dashboard: azzera sul blocco, porta l'asse
+all'altra battuta, leggi. Quella è la **corsa disponibile dall'home**, e lo
+scostamento è la corsa totale meno quella.
+
+La **ripetibilità** è il numero che **giustifica il margine di sicurezza**, e
+**non si misura col DRO** — corretto il 2026-10-19, la procedura scritta prima
+era impossibile. Il motivo: per ripetere l'appoggio bisogna liberare i motori,
+e liberare i motori è esattamente il gesto che cancella quello che il contatore
+sa. Non c'è ordine delle operazioni che lo aggiri: uno stepper non misura, conta
+gli impulsi che gli arrivano.
+
+Si misura quindi **col calibro, senza motori**: si fissa un riferimento (la
+testa della staffa, o un blocchetto), si appoggia il carrello al blocco e si
+misura la distanza fra riferimento e faccia del carrello. Cinque o sei
+appoggi, allontanando ogni volta: la dispersione *è* il margine minimo.
+
+Se il calibro non ci arriva, la variante con la macchina: appoggia, azzera,
+comanda **+100,000 mm** e misura col calibro dove arriva rispetto a un
+riferimento fisso. La macchina quei 100 mm li rifà identici, quindi tutto lo
+scarto all'arrivo viene dalla partenza. Finché il numero non c'è, il margine
+sta a 8 mm per prudenza.
 
 Nota di vocabolario: «homing» qui vuol dire *appoggiare il carrello al blocco e
 azzerare*, non il ciclo automatico di una macchina con i finecorsa. Non

@@ -87,9 +87,17 @@ var Profile = (function () {
 
       /* Niente finecorsa elettrici, ma un riferimento fisico: blocchi stampati
          agganciati alle staffe TT e LL contro cui si appoggiano i carrelli.
-         `ripetibilita` è il numero che giustifica il margine di sicurezza, ed è
-         misurabile con la dashboard: appoggia cinque volte azzerando ogni
-         volta, guarda di quanto ballano i passi. */
+
+         `scostamento` è quanto il blocco sta dentro rispetto alla battuta
+         meccanica: si ricava azzerando sul blocco e portando l'asse all'altra
+         battuta — la corsa che si legge è quella disponibile dall'home, e lo
+         scostamento è la corsa totale meno quella.
+
+         `ripetibilita` è il numero che giustifica il margine di sicurezza, e
+         NON si misura col DRO: liberare i motori per riappoggiare il carrello
+         è esattamente il gesto che azzera quello che il contatore sa. Si
+         misura col calibro, da un riferimento fisso alla faccia del carrello,
+         ripetendo l'appoggio cinque o sei volte. */
       homing: {
         x: { scostamento: null, ripetibilita: null },
         y: { scostamento: null, ripetibilita: null }

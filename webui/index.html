@@ -342,10 +342,15 @@
         <label><span class="flab">Ripetibilità Y (mm) <b class="prov prov-damis">da misurare</b></span>
           <input type="number" step="0.1" data-bind="macchina.homing.y.ripetibilita" data-null="1"></label>
       </div>
-      <p class="muted small">La ripetibilità è il numero che giustifica il margine
-        di sicurezza, e si misura con la dashboard: appoggia il carrello al
-        blocco cinque o sei volte azzerando ogni volta, e guarda di quanto
-        ballano i passi. Quella dispersione è il margine minimo.</p>
+      <p class="muted small"><b>Lo scostamento</b> si ricava azzerando sul blocco e
+        portando poi l'asse all'altra battuta: la corsa che leggi è quella
+        disponibile dall'home, e lo scostamento è la corsa totale meno quella.</p>
+      <p class="muted small"><b>La ripetibilità</b> è il numero che giustifica il margine
+        di sicurezza, e <b>non si misura col DRO</b>: liberare i motori per
+        riappoggiare il carrello è esattamente il gesto che cancella quello che il
+        contatore sa. Si misura col calibro, da un riferimento fisso alla faccia del
+        carrello, ripetendo l'appoggio cinque o sei volte. Quella dispersione è il
+        margine minimo.</p>
     </section>
 
     <section class="card">

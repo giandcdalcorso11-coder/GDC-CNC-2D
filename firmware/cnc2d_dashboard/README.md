@@ -301,6 +301,18 @@ Finché i motori sono liberi, i comandi di movimento rispondono *«motori
 liberi»* invece di fingere di muoversi, e anche l'azzeramento normale viene
 rifiutato rimandando a *Homing completato*.
 
+**I due numeri da prendere quando i blocchi sono montati:**
+
+- **La corsa disponibile dall'home.** Appoggia al blocco, *Homing completato*,
+  porta l'asse all'altra battuta a passo piccolo sul finale, leggi. Lo
+  scostamento del blocco dalla battuta è la corsa totale meno questa.
+- **La ripetibilità dell'appoggio — col calibro, non col DRO.** Per ripetere
+  l'appoggio bisogna liberare i motori, e liberare i motori cancella quello che
+  il contatore sa: non c'è ordine delle operazioni che lo aggiri. Si fissa un
+  riferimento, si appoggia il carrello e si misura col calibro la distanza fra
+  riferimento e faccia del carrello; cinque o sei appoggi, allontanando ogni
+  volta. Quella dispersione è il margine di sicurezza minimo.
+
 Due avvertenze sullo spostamento a mano:
 
 - **Non forzare mai un asse con i driver attivi.** Uno stepper alimentato tiene

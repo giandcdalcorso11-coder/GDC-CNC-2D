@@ -100,11 +100,21 @@ dentro, con margini abbondanti.*
 ### Un terzo numero, quando ci saranno i blocchi di homing
 
 I blocchi stampati che si agganciano alle staffe TT e LL danno un riferimento
-fisico: ci si appoggia il carrello e si azzera. Quando ci sono, con la stessa
-dashboard si prende la **ripetibilità**: appoggia e azzera cinque o sei volte,
-e guarda di quanto ballano i passi. Quella dispersione è il margine di
-sicurezza minimo — oggi il margine sta a 8 mm per pura prudenza, e questo è
-l'unico modo di sostituirlo con un numero vero.
+fisico: ci si appoggia il carrello e si azzera. Quando ci sono, si prendono due
+numeri.
+
+**La corsa disponibile dall'home**, con la dashboard: appoggia al blocco,
+*Homing completato*, porta l'asse all'altra battuta a passo piccolo sul finale,
+leggi. Lo scostamento del blocco dalla battuta è la corsa totale meno questa.
+
+**La ripetibilità dell'appoggio, col calibro.** Non col DRO: per ripetere
+l'appoggio bisogna liberare i motori, e liberare i motori cancella quello che
+il contatore sa — uno stepper non misura, conta gli impulsi che gli arrivano.
+Si fissa un riferimento, si appoggia il carrello e si misura la distanza fra
+riferimento e faccia del carrello; cinque o sei appoggi, allontanando ogni
+volta. Quella dispersione è il margine di sicurezza minimo — oggi il margine
+sta a 8 mm per pura prudenza, e questo è l'unico modo di sostituirlo con un
+numero vero.
 
 ## A2. I tre angoli del servo — si fa con la DASHBOARD, non con il SLICER
 
