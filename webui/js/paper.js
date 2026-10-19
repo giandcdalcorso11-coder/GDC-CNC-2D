@@ -79,8 +79,20 @@ var Paper = (function () {
     State.emit('paper');
   }
 
+  /* I due campi dell'area nella tab Impostazioni scrivono nel PROFILO, non
+     solo nello stato: l'area è il limite di lavoro (corsa meno margine), e
+     tenerne una seconda copia qui sarebbe il modo sicuro per vederle divergere.
+     Quello che l'utente digita è il limite, quindi la corsa si ricava
+     riaggiungendo il margine, che resta com'è.
+     Nota: questi due campi spariranno quando la tab Impostazioni sarà
+     riprogettata — lì corsa e margine si inseriscono separati, che è la forma
+     giusta, perché sono due cose diverse. */
   function setArea(w, h) {
-    State.data.area = { w: w, h: h };
+    var p = Profile.get();
+    p.corse.x.corsa = w + p.corse.x.margine;
+    p.corse.y.corsa = h + p.corse.y.margine;
+    Profile.save();
+    State.data.area = Profile.areaUtile();
     apply();
   }
 
