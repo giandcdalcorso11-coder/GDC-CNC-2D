@@ -53,6 +53,8 @@ var Settings = (function () {
       return g.x === g.y ? f2(g.x) + ' mm'
                          : f2(g.x) + ' mm su X  ·  ' + f2(g.y) + ' mm su Y';
     },
+    'home.x': function () { return f3(Profile.corsaDaHome('x')) + ' mm'; },
+    'home.y': function () { return f3(Profile.corsaDaHome('y')) + ' mm'; },
     'perc.x': function () { return percorribile('x'); },
     'perc.y': function () { return percorribile('y'); },
     area: function () {

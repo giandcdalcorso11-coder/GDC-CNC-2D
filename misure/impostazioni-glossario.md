@@ -42,18 +42,35 @@ aspetto, fra un mese «accelerazione 200» sembrerà un dato di fatto.
 
 ## Le corse
 
-Tre parole per tre numeri distinti, con una identità che deve sempre valere:
+Quattro numeri distinti, con una identità che deve sempre valere:
 
 ```
-corsa percorribile  +  margine di sicurezza  =  corsa totale
+corsa percorribile  +  margine di sicurezza  +  scostamento del blocco  =  corsa totale
 ```
 
 | Nome | Chiave | Cos'è |
 |---|---|---|
 | **Corsa totale** | `corsaPassi` | da battuta a battuta: tutto quello che l'asse sa fare |
-| **Margine di sicurezza** | `margineSicurezza` | quanto se ne tiene da parte per non andarci a sbattere |
-| **Corsa percorribile** | *calcolata* | la differenza: il confine che il software fa rispettare |
+| **Scostamento del blocco** | `homing.scostamento` | quanto il blocco di homing sta dentro rispetto alla battuta: corsa che non si può usare, perché lo zero è il blocco |
+| **Corsa dall'home** | *calcolata* | totale meno scostamento: quello che resta partendo da zero |
+| **Margine di sicurezza** | `margineSicurezza` | quanto se ne tiene da parte per non andare a sbattere sulla battuta lontana |
+| **Corsa percorribile** | *calcolata* | dall'home meno il margine: il confine che il software fa rispettare |
 | **Area di lavoro** | *calcolata* | percorribile X × percorribile Y, il riquadro al centro dello schermo |
+
+**Misurati il 2026-10-19**, coi blocchi montati:
+
+| | X | Y |
+|---|---|---|
+| corsa totale | 257,532 | 243,041 |
+| corsa dall'home | 256,089 | 243,071 |
+| scostamento | **1,443** | **0** (misurato −0,030, cioè un passo: rumore) |
+| ripetibilità dell'appoggio | sotto la risoluzione del calibro | idem |
+
+Il margine è sceso da **8,0 a 2,0 mm**: gli 8 coprivano l'errore di parcheggio
+di un'origine piazzata a occhio, che coi blocchi non esiste più. Restano il
+gioco della cremagliera (0,30) e l'incertezza su dove sia davvero la battuta
+lontana, che il conteggio gonfia perché spingendoci contro il motore slitta e
+il contatore no.
 
 ### Perché la corsa si conserva in PASSI e non in millimetri
 

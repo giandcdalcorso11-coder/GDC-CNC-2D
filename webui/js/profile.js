@@ -81,8 +81,17 @@ var Profile = (function () {
          millimetri cambia pur non avendo toccato la macchina. Salvando i
          millimetri avrei congelato l'interpretazione sbagliata. */
       corse: {
-        x: { corsaPassi: 8744, margineSicurezza: 8.0, misurato: '2026-10-19' },
-        y: { corsaPassi: 8252, margineSicurezza: 8.0, misurato: '2026-10-19' }
+        /* Il margine era 8 mm, scelti a occhio per coprire l'errore con cui si
+           parcheggiava l'origine a mano. Con i blocchi di homing quel termine è
+           sparito — l'appoggio ripete sotto la risoluzione del calibro — e
+           restano solo il gioco della cremagliera (0,30) e l'incertezza su dove
+           sia davvero la battuta lontana, che il conteggio gonfia perché
+           spingendoci contro il motore slitta e il contatore no. Due
+           millimetri li coprono con abbondanza. L'errore di scala NON entra:
+           limite e comando sono entrambi in unità del DRO, quindi si
+           semplifica. */
+        x: { corsaPassi: 8744, margineSicurezza: 2.0, misurato: '2026-10-19' },
+        y: { corsaPassi: 8252, margineSicurezza: 2.0, misurato: '2026-10-19' }
       },
 
       /* Niente finecorsa elettrici, ma un riferimento fisico: blocchi stampati
@@ -99,8 +108,19 @@ var Profile = (function () {
          misura col calibro, da un riferimento fisso alla faccia del carrello,
          ripetendo l'appoggio cinque o sei volte. */
       homing: {
-        x: { scostamento: null, ripetibilita: null },
-        y: { scostamento: null, ripetibilita: null }
+        /* Misurati il 2026-10-19 coi blocchi montati: azzerato sul blocco e
+           portato l'asse all'altra battuta si legge 256,089 su X e 243,071 su
+           Y, contro 257,532 e 243,041 da battuta a battuta.
+           Su X il blocco mangia 1,443 mm di corsa. Su Y ne mangia -0,030, cioè
+           UN PASSO in meno di zero: il blocco sta di fatto sulla battuta, e la
+           corsa utile non la tocca. Il segno negativo è rumore di misura, non
+           corsa in più, quindi si registra zero.
+           La ripetibilità non è zero: è sotto la risoluzione del calibro, che
+           è un'altra cosa. Si registra 0,05 — "più piccola di quanto so
+           misurare" — perché uno zero vero direbbe al software che un margine
+           di zero basterebbe. */
+        x: { scostamento: 1.443, ripetibilita: 0.05 },
+        y: { scostamento: 0.0,   ripetibilita: 0.05 }
       },
 
       /* velocitaMax è un TETTO, non una velocità di lavoro: quella la decide la
@@ -340,13 +360,21 @@ var Profile = (function () {
     return passiAMm(asse, macchina().corse[asse].corsaPassi);
   }
 
-  /* Corsa percorribile: totale meno il margine di sicurezza. È il confine che
-     il software fa rispettare, e vale l'identità del glossario
-     (percorribile + margine = totale). Senza finecorsa non c'è nessuno che lo
-     faccia rispettare a valle, quindi è l'interfaccia a dover verificare
-     l'ingombro prima di far partire un programma. */
+  /* Quanta corsa resta partendo dal blocco di homing: la totale meno quello che
+     il blocco si mangia. È da qui che si contano tutte le coordinate, perché lo
+     zero è il blocco. */
+  function corsaDaHome(asse) {
+    var sc = macchina().homing[asse].scostamento;
+    return corsaTotale(asse) - (sc === null ? 0 : Math.max(0, sc));
+  }
+
+  /* Corsa percorribile: quella dall'home, meno il margine di sicurezza. È il
+     confine che il software fa rispettare, e vale l'identità del glossario
+     (percorribile + margine + scostamento = totale). Senza finecorsa non c'è
+     nessuno che lo faccia rispettare a valle, quindi è l'interfaccia a dover
+     verificare l'ingombro prima di far partire un programma. */
   function corsaPercorribile(asse) {
-    return Math.max(0, corsaTotale(asse) - macchina().corse[asse].margineSicurezza);
+    return Math.max(0, corsaDaHome(asse) - macchina().corse[asse].margineSicurezza);
   }
 
   function passiPercorribili(asse) {
@@ -434,6 +462,15 @@ var Profile = (function () {
         problemi.push({
           gravita: 'blocco', campo: 'corse.' + a,
           testo: 'Margine di sicurezza negativo sull\'asse ' + A + '.'
+        });
+      }
+      if (m.homing[a].scostamento === null) {
+        problemi.push({
+          gravita: 'avviso', campo: 'homing.' + a,
+          testo: 'Lo scostamento del blocco di homing sull\'asse ' + A + ' non è ' +
+                 'stato misurato: le coordinate partono dalla battuta meccanica, ' +
+                 'ma lo zero vero è il blocco. Finché manca, l\'area di lavoro è ' +
+                 'sovrastimata di quanto il blocco sta dentro.'
         });
       }
       if (c.corsaPassi > 0 && corsaPercorribile(a) <= 0) {
@@ -549,9 +586,13 @@ var Profile = (function () {
           (t.tarato ? ' (tarato)' : ' (NOMINALE, da tarare)'),
         '    max_rate_mm_per_min: ' + n(m.dinamica[a].velocitaMax),
         '    acceleration_mm_per_sec2: ' + n(m.dinamica[a].accelerazione),
-        '    max_travel_mm: ' + n(corsaTotale(a)) +
-          '   # corsa totale, ' + m.corse[a].corsaPassi + ' passi misurati' +
-          ' — percorribile ' + n(corsaPercorribile(a)) +
+        /* Lo zero di FluidNC è il blocco di homing, non la battuta: il limite
+           di corsa che gli interessa è quello che resta da lì in avanti. */
+        '    max_travel_mm: ' + n(corsaDaHome(a)) +
+          '   # dal blocco di homing. Totale ' + n(corsaTotale(a)) +
+          ' (' + m.corse[a].corsaPassi + ' passi), blocco a ' +
+          n(m.homing[a].scostamento === null ? 0 : m.homing[a].scostamento, 3) +
+          ' dalla battuta — percorribile ' + n(corsaPercorribile(a)) +
           ' (margine ' + n(m.corse[a].margineSicurezza, 1) + ')',
         '    soft_limits: false',
         '',
@@ -643,7 +684,8 @@ var Profile = (function () {
     caricaStampa: caricaStampa, eliminaStampa: eliminaStampa,
 
     passiPerMm: passiPerMm, passiAMm: passiAMm, mmAPassi: mmAPassi,
-    corsaTotale: corsaTotale, corsaPercorribile: corsaPercorribile,
+    corsaTotale: corsaTotale, corsaDaHome: corsaDaHome,
+    corsaPercorribile: corsaPercorribile,
     passiPercorribili: passiPercorribili, areaUtile: areaUtile,
     taraAsse: taraAsse,
 

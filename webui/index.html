@@ -315,14 +315,17 @@
           <input type="number" step="0.5" data-bind="macchina.corse.y.margineSicurezza"></label>
       </div>
       <div class="readout">
+        <div class="ro"><span>Corsa dall'home X</span><b data-calc="home.x">—</b></div>
+        <div class="ro"><span>Corsa dall'home Y</span><b data-calc="home.y">—</b></div>
         <div class="ro"><span>Corsa percorribile X</span><b data-calc="perc.x">—</b></div>
         <div class="ro"><span>Corsa percorribile Y</span><b data-calc="perc.y">—</b></div>
         <div class="ro"><span>Area di lavoro</span><b data-calc="area">—</b></div>
       </div>
-      <p class="muted small">Vale sempre: percorribile + margine = totale. Quello
-        che resta scritto sono i <b>passi</b> — sono la misura vera. I millimetri
-        sono un'interpretazione, e cambiano quando tari il rapporto anche se la
-        macchina non è stata toccata.</p>
+      <p class="muted small">Vale sempre: percorribile + margine + scostamento del
+        blocco = totale. Lo zero è il <b>blocco di homing</b>, non la battuta, quindi
+        quello che si percorre parte da lì. Quello che resta scritto sono i
+        <b>passi</b> — sono la misura vera. I millimetri sono un'interpretazione, e
+        cambiano quando tari il rapporto anche se la macchina non è stata toccata.</p>
     </section>
 
     <section class="card">
