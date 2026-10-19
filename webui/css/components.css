@@ -147,11 +147,14 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
   gap: 5px;
 }
 .btn-jog { font-size: 15px; padding: 9px 0; }
-.jog-pad [data-jog="Y+"]   { grid-area: 1 / 2; }
-.jog-pad [data-jog="X-"]   { grid-area: 2 / 1; }
-.jog-pad [data-jog="stop"] { grid-area: 2 / 2; font-size: 10px; font-weight: 700; }
-.jog-pad [data-jog="X+"]   { grid-area: 2 / 3; }
-.jog-pad [data-jog="Y-"]   { grid-area: 3 / 2; }
+/* Le frecce stanno nella croce a prescindere dall'ordine nel markup: il
+   pannello manuale le emette in sequenza di lettura, la griglia le mette al
+   loro posto. */
+.jog-pad [data-pm-jog="Y+"]   { grid-area: 1 / 2; }
+.jog-pad [data-pm-jog="X-"]   { grid-area: 2 / 1; }
+.jog-pad [data-pm-jog="stop"] { grid-area: 2 / 2; font-size: 10px; font-weight: 700; }
+.jog-pad [data-pm-jog="X+"]   { grid-area: 2 / 3; }
+.jog-pad [data-pm-jog="Y-"]   { grid-area: 3 / 2; }
 .btn-stop { border-color: #5b2b2b; color: #f0a0a0; }
 
 .step-row { display: flex; align-items: center; gap: 5px; }
@@ -432,4 +435,61 @@ code {
   border: 1px solid var(--line-soft);
   border-radius: 3px;
   padding: 0 3px;
+}
+
+/* ---------------------- il pannello manuale ----------------------
+   Un componente solo, montato nella barra laterale, nella tab Manuale e nei
+   popup di inizio stampa: niente id, solo classi. */
+
+.pm { display: flex; flex-direction: column; gap: 10px; }
+
+.pm-sez {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+}
+.pm > .pm-sez:first-child { border-top: none; padding-top: 0; }
+
+.pm-dro {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+}
+.pm-ax {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-mute);
+}
+.pm-pos {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Posizione non nota: cambia colore, perché è la differenza fra un numero di
+   cui fidarsi e uno da buttare. */
+.pm-ko, .dro-ko { color: var(--warn); }
+
+.btn.is-warn { border-color: #5c4718; color: var(--warn); }
+
+/* I passi della procedura di azzeramento: si leggono, non si cliccano. */
+.passi {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-dim);
 }

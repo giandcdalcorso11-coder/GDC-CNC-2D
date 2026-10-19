@@ -36,6 +36,7 @@
 
 <nav class="tabs" role="tablist">
   <button class="tab is-active" data-tab="disegno" role="tab">Disegno</button>
+  <button class="tab" data-tab="manuale" role="tab">Manuale</button>
   <button class="tab" data-tab="log" role="tab">Log</button>
   <button class="tab" data-tab="impostazioni" role="tab">Impostazioni</button>
 </nav>
@@ -86,42 +87,11 @@
         <p class="placeholder-note">La conversione da fotografia a tracciato vettoriale non è ancora implementata: per ora si carica un SVG già vettoriale. Le forme piene vengono disegnate come contorni, perché una penna non riempie.</p>
       </section>
 
+      <!-- Lo stesso pannello della tab Manuale, non una copia: vedi js/panel.js. -->
       <section class="card">
-        <h2>Origine e area</h2>
-        <p class="muted small">La macchina non ha finecorsa di riferimento: l'origine si imposta a mano, portando la penna nell'angolo in basso a sinistra del foglio.</p>
-        <button class="btn btn-ghost full" id="btn-set-origin" disabled>Imposta origine qui</button>
-        <div class="btn-row">
-          <button class="btn btn-ghost" id="btn-corner-bl" disabled>Angolo ↙</button>
-          <button class="btn btn-ghost" id="btn-corner-tr" disabled>Angolo ↗</button>
-        </div>
-        <p class="calib-state" id="calib-state">Area non calibrata</p>
-      </section>
-
-      <section class="card">
-        <h2>Movimento manuale</h2>
-        <div class="jog-pad">
-          <button class="btn btn-jog" data-jog="Y+"  disabled>↑</button>
-          <button class="btn btn-jog" data-jog="X-"  disabled>←</button>
-          <button class="btn btn-jog" data-jog="X+"  disabled>→</button>
-          <button class="btn btn-jog" data-jog="Y-"  disabled>↓</button>
-          <button class="btn btn-jog btn-stop" data-jog="stop" disabled>STOP</button>
-        </div>
-        <div class="step-row" id="jog-steps">
-          <button class="btn btn-ghost btn-small step" data-step="0.1">0,1</button>
-          <button class="btn btn-ghost btn-small step is-active" data-step="1">1</button>
-          <button class="btn btn-ghost btn-small step" data-step="10">10</button>
-          <button class="btn btn-ghost btn-small step" data-step="50">50</button>
-          <span class="muted small">mm</span>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Penna</h2>
-        <div class="btn-row">
-          <button class="btn btn-ghost" id="btn-pen-up" disabled>Alza</button>
-          <button class="btn btn-ghost" id="btn-pen-down" disabled>Abbassa</button>
-        </div>
-        <p class="placeholder-note">Servo non ancora tarato: i comandi restano disattivati finché non sono noti gli estremi dell'impulso.</p>
+        <h2>Controllo manuale</h2>
+        <div id="panel-lato"></div>
+        <p class="calib-state" id="calib-state">Origine non impostata</p>
       </section>
 
       <section class="card">
@@ -195,6 +165,53 @@
 
   </div>
 </main>
+
+<!-- ============================= MANUALE ===========================
+     La stessa cosa che sta nella barra laterale e che comparirà dentro i tre
+     popup di inizio stampa: un solo componente, montato in più posti. Qui ha
+     più spazio, perché è la tab delle sessioni di misura. -->
+<section class="panel" id="tab-manuale">
+  <div class="settings-grid">
+
+    <section class="card">
+      <h2>Controllo manuale</h2>
+      <div id="panel-tab"></div>
+    </section>
+
+    <section class="card">
+      <h2>Come si azzera questa macchina</h2>
+      <p class="muted small">Non ci sono finecorsa. Il riferimento sono i
+        <b>blocchi stampati</b> agganciati alle staffe TT e LL, e i carrelli ci si
+        appoggiano <b>a mano</b>: la coppia di uno stepper basta a spostare il
+        blocco, cioè a spostare proprio la cosa che definisce la misura.</p>
+      <ol class="passi">
+        <li><b>Libera i motori.</b> Gli assi diventano morbidi e la posizione
+          viene dichiarata non nota — spostando a mano nessun impulso la racconta.</li>
+        <li><b>Appoggia i due carrelli ai blocchi</b>, senza forzarli.</li>
+        <li><b>Homing completato.</b> Riattiva i motori <i>e poi</i> azzera.
+          L'ordine conta: azzerare a motori liberi darebbe un'origine che il
+          primo urto sposta senza dirlo.</li>
+      </ol>
+      <p class="muted small">Lo zero che ne esce è <b>l'angolo in basso a
+        sinistra</b> della macchina, misurato il 2026-10-19: da lì restano
+        <b data-calc-man="area">—</b> di corsa percorribile.</p>
+    </section>
+
+    <section class="card">
+      <h2>Quanto ci si può fidare</h2>
+      <div class="readout">
+        <div class="ro"><span>Ripetibilità dell'appoggio</span><b data-calc-man="ripet">—</b></div>
+        <div class="ro"><span>Gioco cremagliera-pignone</span><b data-calc-man="gioco">—</b></div>
+        <div class="ro"><span>Un passo del motore</span><b data-calc-man="passo">—</b></div>
+      </div>
+      <p class="muted small">L'appoggio ai blocchi ripete sotto la risoluzione del
+        calibro, quindi non è più lui la fonte di errore. Quello che resta è il
+        gioco: una linea ripassata nel verso opposto può cadere fin lì di lato, e
+        nessuna taratura lo toglie.</p>
+    </section>
+
+  </div>
+</section>
 
 <!-- ============================== LOG ============================== -->
 <section class="panel" id="tab-log">
@@ -485,6 +502,7 @@
 <script src="js/paper.js"></script>
 <script src="js/artwork.js"></script>
 <script src="js/preview.js"></script>
+<script src="js/panel.js"></script>
 <script src="js/jog.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/app.js"></script>

@@ -13,6 +13,16 @@ var State = (function () {
     machine: 'Off',          // Off | Idle | Run | Hold | Alarm
     pos: { x: 0, y: 0, z: 0 },
 
+    /* `azzerata` dice se `pos` vuol dire qualcosa. Parte falsa — appena
+       collegata nessuno sa dove sono i carrelli — e torna falsa ogni volta che
+       i motori vengono liberati, perché da lì in poi l'asse si sposta a mano e
+       nessun impulso lo racconta. Torna vera solo con l'homing.
+       `motoriLiberi` è lo stato in cui si appoggiano i carrelli ai blocchi: in
+       quel momento le frecce non devono funzionare, perché il primo comando di
+       movimento riattiverebbe i motori buttando via l'appoggio appena fatto. */
+    azzerata: false,
+    motoriLiberi: false,
+
     /* L'area di lavoro è la CORSA PERCORRIBILE dei due assi — totale meno
        margine di sicurezza — non il foglio: resta fissa mentre il foglio
        cambia. Viene dal profilo macchina, che è l'unico posto in cui quei
@@ -28,8 +38,7 @@ var State = (function () {
     origin: null,            // origine impostata a mano
     bounds: null,            // area calibrata: {x0,y0,x1,y1}
 
-    scrub: 0,                // 0..1, avanzamento dell'anteprima
-    jogStep: 1
+    scrub: 0                 // 0..1, avanzamento dell'anteprima
   };
 
   var listeners = {};

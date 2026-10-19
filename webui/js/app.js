@@ -5,7 +5,6 @@
      elenco unico evita che un pulsante resti attivo per dimenticanza e mandi
      un comando nel vuoto. */
   var NEEDS_LINK = [
-    'btn-set-origin', 'btn-corner-bl', 'btn-corner-tr',
     'btn-send', 'btn-pause', 'btn-abort',
     'log-input', 'btn-log-send'
   ];
@@ -44,7 +43,7 @@
        quando qualcosa richiede attenzione ma non è un guasto, rosso quando
        la macchina è ferma e va sbloccata a mano. */
     setLed('led-green',  s === 'Idle' || s === 'Run' || s === 'Jog');
-    setLed('led-yellow', s === 'Hold' || (State.data.connected && !State.data.origin));
+    setLed('led-yellow', s === 'Hold' || (State.data.connected && !State.data.azzerata));
     setLed('led-red',    s === 'Alarm' || s === 'Door');
   }
 
@@ -58,30 +57,35 @@
       var el = document.getElementById(NEEDS_LINK[i]);
       if (el) el.disabled = !on;
     }
-    var jogs = document.querySelectorAll('[data-jog], #btn-pen-up, #btn-pen-down');
-    for (var j = 0; j < jogs.length; j++) jogs[j].disabled = !on;
-
-    /* La penna resta comunque ferma: il servo non è ancora tarato. */
-    document.getElementById('btn-pen-up').disabled = true;
-    document.getElementById('btn-pen-down').disabled = true;
+    /* Il pannello manuale si disabilita da solo: conosce anche lo stato dei
+       motori liberi, che da qui non si vede. */
+    Panel.aggiorna();
 
     document.getElementById('btn-connect').textContent = on ? 'Disconnetti' : 'Connetti';
   }
 
+  /* Il DRO in alto dice anche quando NON sa: una posizione con due decimali,
+     dopo che i carrelli sono stati spostati a mano, è un numero che sembra una
+     misura e non lo è più. */
   function refreshPos() {
-    var p = State.data.pos;
-    document.getElementById('dro-x').textContent = p.x.toFixed(2);
-    document.getElementById('dro-y').textContent = p.y.toFixed(2);
-    document.getElementById('dro-z').textContent = p.z.toFixed(2);
+    var p = State.data.pos, nota = State.data.azzerata;
+    ['x', 'y', 'z'].forEach(function (a) {
+      var el = document.getElementById('dro-' + a);
+      el.textContent = nota ? p[a].toFixed(2) : '—';
+      el.classList.toggle('dro-ko', !nota);
+    });
   }
 
   function refreshCalib() {
     var el = document.getElementById('calib-state');
-    if (State.data.origin) {
-      el.textContent = 'Origine impostata';
+    if (State.data.motoriLiberi) {
+      el.textContent = 'Motori liberi — appoggia i carrelli';
+      el.classList.remove('is-ok');
+    } else if (State.data.azzerata) {
+      el.textContent = 'Azzerata sull\'angolo in basso a sinistra';
       el.classList.add('is-ok');
     } else {
-      el.textContent = 'Area non calibrata';
+      el.textContent = 'NON AZZERATA';
       el.classList.remove('is-ok');
     }
     refreshState();
@@ -145,6 +149,14 @@
     Log.init();
     Paper.init();
     Preview.init();
+
+    /* Un componente solo, montato in due posti. Nella barra laterale senza la
+       scheda della penna, che lì non ci sta e si usa poco; nella tab dedicata
+       per intero. I tre popup di inizio stampa monteranno lo stesso. */
+    Panel.init();
+    Panel.mount(document.getElementById('panel-lato'), { penna: false });
+    Panel.mount(document.getElementById('panel-tab'), {});
+
     Jog.init();
     Settings.init();
     Artwork.init();
@@ -156,7 +168,10 @@
     State.on('machine', refreshState);
     State.on('connected', function () { refreshLink(); refreshState(); });
     State.on('pos', refreshPos);
-    State.on('origin', refreshCalib);
+    /* `azzerata` cambia il SIGNIFICATO della posizione, non il suo valore,
+       quindi il DRO va riscritto anche quando le coordinate non si muovono. */
+    State.on('azzerata', function () { refreshCalib(); refreshPos(); });
+    State.on('motoriLiberi', refreshCalib);
 
     refreshState();
     refreshLink();
