@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 41
-**Ultimo aggiornamento:** 2026-10-19 12:37
+**Versione:** 42
+**Ultimo aggiornamento:** 2026-10-19 12:38
 
 ## Regole di co-editing
 
@@ -470,7 +470,7 @@ mano a mano che le misure arrivano):
 
 ### Step 6 — Modulo penna e interfaccia utensili
 
-**Stato:** in corso (CAD in mano all'utente, 2026-10-15) — e ora è il collo di bottiglia di tutto: senza penna la macchina non disegna, e senza disegnare non si tara
+**Stato:** in corso — **CAD chiuso** (`prova_4`, 2026-10-19: resta solo da riportare nello sketch l'offset di gioco della cremagliera, due quote), **fermo in attesa dei cuscinetti MR63**. Resta il collo di bottiglia di tutto: senza penna la macchina non disegna, e senza disegnare non si tara
 
 **Obiettivo:** la penna si appoggia e si solleva in modo ripetibile, con pressione costante, e il modulo è intercambiabile con altri utensili senza ritarare la macchina
 
@@ -542,9 +542,9 @@ mano a mano che le misure arrivano):
 
 ## Storico sessioni
 
-### [2026-10-19 11:43] (meccanica) Due giorni senza macchina: la procedura di accensione, il YAML messo in pari, e la dashboard che adesso misura
+### [2026-10-19 12:38] (meccanica) Il cantiere software si apre, e tre numeri sbagliati vengono a galla: il rapporto della cinghia, i pin degli assi, e un metodo di misura che non teneva
 
-**Riepilogo:** in attesa dei cuscinetti per chiudere il modulo penna si passa al software, e il primo controllo sul ramo FluidNC trova applicato il bug già registrato il 2026-10-06 — `steps_per_mm: 80` invece di 33,953 — più due decisioni prese e mai scritte nel file.
+**Riepilogo:** in attesa dei cuscinetti si passa al software, e in una giornata vengono a galla tre errori miei — il rapporto di trasmissione della cinghia rimasto nel ramo FluidNC per tredici giorni dopo essere già stato registrato, i pin dei due assi scambiati dal rinominamento del 15 ottobre, e un metodo di taratura che l'utente ha giustamente bocciato — mentre la macchina consegna le sue **prime due misure vere** (corse 257,532 e 243,041) e il SLICER il suo **modello di profilo**.
 
 **Cosa è stato fatto:**
 - **Corretto `steps_per_mm` in `cnc2d-config.yaml`**, da 80,000 a 33,953 su X e Y, con la derivazione nel file
@@ -552,12 +552,32 @@ mano a mano che le misure arrivano):
 - **Documentato nel file i tre angoli del servo** da rilevare a penna montata, e perché la dashboard è lo strumento giusto per rilevarli (slider manuale e stato `free` all'accensione)
 - **Rilevate due altre divergenze fra decisioni e file**: manca il blocco `homing:` con `soft_limits`/`must_home`, e `max_rate_mm_per_min` è tarato sul rapporto sbagliato
 - **Accertato come la tab Impostazioni può scrivere nella macchina**, incrociando il nostro collaudo del 2026-09-21 con la documentazione FluidNC: non con le modifiche a runtime, ma generando il file e caricandolo
+- **Tolti dal YAML i due `limit_neg_pin`** e messo `hard_limits: false`, perché i finecorsa non sono montati; `max_rate_mm_per_min` alzato da 2000 a 8000
+- **Scritta la procedura completa** `misure/accensione-e-taratura.md`: Fase A (messa in strada, otto passi) e Fase B (routine di ogni stampa), con la tabella dello stato reale in cima, cosa succede all'accensione, i tre popup a confronto e una tabella di diagnosi
+- **Modificata la dashboard perché sappia misurare**: posizione per asse con azzeramento (`posSteps` contato nell'ISR) e taratura del rapporto per asse da comandato/misurato. `stepsPerMm()` è diventata per asse in tutti i siti di chiamata, chiudendo il debito aperto il 2026-10-15
+- **Ricostruito il banco di compilazione sintattica** dello sketch (iniezione dei prototipi come fa l'IDE Arduino più gli stub delle librerie ESP32): era andato perso con il contenitore, ed è quello che garantisce che un cambio diffuso come `stepsPerMm()` non lasci siti di chiamata dimenticati
+- **Aggiunto il terzo popup** (inizio foglio) al flusso di inizio stampa, su richiesta dell'utente
+- **PRIME MISURE VERE DELLA MACCHINA**, prese dall'utente col DRO nuovo: corsa **X 257,532** (carrello sulla trave) e **Y 243,041** (portale sulle rotaie). Due tornate: la prima dava 258,622 e 248,048, la seconda — più prudente di proposito — i valori definitivi. Controprova geometrica contro la previsione del 2026-09-26 calcolata dai denti delle cremagliere: **+0,36% e +0,23%**
+- **Constatato che la macchina è una A5.** Con quelle corse l'A4 non entra in nessun orientamento (mancano 54 mm su Y in verticale, 39,5 su X in orizzontale); l'A5 ci sta comodo in entrambi anche con margine. L'utente conferma che l'A4 non è un requisito
+- **Scritto `webui/js/profile.js`**, il modello del profilo macchina con i conti derivati, `verifica()`, `stanoDentro()`, importazione/esportazione JSON e il **generatore di `config.yaml`** — con cui la decisione del 2026-10-15 ("la tab è l'unica fonte di verità") smette di essere un'intenzione. Collegata l'area di lavoro al profilo: non più 300 × 300 inventati ma **249,5 × 235,0** veri
 
 **Bug: il ramo FluidNC ha girato tre settimane con il rapporto di trasmissione della cinghia**
 
 **Sintomo:** `cnc2d-config.yaml` portava `steps_per_mm: 80.000`, che è la formula di una cinghia GT2 con puleggia a 20 denti. Questa macchina ha cremagliera e pignone m1.5 z20, dove un giro vale `π·1,5·20 = 94,2478` mm, cioè **33,953** passi/mm a 1/16. Con 80 la macchina percorre 2,356 volte quello che le si chiede: un quadrato da 100 mm uscirebbe da 235,6 e finirebbe contro il finecorsa al primo movimento.
 **Causa:** valore copiato da un esempio di configurazione quando la macchina era ancora prevista a cinghia, e mai aggiornato al cambio di trasmissione. Non si è manifestato perché **FluidNC non è mai stato acceso sulla macchina montata**: tutte le prove di movimento sono passate dalla dashboard, che calcola il rapporto da `MM_PER_REV` e quindi ha sempre usato il numero giusto. Il bug era già stato trovato e registrato il 2026-10-06, con il numero corretto scritto nella nota: è rimasto non applicato per tredici giorni.
 **Fix applicato:** `steps_per_mm: 33.953` su X e Y, con nel file la derivazione, le varianti per 1/8 e 1/32, e l'avvertenza che dopo la taratura i due assi non avranno lo stesso valore (le due cremagliere sono state stampate separatamente). Verificato che il YAML resta valido; **non verificato sulla macchina**, perché FluidNC non è ancora stato acceso.
+
+**Bug: i pin dei due assi erano scambiati dal 2026-10-15**
+
+**Sintomo:** con la pulsantiera della dashboard, le frecce destra/sinistra muovevano la testina **in alto e in basso** sul foglio, e le frecce su/giù la muovevano **a destra e sinistra**.
+**Causa:** la mappatura tastiera→asse era giusta (←→ chiamano `x`, ↑↓ chiamano `y`); sbagliato era quale motore fosse `x`. Il 2026-10-15, applicando il rinominamento degli assi, ho scambiato i quattro `#define` dei pin — ma andavano sistemati i **nomi**, non l'abbinamento nome↔pin, che era già giusto. All'origine c'è una mia descrizione sbagliata ("il driver su 4/26 è quello del portale"), e poi ho "corretto" i pin per farli combaciare con la descrizione. L'utente me l'aveva anche detto, nello stesso messaggio: *"non è necessario che cambi nulla nel firmware vecchio, le 4 frecce spostano i carrelli nella direzione corretta"*.
+**Fix applicato:** X torna a D4/D26 (carrello sulla trave), Y a D25/D33 (portale sulle rotaie), nella dashboard, in `cnc2d-config.yaml`, nelle etichette dell'interfaccia, nel README e nella tabella delle convenzioni di questo documento. **Verificato dall'utente sulla macchina**, con la spunta "inverti direzione" da rimettere sull'asse X — conseguenza attesa del fatto che le chiavi NVS sono legate al nome dell'asse. Il tempismo è stato fortunato: niente era ancora tarato.
+
+**Bug: avevo inserito in questa voce di storico otto punti appartenenti alla sessione precedente**
+
+**Sintomo:** la voce del 2026-10-17 conteneva, in "Cosa è stato fatto", otto punti relativi a lavoro del 2026-10-19 (la procedura di accensione, la dashboard che misura, il terzo popup, le corse, il bug dei pin, il profilo).
+**Causa:** ho ancorato le sostituzioni su una riga di quella voce senza verificare in quale voce stesse. La riga era davvero del 17, i punti aggiunti dopo no.
+**Fix applicato:** gli otto punti sono stati spostati in questa voce, e la voce del 2026-10-17 è tornata al suo contenuto. È una correzione di un errore materiale introdotto oggi, non una riscrittura di contenuto passato.
 
 **Decisioni prese:**
 
@@ -571,6 +591,18 @@ mano a mano che le misure arrivano):
   Alternative scartate: un unico pulsante "salva le coordinate" come nella richiesta — sono due atti diversi (origine di lavoro e registrazione di una misura) e vanno in due posti diversi; e salvare origine e altezza penna nel profilo come default, che dopo un riavvio farebbe fidare di un'origine non più valida.
   Da rivedere se: arrivano i finecorsa, e allora il primo popup diventa un ciclo di azzeramento automatico e sparisce dal flusso.
 
+- Contesto: avevo proposto di tarare il rapporto di trasmissione comandando 100÷200 mm e misurando col calibro quanto il carrello si era spostato. L'utente obietta che misurare il movimento è troppo vago e che semmai si misurano le linee disegnate.
+  Decisione: **il rapporto si tara disegnando**, al passo A6 della procedura, con modulo penna montato. Due linee parallele a interasse comandato 100 mm, si misura esterno-esterno `E` e interno-interno `I`, e l'interasse vero è `(E + I) / 2` — la larghezza del pennarello si elide esattamente. *Annulla l'ordine "prima il rapporto, poi la corsa"* dato poche ore prima nella stessa sessione.
+  Il motivo per cui l'obiezione è fondata: inseguire un carrello col calibro contro un riferimento improvvisato dà due o tre decimi di incertezza, cioè proprio l'ordine di grandezza da misurare; una linea disegnata sta ferma, è piana, sta su un tavolo e il calibro ci appoggia le ganasce come vuole lui.
+  Quello che non cambia: **serve comunque un metro esterno.** `corsa letta = passi / 33,953` e `passi = denti percorsi × 20`, quindi `corsa letta = denti percorsi × 4,71239` sempre, qualunque sia il passo vero. Il ritiro di stampa si cancella per costruzione e nessuna misura fatta *dentro* la macchina può rivelare l'errore di scala.
+  Alternative scartate: il metodo delle due spine sulla cremagliera (`mm/giro = 20 × passo`, esatto, statico, e già scritto in `misure/primo-asse.md`) — resta disponibile se servisse un numero prima della penna, ma dà il passo locale di un pezzo e la cremagliera Y è in due pezzi giuntati.
+  Da rivedere se: si dovesse tarare senza poter disegnare.
+
+- Contesto: le due tornate di misura delle corse differiscono di 1,1 mm su X e 5,0 su Y, e avevo ipotizzato l'imbardata del portale.
+  Decisione: **corse definitive X 257,532 e Y 243,041**, stabilite dall'utente. Lo scarto su Y era prudenza voluta nella seconda tornata, non imbardata: **l'ipotesi che avevo avanzato è ritirata.** Sono misure di estremo, prese per sapere dove non andare, e non si ritoccano quando il rapporto sarà tarato.
+  Conseguenza accettata: **la macchina è una A5.** L'A4 non entra in nessun orientamento e l'utente conferma che non è un requisito ("lavoreremo con dei margini abbondanti"). Conferma la decisione già presa il 2026-09-26.
+  Da rivedere se: l'A4 diventasse un requisito — i 39,5 mm mancanti andrebbero cercati su X, che consuma 292,5 mm di una trave da 550 mentre Y ne consuma 157 di rotaie da 400.
+
 **File consegnati/modificati:**
 - `firmware/fluidnc/cnc2d-config.yaml` — `steps_per_mm` corretto su X e Y; `limit_neg_pin` commentati e `hard_limits: false`; `max_rate_mm_per_min` da 2000 a 8000; commenti sulla derivazione del rapporto, sulle varianti di microstep, sui tre angoli del servo e su cosa riattivare quando arrivano i finecorsa
 - `misure/accensione-e-taratura.md` — **nuovo**: la procedura completa, Fase A (sette passi, con le misure degli assi come A1 perché si possono fare oggi) e Fase B (routine di ogni stampa), con la tabella dello stato reale, cosa succede all'accensione, i tre popup a confronto, quanto fidarsi dell'origine manuale e una tabella di diagnosi
@@ -578,9 +610,10 @@ mano a mano che le misure arrivano):
 - `firmware/cnc2d_dashboard/README.md` — sezione "Misurare gli assi": come si prende la corsa, come si tara il rapporto, perché i due assi avranno numeri diversi, e cosa è cambiato nel firmware
 - `webui/js/profile.js` — **nuovo**: il modello del profilo macchina, i conti derivati, `verifica()`, `stanoDentro()`, esportazione/importazione JSON e il generatore di `config.yaml`
 - `webui/js/state.js`, `webui/js/paper.js`, `webui/index.html` — l'area di lavoro viene dal profilo
-- `documento-sessione-cnc-2d.md` — v41
+- `firmware/cnc2d_dashboard/cnc2d_dashboard.ino` — pin degli assi corretti (X su D4/D26, Y su D25/D33)
+- `documento-sessione-cnc-2d.md` — v42; corretta la tabella delle convenzioni in cima (i pin erano scambiati) e rimessi al loro posto otto punti finiti per errore nella voce del 2026-10-17
 
-**Impatto su Vision/Pipeline:** Step 3 **riaperto** — era segnato completato, e lo era rispetto al suo criterio (quadrato e cerchio a vista sui motori, 2026-09-21), ma il criterio è stato soddisfatto sul banco e non sulla macchina, e il file non porta le decisioni prese dopo; sette note nuove, fra cui quella che segnala la discrepanza sui due pulsanti dati per cablati. Step 4 — cinque decisioni nuove (pannello manuale come sezione di prima classe, profilo macchina salvabile, le due misure di inizio stampa mai salvate come default, i due pulsanti separati, la differenza con Bambu) e quattro note: il flusso di inizio stampa, il terzo popup, il margine che deve coprire l'errore di parcheggio, e l'origine come origine di lavoro. Step 2 — tre note sulla dashboard che misura, e il debito dei due passi/mm per asse è chiuso nel firmware.
+**Impatto su Vision/Pipeline:** Step 3 **riaperto** — era segnato completato, e lo era rispetto al suo criterio (quadrato e cerchio a vista sui motori, 2026-09-21), ma il criterio è stato soddisfatto sul banco e non sulla macchina, e il file non porta le decisioni prese dopo; sette note nuove, fra cui quella che segnala la discrepanza sui due pulsanti dati per cablati. Step 4 — cinque decisioni nuove (pannello manuale come sezione di prima classe, profilo macchina salvabile, le due misure di inizio stampa mai salvate come default, i due pulsanti separati, la differenza con Bambu) e quattro note: il flusso di inizio stampa, il terzo popup, il margine che deve coprire l'errore di parcheggio, e l'origine come origine di lavoro. Step 2 — quattro note sulla dashboard che misura e sul bug dei pin, e il debito dei due passi/mm per asse è chiuso nel firmware. Step 6 — stato aggiornato: il CAD è chiuso e lo step è **fermo in attesa dei cuscinetti**, non più "CAD in mano all'utente"; resta il collo di bottiglia, perché senza penna non si tara il rapporto di trasmissione.
 
 ---
 
@@ -595,14 +628,6 @@ mano a mano che le misure arrivano):
 - **Rilevata la divergenza fra schema e CAD** sull'architettura (un solo stadio, nessun giunto a gioco morto), e messa una nota in testa a `schema.html` che dice quali sezioni restano valide e quali no
 - **Risposto sui bulloni esagonali dei morsetti** misurando la parete (9,0 mm, da X 7,50 a 16,50) e la posizione della punta della vite (X 6,10), da cui la geometria della tasca e il verso in cui va aperta
 - **Registrato il nuovo parametro della tab Impostazioni** chiesto dall'utente (angolo di battuta dei cuscinetti) più i tre che ne conseguono
-- **Scritta la procedura completa** `misure/accensione-e-taratura.md`: Fase A (messa in strada, sette passi) e Fase B (routine di ogni stampa), con la tabella dello stato reale di oggi in cima, cosa succede all'accensione, i tre popup e una tabella di diagnosi
-- **Modificata la dashboard per fare le misure degli assi**: posizione per asse con azzeramento, e taratura del rapporto per asse da comandato/misurato. `stepsPerMm()` è diventata per asse, chiudendo un debito aperto il 2026-10-15. Verificato con la compilazione sintattica, non provato sulla macchina
-- **Aggiunto il terzo popup** (inizio foglio) al flusso di inizio stampa, su richiesta dell'utente
-- **Firmware caricato dall'utente e prime corse misurate sulla macchina montata**: 258,622 mm sulla trave (X) e 248,048 mm sulle rotaie (Y), provvisorie finché il rapporto non è tarato. Sono i primi numeri veri di taratura del progetto
-- **Trovato e corretto un mio bug del 2026-10-15: i pin dei due assi erano scambiati.** Segnalato dall'utente provando le frecce. È anche quello che ha riattribuito le due corse appena misurate. Dopo il flash l'utente ha dovuto mettere la spunta "inverti direzione" sull'asse X, conseguenza attesa del fatto che le chiavi NVS sono legate al nome dell'asse
-- **Corse misurate e chiuse**: X 257,532 e Y 243,041, confermate dall'utente come definitive (lo scarto di 5 mm fra le due tornate su Y era prudenza voluta, non imbardata). Verificate contro la previsione geometrica del 2026-09-26: +0,36% e +0,23%
-- **La taratura del rapporto spostata al "disegna e misura"**, su obiezione fondata dell'utente sul metodo. Con essa, la constatazione che **la macchina è una A5** e che l'A4 non è un requisito
-- **Scritto `webui/js/profile.js`**, il modello del profilo macchina, con il generatore di `config.yaml`. Collegata l'area di lavoro al profilo: non più 300 × 300 inventati ma 249,5 × 235,0 veri
 
 **Bug: il gioco d'ingranamento della cremagliera è ancora zero, al secondo giro**
 
