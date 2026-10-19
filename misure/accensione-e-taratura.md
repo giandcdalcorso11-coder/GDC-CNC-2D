@@ -37,7 +37,7 @@ sono fatti.
 
 # Fase A — La messa in strada
 
-## A1. Le misure dei due assi — con la DASHBOARD, e si può fare oggi
+## A1. Le corse dei due assi — con la DASHBOARD, e si può fare oggi
 
 I pignoni sulle cremagliere sono quelli definitivi, quindi questi due numeri per
 asse non cambieranno più: si possono prendere senza aspettare il modulo penna.
@@ -56,39 +56,39 @@ invece di partire con dei valori inventati e correggerli dopo.
 Annotala. Nel profilo ci andrà **meno un margine di sicurezza**, perché senza
 finecorsa il limite non lo fa rispettare nessuno a valle dell'interfaccia.
 
-### Il rapporto reale, un asse per volta
+### Il rapporto reale NON si misura qui — si misura disegnando
 
-Il nominale è `π · 1,5 · 20 = 94,2478` mm per giro di pignone, da cui 33,953
-passi/mm a 1/16. Ma le due cremagliere sono state stampate separatamente e si
-sono ritirate di quantità diverse: **i due assi avranno due numeri diversi, ed è
-corretto che li abbiano.** Con un valore solo i quadrati escono rettangoli.
+Vale la pena capire perché, perché è controintuitivo: **il DRO non può, per
+costruzione, rivelare l'errore di scala.**
 
-Nella tab Motore, dentro la scheda dell'asse, riquadro *Rapporto tarato*:
+```
+corsa letta = passi / 33,953        e        passi = denti percorsi × 20
+corsa vera  = denti percorsi × passo vero
+→ corsa letta = denti percorsi × 4,71239, sempre
+```
 
-1. Lascia 200 nel primo campo. **Tienilo lungo:** su 200 mm un decimo di errore
-   di lettura del calibro vale lo 0,05%, su 20 mm vale lo 0,5%.
-2. Premi la freccia dell'asse, **in un senso solo**. Senza tornare indietro: il
-   ritorno ci metterebbe dentro anche il gioco, che è un'altra cosa e si misura
-   a parte.
-3. Misura col calibro quanto si è spostato davvero, scrivilo nel secondo campo.
-4. **Calcola e salva.** Il firmware fa
-   `mm/giro nuovo = mm/giro vecchio × misurato / comandato`, lo salva in NVS e
-   lo scrive nel log con lo scarto percentuale dal nominale.
+Il ritiro di stampa si cancella: la macchina conta denti, e li converte col
+passo nominale. Qualunque cosa misuri *dentro* la macchina ti restituisce il
+nominale. **Serve per forza un confronto con un metro esterno.**
 
-Un risultato fuori dalla forchetta 60÷130 mm/giro viene rifiutato: a quel punto
-non è un ritiro di stampa, è un errore di battitura.
+E il modo buono di fare quel confronto è **misurare una linea disegnata**, non
+un carrello che si sposta: una linea sta ferma, è piana, sta su un tavolo, e il
+calibro ci appoggia le ganasce come vuole lui. Inseguire un carrello col calibro
+contro un riferimento improvvisato dà due o tre decimi di incertezza, che è
+proprio l'ordine di grandezza che si vuole misurare.
 
-**Attenzione a una cosa:** rifare la taratura dopo aver misurato la corsa
-invalida la misura della corsa, perché i millimetri cambiano significato.
-Quindi **prima il rapporto, poi la corsa** — e se rifai il rapporto, rifai anche
-la corsa.
+Quindi **il rapporto si tara al passo A6**, con il modulo penna montato. I
+risultati di qui sono solo le corse.
 
-### Quattro numeri da portare via
+### I due numeri da portare via da questo passo
 
-| | X (trave del portale) | Y (rotaie di base) |
+| | X — carrello sulla trave | Y — portale sulle rotaie |
 |---|---|---|
-| mm per giro di pignone | | |
-| corsa utile (mm) | | |
+| corsa utile (mm) | **257,532** | **243,041** |
+
+*Misurate il 2026-10-19, col rapporto nominale. Sono misure di estremo, prese
+per sapere dove NON andare: l'uso previsto sta ben dentro, con margini
+abbondanti, quindi non serve ritoccarle quando il rapporto sarà tarato.*
 
 ## A2. I tre angoli del servo — si fa con la DASHBOARD, non con il SLICER
 
@@ -183,23 +183,73 @@ Il SLICER deve essere **servito dall'ESP32**: FluidNC espone il suo HTTP senza
 intestazioni CORS, quindi una pagina aperta da file locale non può interrogarlo.
 Finché non è caricato, il SLICER funziona solo in modalità finta.
 
-## A6. Riportare le misure nel profilo del SLICER
+## A6. Tarare il rapporto, disegnando
 
-I quattro numeri di A1 si trascrivono nel profilo: passi/mm per asse (o il
-mm/giro, che è lo stesso dato in forma più leggibile) e corsa per asse. Più il
-**margine di sicurezza**, che è un campo a sé: il limite di lavoro è
-`corsa − margine`, calcolato e mostrato, mai inserito a mano.
+Adesso c'è la penna, quindi si può fare la misura buona: **si disegna una figura
+di dimensione nota e si misura il tratto sul foglio.**
 
-Se nel frattempo qualcosa è cambiato, le stesse misure si rifanno dal pannello
-manuale del SLICER, che ha lo stesso DRO della dashboard — ma non c'è motivo di
-rifarle se A1 è stato fatto bene.
+### La figura
+
+Due coppie di linee parallele, una coppia per asse, con **interasse comandato
+100 mm** — che sta comodo in un calibro da 150. Più un quadrato per la
+squadratura.
+
+### La misura, che cancella la larghezza del tratto
+
+Il pennarello lascia una riga larga mezzo millimetro, quindi "dove finisce la
+linea" è ambiguo. Si toglie di mezzo l'ambiguità misurando due volte:
+
+1. **Esterno-esterno** delle due linee parallele → `E`
+2. **Interno-interno** delle stesse due linee → `I`
+3. **Interasse vero = (E + I) / 2.** La larghezza del tratto si elide
+   esattamente, perché una lettura la somma e l'altra la sottrae.
+
+Con lettura a ±0,05 mm su 100 mm comandati, l'incertezza è lo **0,05%**: su una
+corsa da 250 mm vale 0,12 mm. Più che sufficiente.
+
+### Il conto
+
+```
+mm/giro nuovo = mm/giro vecchio × misurato / comandato
+```
+
+Si inserisce nel profilo (o, finché si usa la dashboard, nel riquadro *Rapporto
+tarato* della tab Motore, che fa il conto da solo). **Un numero per asse:** le
+due cremagliere sono stampate separatamente e si sono ritirate di quantità
+diverse, e con un valore solo i quadrati escono rettangoli.
+
+### Un'alternativa statica, se serve un numero prima della penna
+
+`mm per giro = 20 × passo della cremagliera`, **esattamente**: ogni ingranamento
+avanza di un passo di cremagliera, e il ritiro del pignone non c'entra. Quindi
+si può misurare il passo direttamente sulla stecca, da fermo, col metodo delle
+due spine descritto in `misure/primo-asse.md` — due spine identiche in due vani
+distanti 20 o 30 passi, misura sugli esterni, il diametro della spina si elide
+nella sottrazione. Su 30 passi (141 mm) l'incertezza sul passo è lo 0,035%.
+
+Limite da conoscere: la cremagliera Y è in **due pezzi giuntati**, quindi una
+misura dentro un pezzo dà il passo locale. Per i passi/mm è il numero giusto —
+la giunzione aggiunge uno scalino di posizione, non un errore di scala — ma non
+descrive la corsa intera.
+
+## A7. Riportare le misure nel profilo del SLICER
+
+Le corse di A1 e i rapporti di A6 si trascrivono nel profilo. Più il **margine
+di sicurezza**, che è un campo a sé: il limite di lavoro è `corsa − margine`,
+calcolato e mostrato, mai inserito a mano.
+
+**Formato di lavoro: A5.** Con 257,5 × 243,0 di corsa l'A4 non entra in nessun
+orientamento (mancano 54 mm su Y in verticale, 39,5 su X in orizzontale),
+mentre l'A5 ci sta comodo in entrambi anche con 5 mm di margine per lato (area
+utile 247,5 × 233,0). È la conferma della decisione già presa il 2026-09-26, e
+l'utente ha stabilito il 2026-10-19 che l'A4 non è un requisito.
 
 **L'offset utensile resta a zero, e non è una dimenticanza:** l'origine la
 imposti portando **la punta della penna** sul punto, quindi l'offset fra
 riferimento del carrello e punta è già assorbito. Servirebbe solo se i limiti
 fossero riferiti al carrello, e i limiti sono disattivati.
 
-## A7. Salvare il profilo
+## A8. Salvare il profilo
 
 Premi **"salva profilo"**. L'app genera `config.yaml` dai valori del profilo, lo
 carica sulla macchina e fa `$Bye`. Da questo momento il profilo è il default e
