@@ -249,6 +249,71 @@ Il motore tiepido a riposo è normale, per lo stesso motivo: la corrente di
 tenuta scorre sempre. Troppo caldo per tenerci un dito sopra vuol dire trimmer
 troppo alto.
 
+## Misurare gli assi: posizione e taratura del rapporto
+
+Aggiunto il 2026-10-19. Serve a produrre due numeri per asse che poi finiscono
+nel profilo del GDC CNC 2D SLICER: la **corsa utile** e i **passi/mm reali**.
+
+### La posizione
+
+Nella tab **Controllo** c'è il riquadro *Posizione*, che mostra per X e Y quanto
+l'asse si è spostato dall'ultimo azzeramento, con il segno delle frecce (freccia
+destra = X che sale, anche con "inverti direzione" attivo).
+
+Non è un riferimento macchina: conta i passi comandati, non sa dove si trova
+davvero il carrello, e si perde allo spegnimento. Serve a **misurare**.
+
+**Per la corsa utile di un asse:**
+
+1. Portalo a un estremo. Vicino a fine corsa passa al passo singolo, che a 1/16
+   vale 0,029 mm: non si vede muovere niente, ed è il punto.
+2. **Azzera X** (o Y).
+3. Portalo all'altro estremo, di nuovo a passo piccolo sul finale.
+4. Leggi il numero. Quello è `max_travel_mm` di quell'asse, e nel profilo del
+   SLICER va inserito **meno un margine di sicurezza**.
+
+### La taratura del rapporto
+
+Nella tab **Motore**, dentro ciascuna scheda d'asse, c'è *Rapporto tarato*.
+
+Il nominale è `π · modulo · denti = π · 1,5 · 20 = 94,2478` mm per giro di
+pignone, da cui 33,953 passi/mm a 1/16. Ma le due cremagliere sono state
+stampate separatamente e si sono ritirate di quantità diverse, quindi **i due
+assi hanno due numeri diversi** — ed è il motivo per cui ogni asse ha il suo
+campo invece di un valore globale. Con un numero solo i quadrati escono
+rettangoli.
+
+**Come si misura:**
+
+1. Scrivi nel primo campo quanti millimetri comandare. Il valore di partenza è
+   200: **tienilo lungo**. Su 200 mm un decimo di errore di lettura del calibro
+   vale lo 0,05%, su 20 mm vale lo 0,5%.
+2. Premi la freccia dell'asse per far fare quel movimento, **in un senso solo**.
+   Senza tornare indietro: il ritorno ci metterebbe dentro anche il gioco, che è
+   un'altra cosa e si misura a parte.
+3. Misura col calibro quanto si è spostato davvero e scrivilo nel secondo campo.
+4. **Calcola e salva.** Il conto è `mm/giro nuovo = mm/giro vecchio × misurato /
+   comandato`, il risultato va in NVS e resta anche dopo lo spegnimento.
+
+Il log scrive i due numeri, il risultato e di quanto si scosta dal nominale.
+Un valore fuori dalla forchetta 60÷130 mm/giro viene **rifiutato**: a quel punto
+non è un ritiro di stampa, è un errore di battitura in uno dei due campi.
+
+"Nominale" riporta l'asse a 94,2478 e perde la taratura, con conferma.
+
+Salvando, la posizione di quell'asse si azzera: contava in passi col rapporto
+vecchio, quindi in millimetri vorrebbe dire un'altra cosa.
+
+### Cosa è cambiato nel firmware
+
+- `stepsPerMm()` **non esiste più come valore globale**: ora è `stepsPerMm(m)`,
+  una per asse. Toccava sei punti del codice, fra cui la conversione dei
+  movimenti e la prova d'insieme, che ora converte i due assi separatamente.
+- Nuovi campi NVS: `mmRevX` e `mmRevY`.
+- Nuove rotte: `/api/motor/zero`, `/api/motor/calib`, `/api/motor/mmrev`.
+- Il JSON di stato porta `pos`, `posSteps`, `mmPerRev` e `spmm` dentro ciascun
+  asse, e `mmPerRevNom` in cima.
+
 ## Aggiornamenti firmware via Wi-Fi (OTA)
 
 Dopo il primo caricamento via USB, i successivi aggiornamenti del firmware possono essere

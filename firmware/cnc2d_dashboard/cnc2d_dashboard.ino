@@ -96,6 +96,22 @@ struct Motor {
   float feedMmS;  // velocità impostata dall'utente
   float rampMm;   // su quanti mm si distribuisce la partenza
   bool invert;    // inverte il verso di DIR, per allineare l'asse alle frecce senza rifare i cavi
+
+  // Taratura e posizione, aggiunti il 2026-10-19 per le misure degli assi.
+  //
+  // mmPerRev e' la circonferenza primitiva REALE di questo pignone, non quella
+  // nominale: le due cremagliere sono state stampate separatamente e si sono
+  // ritirate di quantita' diverse, quindi i due assi hanno due numeri diversi.
+  // E' salvato in NVS e si ricava misurando col calibro (vedi handleMotorCalib).
+  //
+  // posSteps e' la posizione assoluta in passi dall'ultimo azzeramento, con il
+  // segno della direzione LOGICA (quella delle frecce), non del livello del pin
+  // DIR: cosi' premendo la freccia destra il numero sale anche con invert attivo.
+  // La tiene in passi e non in millimetri di proposito, perche' un accumulatore
+  // in float perderebbe risoluzione dopo qualche migliaio di passi.
+  float mmPerRev;
+  volatile long posSteps;
+  volatile int dirSign;  // +1 o -1, lo legge l'ISR per contare nel verso giusto
 };
 
 // op: 0 = fine, 1 = rapido, 2 = tratto di lavoro, 3 = penna su, 4 = penna giù, 5 = pausa
@@ -114,14 +130,23 @@ struct DemoStep {
 // cambia sia la corsa per giro sia la risoluzione, quindi è qui e non sparso.
 const float GEAR_MODULE_MM = 1.5f;
 const int GEAR_TEETH = 20;
-const float MM_PER_REV = 3.14159265f * GEAR_MODULE_MM * GEAR_TEETH; // 94,2478 mm
+const float MM_PER_REV = 3.14159265f * GEAR_MODULE_MM * GEAR_TEETH; // 94,2478 mm NOMINALI
 const int FULL_STEPS_PER_REV = 200;                                 // motore 1,8 gradi
+
+// Estremi accettati per la taratura: il nominale e' 94,2478, e un valore fuori
+// da questa forchetta e' un errore di battitura, non un ritiro di stampa.
+const float MM_PER_REV_MIN = 60.0f;
+const float MM_PER_REV_MAX = 130.0f;
 
 // Microstep impostati sul driver con i ponticelli. Salvato in NVS.
 int microsteps = 16;
 
-float stepsPerMm() {
-  return (float)FULL_STEPS_PER_REV * (float)microsteps / MM_PER_REV;
+// Passi/mm di UN asse, non della macchina: ogni asse ha il suo mmPerRev tarato.
+// Il valore globale che stava qui prima e' stato tolto il 2026-10-19 — con una
+// cremagliera per asse, stampate separatamente, un numero solo fa uscire i
+// quadrati rettangoli.
+float stepsPerMm(const Motor& m) {
+  return (float)FULL_STEPS_PER_REV * (float)microsteps / m.mmPerRev;
 }
 
 long stepsPerRev() {
@@ -185,8 +210,10 @@ int servoCurrentDeg = 90;
 bool servoAttached = false;             // false = nessun impulso, servo morbido
 unsigned long servoLastStepMs = 0;
 
-Motor motorX = {"X", STEP_X_PIN, DIR_X_PIN, 0, 0, 0, 0, 0, 0, false, 1, 20.0f, 3.0f, false};
-Motor motorY = {"Y", STEP_Y_PIN, DIR_Y_PIN, 0, 0, 0, 0, 0, 0, false, 1, 20.0f, 3.0f, false};
+Motor motorX = {"X", STEP_X_PIN, DIR_X_PIN, 0, 0, 0, 0, 0, 0, false, 1, 20.0f, 3.0f, false,
+                MM_PER_REV, 0, 1};
+Motor motorY = {"Y", STEP_Y_PIN, DIR_Y_PIN, 0, 0, 0, 0, 0, 0, false, 1, 20.0f, 3.0f, false,
+                MM_PER_REV, 0, 1};
 
 portMUX_TYPE stepMux = portMUX_INITIALIZER_UNLOCKED;
 hw_timer_t* stepTimer = NULL;
@@ -243,6 +270,7 @@ void IRAM_ATTR serviceMotorISR(Motor& m) {
   pinFastHigh(m.stepPin);
   m.pulseOpen = true;
   m.stepsDone++;
+  m.posSteps += m.dirSign;
   if (m.stepsRemaining > 0) m.stepsRemaining--;
   applyRamp(m);
 }
@@ -346,6 +374,10 @@ void startMoveSteps(Motor& m, int dir, long steps, long stepsPerSec, long rampSt
   m.acc = 0;
   m.incTarget = inc;
   m.rampSteps = rampSteps;
+  // Il segno va impostato DENTRO la sezione critica e non in setDir(): se l'asse
+  // era in rotazione continua, fra setDir() e qui l'ISR conterebbe dei passi col
+  // segno vecchio.
+  m.dirSign = (dir > 0) ? 1 : -1;
   applyRamp(m);
   m.stepsRemaining = steps;
   portEXIT_CRITICAL(&stepMux);
@@ -353,8 +385,19 @@ void startMoveSteps(Motor& m, int dir, long steps, long stepsPerSec, long rampSt
 
 // Avvio movimento usando la velocità e la rampa configurate per quell'asse.
 void startMove(Motor& m, int dir, long steps) {
-  float spmm = stepsPerMm();
+  float spmm = stepsPerMm(m);
   startMoveSteps(m, dir, steps, (long)(m.feedMmS * spmm), (long)(m.rampMm * spmm));
+}
+
+// Posizione dell'asse in millimetri, dall'ultimo azzeramento.
+float posMm(const Motor& m) {
+  return (float)m.posSteps / stepsPerMm(m);
+}
+
+void zeroPos(Motor& m) {
+  portENTER_CRITICAL(&stepMux);
+  m.posSteps = 0;
+  portEXIT_CRITICAL(&stepMux);
 }
 
 void stopMotor(Motor& m) {
@@ -455,17 +498,20 @@ bool demoStepAt(int kind, int i, DemoStep& s) {
 // secondo, che aggancia da fermo, e una rampa diversa sui due assi storcerebbe il
 // tratto proprio nei primi millimetri.
 void demoGoTo(float x, float y, float feed) {
-  float spmm = stepsPerMm();
-  long tx = lroundf(x * spmm);
-  long ty = lroundf(y * spmm);
+  // Una conversione per asse: i due pignoni hanno due mmPerRev tarati diversi,
+  // quindi lo stesso numero di millimetri non vale lo stesso numero di passi.
+  float spmmX = stepsPerMm(motorX);
+  float spmmY = stepsPerMm(motorY);
+  long tx = lroundf(x * spmmX);
+  long ty = lroundf(y * spmmY);
   long dxs = tx - demoPosX;
   long dys = ty - demoPosY;
   demoPosX = tx;
   demoPosY = ty;
   if (dxs == 0 && dys == 0) return;
 
-  float dxmm = (float)dxs / spmm;
-  float dymm = (float)dys / spmm;
+  float dxmm = (float)dxs / spmmX;
+  float dymm = (float)dys / spmmY;
   float dist = sqrtf(dxmm * dxmm + dymm * dymm);
   float secs = dist / feed;
   if (secs < 0.001f) secs = 0.001f;
@@ -623,6 +669,21 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
   <p class="hint" style="text-align:center" id="scale-hint">--</p>
 
   <div class="axis-card" style="margin-top:16px">
+    <h3>Posizione</h3>
+    <div class="slider-label"><span>X &mdash; trave del portale</span><b id="dro-x">0.000 mm</b></div>
+    <div class="slider-label"><span>Y &mdash; rotaie di base</span><b id="dro-y">0.000 mm</b></div>
+    <div class="axis-run">
+      <button onclick="zeroAxis('x')">Azzera X</button>
+      <button onclick="zeroAxis('y')">Azzera Y</button>
+      <button onclick="zeroAxis('both')">Azzera tutto</button>
+    </div>
+    <p class="hint">Conta i passi che l'asse ha fatto dall'ultimo azzeramento, con il segno
+      delle frecce. Non &egrave; un riferimento macchina e non sopravvive allo spegnimento:
+      serve a <b>misurare</b>. Per la corsa utile di un asse: portalo a un estremo, azzera,
+      portalo all'altro estremo, leggi. Vicino a fine corsa usa il passo singolo.</p>
+  </div>
+
+  <div class="axis-card" style="margin-top:12px">
     <h3>Penna (servo)</h3>
     <div class="slider-label"><span>Angolo</span><b id="lbl-pen-live">90&deg;</b></div>
     <input type="range" id="pen-live" min="0" max="180" step="1" value="90" oninput="penLive()">
@@ -705,6 +766,24 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
         <button onclick="runAxis('x','right')">&rarr;</button>
       </div>
       <p class="status" id="stat-x" style="margin-top:8px;font-size:.78rem">--</p>
+
+      <div class="slider-label"><span>Posizione</span><b id="pos-x">0.000 mm</b></div>
+      <button class="ghost" style="width:100%;margin-top:6px" onclick="zeroAxis('x')">Azzera posizione</button>
+
+      <div class="slider-label"><span>Rapporto tarato</span><b id="mmrev-x">--</b></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input type="number" id="cmd-x" min="10" max="400" step="0.01" value="200" title="millimetri comandati">
+        <input type="number" id="meas-x" min="1" max="400" step="0.01" placeholder="misurati" title="millimetri misurati col calibro">
+      </div>
+      <div class="axis-run" style="margin-top:6px">
+        <button onclick="calibAxis('x')">Calcola e salva</button>
+        <button onclick="resetMmRev('x')">Nominale</button>
+      </div>
+      <p class="hint">Comanda i millimetri del primo campo <b>in un senso solo</b>, misura col
+        calibro quanto si &egrave; spostato davvero e scrivilo nel secondo. Lungo: su 200 mm un
+        decimo di errore di lettura vale lo 0,05%, su 20 mm vale lo 0,5%. Senza tornare
+        indietro, altrimenti ci metti dentro anche il gioco. Salvando, la posizione si azzera:
+        contava in passi col rapporto vecchio.</p>
     </div>
 
     <div class="axis-card">
@@ -732,6 +811,24 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
         <button onclick="runAxis('y','up')">&uarr;</button>
       </div>
       <p class="status" id="stat-y" style="margin-top:8px;font-size:.78rem">--</p>
+
+      <div class="slider-label"><span>Posizione</span><b id="pos-y">0.000 mm</b></div>
+      <button class="ghost" style="width:100%;margin-top:6px" onclick="zeroAxis('y')">Azzera posizione</button>
+
+      <div class="slider-label"><span>Rapporto tarato</span><b id="mmrev-y">--</b></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input type="number" id="cmd-y" min="10" max="400" step="0.01" value="200" title="millimetri comandati">
+        <input type="number" id="meas-y" min="1" max="400" step="0.01" placeholder="misurati" title="millimetri misurati col calibro">
+      </div>
+      <div class="axis-run" style="margin-top:6px">
+        <button onclick="calibAxis('y')">Calcola e salva</button>
+        <button onclick="resetMmRev('y')">Nominale</button>
+      </div>
+      <p class="hint">Comanda i millimetri del primo campo <b>in un senso solo</b>, misura col
+        calibro quanto si &egrave; spostato davvero e scrivilo nel secondo. Lungo: su 200 mm un
+        decimo di errore di lettura vale lo 0,05%, su 20 mm vale lo 0,5%. Senza tornare
+        indietro, altrimenti ci metti dentro anche il gioco. Salvando, la posizione si azzera:
+        contava in passi col rapporto vecchio.</p>
     </div>
   </div>
 
@@ -867,6 +964,30 @@ function pushAxis(a){
   fetch('/api/motor/config?axis=' + a + '&feed=' + $('feed-' + a).value + '&ramp=' + $('ramp-' + a).value);
 }
 
+function zeroAxis(a){
+  fetch('/api/motor/zero?axis=' + a).then(refreshState).then(refreshLog);
+}
+
+function calibAxis(a){
+  var cmd = parseFloat($('cmd-' + a).value);
+  var meas = parseFloat($('meas-' + a).value);
+  if (!(cmd >= 10) || !(meas >= 1)) {
+    alert('Serve un movimento comandato di almeno 10 mm e la misura col calibro.');
+    return;
+  }
+  fetch('/api/motor/calib?axis=' + a + '&cmd=' + cmd + '&meas=' + meas)
+    .then(function(r){
+      if (!r.ok) return r.text().then(function(t){ alert('Taratura rifiutata: ' + t); });
+      $('meas-' + a).value = '';
+    })
+    .then(refreshState).then(refreshLog);
+}
+
+function resetMmRev(a){
+  if (!confirm('Riporto l\'asse ' + a.toUpperCase() + ' al rapporto nominale, perdendo la taratura. Procedo?')) return;
+  fetch('/api/motor/mmrev?axis=' + a + '&v=0').then(refreshState).then(refreshLog);
+}
+
 function pushMicro(){
   fetch('/api/motor/micro?n=' + $('micro').value);
 }
@@ -958,6 +1079,10 @@ function motorStop(){
 function applyAxis(a, s){
   $('stat-' + a).textContent = s.done + ' passi · ' +
     (s.remaining < 0 ? 'continuo' : s.remaining + ' mancanti');
+  $('pos-' + a).textContent = s.pos.toFixed(3) + ' mm';
+  $('dro-' + a).textContent = s.pos.toFixed(3) + ' mm';
+  $('mmrev-' + a).textContent = s.mmPerRev.toFixed(4) + ' mm/giro · ' +
+    s.spmm.toFixed(3) + ' passi/mm';
   if (document.activeElement !== $('feed-' + a)) {
     $('feed-' + a).value = s.feed;
     showFeed(a);
@@ -985,11 +1110,16 @@ function applyState(s){
   applyAxis('y', s.y);
 
   if (document.activeElement !== $('micro')) $('micro').value = s.micro;
-  var perStep = s.mmPerRev / (200 * s.micro);
-  $('micro-hint').textContent = 'Un giro di pignone = ' + s.mmPerRev.toFixed(4) +
-    ' mm · ' + s.spmm.toFixed(3) + ' passi/mm · un passo = ' + perStep.toFixed(4) + ' mm';
-  $('scale-hint').textContent = 'Un click = ' + perStep.toFixed(4) +
-    ' mm · "1 giro" = ' + s.mmPerRev.toFixed(1) + ' mm';
+  var perStepX = s.x.mmPerRev / (200 * s.micro);
+  var perStepY = s.y.mmPerRev / (200 * s.micro);
+  var scartoX = (s.x.mmPerRev / s.mmPerRevNom - 1) * 100;
+  var scartoY = (s.y.mmPerRev / s.mmPerRevNom - 1) * 100;
+  $('micro-hint').textContent = 'Nominale ' + s.mmPerRevNom.toFixed(4) + ' mm/giro · ' +
+    'X ' + s.x.spmm.toFixed(3) + ' passi/mm (' + (scartoX >= 0 ? '+' : '') + scartoX.toFixed(2) + '%) · ' +
+    'Y ' + s.y.spmm.toFixed(3) + ' passi/mm (' + (scartoY >= 0 ? '+' : '') + scartoY.toFixed(2) + '%)';
+  $('scale-hint').textContent = 'Un click = ' + perStepX.toFixed(4) + ' mm su X, ' +
+    perStepY.toFixed(4) + ' su Y · "1 giro" = ' + s.x.mmPerRev.toFixed(1) + ' / ' +
+    s.y.mmPerRev.toFixed(1) + ' mm';
 
   if (document.activeElement !== $('pen-up')) $('pen-up').value = s.pen.up;
   if (document.activeElement !== $('pen-down')) $('pen-down').value = s.pen.down;
@@ -1061,6 +1191,10 @@ String axisJson(const Motor& m) {
          ",\"done\":" + String((long)m.stepsDone) +
          ",\"feed\":" + String(m.feedMmS, 1) +
          ",\"ramp\":" + String(m.rampMm, 1) +
+         ",\"pos\":" + String(posMm(m), 3) +
+         ",\"posSteps\":" + String((long)m.posSteps) +
+         ",\"mmPerRev\":" + String(m.mmPerRev, 4) +
+         ",\"spmm\":" + String(stepsPerMm(m), 4) +
          ",\"invert\":" + String(m.invert ? "true" : "false") + "}";
 }
 
@@ -1070,8 +1204,7 @@ void sendStateJson() {
                 ",\"ledGreen\":" + String(ledGreenState ? "true" : "false") +
                 ",\"enabled\":" + String(driverEnabled ? "true" : "false") +
                 ",\"micro\":" + String(microsteps) +
-                ",\"spmm\":" + String(stepsPerMm(), 4) +
-                ",\"mmPerRev\":" + String(MM_PER_REV, 4) +
+                ",\"mmPerRevNom\":" + String(MM_PER_REV, 4) +
                 ",\"pen\":{\"up\":" + String(penUpDeg) +
                 ",\"down\":" + String(penDownDeg) +
                 ",\"angle\":" + String(penAngle) +
@@ -1140,10 +1273,14 @@ bool wantsY() {
   return a == "y" || a == "both";
 }
 
-void pulseStepOnce(Motor& m) {
+// Il verso arriva come argomento perche' questo impulso non passa da
+// startMoveSteps(), quindi deve aggiornare la posizione da solo. Si chiama solo
+// a motori fermi (handleMotorStep verifica), quindi l'ISR non sta contando.
+void pulseStepOnce(Motor& m, int d) {
   digitalWrite(m.stepPin, HIGH);
   delayMicroseconds(STEP_PULSE_US);
   digitalWrite(m.stepPin, LOW);
+  m.posSteps += (d > 0) ? 1 : -1;
 }
 
 // Un click = un microstep. A 1/16 sono 0,029 mm: non si vede muovere niente,
@@ -1154,8 +1291,8 @@ void handleMotorStep() {
     server.send(409, "text/plain", "movimento in corso");
     return;
   }
-  if (wantsX()) { setDir(motorX, d); pulseStepOnce(motorX); }
-  if (wantsY()) { setDir(motorY, d); pulseStepOnce(motorY); }
+  if (wantsX()) { setDir(motorX, d); pulseStepOnce(motorX, d); }
+  if (wantsY()) { setDir(motorY, d); pulseStepOnce(motorY, d); }
   server.send(200, "text/plain", "ok");
 }
 
@@ -1180,7 +1317,8 @@ void handleMotorFull() {
   int d = dirFromArg();
   demoStop("interrotta da un comando manuale");
   logMsg("Motore " + server.arg("axis") + ": un giro di pignone (" + String(stepsPerRev()) +
-         " passi = " + String(MM_PER_REV, 2) + " mm) verso " + (d > 0 ? "+" : "-"));
+         " passi = " + String(wantsY() && !wantsX() ? motorY.mmPerRev : motorX.mmPerRev, 2) +
+         " mm) verso " + (d > 0 ? "+" : "-"));
   if (wantsX()) startMove(motorX, d, stepsPerRev());
   if (wantsY()) startMove(motorY, d, stepsPerRev());
   server.send(200, "text/plain", "ok");
@@ -1191,14 +1329,24 @@ void handleMotorRun() {
   float mm = server.arg("mm").toFloat();
   if (mm < 0.01f) mm = 0.01f;
   if (mm > 400.0f) mm = 400.0f;
-  long steps = lroundf(mm * stepsPerMm());
-  if (steps < 1) steps = 1;
 
   demoStop("interrotta da un comando manuale");
-  logMsg("Test " + server.arg("axis") + ": " + String(mm, 2) + " mm = " + String(steps) +
-         " passi verso " + (d > 0 ? "+" : "-"));
-  if (wantsX()) startMove(motorX, d, steps);
-  if (wantsY()) startMove(motorY, d, steps);
+  // Un conteggio di passi per asse: con due mmPerRev diversi, gli stessi
+  // millimetri su X e su Y non sono lo stesso numero di passi.
+  if (wantsX()) {
+    long steps = lroundf(mm * stepsPerMm(motorX));
+    if (steps < 1) steps = 1;
+    logMsg("Test X: " + String(mm, 2) + " mm = " + String(steps) + " passi verso " +
+           (d > 0 ? "+" : "-"));
+    startMove(motorX, d, steps);
+  }
+  if (wantsY()) {
+    long steps = lroundf(mm * stepsPerMm(motorY));
+    if (steps < 1) steps = 1;
+    logMsg("Test Y: " + String(mm, 2) + " mm = " + String(steps) + " passi verso " +
+           (d > 0 ? "+" : "-"));
+    startMove(motorY, d, steps);
+  }
   server.send(200, "text/plain", "ok");
 }
 
@@ -1217,7 +1365,7 @@ void handleMotorConfig() {
   motorPrefs.putFloat(isY ? "feedY" : "feedX", feed);
   motorPrefs.putFloat(isY ? "rampY" : "rampX", ramp);
   logMsg("Motore " + String(m.name) + ": " + String(feed, 1) + " mm/s (" +
-         String((long)(feed * stepsPerMm())) + " passi/s), rampa " + String(ramp, 1) + " mm");
+         String((long)(feed * stepsPerMm(m))) + " passi/s), rampa " + String(ramp, 1) + " mm");
   server.send(200, "text/plain", "ok");
 }
 
@@ -1238,8 +1386,85 @@ void handleMotorMicro() {
 #if MS_PIN >= 0
   digitalWrite(MS_PIN, (microsteps > 1) ? HIGH : LOW);
 #endif
-  logMsg("Microstep: 1/" + String(microsteps) + " -> " + String(stepsPerMm(), 3) +
+  logMsg("Microstep: 1/" + String(microsteps) + " -> X " + String(stepsPerMm(motorX), 3) +
+         " passi/mm, Y " + String(stepsPerMm(motorY), 3) +
          " passi/mm, un giro = " + String(stepsPerRev()) + " passi");
+  server.send(200, "text/plain", "ok");
+}
+
+// --------------------------------------------------------------------------
+// Azzeramento della posizione e taratura del rapporto, per asse
+// --------------------------------------------------------------------------
+
+// Azzera il contatore di posizione. Non muove niente e non tocca la macchina:
+// dice solo "da qui conto da zero", che e' il gesto con cui si misura una corsa.
+void handleMotorZero() {
+  if (wantsX()) zeroPos(motorX);
+  if (wantsY()) zeroPos(motorY);
+  logMsg("Posizione azzerata (" + server.arg("axis") + ")");
+  server.send(200, "text/plain", "ok");
+}
+
+// Taratura del rapporto di trasmissione, un asse per volta.
+//
+// Si comanda un movimento lungo e tondo, si misura col calibro quanto si e'
+// spostato davvero, e si danno i due numeri a questa rotta. Il conto:
+//
+//   passi inviati     = comandato * 3200 / mmPerRev_vecchio
+//   passi/mm veri     = passi inviati / misurato
+//   mmPerRev_nuovo    = 3200 / passi/mm veri
+//                     = mmPerRev_vecchio * misurato / comandato
+//
+// Il movimento va fatto LUNGO: su 200 mm un decimo di errore di lettura del
+// calibro vale lo 0,05%, su 20 mm vale lo 0,5%. E va fatto in UN SENSO SOLO,
+// senza tornare indietro, altrimenti ci si mette dentro anche il gioco.
+void handleMotorCalib() {
+  float cmd = server.arg("cmd").toFloat();
+  float meas = server.arg("meas").toFloat();
+  if (cmd < 10.0f || meas < 1.0f) {
+    server.send(400, "text/plain", "comandato almeno 10 mm, misurato almeno 1 mm");
+    return;
+  }
+  bool isY = (server.arg("axis") == "y");
+  Motor& m = isY ? motorY : motorX;
+
+  float before = m.mmPerRev;
+  float after = before * meas / cmd;
+  if (after < MM_PER_REV_MIN || after > MM_PER_REV_MAX) {
+    logMsg("Taratura " + String(m.name) + " RIFIUTATA: " + String(after, 4) +
+           " mm/giro e' fuori dalla forchetta " + String(MM_PER_REV_MIN, 0) + "-" +
+           String(MM_PER_REV_MAX, 0) + ". Controlla i due numeri.");
+    server.send(400, "text/plain", "risultato fuori scala");
+    return;
+  }
+
+  m.mmPerRev = after;
+  motorPrefs.putFloat(isY ? "mmRevY" : "mmRevX", after);
+  logMsg("Taratura " + String(m.name) + ": comandati " + String(cmd, 2) + " mm, misurati " +
+         String(meas, 2) + " -> " + String(after, 4) + " mm/giro (era " + String(before, 4) +
+         "), " + String(stepsPerMm(m), 4) + " passi/mm. Scarto " +
+         String((after / MM_PER_REV - 1.0f) * 100.0f, 2) + "% dal nominale.");
+  // La posizione contava in passi con il rapporto vecchio: in millimetri ora
+  // vuol dire un'altra cosa, quindi si azzera invece di mentire.
+  zeroPos(m);
+  server.send(200, "text/plain", "ok");
+}
+
+// Scrive il rapporto a mano, o lo riporta al nominale con v=0.
+void handleMotorMmRev() {
+  float v = server.arg("v").toFloat();
+  if (v == 0.0f) v = MM_PER_REV;
+  if (v < MM_PER_REV_MIN || v > MM_PER_REV_MAX) {
+    server.send(400, "text/plain", "fuori scala");
+    return;
+  }
+  bool isY = (server.arg("axis") == "y");
+  Motor& m = isY ? motorY : motorX;
+  m.mmPerRev = v;
+  motorPrefs.putFloat(isY ? "mmRevY" : "mmRevX", v);
+  zeroPos(m);
+  logMsg("Rapporto " + String(m.name) + " impostato a " + String(v, 4) + " mm/giro -> " +
+         String(stepsPerMm(m), 4) + " passi/mm");
   server.send(200, "text/plain", "ok");
 }
 
@@ -1455,6 +1680,8 @@ void setup() {
   motorY.feedMmS = motorPrefs.getFloat("feedY", 20.0f);
   motorX.rampMm = motorPrefs.getFloat("rampX", 3.0f);
   motorY.rampMm = motorPrefs.getFloat("rampY", 3.0f);
+  motorX.mmPerRev = motorPrefs.getFloat("mmRevX", MM_PER_REV);
+  motorY.mmPerRev = motorPrefs.getFloat("mmRevY", MM_PER_REV);
   microsteps = motorPrefs.getInt("micro", 16);
   penUpDeg = motorPrefs.getInt("penUp", 90);
   penDownDeg = motorPrefs.getInt("penDn", 60);
@@ -1477,8 +1704,10 @@ void setup() {
   servoRelease();
 
   setupStepTimer();
-  logMsg("Trasmissione: un giro = " + String(MM_PER_REV, 4) + " mm, microstep 1/" +
-         String(microsteps) + ", " + String(stepsPerMm(), 3) + " passi/mm");
+  logMsg("Trasmissione, microstep 1/" + String(microsteps) +
+         ": X " + String(motorX.mmPerRev, 4) + " mm/giro = " + String(stepsPerMm(motorX), 3) +
+         " passi/mm, Y " + String(motorY.mmPerRev, 4) + " mm/giro = " +
+         String(stepsPerMm(motorY), 3) + " passi/mm (nominale " + String(MM_PER_REV, 4) + ")");
 
   prefs.begin("wifi_cfg", false);
   String savedSsid = prefs.getString("ssid", "");
@@ -1508,6 +1737,9 @@ void setup() {
   server.on("/api/motor/run", HTTP_GET, handleMotorRun);
   server.on("/api/motor/config", HTTP_GET, handleMotorConfig);
   server.on("/api/motor/micro", HTTP_GET, handleMotorMicro);
+  server.on("/api/motor/zero", HTTP_GET, handleMotorZero);
+  server.on("/api/motor/calib", HTTP_GET, handleMotorCalib);
+  server.on("/api/motor/mmrev", HTTP_GET, handleMotorMmRev);
   server.on("/api/pen/set", HTTP_GET, handlePenSet);
   server.on("/api/pen/angle", HTTP_GET, handlePenAngle);
   server.on("/api/pen/config", HTTP_GET, handlePenConfig);

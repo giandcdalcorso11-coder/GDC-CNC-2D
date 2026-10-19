@@ -18,7 +18,7 @@ Importante, perché questa è una procedura **di arrivo**, non di oggi:
 
 | Pezzo | Stato |
 |---|---|
-| Dashboard (pannello di controllo manuale) | funzionante, usata per tutte le prove di movimento |
+| Dashboard (pannello di controllo manuale) | funzionante, e dal 2026-10-19 **misura anche posizione e rapporto per asse** |
 | Modulo penna | in attesa dei cuscinetti |
 | FluidNC sul firmware | **mai acceso sulla macchina montata** |
 | `cnc2d-config.yaml` | pin e rapporto corretti; corse e servo da tarare |
@@ -28,14 +28,69 @@ Importante, perché questa è una procedura **di arrivo**, non di oggi:
 | Popup di inizio stampa | **da costruire** |
 | Invio del programma alla macchina | **da costruire** |
 
-Fase A si può cominciare appena arrivano i cuscinetti. Fase B diventa vera
-quando i tre "da costruire" sono fatti.
+**Il passo A1 si può fare oggi**, senza modulo penna: i pignoni sulle due
+cremagliere sono definitivi, quindi corsa e rapporto non cambiano più. Il resto
+di Fase A aspetta i cuscinetti. Fase B diventa vera quando i tre "da costruire"
+sono fatti.
 
 ---
 
 # Fase A — La messa in strada
 
-## A1. I tre angoli del servo — si fa con la DASHBOARD, non con il SLICER
+## A1. Le misure dei due assi — con la DASHBOARD, e si può fare oggi
+
+I pignoni sulle cremagliere sono quelli definitivi, quindi questi due numeri per
+asse non cambieranno più: si possono prendere senza aspettare il modulo penna.
+E conviene prenderli adesso, perché così FluidNC parte già con i numeri giusti
+invece di partire con dei valori inventati e correggerli dopo.
+
+### La corsa utile, un asse per volta
+
+1. Porta l'asse a un estremo. **Sul finale passa al passo singolo**, che a 1/16
+   vale 0,029 mm: non si vede muovere niente, ed è esattamente il punto —
+   arrivare in fondo senza prendere una botta.
+2. Nel riquadro *Posizione* della tab Controllo: **Azzera X** (o Y).
+3. Porta l'asse all'altro estremo, di nuovo a passo piccolo sul finale.
+4. Leggi il numero. **Quella è la corsa utile di quell'asse.**
+
+Annotala. Nel profilo ci andrà **meno un margine di sicurezza**, perché senza
+finecorsa il limite non lo fa rispettare nessuno a valle dell'interfaccia.
+
+### Il rapporto reale, un asse per volta
+
+Il nominale è `π · 1,5 · 20 = 94,2478` mm per giro di pignone, da cui 33,953
+passi/mm a 1/16. Ma le due cremagliere sono state stampate separatamente e si
+sono ritirate di quantità diverse: **i due assi avranno due numeri diversi, ed è
+corretto che li abbiano.** Con un valore solo i quadrati escono rettangoli.
+
+Nella tab Motore, dentro la scheda dell'asse, riquadro *Rapporto tarato*:
+
+1. Lascia 200 nel primo campo. **Tienilo lungo:** su 200 mm un decimo di errore
+   di lettura del calibro vale lo 0,05%, su 20 mm vale lo 0,5%.
+2. Premi la freccia dell'asse, **in un senso solo**. Senza tornare indietro: il
+   ritorno ci metterebbe dentro anche il gioco, che è un'altra cosa e si misura
+   a parte.
+3. Misura col calibro quanto si è spostato davvero, scrivilo nel secondo campo.
+4. **Calcola e salva.** Il firmware fa
+   `mm/giro nuovo = mm/giro vecchio × misurato / comandato`, lo salva in NVS e
+   lo scrive nel log con lo scarto percentuale dal nominale.
+
+Un risultato fuori dalla forchetta 60÷130 mm/giro viene rifiutato: a quel punto
+non è un ritiro di stampa, è un errore di battitura.
+
+**Attenzione a una cosa:** rifare la taratura dopo aver misurato la corsa
+invalida la misura della corsa, perché i millimetri cambiano significato.
+Quindi **prima il rapporto, poi la corsa** — e se rifai il rapporto, rifai anche
+la corsa.
+
+### Quattro numeri da portare via
+
+| | X (trave del portale) | Y (rotaie di base) |
+|---|---|---|
+| mm per giro di pignone | | |
+| corsa utile (mm) | | |
+
+## A2. I tre angoli del servo — si fa con la DASHBOARD, non con il SLICER
 
 Questo passo viene **prima** di flashare FluidNC, per un motivo pratico: la
 dashboard ha già lo slider manuale del servo, parte in stato `free` (nessun
@@ -75,7 +130,7 @@ battuta < appoggio < alzata. La corsa meccanica totale della guida è 26,350 mm
 = 80,5° sui ~180 del servo, quindi ci sta larghissima: se i tre numeri non
 stanno dentro 180°, c'è qualcosa che non torna nel montaggio.
 
-## A2. Tradurre i tre angoli in microsecondi per FluidNC
+## A3. Tradurre i tre angoli in microsecondi per FluidNC
 
 La dashboard mappa 0÷180° su 500÷2500 µs, quindi:
 
@@ -99,7 +154,7 @@ L'angolo di **battuta** non va nel YAML: va nel profilo del SLICER come limite,
 e serve a una cosa sola — il software non deve mai poter comandare una Z che lo
 raggiunga.
 
-## A3. Flashare FluidNC — e qui si perde la dashboard
+## A4. Flashare FluidNC — e qui si perde la dashboard
 
 **Da sapere prima di premere:** FluidNC è un firmware intero. Flasharlo
 **cancella** lo sketch della dashboard. Si torna indietro riflashando lo sketch,
@@ -122,42 +177,29 @@ ma non convivono. Quindi A1 va chiuso prima.
 4. **Prova le quattro frecce e il servo** dalla WebUI di FluidNC, prima di
    mettere in mezzo il SLICER. Se qualcosa non va, è nel YAML.
 
-## A4. Caricare il SLICER sulla macchina
+## A5. Caricare il SLICER sulla macchina
 
 Il SLICER deve essere **servito dall'ESP32**: FluidNC espone il suo HTTP senza
 intestazioni CORS, quindi una pagina aperta da file locale non può interrogarlo.
 Finché non è caricato, il SLICER funziona solo in modalità finta.
 
-## A5. Le misure di taratura — col pannello manuale del SLICER
+## A6. Riportare le misure nel profilo del SLICER
 
-Da qui in poi il pannello manuale ha il DRO, cioè legge le coordinate: le misure
-diventano banali.
+I quattro numeri di A1 si trascrivono nel profilo: passi/mm per asse (o il
+mm/giro, che è lo stesso dato in forma più leggibile) e corsa per asse. Più il
+**margine di sicurezza**, che è un campo a sé: il limite di lavoro è
+`corsa − margine`, calcolato e mostrato, mai inserito a mano.
 
-**Corsa utile per asse** (`max_travel_mm`), una per X e una per Y:
-
-1. Porta l'asse a un estremo, a passo piccolo, fino a che non va più.
-2. **"Imposta origine qui"**.
-3. Porta l'asse all'altro estremo, sempre a passo piccolo.
-4. Leggi il DRO e **"registra questa misura"** nel campo *corsa X* (o *corsa Y*)
-   del profilo.
-5. Nel profilo metti un **margine di sicurezza** esplicito: il limite di lavoro
-   è `corsa − margine`, calcolato e mostrato, mai inserito a mano.
-
-**Passi/mm reale per asse**, perché le due cremagliere sono stampate separate e
-si sono ritirate di quantità diverse:
-
-1. Comanda un movimento lungo e tondo, `G91 G0 X200`.
-2. Misura col calibro quanto si è spostato davvero.
-3. `passi/mm nuovo = 33,953 × (comandato / misurato)`.
-4. Registralo nel campo *passi/mm X*. Ripeti per Y. **I due numeri non saranno
-   uguali, ed è corretto che non lo siano.**
+Se nel frattempo qualcosa è cambiato, le stesse misure si rifanno dal pannello
+manuale del SLICER, che ha lo stesso DRO della dashboard — ma non c'è motivo di
+rifarle se A1 è stato fatto bene.
 
 **L'offset utensile resta a zero, e non è una dimenticanza:** l'origine la
 imposti portando **la punta della penna** sul punto, quindi l'offset fra
 riferimento del carrello e punta è già assorbito. Servirebbe solo se i limiti
 fossero riferiti al carrello, e i limiti sono disattivati.
 
-## A6. Salvare il profilo
+## A7. Salvare il profilo
 
 Premi **"salva profilo"**. L'app genera `config.yaml` dai valori del profilo, lo
 carica sulla macchina e fa `$Bye`. Da questo momento il profilo è il default e
@@ -194,38 +236,57 @@ Fase A non si rifà più — si ritocca solo se cambia qualcosa di meccanico.
 | 3 | **Slice** | genera il percorso e il G-code |
 | 4 | **Controlli** | tempo stimato, numero di tratti, spostamenti a vuoto, alzate di penna, e **se l'ingombro sta dentro il limite di lavoro** — che senza finecorsa è l'unica protezione che hai |
 | 5 | **Stampa** | si accorge che lo stato è `NON AZZERATA` e apre il primo popup |
-| 6 | **Popup 1 — origine.** Col pannello porti la punta della penna sull'angolo del foglio da cui vuoi partire | la penna è **già alzata** (l'app la alza prima di abilitare il jog, altrimenti trascini la punta sul foglio per tutto il posizionamento). Il popup ti mostra *"l'ultima volta era a X… Y…"* come suggerimento, senza applicarlo |
+| 6 | **Popup 1 — origine macchina.** Col pannello porti la punta nel **punto prestabilito**, quello che usi sempre | la penna è **già alzata** (l'app la alza prima di abilitare il jog, altrimenti trascini la punta sul foglio per tutto il posizionamento). Il popup mostra *"l'ultima volta era a X… Y…"* come suggerimento, senza applicarlo |
 | 7 | **"Homing completato"** | manda `G92 X0 Y0`, lo stato passa a `AZZERATA`, apre il secondo popup |
 | 8 | **Popup 2 — altezza penna.** Col pannello abbassi la Z a piccoli passi finché la punta **tocca il foglio e lascia il segno** | registra quella Z come *quota di appoggio per questa stampa* |
-| 9 | **"Altezza penna completato"** | **alza subito la penna** (quel popup finisce per definizione con la punta che tocca), poi invia il programma |
-| 10 | Guardi | il programma comincia con **alza → vai al primo punto → abbassa**, altrimenti la prima cosa che disegna è una riga dall'origine all'inizio del disegno. Poi l'anteprima diventa indicatore di avanzamento |
+| 9 | **"Altezza penna completato"** | **alza subito la penna** (quel popup finisce per definizione con la punta che tocca), apre il terzo popup |
+| 10 | **Popup 3 — inizio foglio.** Col pannello porti la punta sull'angolo in basso a sinistra del foglio. Se vuoi essere sicuro, abbassa un attimo la penna: adesso la quota di appoggio la conosce, quindi un puntino te lo conferma | legge le coordinate correnti (che sono già relative all'origine macchina) e le usa come **posizione del foglio nel piano** |
+| 11 | **"Inizio foglio completato"** | **verifica che foglio + disegno stiano dentro il limite di lavoro** con il foglio in quella posizione reale, e solo allora invia il programma |
+| 12 | Guardi | il programma comincia con **alza → vai al primo punto → abbassa**, altrimenti la prima cosa che disegna è una riga dall'origine all'inizio del disegno. Poi l'anteprima diventa indicatore di avanzamento |
 
-## Perché i due popup non si possono togliere
+## I tre popup fanno tre cose diverse
 
-Sono la differenza fra questa macchina e una stampante con i finecorsa:
+Vale la pena tenerli distinti, perché è facile pensare che il primo e il terzo
+siano lo stesso gesto fatto due volte. Non lo sono:
 
-- **Il popup dell'origine** esiste perché la macchina all'accensione non sa dove
-  si trova. Il giorno che monti i microswitch, questo popup diventa un ciclo di
-  azzeramento automatico e sparisce — è già tutto previsto nel YAML, va solo
-  riattivato.
-- **Il popup dell'altezza penna** resta anche con i finecorsa, perché la carta
-  cambia spessore e il piano non è perfettamente piano. E con il modulo penna
-  in presa rigida l'unica cedevolezza della catena sono i **0,30 mm di gioco**
-  della coppia cremagliera/pignone: dentro quei 0,30 mm la penna appoggia col
-  proprio peso invece che con la quota imposta, e la taratura di questo popup
-  deve cadere **dentro** quella banda.
+| Popup | Che cos'è | Quanto deve essere preciso | Si può togliere? |
+|---|---|---|---|
+| 1 — origine macchina | il punto da cui si contano le coordinate. Sempre lo stesso, ogni volta | ripetibile, non esatto: è lui che dà senso ai numeri del DRO fra una sessione e l'altra | **sì, coi finecorsa**: diventa un ciclo di azzeramento automatico |
+| 2 — altezza penna | la quota a cui la punta tocca **questa** carta | al decimo, e si verifica guardando il segno | **no**: la carta cambia spessore |
+| 3 — inizio foglio | dove è appoggiato il foglio **questa volta**, in coordinate macchina | quanto vuoi che sia preciso il margine del disegno sul foglio | **no**: il foglio lo appoggi a mano |
 
-## L'origine è un'origine di lavoro, non un riferimento macchina
+Il terzo è anche quello che rende vera l'unica protezione che ci resta senza
+finecorsa: sapendo dove è il foglio *davvero*, l'app può verificare che foglio
+più disegno stiano dentro il limite di lavoro prima di far partire qualcosa.
+Senza quel numero il controllo dell'ingombro si fa su una posizione presunta.
 
-Vale la pena ripeterlo perché è la trappola più costosa del progetto: il punto
-che imposti al passo 6 dice **dove cade il disegno sul foglio**, e per quello
-qualche millimetro di imprecisione va benissimo, dato che la posizione del
-foglio è comunque arbitraria.
+E sull'ordine: l'altezza penna **prima** dell'inizio foglio, come hai chiesto, ha
+un vantaggio concreto — quando cerchi l'angolo del foglio la quota di appoggio la
+conosci già, quindi puoi abbassare un attimo e farti confermare da un puntino di
+essere dove credi.
 
-Quello che **non** si fa è agganciare i limiti a quel punto. Se li agganci, un
-errore di parcheggio di 5 mm diventa un errore di limite di 5 mm: credi di
-avere 25 mm di margine e ne hai 12. Le corse si misurano una volta in Fase A e
-vivono nel profilo; l'origine di ogni stampa non le tocca.
+Una nota sul popup 2: con il modulo penna in presa rigida l'unica cedevolezza
+della catena sono i **0,30 mm di gioco** della coppia cremagliera/pignone.
+Dentro quei 0,30 mm la penna appoggia col proprio peso invece che con la quota
+imposta, e la taratura di questo popup deve cadere **dentro** quella banda.
+
+## Quanto ci si può fidare dell'origine macchina
+
+Il punto del passo 6 lo porti a mano, quindi la sua ripetibilità è quella del
+tuo occhio: qualche millimetro. Per **dove cade il disegno sul foglio** non
+conta niente, perché quello lo decide il popup 3. Conta per i limiti.
+
+Le corse si misurano una volta in Fase A, dagli estremi veri, e vivono nel
+profilo. Il margine di sicurezza nel profilo deve coprire **l'errore di
+parcheggio dell'origine**, non essere un numero di comodo: se parcheggi a occhio
+con ±5 mm, un margine di 5 mm non protegge niente. Finché l'origine è manuale,
+tienilo generoso.
+
+Il modo per stringerlo non è essere più precisi a occhio: è dare al parcheggio
+un **riferimento fisico** — un blocchetto stampato avvitato alla base contro cui
+il carrello va in battuta. A quel punto l'errore è quello del blocchetto, cioè
+zero per definizione, e il margine può scendere. È l'alternativa economica ai
+microswitch, e si può fare in qualunque momento.
 
 ## Cosa fare se qualcosa va storto
 
