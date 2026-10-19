@@ -35,6 +35,12 @@ axes:
   shared_stepper_disable_pin: gpio.27
 
   # X = trave del portale (staffa LL): il carrello che porta la penna.
+  # Sul foglio e' il movimento da sinistra a destra. Driver su gpio 4/26.
+  #
+  # CORREZIONE DEL 2026-10-19: i pin dei due assi erano scambiati. Lo scambio
+  # fatto il 15 ottobre serviva ad allineare i NOMI alla convenzione cartesiana,
+  # ma l'abbinamento nome/pin era gia' giusto e non andava toccato. Verifica:
+  # un movimento su X deve muovere il carrello lungo la trave, non il portale.
   x:
     # 33,953 = (200 * 16) / (pi * 1,5 * 20).
     #
@@ -103,10 +109,13 @@ axes:
       hard_limits: false
       pulloff_mm: 1.000
       stepstick:
-        step_pin: gpio.25
-        direction_pin: gpio.33
+        step_pin: gpio.4
+        direction_pin: gpio.26
 
-  # Y = rotaie di base (staffe TT): ci scorre sopra tutto il portale,
+  # Y = rotaie di base (staffe TT): ci scorre sopra tutto il portale.
+  # Sul foglio e' il movimento dal basso verso l'alto. Driver su gpio 25/33.
+  # Vedi la correzione del 2026-10-19 nella nota su X.
+  #
   # motorizzato su un lato solo.
   y:
     # Vedi la nota su X. Stesso nominale, ma le due cremagliere sono state
@@ -125,8 +134,8 @@ axes:
       hard_limits: false
       pulloff_mm: 1.000
       stepstick:
-        step_pin: gpio.4
-        direction_pin: gpio.26
+        step_pin: gpio.25
+        direction_pin: gpio.33
 
   z:
     # Z non è un asse vero: è il servo del pen-lift, pilotato come asse

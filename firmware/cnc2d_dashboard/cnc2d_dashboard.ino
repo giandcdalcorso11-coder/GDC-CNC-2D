@@ -40,16 +40,28 @@
 #define GREEN_LED_PIN 18
 
 // Nomi degli assi secondo la convenzione cartesiana del foglio:
-//   X = la trave del portale (staffa LL), il carrello che porta la penna
-//   Y = le due rotaie di base (staffe TT), su cui scorre tutto il portale
-// Lo scambio rispetto al montaggio iniziale e' voluto: quelli che in fase di
-// prova chiamavamo X e Y erano invertiti rispetto al foglio. Il cablaggio in
-// breadboard NON e' cambiato, sono cambiati i nomi: il driver su GPIO 4/26
-// resta quello del portale (ora Y), quello su 25/33 quello della trave (ora X).
-#define STEP_X_PIN 25
-#define DIR_X_PIN 33
-#define STEP_Y_PIN 4
-#define DIR_Y_PIN 26
+//   X = la trave del portale (staffa LL), il carrello che porta la penna.
+//       Sul foglio e' il movimento DA SINISTRA A DESTRA.  Driver su GPIO 4/26.
+//   Y = le due rotaie di base (staffe TT), su cui scorre tutto il portale.
+//       Sul foglio e' il movimento DAL BASSO VERSO L'ALTO.  Driver su GPIO 25/33.
+//
+// CORREZIONE DEL 2026-10-19. Il 15 ottobre questi quattro numeri sono stati
+// scambiati per allineare i nomi alla convenzione cartesiana, ma lo scambio era
+// sbagliato: i nomi erano da sistemare, l'abbinamento ai pin no. Il driver su
+// 4/26 e' sempre stato quello del carrello sulla trave, non quello del portale
+// — l'avevo descritto al contrario e poi ho "corretto" i pin per farli
+// combaciare con la descrizione sbagliata.
+//
+// Sintomo: la pulsantiera manda le frecce destra/sinistra sull'asse x e
+// su/giu' sull'asse y, che e' giusto; ma con i pin scambiati le frecce
+// destra/sinistra muovevano la testina in alto e in basso.
+//
+// Verifica se un giorno ci fossero di nuovo dubbi: premi la freccia destra.
+// Si deve muovere IL CARRELLO LUNGO LA TRAVE, non tutto il portale.
+#define STEP_X_PIN 4
+#define DIR_X_PIN 26
+#define STEP_Y_PIN 25
+#define DIR_Y_PIN 33
 #define ENABLE_PIN 27 // condiviso tra i due driver
 #define SERVO_PIN 32
 
@@ -743,7 +755,7 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
   <div class="axes" style="margin-top:12px">
     <div class="axis-card">
       <h3>Asse X</h3>
-      <p class="pins">STEP D25 &middot; DIR D33 &middot; trave del portale</p>
+      <p class="pins">STEP D4 &middot; DIR D26 &middot; carrello sulla trave &mdash; sinistra/destra sul foglio</p>
 
       <div class="slider-label"><span>Velocit&agrave;</span><b id="lbl-feed-x">20 mm/s</b></div>
       <input type="range" id="feed-x" min="1" max="100" step="1" value="20"
@@ -788,7 +800,7 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
 
     <div class="axis-card">
       <h3>Asse Y</h3>
-      <p class="pins">STEP D4 &middot; DIR D26 &middot; rotaie di base</p>
+      <p class="pins">STEP D25 &middot; DIR D33 &middot; portale sulle rotaie &mdash; basso/alto sul foglio</p>
 
       <div class="slider-label"><span>Velocit&agrave;</span><b id="lbl-feed-y">20 mm/s</b></div>
       <input type="range" id="feed-y" min="1" max="100" step="1" value="20"

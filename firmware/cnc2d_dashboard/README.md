@@ -15,8 +15,8 @@ da browser, log remoto, movimento manuale dei due assi e diagnostica dei pin.
 - LED rosso + resistenza 220 ohm su D2 (GPIO2)
 - LED verde + resistenza 220 ohm su D18 (GPIO18)
 - LED giallo + resistenza 220 ohm su D19 (GPIO19)
-- Driver A4988 motore X (trave del portale): STEP su D25, DIR su D33
-- Driver A4988 motore Y (rotaie di base): STEP su D4, DIR su D26
+- Driver A4988 motore X (carrello sulla trave, sinistra/destra sul foglio): STEP su D4, DIR su D26
+- Driver A4988 motore Y (portale sulle rotaie, basso/alto sul foglio): STEP su D25, DIR su D33
 - ENABLE su D27, condiviso tra i due driver (come sulle schede CNC commerciali: non ha
   senso tenere un asse energizzato e l'altro no)
 - **Condensatore elettrolitico da 100 µF / 35 V (minimo 47 µF) tra VMOT e GND del driver**,
