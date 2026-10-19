@@ -66,8 +66,10 @@ var Artwork = (function () {
     var art = State.data.art;
     if (!art || !art.length) { Log.add('err', 'Nessun disegno da preparare.'); return; }
 
-    var feedDraw = +document.getElementById('set-feed').value || 1000;
-    var feedTravel = +document.getElementById('set-travel').value || 2000;
+    /* Le velocità e la pausa della penna vengono dal profilo di stampa: sono
+       del lavoro, non della macchina, e si cambiano nella tab Impostazioni. */
+    var st = Profile.stampa();
+    var feedDraw = st.velocitaDisegno, feedTravel = st.velocitaSpostamento;
 
     var t0 = performance.now();
     var r = Optimize.run(art, feedDraw, feedTravel);
@@ -84,9 +86,22 @@ var Artwork = (function () {
       return p.map(function (q) { return { x: q.x + o.x, y: q.y + o.y }; });
     });
 
+    /* Z è in millimetri veri di penna: zero è il contatto col foglio, e
+       l'alzata è quella che esce dai due angoli del servo. Finché i tre angoli
+       non sono stati rilevati non c'è un'alzata vera: si mettono 5 mm per
+       poter guardare il programma, e il file lo dichiara DA TARARE. */
+    var alzata = Profile.alzataMm();
+    var tarata = alzata !== null;
+    if (alzata === null) alzata = 5;
+    if (st.alzataLavoro !== null && st.alzataLavoro > 0) {
+      alzata = Math.min(alzata, st.alzataLavoro);
+    }
+
     prep = Gcode.build(machine, {
-      penUp: +document.getElementById('set-pen-up').value || 0,
-      penDown: +document.getElementById('set-pen-down').value || -5,
+      penUp: alzata,
+      penDown: 0,
+      pennaTarata: tarata,
+      pausaMs: st.pausaPennaMs,
       feedDraw: feedDraw,
       feedTravel: feedTravel,
       feedPen: 600

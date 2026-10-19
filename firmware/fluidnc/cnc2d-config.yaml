@@ -1,5 +1,12 @@
 # GDC CNC 2D SLICER — configurazione FluidNC
 #
+# DAL 2026-10-19 QUESTO FILE SI GENERA: il profilo macchina del SLICER (tab
+# Impostazioni, pulsante «Genera config.yaml per FluidNC») lo produce completo,
+# compresi i tre angoli del servo tradotti in microsecondi. Questa copia resta
+# nel repo come riferimento storico e come rete di sicurezza se il browser
+# perde i profili — ma i numeri si cambiano nel SLICER, non qui, altrimenti
+# tornano due verità in disaccordo.
+#
 # ATTENZIONE: questa è una configurazione di partenza, non definitiva.
 # I valori marcati DA TARARE dipendono dalla meccanica, che non è ancora montata.
 # FluidNC valida il file all'avvio e segnala gli errori sulla console: se qualcosa

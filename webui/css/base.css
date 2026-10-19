@@ -103,3 +103,17 @@ input:disabled { opacity: .45; }
 ::-webkit-scrollbar-track { background: var(--bg-sunken); }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: #38414f; }
+
+/* Le tendine: stesso aspetto dei campi di testo, altrimenti in una scheda di
+   impostazioni sembrano un pezzo di un'altra pagina. */
+select {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  padding: 5px 6px;
+  width: 100%;
+  min-width: 0;
+}
+select:focus { outline: none; border-color: var(--accent-dim); }
+select:disabled { opacity: .45; }

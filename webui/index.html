@@ -213,9 +213,234 @@
   </form>
 </section>
 
-<!-- ========================== IMPOSTAZIONI ========================== -->
+<!-- ========================== IMPOSTAZIONI ==========================
+     I nomi dei campi non sono liberi: stanno in
+     misure/impostazioni-glossario.md e si cambiano lì prima che qui.
+     Ogni campo porta scritto da dove viene il suo numero, perché metà dei
+     numeri di questa macchina sono scelte prudenti e non misure: se hanno lo
+     stesso aspetto, fra un mese «accelerazione 200» sembra un dato di fatto. -->
 <section class="panel" id="tab-impostazioni">
   <div class="settings-grid">
+
+    <section class="card">
+      <h2>Stato della taratura</h2>
+      <ul class="verifica" id="verifica-list"></ul>
+      <p class="muted small">Gli stessi controlli girano prima di ogni stampa:
+        finché c'è un blocco rosso, il programma non parte.</p>
+    </section>
+
+    <section class="card">
+      <h2>Profilo macchina</h2>
+      <label class="stack">Nome
+        <input type="text" data-bind="macchina.nome" spellcheck="false">
+      </label>
+      <p class="muted small">Ultima modifica: <b data-calc="aggiornato">—</b></p>
+      <button class="btn btn-primary full" id="btn-gen-yaml">Genera config.yaml per FluidNC</button>
+      <p class="muted small">Il file si carica dalla pagina web della macchina e
+        poi si riavvia con <code>$Bye</code>. Non va modificato a mano: la
+        generazione successiva sovrascrive tutto.</p>
+      <div class="btn-row">
+        <button class="btn btn-ghost btn-small" id="btn-prof-export">Esporta JSON</button>
+        <button class="btn btn-ghost btn-small" id="btn-prof-import">Importa JSON</button>
+      </div>
+      <p class="muted small">I profili vivono nel browser: se cancelli i dati del
+        sito spariscono. Il JSON è la copia che sopravvive, e si committa nel repo.</p>
+      <button class="btn btn-danger btn-small" id="btn-prof-reset">Ripristina valori di partenza</button>
+      <input type="file" id="prof-file" accept=".json,application/json" hidden>
+    </section>
+
+    <section class="card">
+      <h2>Trasmissione</h2>
+      <div class="field-row">
+        <label><span class="flab">Passi per giro motore <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="1" data-bind="macchina.trasmissione.passiGiroMotore"></label>
+        <label><span class="flab">Microstep driver <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="1" data-bind="macchina.trasmissione.microstep"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">mm per giro ingranaggio X <b class="prov" data-prov="trasm.x">—</b></span>
+          <input type="number" step="0.0001" data-bind="macchina.trasmissione.x.mmPerGiro"></label>
+        <label><span class="flab">mm per giro ingranaggio Y <b class="prov" data-prov="trasm.y">—</b></span>
+          <input type="number" step="0.0001" data-bind="macchina.trasmissione.y.mmPerGiro"></label>
+      </div>
+      <div class="field-row">
+        <label class="chk"><input type="checkbox" data-bind="macchina.trasmissione.x.invertito"> Direzione X invertita</label>
+        <label class="chk"><input type="checkbox" data-bind="macchina.trasmissione.y.invertito"> Direzione Y invertita</label>
+      </div>
+      <div class="readout">
+        <div class="ro"><span>Passi per mm</span><b data-calc="passiMm">—</b></div>
+        <div class="ro"><span>Avanzamento di un passo</span><b data-calc="passoMin">—</b></div>
+        <div class="ro"><span>Gioco cremagliera-pignone</span><b data-calc="gioco">—</b></div>
+      </div>
+      <p class="muted small">Il gioco non compensa niente: è il limite di
+        ripetibilità. Una linea ripassata nel verso opposto può cadere fin lì di
+        lato, e nessuna taratura lo toglie.</p>
+
+      <div class="sub">
+        <span class="flab">Taratura disegnando <b class="prov prov-damis">passo A6</b></span>
+        <div class="field-row">
+          <label><span class="flab">Asse</span>
+            <select id="tar-asse"><option value="x">X</option><option value="y">Y</option></select></label>
+          <label><span class="flab">Comandati (mm)</span>
+            <input type="number" step="0.1" id="tar-cmd" value="200"></label>
+          <label><span class="flab">Misurati (mm)</span>
+            <input type="number" step="0.01" id="tar-mis"></label>
+        </div>
+        <button class="btn btn-small full" id="btn-tara">Applica la taratura</button>
+        <p class="muted small" id="tar-esito">Si disegnano due linee parallele e si
+          misurano col calibro esterno-esterno ed interno-interno: la media dei
+          due cancella la larghezza del tratto. Il DRO non serve — legge passi
+          divisi per il rapporto, quindi non può rivelare l'errore del rapporto.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Corse e limiti</h2>
+      <div class="field-row">
+        <label><span class="flab">Corsa totale X (passi) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="1" data-bind="macchina.corse.x.corsaPassi"></label>
+        <label><span class="flab">in millimetri</span>
+          <input type="number" step="0.01" data-mm="x"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Corsa totale Y (passi) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="1" data-bind="macchina.corse.y.corsaPassi"></label>
+        <label><span class="flab">in millimetri</span>
+          <input type="number" step="0.01" data-mm="y"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Margine di sicurezza X (mm) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="0.5" data-bind="macchina.corse.x.margineSicurezza"></label>
+        <label><span class="flab">Margine di sicurezza Y (mm) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="0.5" data-bind="macchina.corse.y.margineSicurezza"></label>
+      </div>
+      <div class="readout">
+        <div class="ro"><span>Corsa percorribile X</span><b data-calc="perc.x">—</b></div>
+        <div class="ro"><span>Corsa percorribile Y</span><b data-calc="perc.y">—</b></div>
+        <div class="ro"><span>Area di lavoro</span><b data-calc="area">—</b></div>
+      </div>
+      <p class="muted small">Vale sempre: percorribile + margine = totale. Quello
+        che resta scritto sono i <b>passi</b> — sono la misura vera. I millimetri
+        sono un'interpretazione, e cambiano quando tari il rapporto anche se la
+        macchina non è stata toccata.</p>
+    </section>
+
+    <section class="card">
+      <h2>Homing</h2>
+      <p class="muted small">Niente finecorsa elettrici, ma un riferimento fisico:
+        i blocchi stampati agganciati alle staffe TT e LL contro cui si
+        appoggiano i carrelli. «Homing» qui vuol dire appoggiare e azzerare.</p>
+      <div class="field-row">
+        <label><span class="flab">Scostamento dalla battuta X (mm) <b class="prov prov-damis">da misurare</b></span>
+          <input type="number" step="0.1" data-bind="macchina.homing.x.scostamento" data-null="1"></label>
+        <label><span class="flab">Scostamento dalla battuta Y (mm) <b class="prov prov-damis">da misurare</b></span>
+          <input type="number" step="0.1" data-bind="macchina.homing.y.scostamento" data-null="1"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Ripetibilità X (mm) <b class="prov prov-damis">da misurare</b></span>
+          <input type="number" step="0.1" data-bind="macchina.homing.x.ripetibilita" data-null="1"></label>
+        <label><span class="flab">Ripetibilità Y (mm) <b class="prov prov-damis">da misurare</b></span>
+          <input type="number" step="0.1" data-bind="macchina.homing.y.ripetibilita" data-null="1"></label>
+      </div>
+      <p class="muted small">La ripetibilità è il numero che giustifica il margine
+        di sicurezza, e si misura con la dashboard: appoggia il carrello al
+        blocco cinque o sei volte azzerando ogni volta, e guarda di quanto
+        ballano i passi. Quella dispersione è il margine minimo.</p>
+    </section>
+
+    <section class="card">
+      <h2>Dinamica della macchina</h2>
+      <div class="field-row">
+        <label><span class="flab">Velocità massima X (mm/min) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="100" data-bind="macchina.dinamica.x.velocitaMax"></label>
+        <label><span class="flab">Velocità massima Y (mm/min) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="100" data-bind="macchina.dinamica.y.velocitaMax"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Accelerazione X (mm/s²) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="10" data-bind="macchina.dinamica.x.accelerazione"></label>
+        <label><span class="flab">Accelerazione Y (mm/s²) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="10" data-bind="macchina.dinamica.y.accelerazione"></label>
+      </div>
+      <p class="muted small">La velocità massima è un <b>tetto</b>, non la velocità
+        di lavoro: quella la decide la F del G-code e sta nel profilo di stampa.
+        L'accelerazione invece agisce su ogni movimento, ed è quella che scuote
+        il portale: resta bassa finché il modulo penna non è montato, perché è
+        il suo sbalzo a decidere quanta imbardata genera uno strappo.</p>
+    </section>
+
+    <section class="card">
+      <h2>Penna</h2>
+      <div class="field-row">
+        <label><span class="flab">Raggio pignone pen-lift (mm) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="0.01" data-bind="macchina.penna.raggioPignone"></label>
+        <label><span class="flab">Angolo battuta cuscinetti (°) <b class="prov" data-prov="pen.battuta">—</b></span>
+          <input type="number" step="0.5" data-bind="macchina.penna.gradiBattuta" data-null="1"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Angolo penna abbassata (°) <b class="prov" data-prov="pen.abbassata">—</b></span>
+          <input type="number" step="0.5" data-bind="macchina.penna.gradiPennaAbbassata" data-null="1"></label>
+        <label><span class="flab">Angolo penna alzata (°) <b class="prov" data-prov="pen.alzata">—</b></span>
+          <input type="number" step="0.5" data-bind="macchina.penna.gradiPennaAlzata" data-null="1"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Impulso a 0° (µs)</span>
+          <input type="number" step="10" data-bind="macchina.penna.impulsoMinUs"></label>
+        <label><span class="flab">Impulso a 180° (µs)</span>
+          <input type="number" step="10" data-bind="macchina.penna.impulsoMaxUs"></label>
+      </div>
+      <div class="readout">
+        <div class="ro"><span>mm di penna per grado</span><b data-calc="mmGrado">—</b></div>
+        <div class="ro"><span>Alzata utile</span><b data-calc="alzata">—</b></div>
+        <div class="ro"><span>Impulsi per FluidNC</span><b data-calc="impulsi">—</b></div>
+      </div>
+      <p class="muted small">Deve valere <b>battuta &lt; abbassata &lt; alzata</b>: la
+        battuta è un limite, e il software non deve mai poterla comandare.
+        L'unità di misura vera di questo asse è il terzo di millimetro — la banda
+        morta del servo vale circa 0,3 mm di penna, come il gioco della
+        cremagliera. L'angolo penna abbassata è il contatto <i>nominale</i>, preso
+        una volta a montaggio: l'altezza di contatto col foglio di oggi è un'altra
+        cosa e si prende a ogni stampa.</p>
+    </section>
+
+    <section class="card">
+      <h2>Profilo di stampa</h2>
+      <label class="stack">Nome
+        <input type="text" data-bind="stampa.nome" spellcheck="false">
+      </label>
+      <label class="stack">Profili salvati
+        <select id="stampa-lib"></select>
+      </label>
+      <div class="btn-row">
+        <button class="btn btn-small" id="btn-stampa-save">Salva</button>
+        <button class="btn btn-small" id="btn-stampa-load">Carica</button>
+        <button class="btn btn-danger btn-small" id="btn-stampa-del">Elimina</button>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Larghezza foglio (mm)</span>
+          <input type="number" step="1" data-foglio="larghezza"></label>
+        <label><span class="flab">Altezza foglio (mm)</span>
+          <input type="number" step="1" data-foglio="altezza"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Velocità di disegno (mm/min) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="50" data-bind="stampa.velocitaDisegno"></label>
+        <label><span class="flab">Velocità di spostamento (mm/min) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="50" data-bind="stampa.velocitaSpostamento"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Pausa della penna (ms) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="10" data-bind="stampa.pausaPennaMs"></label>
+        <label><span class="flab">Alzata di lavoro (mm)</span>
+          <input type="number" step="0.1" data-bind="stampa.alzataLavoro" data-null="1" placeholder="tutta"></label>
+      </div>
+      <div class="readout">
+        <div class="ro"><span>Formato riconosciuto</span><b data-calc="formato">—</b></div>
+      </div>
+      <p class="muted small">Lo spessore del foglio non è un campo: non lo conosci
+        quando prendi un foglio, e l'altezza di contatto lo assorbe. Un decimo di
+        carta vale 0,3° di servo, sotto la banda morta.</p>
+    </section>
 
     <section class="card">
       <h2>Connessione</h2>
@@ -223,34 +448,9 @@
         <input type="text" id="set-host" value="cnc2d.local" spellcheck="false">
       </label>
       <label class="chk"><input type="checkbox" id="set-mock" checked> Modalità finta (nessuna macchina collegata)</label>
-      <p class="muted small">Con la modalità finta l'interfaccia funziona da sola, utile per lavorare sul progetto senza accendere la macchina.</p>
-    </section>
-
-    <section class="card">
-      <h2>Macchina</h2>
-      <div class="field-row">
-        <label>Corsa X (mm) <input type="number" id="set-area-w" value="300" min="50" max="1000" step="1"></label>
-        <label>Corsa Y (mm) <input type="number" id="set-area-h" value="300" min="50" max="1000" step="1"></label>
-      </div>
-      <p class="placeholder-note">Valori provvisori: la corsa vera si misura quando le guide sono montate, e poi si conferma calibrando i due angoli del foglio.</p>
-      <div class="field-row">
-        <label>Passi/mm X <input type="number" id="set-spmm-x" value="80" step="0.001" disabled></label>
-        <label>Passi/mm Y <input type="number" id="set-spmm-y" value="80" step="0.001" disabled></label>
-      </div>
-      <div class="field-row">
-        <label>Velocità disegno (mm/min) <input type="number" id="set-feed" value="1000" step="50"></label>
-        <label>Velocità spostamenti (mm/min) <input type="number" id="set-travel" value="2000" step="50"></label>
-      </div>
-      <p class="placeholder-note">I passi/mm vivono nella configurazione di FluidNC: qui saranno in sola lettura, per evitare due verità in disaccordo.</p>
-    </section>
-
-    <section class="card">
-      <h2>Penna</h2>
-      <div class="field-row">
-        <label>Z penna alzata (mm) <input type="number" id="set-pen-up" value="0" step="0.1" disabled></label>
-        <label>Z penna abbassata (mm) <input type="number" id="set-pen-down" value="-5" step="0.1" disabled></label>
-      </div>
-      <p class="placeholder-note">Da compilare dopo la taratura del servo.</p>
+      <p class="muted small">Sta nel browser e non nel profilo: esportando il
+        profilo non voglio portarmi dietro l'indirizzo di rete né il fatto che
+        stavo lavorando a vuoto.</p>
     </section>
 
     <section class="card">

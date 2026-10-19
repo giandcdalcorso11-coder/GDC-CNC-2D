@@ -24,7 +24,9 @@ Importante, perché questa è una procedura **di arrivo**, non di oggi:
 | `cnc2d-config.yaml` | pin e rapporto corretti; corse e servo da tarare |
 | SLICER caricato sulla macchina | **no**, gira solo in modalità finta nel browser |
 | Pannello manuale dentro il SLICER | impalcatura presente, tutta disabilitata |
-| Profilo macchina salvabile | **da costruire** |
+| Profilo macchina e profilo di stampa | **fatti** (2026-10-19): tab Impostazioni, salvataggio nel browser, esportazione JSON |
+| Generazione di `config.yaml` dal profilo | **fatta**: un pulsante nella tab Impostazioni |
+| Blocchi di homing stampati | **da stampare**: si agganciano alle staffe TT e LL |
 | Popup di inizio stampa | **da costruire** |
 | Invio del programma alla macchina | **da costruire** |
 
@@ -84,11 +86,24 @@ risultati di qui sono solo le corse.
 
 | | X — carrello sulla trave | Y — portale sulle rotaie |
 |---|---|---|
-| corsa utile (mm) | **257,532** | **243,041** |
+| corsa totale, in passi | **8744** | **8252** |
+| corsa totale, in mm col rapporto nominale | 257,532 | 243,041 |
 
-*Misurate il 2026-10-19, col rapporto nominale. Sono misure di estremo, prese
-per sapere dove NON andare: l'uso previsto sta ben dentro, con margini
-abbondanti, quindi non serve ritoccarle quando il rapporto sarà tarato.*
+*Misurate il 2026-10-19. I **passi** sono la misura; i millimetri sono
+un'interpretazione fatta col rapporto nominale, e cambieranno quando il
+rapporto sarà tarato pur non avendo toccato la macchina. Per questo nel profilo
+sta la corsa in passi: vedi `misure/impostazioni-glossario.md`. Sono comunque
+misure di estremo, prese per sapere dove NON andare — l'uso previsto sta ben
+dentro, con margini abbondanti.*
+
+### Un terzo numero, quando ci saranno i blocchi di homing
+
+I blocchi stampati che si agganciano alle staffe TT e LL danno un riferimento
+fisico: ci si appoggia il carrello e si azzera. Quando ci sono, con la stessa
+dashboard si prende la **ripetibilità**: appoggia e azzera cinque o sei volte,
+e guarda di quanto ballano i passi. Quella dispersione è il margine di
+sicurezza minimo — oggi il margine sta a 8 mm per pura prudenza, e questo è
+l'unico modo di sostituirlo con un numero vero.
 
 ## A2. I tre angoli del servo — si fa con la DASHBOARD, non con il SLICER
 

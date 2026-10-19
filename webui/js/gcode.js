@@ -15,9 +15,16 @@ var Gcode = (function () {
     var L = [];
     var zUp = opt.penUp, zDown = opt.penDown;
 
+    /* La pausa dopo ogni su/giù non è un lusso: il servo ci mette un pezzo ad
+       arrivare, e senza attesa la macchina riparte mentre la penna sta ancora
+       scendendo — a 50 mm/s si sbavano quattro millimetri di tratto. Il numero
+       sta nel profilo di stampa. */
+    var attesa = opt.pausaMs > 0 ? 'G4 P' + (opt.pausaMs / 1000).toFixed(3) : null;
+
     L.push('; GDC CNC 2D SLICER');
     L.push('; ' + polys.length + ' tratti, generato dall\'interfaccia');
-    L.push('; penna alzata Z' + n(zUp) + ', abbassata Z' + n(zDown) + ' - DA TARARE');
+    L.push('; penna alzata Z' + n(zUp) + ', abbassata Z' + n(zDown) +
+           (opt.pennaTarata ? '' : ' - DA TARARE'));
     L.push('G21');            // millimetri
     L.push('G90');            // coordinate assolute
     L.push('G0 Z' + n(zUp));  // si parte a penna alzata, sempre
@@ -26,11 +33,13 @@ var Gcode = (function () {
       var p = polys[i];
       L.push('G0 X' + n(p[0].x) + ' Y' + n(p[0].y) + ' F' + opt.feedTravel);
       L.push('G1 Z' + n(zDown) + ' F' + opt.feedPen);
+      if (attesa) L.push(attesa);
       for (var j = 1; j < p.length; j++) {
         L.push('G1 X' + n(p[j].x) + ' Y' + n(p[j].y) +
                (j === 1 ? ' F' + opt.feedDraw : ''));
       }
       L.push('G0 Z' + n(zUp));
+      if (attesa) L.push(attesa);
     }
 
     L.push('G0 X0 Y0 F' + opt.feedTravel);

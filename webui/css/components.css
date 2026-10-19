@@ -325,3 +325,111 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
   padding: 7px;
   resize: vertical;
 }
+
+/* ---------------------- la tab Impostazioni ----------------------
+   Tre cose da rendere leggibili: l'etichetta del campo con accanto la
+   provenienza del numero, i valori calcolati (che non si digitano), e la
+   lista di quello che manca. */
+
+/* Il nome del campo, con la pastiglia di provenienza a fianco. */
+.flab {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+/* Da dove viene questo numero: è l'informazione che evita di prendere per
+   misura una scelta prudente. */
+.prov {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.prov-mis    { color: var(--ok);        background: #13251e; border-color: #245741; }
+.prov-scelto { color: var(--text-dim);  background: #1d222b; border-color: var(--line); }
+.prov-calc   { color: var(--accent);    background: #121d2a; border-color: #234a77; }
+.prov-damis  { color: var(--warn);      background: #241f11; border-color: #5c4718; }
+
+/* I valori calcolati: sola lettura, e si vede che non sono campi. */
+.readout {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  padding: 7px 9px;
+}
+.ro {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-mute);
+  padding: 2px 0;
+}
+.ro b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-align: right;
+}
+
+/* Un blocco dentro una scheda: la taratura è un gesto a sé, non un campo. */
+.sub {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+}
+
+/* Cosa manca. Il colore porta l'informazione principale, ma non da solo: un
+   blocco e un avviso hanno anche una barra di spessore diverso a sinistra. */
+.verifica { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.verifica li {
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 7px 9px 7px 11px;
+  border-radius: var(--r-sm);
+  border-left: 3px solid var(--line);
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+}
+.verifica .v-blocco { border-left-width: 4px; border-left-color: var(--danger); color: #f0c4c4; background: #241515; }
+.verifica .v-avviso { border-left-color: var(--warn); color: #e8d6ae; background: #241f11; }
+.verifica .v-ok     { border-left-color: var(--ok);   color: #b8e0cc; background: #13251e; }
+
+.v-passo {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 1px 5px;
+  margin-left: 4px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  opacity: .75;
+}
+
+.v-blocco-testo { color: #f0a0a0; }
+.v-ok-testo     { color: #96d8b4; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .92em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 0 3px;
+}

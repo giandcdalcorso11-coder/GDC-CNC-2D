@@ -13,13 +13,14 @@ var State = (function () {
     machine: 'Off',          // Off | Idle | Run | Hold | Alarm
     pos: { x: 0, y: 0, z: 0 },
 
-    /* L'area di lavoro è il LIMITE degli assi — corsa meno margine — non il
-       foglio: resta fissa mentre il foglio cambia. Viene dal profilo macchina,
-       che è l'unico posto in cui quei numeri si digitano. */
+    /* L'area di lavoro è la CORSA PERCORRIBILE dei due assi — totale meno
+       margine di sicurezza — non il foglio: resta fissa mentre il foglio
+       cambia. Viene dal profilo macchina, che è l'unico posto in cui quei
+       numeri si digitano. Il foglio invece è del profilo di stampa. */
     area: Profile.areaUtile(),
-    paper: { w: Profile.get().foglio.larghezza,
-             h: Profile.get().foglio.altezza,
-             name: Profile.get().foglio.formato },
+    paper: { w: Profile.stampa().foglio.larghezza,
+             h: Profile.stampa().foglio.altezza,
+             name: Profile.stampa().foglio.formato },
     sheetOrigin: { x: 20, y: 20 },   // angolo in basso a sinistra del foglio
 
     art: null,               // il disegno caricato, quando ci sarà

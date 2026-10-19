@@ -66,8 +66,13 @@ var Paper = (function () {
     var fuori = o.x < 0 || o.y < 0 || o.x + p.w > a.w || o.y + p.h > a.h;
     layerSheet.firstChild.classList.toggle('sheet-out', fuori);
 
+    /* Un decimale: l'area è un numero CALCOLATO (corsa percorribile, cioè
+       passi diviso rapporto), quindi ha tutti i decimali del mondo. Stamparli
+       tutti non aggiunge informazione — la macchina non li sa fare: un passo
+       vale tre centesimi. */
     caption.textContent =
-      'Area ' + a.w + ' × ' + a.h + ' mm · foglio ' + p.name + ' ' + p.w + ' × ' + p.h + ' mm' +
+      'Area ' + a.w.toFixed(1) + ' × ' + a.h.toFixed(1) + ' mm · foglio ' + p.name +
+      ' ' + p.w + ' × ' + p.h + ' mm' +
       (fuori ? ' · il foglio esce dall’area' : '');
   }
 
@@ -79,19 +84,12 @@ var Paper = (function () {
     State.emit('paper');
   }
 
-  /* I due campi dell'area nella tab Impostazioni scrivono nel PROFILO, non
-     solo nello stato: l'area è il limite di lavoro (corsa meno margine), e
-     tenerne una seconda copia qui sarebbe il modo sicuro per vederle divergere.
-     Quello che l'utente digita è il limite, quindi la corsa si ricava
-     riaggiungendo il margine, che resta com'è.
-     Nota: questi due campi spariranno quando la tab Impostazioni sarà
-     riprogettata — lì corsa e margine si inseriscono separati, che è la forma
-     giusta, perché sono due cose diverse. */
-  function setArea(w, h) {
-    var p = Profile.get();
-    p.corse.x.corsa = w + p.corse.x.margine;
-    p.corse.y.corsa = h + p.corse.y.margine;
-    Profile.save();
+  /* L'area di lavoro non si digita: è la corsa percorribile dei due assi, e
+     vive nel profilo macchina. Qui si rilegge e si ridisegna — la chiama la tab
+     Impostazioni dopo aver cambiato una corsa, un margine o il rapporto.
+     Tenerne una seconda copia dentro Paper sarebbe il modo sicuro per vederle
+     divergere. */
+  function refreshArea() {
     State.data.area = Profile.areaUtile();
     apply();
   }
@@ -265,13 +263,6 @@ var Paper = (function () {
       setSize(State.data.paper.h, State.data.paper.w);
     });
 
-    ['set-area-w', 'set-area-h'].forEach(function (id) {
-      document.getElementById(id).addEventListener('input', function () {
-        setArea(+document.getElementById('set-area-w').value || 100,
-                +document.getElementById('set-area-h').value || 100);
-      });
-    });
-
     document.getElementById('btn-center-sheet').addEventListener('click', centerSheet);
 
     enableDrag();
@@ -279,7 +270,7 @@ var Paper = (function () {
   }
 
   return {
-    init: init, setSize: setSize, setArea: setArea,
+    init: init, setSize: setSize, refreshArea: refreshArea,
     setSheetOrigin: setSheetOrigin, centerSheet: centerSheet,
     rebuildPath: rebuildPath
   };
