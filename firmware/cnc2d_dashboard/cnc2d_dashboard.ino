@@ -124,6 +124,17 @@ struct Motor {
   float mmPerRev;
   volatile long posSteps;
   volatile int dirSign;  // +1 o -1, lo legge l'ISR per contare nel verso giusto
+
+  // posNota dice se posSteps vuol dire qualcosa. Parte a false all'accensione —
+  // appena acceso nessuno sa dove sono i carrelli — e torna false ogni volta che
+  // i driver vengono liberati, perche' da li' in poi l'asse si puo' spostare a
+  // mano e nessun impulso lo racconta. Torna true solo con un azzeramento.
+  //
+  // Serve perche' uno stepper e' ad anello aperto: non c'e' niente che misuri la
+  // posizione, il contatore conta gli impulsi MANDATI. Senza questo flag, dopo
+  // uno spostamento a mano il DRO mostrerebbe con tre decimali una posizione che
+  // non esiste piu'. Un numero sbagliato e' peggio di nessun numero.
+  bool posNota;
 };
 
 // op: 0 = fine, 1 = rapido, 2 = tratto di lavoro, 3 = penna su, 4 = penna giù, 5 = pausa
@@ -223,9 +234,9 @@ bool servoAttached = false;             // false = nessun impulso, servo morbido
 unsigned long servoLastStepMs = 0;
 
 Motor motorX = {"X", STEP_X_PIN, DIR_X_PIN, 0, 0, 0, 0, 0, 0, false, 1, 20.0f, 3.0f, false,
-                MM_PER_REV, 0, 1};
+                MM_PER_REV, 0, 1, false};
 Motor motorY = {"Y", STEP_Y_PIN, DIR_Y_PIN, 0, 0, 0, 0, 0, 0, false, 1, 20.0f, 3.0f, false,
-                MM_PER_REV, 0, 1};
+                MM_PER_REV, 0, 1, false};
 
 portMUX_TYPE stepMux = portMUX_INITIALIZER_UNLOCKED;
 hw_timer_t* stepTimer = NULL;
@@ -410,6 +421,7 @@ void zeroPos(Motor& m) {
   portENTER_CRITICAL(&stepMux);
   m.posSteps = 0;
   portEXIT_CRITICAL(&stepMux);
+  m.posNota = true;   // da qui in poi il contatore significa qualcosa
 }
 
 void stopMotor(Motor& m) {
@@ -641,6 +653,9 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
   .log-view{background:#0e0e11;border:1px solid #333;border-radius:8px;padding:10px;height:300px;overflow-y:auto;font-family:monospace;font-size:.8rem;white-space:pre-wrap;word-break:break-word;margin:0;}
   .check{display:flex;align-items:center;gap:8px;margin-top:16px;font-size:.9rem;color:var(--muted);}
   .hint{font-size:.78rem;color:var(--muted);margin-top:6px;line-height:1.4;}
+  /* Una posizione non nota non e' un dettaglio: cambia colore, perche' e' la
+     differenza fra un numero di cui fidarsi e uno da buttare. */
+  .posko{color:#f59e0b;}
   details{margin-top:16px;border-top:1px solid #222;padding-top:12px;}
   summary{cursor:pointer;font-size:.9rem;color:var(--muted);}
 </style>
@@ -693,6 +708,16 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
       delle frecce. Non &egrave; un riferimento macchina e non sopravvive allo spegnimento:
       serve a <b>misurare</b>. Per la corsa utile di un asse: portalo a un estremo, azzera,
       portalo all'altro estremo, leggi. Vicino a fine corsa usa il passo singolo.</p>
+
+    <div class="axis-run" style="margin-top:14px">
+      <button onclick="homingFree()" style="border-color:#f59e0b;color:#f59e0b">Libera i motori</button>
+      <button onclick="homingDone()" style="border-color:#3b82f6;color:#3b82f6">Homing completato</button>
+    </div>
+    <p class="hint"><b>Homing a mano.</b> <i>Libera i motori</i> li sblocca: da quel momento
+      la posizione non &egrave; pi&ugrave; nota, perch&eacute; spostando a mano nessun impulso
+      la racconta. Appoggia i carrelli ai blocchi di riferimento <b>senza forzarli</b>, poi
+      <i>Homing completato</i>, che riattiva i motori e azzera. L'ordine conta: azzerare a
+      motori liberi darebbe un'origine che il primo urto sposta senza dirlo.</p>
   </div>
 
   <div class="axis-card" style="margin-top:12px">
@@ -883,7 +908,10 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
     <input type="checkbox" id="drv-enabled" checked onchange="pushEnable()">
     <label for="drv-enabled" style="margin:0">Driver abilitati (ENABLE condiviso su D27)</label>
   </div>
-  <p class="hint">Togliendo la spunta entrambi i motori si sbloccano e smettono di scaldare.</p>
+  <p class="hint">Togliendo la spunta entrambi i motori si sbloccano e smettono di scaldare.
+    <b>La posizione diventa non nota</b>: a motori liberi l'asse si sposta a mano e il
+    contatore non se ne accorge, perch&eacute; conta gli impulsi mandati, non i giri fatti.
+    Per l'homing usa i due pulsanti nella scheda Posizione, che fanno i gesti nell'ordine giusto.</p>
 
   <details>
     <summary>Test pin (misura col multimetro)</summary>
@@ -1088,11 +1116,29 @@ function motorStop(){
   fetch('/api/motor/stop?axis=both');
 }
 
+/* La conferma compare solo se c'e' davvero un'origine da perdere: a posizione
+   gia' non nota sarebbe un clic in piu' e basta. */
+function homingFree(){
+  if (statoUltimo && (statoUltimo.x.posNota || statoUltimo.y.posNota)) {
+    if (!confirm('Liberando i motori la posizione attuale viene persa. Procedo?')) return;
+  }
+  fetch('/api/homing/free').then(refreshState);
+}
+
+function homingDone(){
+  fetch('/api/homing/done').then(refreshState);
+}
+
 function applyAxis(a, s){
   $('stat-' + a).textContent = s.done + ' passi · ' +
     (s.remaining < 0 ? 'continuo' : s.remaining + ' mancanti');
-  $('pos-' + a).textContent = s.pos.toFixed(3) + ' mm';
-  $('dro-' + a).textContent = s.pos.toFixed(3) + ' mm';
+  /* Quando la posizione non e' nota si mostra che non lo e', invece di un
+     numero con tre decimali che sembra una misura e non lo e' piu'. */
+  var testo = s.posNota ? (s.pos.toFixed(3) + ' mm') : '\u2014 non nota';
+  ['pos-' + a, 'dro-' + a].forEach(function(id){
+    $(id).textContent = testo;
+    $(id).classList.toggle('posko', !s.posNota);
+  });
   $('mmrev-' + a).textContent = s.mmPerRev.toFixed(4) + ' mm/giro · ' +
     s.spmm.toFixed(3) + ' passi/mm';
   if (document.activeElement !== $('feed-' + a)) {
@@ -1106,7 +1152,12 @@ function applyAxis(a, s){
   $('inv-' + a).checked = s.invert;
 }
 
+/* L'ultimo stato ricevuto, per le decisioni che dipendono da com'e' adesso la
+   macchina invece che da quello che l'utente ha appena cliccato. */
+var statoUltimo = null;
+
 function applyState(s){
+  statoUltimo = s;
   $('btn-led-red').classList.toggle('on', s.ledRed);
   $('btn-led-yellow').classList.toggle('on', s.ledYellow);
   $('btn-led-green').classList.toggle('on', s.ledGreen);
@@ -1205,6 +1256,7 @@ String axisJson(const Motor& m) {
          ",\"ramp\":" + String(m.rampMm, 1) +
          ",\"pos\":" + String(posMm(m), 3) +
          ",\"posSteps\":" + String((long)m.posSteps) +
+         ",\"posNota\":" + String(m.posNota ? "true" : "false") +
          ",\"mmPerRev\":" + String(m.mmPerRev, 4) +
          ",\"spmm\":" + String(stepsPerMm(m), 4) +
          ",\"invert\":" + String(m.invert ? "true" : "false") + "}";
@@ -1295,9 +1347,21 @@ void pulseStepOnce(Motor& m, int d) {
   m.posSteps += (d > 0) ? 1 : -1;
 }
 
+// Muovere con i driver liberi non ha senso, e due di questi comandi farebbero
+// danno: l'impulso singolo incrementerebbe il contatore mentre il driver ignora
+// lo STEP, e un movimento continuo resterebbe in coda nell'ISR per poi partire
+// da solo appena i driver tornano attivi.
+bool driverLiberi() {
+  if (driverEnabled) return false;
+  server.send(409, "text/plain",
+              "motori liberi: riattivali, o premi «Homing completato», prima di muovere");
+  return true;
+}
+
 // Un click = un microstep. A 1/16 sono 0,029 mm: non si vede muovere niente,
 // ed è voluto — è la risoluzione della macchina, e serve per misurare il gioco.
 void handleMotorStep() {
+  if (driverLiberi()) return;
   int d = dirFromArg();
   if (motorX.stepsRemaining != 0 || motorY.stepsRemaining != 0) {
     server.send(409, "text/plain", "movimento in corso");
@@ -1309,6 +1373,7 @@ void handleMotorStep() {
 }
 
 void handleMotorStart() {
+  if (driverLiberi()) return;
   int d = dirFromArg();
   demoStop("interrotta da un comando manuale");
   logMsg("Motore " + server.arg("axis") + ": avvio continuo verso " + (d > 0 ? "+" : "-"));
@@ -1326,6 +1391,7 @@ void handleMotorStop() {
 }
 
 void handleMotorFull() {
+  if (driverLiberi()) return;
   int d = dirFromArg();
   demoStop("interrotta da un comando manuale");
   logMsg("Motore " + server.arg("axis") + ": un giro di pignone (" + String(stepsPerRev()) +
@@ -1337,6 +1403,7 @@ void handleMotorFull() {
 }
 
 void handleMotorRun() {
+  if (driverLiberi()) return;
   int d = dirFromArg();
   float mm = server.arg("mm").toFloat();
   if (mm < 0.01f) mm = 0.01f;
@@ -1411,6 +1478,13 @@ void handleMotorMicro() {
 // Azzera il contatore di posizione. Non muove niente e non tocca la macchina:
 // dice solo "da qui conto da zero", che e' il gesto con cui si misura una corsa.
 void handleMotorZero() {
+  // Azzerare con i motori liberi darebbe un'origine che il primo urto sposta
+  // senza dirlo: finche' l'asse non e' trattenuto, "zero" non vuol dire niente.
+  if (!driverEnabled) {
+    server.send(409, "text/plain",
+                "motori liberi: usa «Homing completato», che prima li riattiva e poi azzera");
+    return;
+  }
   if (wantsX()) zeroPos(motorX);
   if (wantsY()) zeroPos(motorY);
   logMsg("Posizione azzerata (" + server.arg("axis") + ")");
@@ -1536,10 +1610,7 @@ void handleDemoStart() {
     server.send(400, "text/plain", "prova sconosciuta");
     return;
   }
-  if (!driverEnabled) {
-    server.send(409, "text/plain", "driver disabilitati");
-    return;
-  }
+  if (driverLiberi()) return;
   stopMotor(motorX);
   stopMotor(motorY);
   demoStart(kind);
@@ -1563,10 +1634,52 @@ void handleMotorInvert() {
   server.send(200, "text/plain", "ok");
 }
 
+// Abilita o libera i due driver tenendo conto di quello che la liberazione
+// comporta davvero. Non e' la stessa cosa di setDriverEnabled(), che muove solo
+// il pin: qui si ferma anche un movimento in corso — altrimenti resterebbe in
+// coda e ripartirebbe da solo alla riabilitazione — e si dichiara persa la
+// posizione dei due assi.
+void setMotorsEnabled(bool on) {
+  if (!on) {
+    stopMotor(motorX);
+    stopMotor(motorY);
+    motorX.posNota = false;
+    motorY.posNota = false;
+  }
+  setDriverEnabled(on);
+}
+
 void handleMotorEnable() {
   bool on = (server.arg("on") == "1");
-  setDriverEnabled(on);
-  logMsg(String("Driver A4988: ") + (on ? "abilitati (ENABLE basso)" : "disabilitati (ENABLE alto)"));
+  setMotorsEnabled(on);
+  logMsg(String("Driver A4988: ") + (on ? "abilitati (ENABLE basso)"
+                                        : "disabilitati (ENABLE alto) — posizione non piu' nota"));
+  server.send(200, "text/plain", "ok");
+}
+
+// --------------------------------------------------------------------------
+// Homing a mano
+// --------------------------------------------------------------------------
+// Non c'e' nessun finecorsa: il riferimento sono i blocchi stampati agganciati
+// alle staffe TT e LL, e i carrelli ci si appoggiano A MANO. Spingerli col
+// motore non sarebbe solo lento: la coppia di uno stepper basta a spostare il
+// blocco, cioe' a spostare proprio la cosa che definisce la misura. A mano si
+// appoggia e basta, senza forzare.
+//
+// Due gesti, e l'ordine conta: riattivare PRIMA e azzerare POI. Al contrario,
+// l'origine resterebbe alla merce' del primo urto senza che nessuno lo dica.
+void handleHomingFree() {
+  demoStop("interrotta per l'homing");
+  setMotorsEnabled(false);
+  logMsg("Homing: motori liberi, posizione non piu' nota. Appoggia i carrelli ai blocchi.");
+  server.send(200, "text/plain", "ok");
+}
+
+void handleHomingDone() {
+  setMotorsEnabled(true);
+  zeroPos(motorX);
+  zeroPos(motorY);
+  logMsg("Homing completato: motori riattivati, posizione azzerata su entrambi gli assi.");
   server.send(200, "text/plain", "ok");
 }
 
@@ -1588,7 +1701,7 @@ void handlePinSet() {
   } else if (pin == "diry") {
     digitalWrite(DIR_Y_PIN, high ? HIGH : LOW);
   } else if (pin == "en") {
-    setDriverEnabled(!high); // ENABLE attivo basso: livello alto = driver disabilitati
+    setMotorsEnabled(!high); // ENABLE attivo basso: livello alto = driver disabilitati
   } else {
     server.send(400, "text/plain", "pin sconosciuto");
     return;
@@ -1760,6 +1873,8 @@ void setup() {
   server.on("/api/demo/stop", HTTP_GET, handleDemoStop);
   server.on("/api/motor/invert", HTTP_GET, handleMotorInvert);
   server.on("/api/motor/enable", HTTP_GET, handleMotorEnable);
+  server.on("/api/homing/free", HTTP_GET, handleHomingFree);
+  server.on("/api/homing/done", HTTP_GET, handleHomingDone);
   server.on("/api/pin/set", HTTP_GET, handlePinSet);
   server.on("/api/wifi/save", HTTP_POST, handleWifiSave);
   server.onNotFound(handleNotFound);

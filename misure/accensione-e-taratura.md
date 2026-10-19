@@ -27,6 +27,7 @@ Importante, perché questa è una procedura **di arrivo**, non di oggi:
 | Profilo macchina e profilo di stampa | **fatti** (2026-10-19): tab Impostazioni, salvataggio nel browser, esportazione JSON |
 | Generazione di `config.yaml` dal profilo | **fatta**: un pulsante nella tab Impostazioni |
 | Blocchi di homing stampati | **da stampare**: si agganciano alle staffe TT e LL |
+| Homing a mano nella dashboard | **fatto** (2026-10-19): libera i motori, appoggi i carrelli, riattiva e azzera |
 | Popup di inizio stampa | **da costruire** |
 | Invio del programma alla macchina | **da costruire** |
 
@@ -301,8 +302,8 @@ Fase A non si rifà più — si ritocca solo se cambia qualcosa di meccanico.
 | 3 | **Slice** | genera il percorso e il G-code |
 | 4 | **Controlli** | tempo stimato, numero di tratti, spostamenti a vuoto, alzate di penna, e **se l'ingombro sta dentro il limite di lavoro** — che senza finecorsa è l'unica protezione che hai |
 | 5 | **Stampa** | si accorge che lo stato è `NON AZZERATA` e apre il primo popup |
-| 6 | **Popup 1 — origine macchina.** Col pannello porti la punta nel **punto prestabilito**, quello che usi sempre | la penna è **già alzata** (l'app la alza prima di abilitare il jog, altrimenti trascini la punta sul foglio per tutto il posizionamento). Il popup mostra *"l'ultima volta era a X… Y…"* come suggerimento, senza applicarlo |
-| 7 | **"Homing completato"** | manda `G92 X0 Y0`, lo stato passa a `AZZERATA`, apre il secondo popup |
+| 6 | **Popup 1 — origine macchina.** Premi *Libera i motori*, appoggi **a mano** i due carrelli ai blocchi di riferimento, senza forzarli | la penna è **già alzata** (l'app la alza prima di liberare i motori, altrimenti trascini la punta sul foglio per tutto il posizionamento). Liberando i motori la posizione viene dichiarata non nota, e il DRO lo mostra invece di un numero |
+| 7 | **"Homing completato"** | **riattiva i motori e poi** manda `G92 X0 Y0` — in quest'ordine, perché azzerare a motori liberi darebbe un'origine che il primo urto sposta senza dirlo. Lo stato passa a `AZZERATA`, si apre il secondo popup |
 | 8 | **Popup 2 — altezza penna.** Col pannello abbassi la Z a piccoli passi finché la punta **tocca il foglio e lascia il segno** | registra quella Z come *quota di appoggio per questa stampa* |
 | 9 | **"Altezza penna completato"** | **alza subito la penna** (quel popup finisce per definizione con la punta che tocca), apre il terzo popup |
 | 10 | **Popup 3 — inizio foglio.** Col pannello porti la punta sull'angolo in basso a sinistra del foglio. Se vuoi essere sicuro, abbassa un attimo la penna: adesso la quota di appoggio la conosce, quindi un puntino te lo conferma | legge le coordinate correnti (che sono già relative all'origine macchina) e le usa come **posizione del foglio nel piano** |

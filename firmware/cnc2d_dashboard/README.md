@@ -263,6 +263,13 @@ destra = X che sale, anche con "inverti direzione" attivo).
 Non è un riferimento macchina: conta i passi comandati, non sa dove si trova
 davvero il carrello, e si perde allo spegnimento. Serve a **misurare**.
 
+Quando quel conteggio non vuol dire niente, il riquadro **lo dice**: invece del
+numero compare *«— non nota»* in arancione. Succede all'accensione — appena
+acceso nessuno sa dove sono i carrelli — e ogni volta che i motori vengono
+liberati. Un numero sbagliato è peggio di nessun numero: il contatore conta gli
+impulsi *mandati*, quindi dopo uno spostamento a mano mostrerebbe con tre
+decimali una posizione che non esiste più.
+
 **Per la corsa utile di un asse:**
 
 1. Portalo a un estremo. Vicino a fine corsa passa al passo singolo, che a 1/16
@@ -271,6 +278,36 @@ davvero il carrello, e si perde allo spegnimento. Serve a **misurare**.
 3. Portalo all'altro estremo, di nuovo a passo piccolo sul finale.
 4. Leggi il numero. Quello è `max_travel_mm` di quell'asse, e nel profilo del
    SLICER va inserito **meno un margine di sicurezza**.
+
+### L'homing a mano
+
+Non ci sono finecorsa. Il riferimento sono i **blocchi stampati agganciati alle
+staffe TT e LL**, contro cui i carrelli si appoggiano — **a mano**, non col
+motore. Il motivo non è la comodità: la coppia di uno stepper basta a spostare
+il blocco, cioè a spostare proprio la cosa che definisce la misura. A mano si
+appoggia e basta, senza forzare niente e senza far strisciare i cuscinetti.
+
+Nel riquadro *Posizione* ci sono due pulsanti, e **l'ordine conta**:
+
+1. **Libera i motori.** I driver si spengono, gli assi diventano morbidi, la
+   posizione viene dichiarata non nota. Se c'era un'origine valida, chiede
+   conferma prima di buttarla.
+2. Appoggi i due carrelli ai blocchi, senza forzarli.
+3. **Homing completato.** Riattiva i motori **e poi** azzera, in quest'ordine.
+   Al contrario — azzerare con i motori ancora liberi — l'origine resterebbe
+   alla mercé del primo urto senza che nessuno lo dica.
+
+Finché i motori sono liberi, i comandi di movimento rispondono *«motori
+liberi»* invece di fingere di muoversi, e anche l'azzeramento normale viene
+rifiutato rimandando a *Homing completato*.
+
+Due avvertenze sullo spostamento a mano:
+
+- **Non forzare mai un asse con i driver attivi.** Uno stepper alimentato tiene
+  la posizione con coppia, e spingerlo contro quella coppia stressa il driver.
+- **Piano, non a strappi.** Un motore mosso a mano si comporta da generatore e
+  rimanda tensione nel driver. A velocità di braccio è trascurabile, ma non c'è
+  motivo di lanciarlo.
 
 ### La taratura del rapporto
 
