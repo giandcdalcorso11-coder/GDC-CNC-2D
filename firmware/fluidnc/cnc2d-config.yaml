@@ -54,16 +54,53 @@ axes:
     # ritiro di stampa della cremagliera cambia il passo reale, ed e' il
     # motivo per cui X e Y avranno due valori diversi.
     steps_per_mm: 33.953
-    max_rate_mm_per_min: 2000.000
+    # 8000 mm/min = 133 mm/s = 4525 microstep/s a 33,953 passi/mm.
+    #
+    # Il 2000 che stava qui era tarato sul rapporto sbagliato: valeva 2667
+    # microstep/s con 80 passi/mm, ma con il rapporto vero sono 1132, cioe'
+    # un settimo di quello che il motore ha dimostrato di reggere (500 passi
+    # interi/s = 8000 microstep/s = 235 mm/s = 14100 mm/min).
+    #
+    # Questo e' un TETTO, non una velocita' di lavoro: la velocita' vera la
+    # decide la F del G-code. Alzarlo serve solo a non farsi tagliare i
+    # comandi da FluidNC, quindi non c'e' rischio ad alzarlo adesso.
+    max_rate_mm_per_min: 8000.000
+
+    # L'accelerazione, al contrario, agisce su OGNI movimento ed e' quella che
+    # scuote il portale. Resta volutamente bassa: va alzata per prove
+    # successive, ma solo col modulo penna montato, perche' e' lo sbalzo del
+    # modulo che decide quanta imbardata genera uno strappo. Su un disegno
+    # fatto di segmenti corti conta molto piu' di max_rate.
     acceleration_mm_per_sec2: 200.000
+
     max_travel_mm: 300.000     # DA TARARE sulla corsa reale della guida
-    soft_limits: false         # richiede l'azzeramento automatico, che non abbiamo
+
+    # Resta false, e non per scelta: soft_limits vuole una macchina azzerata,
+    # l'azzeramento vuole i finecorsa, e i finecorsa non sono montati
+    # (2026-10-19, decisione dell'utente di non metterli per ora). Finche' e'
+    # cosi' l'UNICA protezione contro un movimento fuori area e' il controllo
+    # dell'ingombro del disegno fatto dall'interfaccia prima di partire.
+    soft_limits: false
 
     motor0:
-      # Pulsante di emergenza nell'angolo in basso a sinistra.
-      # :low:pu = attivo basso con pull-up interno, cioè pulsante verso GND.
-      limit_neg_pin: gpio.14:low:pu
-      hard_limits: true
+      # FINECORSA NON MONTATI (2026-10-19).
+      #
+      # Qui c'era `limit_neg_pin: gpio.14:low:pu` con `hard_limits: true`, per
+      # un pulsante nell'angolo in basso a sinistra che non e' mai stato
+      # cablato. Dichiarare un ingresso di finecorsa su un pin che non ha
+      # niente attaccato e' peggio che non dichiararlo: il pull-up interno
+      # dell'ESP32 e' da decine di kiloohm, quindi il pin e' alta impedenza e
+      # un disturbo captato dai cavi dei motori puo' farlo leggere come
+      # premuto. Sintomo: allarme e stop a metà di un disegno, senza causa
+      # apparente e non riproducibile.
+      #
+      # Per rimetterli il giorno che i microswitch arrivano: riattivare le due
+      # righe qui sotto, aggiungere un blocco `homing:` per asse con
+      # `cycle` e `positive_direction: false`, e portare a true `soft_limits`
+      # qui sopra e `must_home` in fondo al file.
+      #
+      # limit_neg_pin: gpio.14:low:pu
+      hard_limits: false
       pulloff_mm: 1.000
       stepstick:
         step_pin: gpio.25
@@ -76,14 +113,16 @@ axes:
     # stampate separatamente: dopo la taratura questi due numeri NON saranno
     # uguali, ed e' corretto che non lo siano.
     steps_per_mm: 33.953
-    max_rate_mm_per_min: 2000.000
+    # Vedi le note su X: stesso tetto, stessa accelerazione prudente.
+    max_rate_mm_per_min: 8000.000
     acceleration_mm_per_sec2: 200.000
     max_travel_mm: 300.000     # DA TARARE
     soft_limits: false
 
     motor0:
-      limit_neg_pin: gpio.13:low:pu
-      hard_limits: true
+      # FINECORSA NON MONTATI: vedi la nota su X.
+      # limit_neg_pin: gpio.13:low:pu
+      hard_limits: false
       pulloff_mm: 1.000
       stepstick:
         step_pin: gpio.4
@@ -136,4 +175,13 @@ user_outputs:
   digital2_pin: gpio.2
 
 start:
+  # Resta false finche' non ci sono i finecorsa: con must_home vero e nessun
+  # ciclo di azzeramento possibile, FluidNC rifiuterebbe ogni movimento
+  # assoluto e la macchina sarebbe inutilizzabile.
+  #
+  # Conseguenza da tenere a mente: l'origine la si imposta a mano con G92, e
+  # G92 NON sopravvive a un riavvio ne' a un reset. Dopo ogni accensione la
+  # macchina non sa dove si trova, e l'interfaccia deve saperlo: senza
+  # un'origine impostata in questa sessione non deve permettere di eseguire
+  # un programma, solo movimenti relativi a passo limitato.
   must_home: false
