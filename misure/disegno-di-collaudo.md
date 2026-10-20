@@ -1,127 +1,229 @@
 # Il disegno di collaudo
 
-Una stampa sola, su quasi tutta l'area, da cui si tirano fuori **otto numeri**
-diversi. Si genera con `webui/tools/test-macchina.js`, e si genera **dopo** aver
-montato il modulo penna: gli servono la quota di contatto e l'alzata vere.
+Una stampa sola, su quasi tutta l'area, da cui si tirano fuori **undici cose**
+diverse. Ogni prova sta in un riquadro numerato: il numero sul foglio rimanda
+al paragrafo qui sotto.
 
 ```
 node webui/tools/test-macchina.js --svg prova.svg
 node webui/tools/test-macchina.js --gcode prova.gcode --contatto <Z> --alzata <mm>
 ```
 
-Campo 246 × 233 mm, cioè l'area percorribile meno un margine. Serve un foglio
-di misura libera — due A4 accostati, o un foglio da plotter tagliato.
+**Si genera dopo aver montato il modulo penna**, quando la quota di contatto e
+l'alzata sono numeri misurati. Campo **246 × 233 mm** — serve un foglio
+tagliato su misura.
 
-Strumenti: **riga d'acciaio da 300**, **calibro**, e gli occhi.
+Strumenti: **riga d'acciaio da 300**, **calibro**, una **lente** se ce l'hai.
 
 ---
 
-## Cosa misura ogni pezzo, e come si legge
+## L'ordine in cui si legge
 
-### 1. La cornice — l'area è tutta raggiungibile?
+Non è l'ordine dei numeri. Alcune prove invalidano le altre se vanno male:
 
-Il giro completo del campo. Se un lato non si chiude o la macchina va in
-battuta, le corse nel profilo sono sbagliate. Guarda anche **lo spessore del
-tratto sui quattro lati**: un lato più marcato è un lato dove il piano è più
-alto, ed è la prima occhiata al livellamento.
+1. **Prima la 11 (livello) e la 7 (stacchi).** Se il piano è storto o la penna
+   striscia, tutto il resto è misurato male e non vale la pena guardarlo.
+2. **Poi la 2 e la 3 (scala).** Correggono i numeri del profilo, e ogni misura
+   successiva cambia di conseguenza.
+3. **Poi 4, 6, 9 (squadro, gioco, ripetibilità).** Sono i difetti residui: o ci
+   si convive, o si compensano via software.
+4. **Per ultime 5, 8, 10 (cerchi, caratteri, velocità).** Confermano a occhio
+   quello che i numeri hanno già detto, e dicono dove stanno i limiti d'uso.
 
-### 2. I due righelli — la SCALA, un asse per volta
+---
 
-Tacche ogni 10 mm su 200, più alte ogni 50. **È la misura che tara i mm per
-giro ingranaggio.**
+## 1 — La cornice
 
-Appoggia la riga d'acciaio sopra, allinea lo zero, e leggi dove cade la tacca
-dei 200. Se cade a 199,4 il rapporto va corretto di `199,4/200`, e si inserisce
-nella tab Impostazioni → *Taratura disegnando*.
+**Cosa guardi:** il giro completo del campo.
 
-Guarda anche **come** sbaglia: un errore che cresce uniforme è il rapporto; uno
-scatto fra due tacche vicine è gioco o passi persi, ed è un problema diverso.
+**Cosa ti dice:** che tutta l'area è raggiungibile. Se un lato non si chiude o
+la macchina va in battuta, le corse nel profilo sono sbagliate.
 
-### 3. Il quadrato da 150 con le diagonali — l'ORTOGONALITÀ
+**Seconda lettura:** confronta **lo spessore del tratto sui quattro lati**. Un
+lato più marcato è un lato dove il piano è più alto. È la prima occhiata al
+livellamento, e anticipa la prova 11.
 
-Misura le due diagonali fra le crocette d'angolo, col calibro o con la riga.
+## 2 e 3 — Scala X e scala Y (e rettilineità)
 
-```
-errore di squadra (radianti) = (diagonale1 − diagonale2) / (1,414 × 150)
-```
+**Cosa misuri:** appoggia la riga d'acciaio sopra il righello, allinea lo zero
+con la prima tacca, e **leggi dove cade la tacca dei 200** (dei 190 sull'asse Y).
 
-Mezzo grado di fuori squadra fa 1,3 mm sull'angolo di un A5 — più di tutti gli
-altri errori messi insieme, e si compensa via software una volta misurato.
+**Cosa ti dice:** è **la misura che tara i mm per giro ingranaggio**. Se la
+tacca dei 200 cade a 199,4, il rapporto va moltiplicato per `199,4 / 200`. Il
+numero si inserisce nella tab Impostazioni → *Taratura disegnando*, un asse per
+volta.
 
-### 4. I tre cerchi — scala e gioco, a colpo d'occhio
+**Seconda lettura — come sbaglia, non solo quanto:**
 
-- **Esce un'ellisse** → i mm per giro dei due assi non coincidono, e il verso
-  dell'ellisse dice quale asse è lungo.
-- **Scalini nei quattro punti** dove un asse inverte il moto → è il gioco.
-- Tre raggi perché un errore di scala **cresce col raggio** e un gioco no: se i
-  tre scalini sono uguali è gioco, se crescono è scala.
-
-### 5. I nove nodi a gradini — la MAPPA DEL LIVELLAMENTO
-
-Quattro trattini affiancati per nodo, ognuno **0,30 mm più in alto** del
-precedente — un gradino per volta, perché 0,30 è la banda morta del servo e più
-fine di così si misurerebbe il rumore.
-
-**Conta i trattini che hanno segnato:**
-
-| trattini | vuol dire |
+| cosa vedi | cosa è |
 |---|---|
-| 0 | piano **più basso** del contatto: lì la penna non tocca |
-| 1 | piano alla quota giusta |
-| 2 | piano alto di ~0,3 mm |
-| 3 | piano alto di ~0,6 mm |
-| 4 | piano alto di ~0,9 mm o più |
+| errore che cresce uniforme lungo il righello | il **rapporto**: si corregge col numero |
+| uno scatto fra due tacche vicine | **gioco** o **passi persi**: un problema diverso, vedi 6 e 10 |
+| tacche giuste ma linea di base **curva** | **rettilineità**: la trave flette o il portale imbarda |
 
-Nove punti — quattro angoli, quattro lati, centro — perché tre bastano a
-definire un piano, ma servono di più per vedere una **svergolatura**, che è
-diversa da un'inclinazione e non si corregge allo stesso modo.
+La riga di base è lunga 200 mm apposta: appoggiandoci la riga d'acciaio si
+legge la rettilineità di quell'asse nello stesso gesto.
 
-**Perché conta tanto su questa macchina:** il modulo penna non ha molla, la
+## 4 — Squadro
+
+**Cosa misuri:** le **due diagonali** fra le crocette d'angolo, col calibro o
+con la riga. Le crocette ci sono perché fra due spigoli sfumati non si misura
+niente.
+
+**Il conto:**
+
+```
+errore di squadra (radianti) = (diagonale1 − diagonale2) / (1,414 × 128)
+gradi = radianti × 57,3
+```
+
+**Cosa ti dice:** quanto i due assi sono fuori squadra. Mezzo grado fa **1,3 mm**
+sull'angolo di un A5 — più di tutti gli altri errori messi insieme. Una volta
+misurato si compensa via software, quindi non è un difetto da correggere a
+mano: è un numero da prendere.
+
+## 5 — Cerchi
+
+**Cosa guardi:** i tre cerchi, a occhio e con la riga.
+
+| cosa vedi | cosa è |
+|---|---|
+| esce un'**ellisse** | i mm per giro dei due assi non coincidono. Il verso dell'ellisse dice quale asse è lungo |
+| **scalini** nei quattro punti dove un asse inverte il moto | è il **gioco** |
+| scalini **uguali** sui tre raggi | gioco |
+| scalini che **crescono** col raggio | scala, non gioco |
+
+Tre raggi diversi servono proprio a questo: un errore di scala cresce col
+raggio, un gioco no.
+
+## 6 — Gioco
+
+**Cosa misuri:** col calibro, **lo scarto orizzontale fra una tacca della fila
+di sopra e la sua gemella di sotto**.
+
+La fila di sopra è disegnata percorrendo l'asse in avanti, quella di sotto
+tornando indietro. Quello scarto *è* il gioco d'ingranamento.
+
+**Previsione dal CAD: 0,30 mm.** Se le due file si allineano a occhio, il gioco
+sta sotto il decimo e la previsione era pessimista.
+
+**Cosa ci fai:** non si compensa — non c'è un secondo riferimento con cui sapere
+da che parte del gioco ci si trova. È il **limite di ripetibilità**: una linea
+ripassata nel verso opposto può cadere fin lì di lato, e nessuna taratura lo
+toglie.
+
+## 7 — Stacchi
+
+**Cosa guardi:** i trattini separati da spazi, e **gli spazi**.
+
+| cosa vedi | cosa è | cosa fai |
+|---|---|---|
+| segni o strisciate negli spazi | la penna non fa in tempo ad alzarsi | alza la **pausa** della penna, o l'**alzata** |
+| un pallino all'inizio di ogni trattino | la penna si appoggia e aspetta ferma | abbassa la pausa |
+| spazi puliti e trattini netti | pausa e alzata vanno bene | niente |
+
+I trattini della fila di sotto sono più corti: se la penna sbava, su quelli
+corti si vede prima.
+
+## 8 — Caratteri
+
+**Cosa guardi:** la stessa scritta a 5, 4, 3, 2,5 e 2 mm. Trova **la più
+piccola che resta leggibile**.
+
+**Cosa ti dice:** la risoluzione utile della macchina **con quella penna**. Non
+è un dato della macchina da sola: cambiando pennarello cambia. A 2 mm, con una
+punta da 0,4, sono cinque larghezze di tratto — lì sotto non è la macchina a
+non farcela, è il pennarello.
+
+## 9 — Ripetibilità
+
+Due colonne di otto trattini. Ogni trattino è disegnato arrivando **da lontano**,
+e gli otto sono impilati uno sopra l'altro: se stessero sovrapposti non si
+saprebbe nemmeno quanti ne sono stati disegnati.
+
+**Colonna «SEMPRE DA SX»:** si arriva sempre dalla stessa parte, quindi il
+gioco è sempre preso dallo stesso verso e **resta fuori dalla misura**.
+
+- **bordo verticale netto** → la macchina ripete meglio della larghezza del
+  tratto: la ripetibilità è sotto i due decimi
+- **bordo seghettato** → misura la larghezza della banda col calibro, meno la
+  larghezza del tratto: quella è la **ripetibilità**
+
+**Colonna «ALTERNATO»:** si arriva un colpo da destra e uno da sinistra, quindi
+il gioco entra nella misura. La banda sarà più larga.
+
+**La differenza fra le due bande è il gioco**, ed è una **seconda lettura
+indipendente** da quella della prova 6. Se i due numeri non tornano, uno dei
+due è sbagliato — e di solito è quello preso col calibro su tacche sottili.
+
+## 10 — Velocità
+
+Quattro righe lunghe uguali, disegnate a **600, 1200, 2400 e 4800 mm/min**, fra
+due righe verticali che le tagliano tutte.
+
+**Cosa guardi:** se ogni riga **tocca** la verticale d'arrivo.
+
+| cosa vedi | cosa è |
+|---|---|
+| una riga non arriva alla verticale | a quella velocità il motore **perde passi** |
+| una riga la supera | idem, nell'altro verso |
+| tutte arrivano, ma le veloci sono più chiare | il pennarello non fa in tempo a rilasciare inchiostro |
+
+**Cosa ci fai:** la velocità massima di lavoro va messa **sotto** quella in cui
+compare il problema, con un buon margine. È il numero che va nel profilo come
+*velocità di disegno*.
+
+Le righe sono lunghe 100 mm di proposito: con 200 mm/s² di accelerazione
+servono 16 mm solo per arrivare a 80 mm/s, quindi su un tratto corto la
+macchina non raggiunge mai la velocità che le hai chiesto e la prova non
+misurerebbe niente.
+
+## 11 — Livello
+
+**L'unica prova che non sta in un riquadro, e non può starci:** deve campionare
+tutta l'area, quindi i **nove nodi** sono sparsi dentro gli altri riquadri, nei
+punti vuoti. Ognuno è marcato `11`.
+
+In ogni nodo ci sono **quattro trattini affiancati**, ognuno **0,30 mm più in
+alto** del precedente.
+
+**Cosa fai: conta i trattini che hanno segnato.**
+
+| trattini | il piano lì è |
+|---|---|
+| **0** | **più basso** del contatto: la penna non tocca |
+| **1** | alla quota giusta |
+| **2** | alto di ~0,3 mm |
+| **3** | alto di ~0,6 mm |
+| **4** | alto di ~0,9 mm o più |
+
+Scrivi i nove numeri su uno schizzo del foglio: quella è la **mappa del piano**.
+
+**Come si legge la mappa:**
+
+- numeri che **crescono in una direzione** → il piano è inclinato. Si corregge
+  spessorando da un lato
+- numeri alti agli angoli e bassi al centro (o viceversa) → il piano è
+  **imbarcato**, e lo spessoramento non basta
+- angoli opposti alti e gli altri due bassi → il piano è **svergolato**, ed è
+  il caso peggiore: non esiste un piano che passi per tutti e quattro
+
+**Perché conta tanto su questa macchina:** il modulo penna **non ha molla**, la
 penna in Z è rigida. Il fuori-piano non si assorbe — dove il piano scende la
-penna non tocca, dove sale preme.
-
-### 6. Il doppio pettine — il GIOCO in millimetri
-
-La stessa serie di tacche disegnata due volte: la fila sopra percorrendo l'asse
-in avanti, quella sotto tornando indietro. **Lo scarto orizzontale fra una
-tacca e la sua gemella è il gioco.** Si misura col calibro. Se le due file si
-allineano, il gioco sta sotto il decimo. La previsione dal CAD è **0,30 mm**.
-
-### 7. Gli stacchi — la PAUSA del servo e l'alzata
-
-Dodici trattini separati da spazi.
-
-- **Segni negli spazi** → la penna non fa in tempo ad alzarsi: alza la pausa, o
-  l'alzata non basta a scavalcare il fuori-piano.
-- **Un pallino all'inizio di ogni trattino** → la penna si appoggia e aspetta
-  ferma: la pausa è più lunga del necessario.
-
-### 8. La scala dei caratteri — il dettaglio minimo
-
-La stessa scritta a 5, 4, 3, 2,5 e 2 mm. Il più piccolo che resta leggibile è
-la risoluzione utile della macchina **con quella penna**. A 2 mm, con una punta
-da 0,4, sono cinque larghezze di tratto: lì sotto non è la macchina a non
-farcela, è il pennarello.
-
-### 9. Le due rette lunghe — la RETTILINEITÀ
-
-Una per asse, lontane dai bordi. Riga d'acciaio sopra e si guarda controluce.
-Una linea che s'incurva non è errore di scala: è la trave che flette o il
-portale che imbarda mentre avanza. I due si distinguono perché **il primo piega
-una linea sola, il secondo le piega tutte nello stesso verso.**
+penna non tocca, dove sale preme. Il gradino è 0,30 mm perché è la banda morta
+del servo: più fine di così il servo non sa muoversi, e si misurerebbe il
+rumore.
 
 ---
 
-## L'ordine in cui si leggono
+## Dopo: cosa finisce nel profilo
 
-Prima **il livellamento** (5) e **gli stacchi** (7): se il piano è storto o la
-penna striscia, tutto il resto è misurato male.
-
-Poi **la scala** (2), perché corregge i numeri del profilo e cambia ogni misura
-successiva.
-
-Poi **ortogonalità** (3), **gioco** (6) e **rettilineità** (9), che sono i
-difetti residui con cui si convive o che si compensano.
-
-I **cerchi** (4) e i **caratteri** (8) si guardano per ultimi: confermano a
-occhio quello che i numeri hanno già detto.
+| prova | numero che ne esce | dove va |
+|---|---|---|
+| 2, 3 | mm per giro ingranaggio, per asse | Impostazioni → Trasmissione |
+| 4 | errore di squadra | da compensare nel generatore (non c'è ancora il campo) |
+| 6, 9 | gioco | Impostazioni → Trasmissione, in sola lettura |
+| 7 | pausa della penna, alzata | Impostazioni → Profilo di stampa / Penna |
+| 9 | ripetibilità | Impostazioni → Homing |
+| 10 | velocità di disegno | Impostazioni → Profilo di stampa |
+| 11 | mappa del piano | non è un campo: è un intervento meccanico |
