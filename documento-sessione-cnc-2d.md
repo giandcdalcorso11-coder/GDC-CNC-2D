@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 42
-**Ultimo aggiornamento:** 2026-10-19 12:38
+**Versione:** 43
+**Ultimo aggiornamento:** 2026-10-20 20:43
 
 ## Regole di co-editing
 
@@ -240,7 +240,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
 
-**Stato:** in corso
+**Stato:** in corso — dal 2026-10-20 l'applicazione è **completa a monte**: profilo macchina e profili di stampa, tab Impostazioni, pannello manuale, tre popup di inizio stampa, generazione del `config.yaml`. Restano due cose, e tutte e due aspettano FluidNC acceso: l'**invio del programma alla macchina** e il **caricamento della pagina sull'ESP32**
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
 
@@ -287,6 +287,12 @@ mano a mano che le misure arrivano):
 - [2026-09-24] Resta da fare: invio del programma alla macchina, avanzamento in tempo reale, caricamento della pagina sull'ESP32, conversione da fotografia a tracciato
 - [2026-10-15] **Battezzata GDC CNC 2D SLICER** su proposta dell'utente, e stabilito che la tab Impostazioni va riprogettata bene prima di riprendere il resto: è lì che finiranno tutte le misure di taratura, e progettarla male significa doverla rifare dopo averci messo dentro i numeri
 - [2026-10-15] Registrato che **il firmware della dashboard espone un solo passi/mm** per entrambi gli assi (`stepsPerMm()`, calcolato da `MM_PER_REV`): va separato per asse prima della taratura
+- [2026-10-20] **Nomenclatura concordata con l'utente prima di scrivere il codice**, e messa in `misure/impostazioni-glossario.md`. Due profili (macchina e stampa), «mm per giro ingranaggio» per asse, corsa totale / corsa percorribile / margine di sicurezza come tre parole distinte, «punto ai blocchi» e «punto home», «altezza di contatto col foglio». Il glossario si cambia **prima** del codice
+- [2026-10-20] **Tab Impostazioni ricostruita** sul modello del profilo: binding per percorso (`data-bind`), etichette di provenienza su ogni campo, generatore di `config.yaml`, esportazione e importazione JSON, taratura del rapporto da una figura disegnata
+- [2026-10-20] **Pannello manuale scritto come componente** (`webui/js/panel.js`) e montato in tre posti, come previsto dalla decisione del 2026-10-19. Verificato sulla documentazione FluidNC: `$MD` libera i motori, e **non esiste un comando per riaccenderli** — li riaccende il primo movimento. Conseguenza di progetto: «Homing completato» manda un jog da 0,01 mm e subito dopo `G92`, in quest'ordine
+- [2026-10-20] **Tre popup di inizio stampa** (`webui/js/popup.js`), ognuno col suo blocco e col motivo scritto. Il programma si **rigenera dopo il terzo**, perché l'origine del foglio sposta le coordinate e l'altezza di contatto sposta la Z
+- [2026-10-20] **La pausa della penna è arrivata nel G-code.** Il numero stava nel profilo dal 19 e il generatore non lo usava
+- [2026-10-20] **Resta da fare:** invio del programma alla macchina, caricamento della pagina sull'ESP32, conversione da fotografia a tracciato. L'invio si scrive quando FluidNC sarà acceso: scriverlo adesso sarebbe codice di rete non collaudato su un protocollo mai visto rispondere
 - [2026-10-19] **Procedura di accensione e taratura scritta per intero** in `misure/accensione-e-taratura.md`, su richiesta dell'utente. Due fasi distinte: **Fase A** (una volta, produce il profilo macchina) e **Fase B** (ogni stampa). Apre con una tabella di cosa esiste davvero oggi, perché è una procedura di arrivo e seguirla adesso non funzionerebbe. Tre cose emerse scrivendola, tutte nuove:
   1. **I tre angoli del servo si rilevano con la dashboard, prima di flashare FluidNC**, e non dopo: la dashboard ha lo slider, lo stato `free` all'accensione e la rampa di avvicinamento, FluidNC nessuno dei tre. Flashare FluidNC cancella la dashboard, quindi l'ordine non è reversibile a costo zero.
   2. **Al primo avvio di FluidNC la penna va togliersi dai morsetti.** FluidNC porta l'asse Z alla posizione zero all'avvio, e con la mappatura prevista lo zero è *penna appoggiata*: con la penna montata la punta scende a premere sul piano. Da osservare al primo avvio; se il movimento è brusco si invertono `min_pulse_us` e `max_pulse_us` così lo zero diventa la posizione alzata e l'avvio è sempre nella direzione innocua.
@@ -433,6 +439,7 @@ mano a mano che le misure arrivano):
 - [2026-10-15] **Macchina montata.** Tagliata la staffa LL — l'unico taglio del progetto senza seconda possibilità — e assemblato il portale sulla base. I due assi si muovono dalla dashboard vecchia, le quattro frecce vanno nel verso giusto, la struttura è rigida e i motori non faticano. Il disallineamento delle rotaie è stato **risolto in montaggio**, quindi i 22,9 mm di corsa che costava sono recuperati sulla macchina vera (nell'assieme CAD va ancora riportato)
 - [2026-10-15] **Gli assi cambiano nome** per allinearsi alla convenzione del foglio: la trave del portale diventa X, le rotaie di base diventano Y. Vedi le Convenzioni in testa alla Pipeline — e attenzione che tutte le note qui sopra usano i nomi vecchi
 - [2026-10-15] **Le misure di taratura sono rinviate al modulo penna, per decisione dell'utente.** Non è un rinvio a vuoto: col modulo penna la taratura si fa disegnando una linea lunga e misurandola, che è una misura di tutta la catena in una volta e per asse, invece di una misura del solo passo della cremagliera. Il metodo col calibro resta scritto e valido in `misure/primo-asse.md` per il giorno in cui servisse separare i contributi
+- [2026-10-20] **Blocchi di riferimento stampati e montati**, uno per asse, agganciati alle staffe TT e LL. Spostano l'azzeramento da «a occhio» a ripetibile: l'appoggio ripete sotto la risoluzione del calibro, e il margine di sicurezza scende da 8 a 2 mm. Il blocco X è una sella senza viti, tenuta dalla forma; il blocco Y una piastra avvitata con due viti a 22,80 di passo. Misurato quanto si mangiano di corsa: **1,443 mm su X, zero su Y** — il blocco Y sta di fatto sulla battuta
 
 **Problemi aperti su questo step (al 2026-10-15):**
 - ~~Profondità del vano motore da verificare~~ — **risolto il 2026-09-26.** Il motore è un **pancake da 23,1 mm**, non un NEMA 17 standard da 34÷48: il vano da 23,5 mm è quindi corretto e le viti posteriori arrivano eccome al coperchio. Resta però **0,4 mm di gioco assiale**, che è più dei ±0,17 mm di tolleranza di centraggio della doppia elica: il motore va messo **in battuta sulla parete anteriore** (che è il riferimento della quota del pignone) con **due rondelle piane M3 da 0,5 mm** fra coperchio posteriore e parete posteriore, così le viti di dietro lo spingono in avanti invece di tirarlo indietro. Resta da verificare la profondità dei fori filettati posteriori (spesso 4÷5 mm) per scegliere la lunghezza delle viti
@@ -541,6 +548,91 @@ mano a mano che le misure arrivano):
 - [2026-10-16] **Pignone grande o piccolo, per la forza del servo: non è un criterio.** Forza alla cremagliera = coppia / raggio. Con 1,8 kg·cm (≈177 N·mm) e r = 18,750 escono **9,4 N**; con r = 10,5 (z14) 16,9 N. Ma la massa flottante da sollevare è 0,55÷0,60 N, quindi il margine è **15×** già col pignone grande. Quello che il pignone grande compra davvero: la cremagliera cade sulla parete di `pz2` invece che su una mensola (meno massa flottante, che è il parametro fuori budget) ed è **1,8× più veloce** nell'alzata (0,051 s contro 0,091 per 10 mm), il che però conta poco contro il tempo di assestamento. Criterio vero: la geometria, non la coppia
 
 ## Storico sessioni
+
+### [2026-10-20 20:43] (software) Il SLICER diventa usabile: due profili, il pannello manuale, i tre popup — e i blocchi di homing trasformano otto millimetri di prudenza in due
+
+**Riepilogo:** concordata con l'utente la nomenclatura di ogni numero della macchina e costruito sopra tutto il resto — modello a due profili, tab Impostazioni, pannello manuale riusabile, tre popup di inizio stampa, homing a mano nel firmware — mentre i blocchi di riferimento stampati dall'utente trasformano l'appoggio in una misura ripetibile, e una procedura che avevo scritto io si rivela impossibile.
+
+**Cosa è stato fatto:**
+
+- **Nomenclatura concordata prima di scrivere codice**, su richiesta dell'utente ("dopo che ci siamo allineati sul come chiamare ogni cosa iniziamo a lavorare"). Sei domande, sei risposte, e il risultato sta in `misure/impostazioni-glossario.md`: è il file che si cambia **prima** del codice, non dopo
+- **Modello del profilo riscritto (schema 2)**: due profili separati, `macchina` e `stampa`, più una libreria di profili di stampa con nome. Migrazione automatica dallo schema 1, così le corse misurate ieri non si perdono
+- **La corsa si conserva in passi**, e la scoperta che l'ha imposto: le due misure del DRO — 257,532 e 243,041 mm — valgono **esattamente 8744 e 8252 passi**, interi a meno di due centesimi. Il DRO non misura millimetri, conta passi e li divide per il rapporto nominale
+- **Tab Impostazioni ricostruita** sul profilo: ogni input porta nel `data-bind` il percorso del campo, quindi aggiungere un numero vuol dire aggiungere un input e basta. Ogni campo mostra **da dove viene** (misurato / scelto / calcolato / da misurare), genera `config.yaml`, esporta e importa i profili in JSON, e applica la taratura del rapporto da una figura disegnata
+- **La pausa della penna è finita nel G-code**: il numero stava nel profilo dal 19 e il generatore lo ignorava. Senza, a 50 mm/s si sbavano quattro millimetri di tratto a ogni abbassata
+- **Homing a mano nel firmware della dashboard**, su richiesta dell'utente e con la sua motivazione, che è migliore di quella che avevo dato io: la coppia di uno stepper basta a spostare il blocco stampato, cioè a spostare **proprio la cosa che definisce la misura**. Due pulsanti, «Libera i motori» e «Homing completato», con l'ordine obbligato — riattiva prima, azzera poi
+- **Flag `posNota` nel firmware**: la posizione dice quando non è nota, all'accensione e dopo ogni liberazione dei motori. Un numero sbagliato è peggio di nessun numero
+- **Blocchi di riferimento progettati, stampati e montati dall'utente**, uno per asse. Analizzati i due STEP: il blocco Y è una piastra trapezoidale 24,80 × 48,00 × 22,00 con due fori Ø5 a 22,80 di passo; il blocco X è una sella 74,70 × 19,00 × 45,20 **senza nessun foro**, tenuta dalla forma
+- **Misurate corsa dall'home e ripetibilità** (vedi Decisioni): il margine di sicurezza scende da 8,0 a 2,0 mm per asse, e l'area di lavoro passa da 249,5 × 235,0 a **254,1 × 241,0**
+- **Pannello manuale come componente riusabile** (`webui/js/panel.js`), montato nella barra laterale, in una tab dedicata e dentro i tre popup. Verificato sulla documentazione FluidNC che `$MD` libera i motori e che **nessun comando li riaccende** — li riaccende il primo movimento: quindi «Homing completato» manda un jog da un centesimo di millimetro e subito dopo `G92`
+- **Tre popup di inizio stampa** (`webui/js/popup.js`). Ogni passo si sblocca da sé quando la sua condizione diventa vera e, quando è bloccato, **dice perché**. Il controllo che vale di più è quello del passo 2: confermare a penna alzata manderebbe in stampa un disegno fatto a mezz'aria, e non se ne accorgerebbe nessuno finché il foglio non esce bianco
+- **Il programma si rigenera dopo il terzo passo**, non prima: l'origine del foglio sposta le coordinate e l'altezza di contatto sposta la Z
+- **L'app pubblicata come pagina privata** perché l'utente possa provarla dal browser senza macchina, in modalità finta
+
+**Bug: la ripetibilità dell'homing non si misura col DRO**
+
+**Sintomo:** la procedura che avevo scritto in quattro file diceva «appoggia il carrello al blocco cinque o sei volte azzerando ogni volta, e guarda di quanto ballano i passi». Seguendola non si ottiene nessun numero.
+**Causa:** per ripetere l'appoggio bisogna liberare i motori, e liberare i motori è **esattamente il gesto che cancella quello che il contatore sa**. Non c'è ordine delle operazioni che lo aggiri: uno stepper è ad anello aperto, conta gli impulsi che gli arrivano, e di uno spostamento a mano non sa niente. È lo stesso fatto su cui era costruito tutto il resto del lavoro della giornata, applicato male a una misura.
+**Fix applicato:** sostituita con due procedure che funzionano — la corsa dall'home si legge col DRO (azzera sul blocco, vai all'altra battuta), la ripetibilità si misura **col calibro**, da un riferimento fisso alla faccia del carrello. Corretta in `profile.js`, nella tab Impostazioni, nel glossario e nella procedura di accensione. **Verificato:** l'utente ha usato il metodo col calibro e ha riportato «le misure sono sempre uguali».
+
+**Bug: l'impulso singolo contava anche a driver spenti**
+
+**Sintomo:** con i driver disabilitati, ogni click del passo singolo incrementava il contatore di 0,0295 mm mentre il motore non si muoveva. La posizione si falsava silenziosamente, un click alla volta.
+**Causa:** `handleMotorStep()` non controllava `driverEnabled`. L'A4988 ignora lo STEP quando ENABLE è alto, ma il firmware contava lo stesso.
+**Fix applicato:** guardia `driverLiberi()` su tutti i comandi di movimento, che risponde «motori liberi» invece di fingere. **Da confermare sulla macchina:** il firmware è stato flashato, ma questo caso specifico non è stato riprovato.
+
+**Bug: un movimento avviato a driver spenti restava in coda e sarebbe ripartito da solo**
+
+**Sintomo:** avviando un movimento continuo con i driver disabilitati, l'asse risultava «in movimento» per sempre; alla riabilitazione dei driver sarebbe partito da solo.
+**Causa:** `serviceMotorISR()` usciva prima di decrementare `stepsRemaining`, quindi il movimento non si chiudeva mai.
+**Fix applicato:** stessa guardia, più `setMotorsEnabled(false)` che ferma entrambi i motori prima di spegnerli. **Da confermare sulla macchina.**
+
+**Decisioni prese:**
+
+- **Contesto:** l'utente ha chiesto profili di stampa «un po' come per i profili di stampa di Bambu Studio».
+  **Decisione:** **due profili separati**, `macchina` (trasmissione, corse, dinamica, estremi del servo, homing) e `stampa` (foglio, velocità di lavoro, pausa della penna), il secondo in quanti se ne vuole con un nome.
+  **Alternative scartate:** un profilo unico, che era la forma del 2026-10-19. Costringeva a rifare le misure della macchina ogni volta che si cambia carta.
+  **Da rivedere se:** si scoprisse che qualche numero appartiene a entrambi.
+
+- **Contesto:** il DRO legge millimetri, ma quei millimetri dipendono dal rapporto, che non è ancora tarato.
+  **Decisione:** **nel profilo la corsa si conserva in passi**, e i millimetri sono un campo calcolato.
+  **Alternative scartate:** salvare i millimetri. Il giorno della taratura il valore in millimetri cambia pur non avendo toccato la macchina: salvandolo si congelerebbe l'interpretazione sbagliata e si butterebbe via la misura.
+  **Da rivedere se:** mai — è una proprietà del modo in cui la macchina misura, non una preferenza.
+
+- **Contesto:** gli 8 mm di margine di sicurezza erano stati scelti a occhio per coprire l'errore con cui si parcheggiava l'origine a mano.
+  **Decisione:** **margine a 2,0 mm per asse.** Misure dell'utente coi blocchi montati: corsa dall'home 256,089 su X e 243,071 su Y, contro 257,532 e 243,041 da battuta a battuta — quindi il blocco X mangia 1,443 mm e il blocco Y **zero** (misurato −0,030, cioè un passo: rumore). La ripetibilità dell'appoggio non si legge col calibro, registrata 0,05 e non 0 perché «sotto la risoluzione dello strumento» e «zero» sono due cose diverse.
+  **Supera la decisione del:** 2026-10-19 (margine 8 mm) — quel termine copriva l'errore di parcheggio, che coi blocchi non esiste più. Restano il gioco della cremagliera (0,30) e l'incertezza su dove sia davvero la battuta lontana, che il conteggio gonfia perché spingendoci contro il motore slitta e il contatore no.
+  **Da rivedere se:** la battuta lontana venisse rimisurata con un avvicinamento dolce, che toglierebbe l'unica voce grossa rimasta.
+
+- **Contesto:** richiesta dell'utente, «per cautela».
+  **Decisione:** **il punto ai blocchi e il punto home sono due punti distinti.** Lo zero resta il punto ai blocchi; finito l'azzeramento la macchina si sposta da sola al punto home, a 5 mm da entrambi.
+  **Motivo (dell'utente):** un carrello lasciato appoggiato al blocco prima o poi lo sposta, e il blocco è proprio la cosa che non si deve muovere. Motivo che viene dietro: allontanandosi sempre nello stesso verso, il gioco viene preso da una parte sola.
+  **Da rivedere se:** i 5 mm risultassero scomodi — è un campo del profilo, non una costante.
+
+- **Contesto:** dopo aver misurato l'angolo del foglio, lo si poteva ancora trascinare sullo schermo.
+  **Decisione:** **il foglio misurato si blocca**, con un lucchetto che dice quale dei due stati vale; premendolo si scarta la misura.
+  **Alternative scartate:** lasciarlo trascinabile. Il disegno sarebbe uscito spostato sulla carta vera senza che niente lo dicesse.
+
+- **Contesto:** l'invio del programma alla macchina è l'ultimo pezzo mancante del SLICER.
+  **Decisione:** **si scrive quando FluidNC sarà acceso**, non prima. Il codice dichiara che non c'è invece di far finta, e il programma resta scaricabile.
+  **Alternative scartate:** scriverlo adesso al buio. Sarebbe codice di rete non collaudato su un protocollo che non abbiamo mai visto rispondere.
+
+**File consegnati/modificati:**
+
+- `misure/impostazioni-glossario.md` — **nuovo**, i nomi di ogni numero
+- `webui/js/profile.js` — riscritto, schema 2 con due profili e migrazione
+- `webui/js/panel.js` — **nuovo**, il pannello manuale riusabile
+- `webui/js/popup.js` — **nuovo**, i tre popup di inizio stampa
+- `webui/js/settings.js` — riscritto sul modello del profilo
+- `webui/js/paper.js`, `state.js`, `api.js`, `app.js`, `jog.js`, `artwork.js`, `gcode.js`
+- `webui/index.html`, `webui/css/base.css`, `webui/css/components.css`
+- `firmware/cnc2d_dashboard/cnc2d_dashboard.ino` e il suo `README.md` — homing a mano, `posNota`, tre guardie
+- `misure/accensione-e-taratura.md` — Fase B riscritta sui gesti veri
+- `firmware/fluidnc/cnc2d-config.yaml` — intestazione: da qui in poi è **generato**
+
+**Impatto su Vision/Pipeline:** Step 4 avanza molto (profilo, impostazioni, pannello, popup); restano **invio del programma** e **caricamento della pagina sull'ESP32**. Step 3 invariato: FluidNC non è ancora mai stato acceso sulla macchina montata, e il `config.yaml` adesso si genera dal profilo invece di essere scritto a mano. Step 5: aggiunti i blocchi di riferimento, che spostano l'homing da «a occhio» a «ripetibile».
+
+---
 
 ### [2026-10-19 12:38] (meccanica) Il cantiere software si apre, e tre numeri sbagliati vengono a galla: il rapporto della cinghia, i pin degli assi, e un metodo di misura che non teneva
 
