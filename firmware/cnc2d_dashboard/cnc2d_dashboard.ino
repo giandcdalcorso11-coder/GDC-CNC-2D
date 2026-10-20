@@ -725,15 +725,22 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
     <div class="slider-label"><span>Angolo</span><b id="lbl-pen-live">90&deg;</b></div>
     <input type="range" id="pen-live" min="0" max="180" step="1" value="90" oninput="penLive()">
     <div class="axis-run">
+      <button onclick="penNudge(-1)">&minus;1&deg;</button>
+      <button onclick="penNudge(1)">+1&deg;</button>
+    </div>
+    <div class="axis-run">
       <button onclick="penSet('up')">Alza</button>
       <button onclick="penSet('down')">Abbassa</button>
       <button onclick="penSet('free')">Rilascia</button>
     </div>
     <p class="status" id="pen-status" style="margin-top:8px">--</p>
     <p class="hint">Lo slider muove il servo mentre lo trascini, senza salvare niente: serve a
-      vedere dove va la penna. Gli angoli di lavoro alzata/abbassata si tarano e si salvano
-      nella tab Motore, insieme alla dolcezza del movimento. "Rilascia" toglie il segnale e
-      il servo si ammorbidisce.</p>
+      vedere dove va la penna. I due pulsanti da un grado servono per le <b>misure</b>: un grado
+      vale 0,327 mm di penna, ed &egrave; il passo giusto per trovare la battuta dei cuscinetti e
+      il punto in cui la punta tocca. Sotto il grado non ha senso andare &mdash; la banda morta
+      del servo vale circa un grado da sola. Gli angoli di lavoro alzata/abbassata si tarano e si
+      salvano nella tab Motore, insieme alla dolcezza del movimento. "Rilascia" toglie il segnale
+      e il servo si ammorbidisce.</p>
   </div>
 
   <div class="axis-card" style="margin-top:12px">
@@ -1077,6 +1084,17 @@ function penLive(){
 
 function penSet(state){
   fetch('/api/pen/set?state=' + state);
+}
+
+/* Un grado alla volta, per le misure. Parte dall'angolo mostrato dallo slider,
+   non da quello dell'ultimo stato ricevuto: altrimenti due click veloci
+   finirebbero sullo stesso punto di partenza e il secondo non farebbe niente. */
+function penNudge(d){
+  var v = parseInt($('pen-live').value, 10) + d;
+  if (v < 0) v = 0;
+  if (v > 180) v = 180;
+  $('pen-live').value = v;
+  penLive();
 }
 
 function penToggle(){

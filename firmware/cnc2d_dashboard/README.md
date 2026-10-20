@@ -86,6 +86,13 @@ senza salvare niente. Serve a vedere dove finisce la penna e a trovare gli estre
 prima di fissarli. Gli angoli di lavoro (alzata/abbassata) si tarano e si salvano nella
 tab Motore; questo slider non li tocca.
 
+Sotto lo slider ci sono **−1° e +1°**, ed è con quelli che si fanno le misure: un grado
+vale **0,327 mm di penna**, ed è il passo giusto per cercare la battuta dei cuscinetti e
+il punto in cui la punta tocca il foglio. Sotto il grado non ha senso andare: la banda
+morta del servo SG90 vale circa un grado da sola (10 µs su 2000 µs per 180°), quindi un
+comando da mezzo grado può non produrre nessun movimento. Trascinando lo slider si perde
+il conto; premendo si sa sempre a che angolo si è.
+
 **Prove d'insieme**: due pulsanti, `Quadrato 40 mm` e `Cerchio R20`, che eseguono le stesse
 due figure dei file in `gcode/test/` — penna compresa, stesse pause — senza interprete G-code.
 Partono dal punto in cui si trova la macchina e ci tornano alla fine. Servono solo a vedere
