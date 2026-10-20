@@ -65,6 +65,7 @@ var Paper = (function () {
     var a = State.data.area;
     var fuori = o.x < 0 || o.y < 0 || o.x + p.w > a.w || o.y + p.h > a.h;
     layerSheet.firstChild.classList.toggle('sheet-out', fuori);
+    layerSheet.firstChild.classList.toggle('sheet-fisso', State.data.foglioMisurato);
 
     /* Un decimale: l'area è un numero CALCOLATO (corsa percorribile, cioè
        passi diviso rapporto), quindi ha tutti i decimali del mondo. Stamparli
@@ -187,6 +188,9 @@ var Paper = (function () {
     var grab = null;
 
     layerSheet.addEventListener('pointerdown', function (e) {
+      /* Foglio misurato = foglio fermo. Trascinarlo dopo averlo misurato
+         sposterebbe il disegno sulla carta vera senza che niente lo dica. */
+      if (State.data.foglioMisurato) return;
       var rect = e.target.closest('.sheet');
       if (!rect) return;
       var m = toMm(e);
@@ -221,6 +225,41 @@ var Paper = (function () {
     document.getElementById('sheet-y').value = y;
     renderSheet();
     rebuildPath();
+  }
+
+  /* Il foglio passa da «posizione indicativa» a «posizione misurata» e
+     viceversa. Lo accende il terzo popup di inizio stampa; lo spegne solo una
+     richiesta esplicita, perché spegnerlo vuol dire buttare via una misura. */
+  function fissa(misurato) {
+    State.data.foglioMisurato = !!misurato;
+    State.emit('foglio');
+    renderSheet();
+    aggiornaLucchetto();
+  }
+
+  function aggiornaLucchetto() {
+    var b = document.getElementById('btn-lucchetto');
+    if (!b) return;
+    var m = State.data.foglioMisurato;
+    b.classList.toggle('is-fisso', m);
+    b.disabled = !m;
+    b.title = m
+      ? 'Sblocca: la posizione misurata del foglio viene scartata'
+      : 'Il foglio si fissa misurandone l\'angolo, al terzo passo della stampa';
+    b.innerHTML = (m
+      ? '<svg viewBox="0 0 12 14" width="11" height="12" aria-hidden="true">' +
+        '<path d="M3 6V4a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.3"/>' +
+        '<rect x="1.5" y="6" width="9" height="7" rx="1.2" fill="currentColor"/></svg>' +
+        ' Foglio fissato dalla misura'
+      : '<svg viewBox="0 0 12 14" width="11" height="12" aria-hidden="true">' +
+        '<path d="M3 6V4a3 3 0 0 1 6 0" fill="none" stroke="currentColor" stroke-width="1.3"/>' +
+        '<rect x="1.5" y="6" width="9" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>' +
+        ' Foglio non misurato');
+
+    ['sheet-x', 'sheet-y'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.disabled = m;
+    });
   }
 
   /* Rimette il foglio al centro dell'area: serve dopo aver cambiato formato,
@@ -265,6 +304,16 @@ var Paper = (function () {
 
     document.getElementById('btn-center-sheet').addEventListener('click', centerSheet);
 
+    document.getElementById('btn-lucchetto').addEventListener('click', function () {
+      if (!State.data.foglioMisurato) return;
+      fissa(false);
+      Log.add('msg', 'Posizione del foglio scartata: quella sullo schermo torna ' +
+                     'indicativa. Al prossimo avvio di stampa il terzo passo la ' +
+                     'rimisura.');
+    });
+
+    aggiornaLucchetto();
+
     enableDrag();
     apply();
   }
@@ -272,6 +321,6 @@ var Paper = (function () {
   return {
     init: init, setSize: setSize, refreshArea: refreshArea,
     setSheetOrigin: setSheetOrigin, centerSheet: centerSheet,
-    rebuildPath: rebuildPath
+    rebuildPath: rebuildPath, fissa: fissa
   };
 })();

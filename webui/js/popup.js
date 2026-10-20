@@ -32,8 +32,10 @@ var Popup = (function () {
         nome: 'Origine della macchina',
         sezioni: { posizione: true, homing: true, assi: true, penna: false },
         testo: 'Appoggia i due carrelli ai blocchi di riferimento, <b>a mano e ' +
-               'senza forzarli</b>, poi premi «Homing completato». Lo zero che ne ' +
-               'esce è l\'angolo in basso a sinistra della macchina.',
+               'senza forzarli</b>, poi premi «Homing completato». Quel punto — il ' +
+               '<b>punto ai blocchi</b> — diventa lo zero; subito dopo la macchina ' +
+               'si sposta da sola al <b>punto home</b>, qualche millimetro più in ' +
+               'là, per non lasciare i carrelli appoggiati al riferimento.',
         /* La penna si alza PRIMA di qualsiasi movimento: altrimenti la punta
            striscia sul foglio per tutto il posizionamento. */
         entra: function () { alzaPenna(); },
@@ -79,7 +81,11 @@ var Popup = (function () {
         esci: function () {
           alzaPenna();
           Paper.setSheetOrigin(State.data.pos.x, State.data.pos.y);
-          return controllaIngombro();
+          if (!controllaIngombro()) return false;
+          /* Da qui il foglio sullo schermo non è più un'ipotesi: è dove sta
+             davvero, e si blocca. */
+          Paper.fissa(true);
+          return true;
         }
       }
     ];

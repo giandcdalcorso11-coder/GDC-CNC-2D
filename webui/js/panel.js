@@ -37,9 +37,7 @@ var Panel = (function () {
            '<button class="btn btn-small pm-free">Libera i motori</button>' +
            '<button class="btn btn-small btn-primary pm-homed">Homing completato</button>' +
            '</div>' +
-           '<p class="muted small pm-nota-home">Appoggia i carrelli ai blocchi ' +
-           '<b>senza forzarli</b>, poi «Homing completato»: riattiva i motori e ' +
-           'azzera, in quest\'ordine. L\'origine è l\'angolo in basso a sinistra.</p>' +
+           '<p class="muted small pm-nota-home"></p>' +
            '</div>';
     }
 
@@ -181,8 +179,9 @@ var Panel = (function () {
         ? '<b class="pm-ko">Motori liberi.</b> Appoggia i carrelli ai blocchi ' +
           '<b>senza forzarli</b>, poi «Homing completato».'
         : 'Appoggia i carrelli ai blocchi <b>senza forzarli</b>, poi «Homing ' +
-          'completato»: riattiva i motori e azzera, in quest\'ordine. L\'origine ' +
-          'è l\'angolo in basso a sinistra.';
+          'completato»: riattiva i motori, azzera sul <b>punto ai blocchi</b> e si ' +
+          'sposta al <b>punto home</b>, in quest\'ordine. Lo zero resta il punto ' +
+          'ai blocchi, l\'angolo in basso a sinistra.';
     });
 
     /* La penna si muove in millimetri veri, non in gradi: la conversione la fa

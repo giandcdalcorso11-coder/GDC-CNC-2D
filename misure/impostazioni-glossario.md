@@ -135,10 +135,23 @@ Senza finecorsa elettrici, ma **con un riferimento fisico**: dei pezzi stampati
 che si agganciano alle staffe — sia TT (base) sia LL (trave) — contro cui si
 appoggiano i carrelli. Quello è il punto di homing.
 
+Due punti distinti, e non è pignoleria:
+
+| Nome | Dov'è | Cos'è |
+|---|---|---|
+| **Punto ai blocchi** | (0, 0) | dove i carrelli toccano i blocchi. **È lo zero**: tutte le coordinate partono da qui |
+| **Punto home** | (5, 5) | dove la macchina si mette appena finito l'azzeramento |
+
+Perché non coincidono: un carrello lasciato appoggiato al blocco prima o poi
+lo sposta, e il blocco è proprio la cosa che non si deve muovere. In più,
+allontanandosi sempre nello stesso verso, il gioco della cremagliera viene
+preso da una parte sola e il primo movimento vero parte da una condizione nota.
+
 | Nome sullo schermo | Chiave | Stato |
 |---|---|---|
 | Scostamento dalla battuta | `scostamento` | **da misurare**: quanto il blocco di homing sta dentro rispetto alla battuta meccanica |
 | Ripetibilità | `ripetibilita` | **da misurare**: di quanto balla la posizione ripetendo l'appoggio |
+| Punto home | `puntoHome` | **scelto**: 5 mm da entrambi i blocchi |
 
 Lo **scostamento** si ricava con la dashboard: azzera sul blocco, porta l'asse
 all'altra battuta, leggi. Quella è la **corsa disponibile dall'home**, e lo
@@ -236,6 +249,7 @@ spiega gli artefatti sul foglio.
 | Cosa | Dove sta | Perché |
 |---|---|---|
 | Origine macchina (homing) | stato del momento | un'origine salvata, dopo un riavvio, è un'origine che non vale più |
+| Foglio misurato sì/no | stato del momento | vale per il foglio di oggi: vedi sotto |
 | Altezza di contatto col foglio | stato del momento | dipende dal foglio di oggi |
 | Angolo in basso a sinistra del foglio | stato del momento | idem |
 | Mappa dei pin | costante nel generatore | è cablaggio, non taratura: un campo modificabile per i pin è un modo per rompersi la macchina da un menu |

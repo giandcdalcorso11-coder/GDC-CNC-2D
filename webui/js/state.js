@@ -39,6 +39,14 @@ var State = (function () {
        popup. `null` = non ancora misurata. */
     altezzaContatto: null,
 
+    /* Vero quando l'angolo del foglio è stato MISURATO sulla macchina, col
+       terzo popup. Da quel momento il foglio sullo schermo non è più una
+       posizione indicativa che si trascina dove si vuole: è dove sta davvero,
+       e trascinarlo vorrebbe dire buttare via la misura senza accorgersene.
+       Per questo si blocca, e per sbloccarlo bisogna dire esplicitamente che
+       la misura non vale più. */
+    foglioMisurato: false,
+
     art: null,               // il disegno caricato, quando ci sarà
     path: [],                // segmenti del percorso: {x1,y1,x2,y2,draw}
     origin: null,            // origine impostata a mano

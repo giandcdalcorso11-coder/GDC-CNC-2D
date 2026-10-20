@@ -144,7 +144,10 @@
               </g>
             </g>
           </svg>
-          <div class="stage-caption"><span id="stage-caption">—</span></div>
+          <div class="stage-caption">
+            <span id="stage-caption">—</span>
+            <button class="btn btn-ghost btn-small lucchetto" id="btn-lucchetto"></button>
+          </div>
         </div>
       </div>
     </section>
@@ -362,6 +365,18 @@
         <label><span class="flab">Ripetibilità Y (mm) <b class="prov prov-damis">da misurare</b></span>
           <input type="number" step="0.1" data-bind="macchina.homing.y.ripetibilita" data-null="1"></label>
       </div>
+      <div class="field-row">
+        <label><span class="flab">Punto home X (mm) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="0.5" min="0" max="50" data-bind="macchina.homing.puntoHome.x"></label>
+        <label><span class="flab">Punto home Y (mm) <b class="prov prov-scelto">scelto</b></span>
+          <input type="number" step="0.5" min="0" max="50" data-bind="macchina.homing.puntoHome.y"></label>
+      </div>
+      <p class="muted small">Il <b>punto ai blocchi</b> è lo zero: dove i carrelli
+        toccano. Il <b>punto home</b> è dove la macchina si mette appena finito
+        l'azzeramento, e non è lo stesso posto. Due motivi: un carrello lasciato
+        appoggiato al blocco prima o poi lo sposta, e il blocco è proprio la cosa
+        che non si deve muovere; e allontanandosi sempre nello stesso verso il
+        gioco della cremagliera viene preso da una parte sola.</p>
       <p class="muted small"><b>Lo scostamento</b> si ricava azzerando sul blocco e
         portando poi l'asse all'altra battuta: la corsa che leggi è quella
         disponibile dall'home, e lo scostamento è la corsa totale meno quella.</p>

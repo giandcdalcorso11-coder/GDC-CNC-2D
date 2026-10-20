@@ -120,7 +120,18 @@ var Profile = (function () {
            misurare" — perché uno zero vero direbbe al software che un margine
            di zero basterebbe. */
         x: { scostamento: 1.443, ripetibilita: 0.05 },
-        y: { scostamento: 0.0,   ripetibilita: 0.05 }
+        y: { scostamento: 0.0,   ripetibilita: 0.05 },
+
+        /* Il PUNTO HOME non è lo zero: lo zero è il PUNTO AI BLOCCHI, dove i
+           carrelli toccano. Finito l'azzeramento la macchina si sposta qui, a
+           cinque millimetri da entrambi i blocchi, e ci resta.
+           Serve a due cose. La prima è non lasciare i carrelli appoggiati ai
+           blocchi: un carrello fermo contro il riferimento prima o poi lo
+           sposta, e il riferimento è la cosa che non deve muoversi. La seconda
+           è che allontanandosi in + il gioco della cremagliera viene preso da
+           una parte sola e sempre la stessa, quindi il primo movimento vero
+           parte da una condizione nota. */
+        puntoHome: { x: 5.0, y: 5.0 }
       },
 
       /* velocitaMax è un TETTO, non una velocità di lavoro: quella la decide la

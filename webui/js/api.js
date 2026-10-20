@@ -130,18 +130,30 @@ var Api = (function () {
     });
   }
 
+  /* Finisce al PUNTO HOME, non sui blocchi: lo zero resta il punto ai blocchi,
+     ma i carrelli non ci restano appoggiati. Un carrello fermo contro il
+     riferimento prima o poi lo sposta, e il riferimento è proprio la cosa che
+     non si deve muovere. */
   function homingFatto() {
+    var h = Profile.macchina().homing.puntoHome;
     return send('$J=G91 X0.01 F100')          // riaccende i motori senza muovere
       .then(function () { return setOrigin(); })
-      .then(function (r) {
+      .then(function () {
         State.data.pos = { x: 0, y: 0, z: State.data.pos.z };
         State.data.motoriLiberi = false;
         State.emit('motoriLiberi');
         State.emit('pos');
         State.set('azzerata', true);
-        Log.add('msg', 'Homing completato: origine nell\'angolo in basso a sinistra.');
-        return r;
+        Log.add('msg', 'Azzerata sul punto ai blocchi. Mi sposto al punto home, ' +
+                       'X ' + h.x.toFixed(1) + ' Y ' + h.y.toFixed(1) + '.');
+        return vaiA(h.x, h.y);
       });
+  }
+
+  /* Spostamento assoluto nel sistema di coordinate dell'ultimo azzeramento. */
+  function vaiA(x, y) {
+    return send('G90 G0 X' + Number(x).toFixed(3) + ' Y' + Number(y).toFixed(3) +
+                ' F' + Profile.stampa().velocitaSpostamento);
   }
 
   /* La penna in millimetri veri, non in gradi: la conversione gradi→impulso la
@@ -183,6 +195,13 @@ var Api = (function () {
     } else if (line.indexOf('G90 G1 Z') === 0) {
       State.data.pos.z = parseFloat(line.slice(8));
       State.emit('pos');
+    } else if (line.indexOf('G90 G0 ') === 0) {
+      var a = /X(-?[\d.]+)\s+Y(-?[\d.]+)/.exec(line);
+      if (a) {
+        State.data.pos.x = parseFloat(a[1]);
+        State.data.pos.y = parseFloat(a[2]);
+        State.emit('pos');
+      }
     } else if (line === '$MD') {
       reply = 'ok';
     }
@@ -193,7 +212,8 @@ var Api = (function () {
   return {
     send: send, connect: connect, disconnect: disconnect,
     jog: jog, setOrigin: setOrigin, led: led,
-    motoriLiberi: motoriLiberi, homingFatto: homingFatto, penna: penna,
+    motoriLiberi: motoriLiberi, homingFatto: homingFatto,
+    penna: penna, vaiA: vaiA,
     feedHold: feedHold, cycleStart: cycleStart, reset: reset,
     parseStatus: parseStatus
   };
