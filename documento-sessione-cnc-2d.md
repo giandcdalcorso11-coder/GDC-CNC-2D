@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
 **Versione:** 44
-**Ultimo aggiornamento:** 2026-10-20 23:07
+**Ultimo aggiornamento:** 2026-10-20 22:08
 
 ## Regole di co-editing
 
