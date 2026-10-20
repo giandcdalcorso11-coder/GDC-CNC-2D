@@ -158,8 +158,13 @@
     Panel.mount(document.getElementById('panel-tab'), {});
 
     Jog.init();
+    Popup.init();
     Settings.init();
     Artwork.init();
+
+    /* «Stampa» non manda niente: apre la procedura dei tre popup, che prende le
+       misure del momento e solo alla fine rigenera e consegna il programma. */
+    document.getElementById('btn-send').addEventListener('click', Popup.avviaStampa);
 
     tabs();
     dropzone();

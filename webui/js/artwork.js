@@ -86,10 +86,16 @@ var Artwork = (function () {
       return p.map(function (q) { return { x: q.x + o.x, y: q.y + o.y }; });
     });
 
-    /* Z è in millimetri veri di penna: zero è il contatto col foglio, e
-       l'alzata è quella che esce dai due angoli del servo. Finché i tre angoli
-       non sono stati rilevati non c'è un'alzata vera: si mettono 5 mm per
-       poter guardare il programma, e il file lo dichiara DA TARARE. */
+    /* Z è in millimetri veri di penna, e lo zero NON è un numero fisso: è la
+       quota a cui la punta tocca il foglio di oggi, misurata col secondo popup
+       di inizio stampa. Finché quella misura non c'è si usa zero, che è il
+       contatto nominale del profilo — buono per guardare il programma, non per
+       stamparlo. */
+    var contatto = State.data.altezzaContatto === null ? 0 : State.data.altezzaContatto;
+
+    /* Finché i tre angoli del servo non sono stati rilevati non c'è un'alzata
+       vera: si mettono 5 mm per poter guardare il programma, e il file lo
+       dichiara DA TARARE. */
     var alzata = Profile.alzataMm();
     var tarata = alzata !== null;
     if (alzata === null) alzata = 5;
@@ -98,8 +104,8 @@ var Artwork = (function () {
     }
 
     prep = Gcode.build(machine, {
-      penUp: alzata,
-      penDown: 0,
+      penUp: contatto + alzata,
+      penDown: contatto,
       pennaTarata: tarata,
       pausaMs: st.pausaPennaMs,
       feedDraw: feedDraw,
@@ -129,6 +135,22 @@ var Artwork = (function () {
     document.getElementById('gcode-out').value = prep;
     Log.add('msg', 'G-code pronto: ' + prep.split('\n').length + ' righe, ' +
                    Gcode.durata(d.secondi) + ' stimati.');
+  }
+
+  /* L'invio alla macchina non è ancora costruito, e preferisco dirlo invece di
+     far finta: FluidNC vuole il file caricato sul suo filesystem e poi avviato,
+     non tremila righe sparate una per una sulla rotta dei comandi. Il programma
+     però è pronto e scaricabile, quindi la procedura non si butta via. */
+  function invia() {
+    if (!prep) { Log.add('err', 'Nessun programma preparato.'); return; }
+    if (State.data.mock) {
+      Log.add('msg', 'Modalità finta: il programma non viene inviato a nessuno. ' +
+                     'Sarebbe partito adesso, ' + prep.split('\n').length + ' righe.');
+      return;
+    }
+    Log.add('err', 'L\'invio del programma alla macchina non è ancora costruito. ' +
+                   'Le tre misure sono state prese e il G-code è rigenerato con ' +
+                   'quelle: scaricalo e caricalo a mano dalla pagina di FluidNC.');
   }
 
   function download() {
@@ -165,5 +187,6 @@ var Artwork = (function () {
     State.on('paper', function () { if (raw) refit(); });
   }
 
-  return { init: init, load: load, clear: clear, refit: refit, prepare: prepare };
+  return { init: init, load: load, clear: clear, refit: refit,
+           prepare: prepare, invia: invia };
 })();

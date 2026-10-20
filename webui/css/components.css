@@ -493,3 +493,76 @@ code {
   line-height: 1.45;
   color: var(--text-dim);
 }
+
+/* ------------------- i popup di inizio stampa --------------------
+   Una finestra per passo: la procedura è lineare e non si salta, perché
+   saltarne uno vuol dire stampare con una misura di ieri. */
+
+.modal[hidden] { display: none; }
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 14, .78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.modal-box {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  width: 420px;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+}
+
+.modal-head {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.modal-passo {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.modal-head h2 { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--text); }
+
+.modal-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+.modal-desc { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); }
+
+/* Perché il pulsante è spento: senza questa riga sembra rotto. */
+.modal-nota {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--warn);
+  background: #241f11;
+  border-left: 3px solid var(--warn);
+  border-radius: var(--r-sm);
+  padding: 7px 9px;
+}
+.modal-nota[hidden] { display: none; }
+
+.modal-foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  gap: 8px;
+}
+.modal-foot .btn { flex: 1; }

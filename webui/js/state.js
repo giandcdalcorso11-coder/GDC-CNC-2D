@@ -33,6 +33,12 @@ var State = (function () {
              name: Profile.stampa().foglio.formato },
     sheetOrigin: { x: 20, y: 20 },   // angolo in basso a sinistra del foglio
 
+    /* A che quota la punta tocca QUESTO foglio. Non sta nel profilo e non è una
+       dimenticanza: un decimo di spessore di carta la sposta, e lo spessore non
+       lo conosci quando prendi un foglio. Si misura a ogni stampa, col secondo
+       popup. `null` = non ancora misurata. */
+    altezzaContatto: null,
+
     art: null,               // il disegno caricato, quando ci sarà
     path: [],                // segmenti del percorso: {x1,y1,x2,y2,draw}
     origin: null,            // origine impostata a mano

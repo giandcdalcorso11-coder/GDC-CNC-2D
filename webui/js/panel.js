@@ -205,6 +205,10 @@ var Panel = (function () {
   }
 
   function aggiornaTutti() {
+    /* I popup montano e smontano il pannello a ogni passo: le istanze rimaste
+       appese a un pezzo di pagina che non c'è più si buttano, altrimenti la
+       lista cresce a ogni stampa. */
+    istanze = istanze.filter(function (i) { return document.body.contains(i.el); });
     for (var i = 0; i < istanze.length; i++) aggiorna(istanze[i]);
     note();
   }
