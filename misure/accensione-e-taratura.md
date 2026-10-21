@@ -125,36 +125,105 @@ per volta. FluidNC non ha niente di tutto questo. È lo strumento giusto, e usa
 lo stesso pin — `gpio.32` — che FluidNC dichiarerà come `rc_servo`, quindi i
 numeri che trovi qui valgono tali e quali.
 
+### Prima di cominciare: contro cosa stringi la penna
+
+L'angolo di **penna abbassata** non è una misura: è il gesto con cui stringi la
+penna nei morsetti. Quindi serve un **piano di riferimento alla quota giusta**,
+e la piattaforma da 44 mm non è ancora costruita.
+
+Due modi, tutti e due validi:
+
+- **la piattaforma vera**, se nel frattempo l'hai fatta;
+- **uno spessore da 44 mm** appoggiato sulla tavola sotto la penna, con sopra un
+  foglio. Non serve che sia preciso al decimo: i 6° di riserva fra battuta e
+  appoggio valgono 2 mm, e il popup dell'altezza di contatto assorbe il resto a
+  ogni stampa. Uno spessore giusto a ±1 mm basta.
+
+Misura lo spessore col calibro prima di usarlo, e **segnati quale hai usato**:
+se la piattaforma finita verrà diversa di più di un millimetro, la penna si
+riallenta e si ristringe — sono due viti.
+
+### Una precauzione sul servo, prima di toccare qualsiasi cosa
+
+Dopo **Rilascia** il servo non riceve impulsi e la squadretta si muove dove
+vuole: **nessuno sa più dov'è davvero**. Il primo comando dopo un rilascio
+riparte dall'ultimo angolo comandato, non da quello reale, e può quindi essere
+un salto — che a due gradi dalla battuta è esattamente quello che non vuoi.
+
+Regola: dopo ogni *Rilascia*, **il primo comando è verso il centro corsa**, mai
+verso la battuta. E alza la *dolcezza del movimento* nella tab Motore, così il
+servo ci arriva piano invece che di scatto.
+
 **Cosa fai:**
 
 1. Monta il modulo penna **senza la penna nei morsetti**.
-2. Accendi. La dashboard parte con il servo in `free`: la squadretta è morbida e
+2. Accendi. La dashboard parte col servo in `free`: la squadretta è morbida e
    non tiene nessuna posizione. È voluto — un servo che appena riceve corrente
    va in battuta contro un vincolo meccanico assorbe moltissimo.
-3. Con lo slider, porta il servo a un angolo intermedio e **guarda dove si
-   trova `pz2`**. Da qui in giù si lavora a passi di 1÷2 gradi.
-4. **Angolo di BATTUTA.** Scendi di 1÷2 gradi per volta finché i cuscinetti
-   inferiori arrivano in fondo ai blocchi. Te ne accorgi perché `pz2` smette di
-   scendere e il servo comincia a ronzare. **Fermati al primo grado in cui non
-   scende più, e torna subito su di uno.** Non lasciarlo in battuta: è lì che si
-   spianano gli ingranaggi dell'SG90. Segna il numero.
-5. **Angolo di APPOGGIO.** Dalla battuta, sali di qualche grado. Questa è la
-   posizione in cui **infili la penna nei morsetti e la stringi**, con la punta
-   che sfiora il piano. Segna il numero.
-6. **Angolo di PENNA ALZATA.** Dall'appoggio, sali di 2÷3 mm di penna. In gradi:
+3. Con lo slider porta il servo a **metà corsa** e guarda dove si trova il
+   modulo. Da qui in avanti si lavora **coi pulsanti −1° e +1°**, non più con lo
+   slider: trascinando si perde il conto di dove si è, premendo lo si sa sempre.
 
-   | Alzata | Gradi di servo |
-   |---|---|
-   | 2 mm | 6,11° |
-   | 3 mm | 9,17° |
+4. **ANGOLO DI BATTUTA — l'unico dei tre che si misura davvero.**
 
-   (0,32725 mm di penna per grado, dal pignone z25 raggio primitivo 18,750.)
-   Segna il numero.
+   È una proprietà del meccanismo, non della penna: si prende **una volta sola**,
+   al montaggio, e non cambia più finché non smonti il modulo.
+
+   Scendi di un grado per volta. Per accorgerti del contatto **non aspettare che
+   il servo ronzi**: infila una **striscia di carta** (un decimo di millimetro)
+   fra un cuscinetto inferiore e il suo blocco, e tirala a ogni grado. Quando
+   non esce più, sei al contatto.
+
+   Segna **l'ultimo grado in cui la carta usciva ancora**. È il valore
+   conservativo: se sbagli, sbagli stando più in alto della battuta vera.
+
+   Poi **risali subito di due o tre gradi**. Non lasciare il servo in battuta:
+   è lì che si spianano gli ingranaggi dell'SG90.
+
+5. **ANGOLO DI PENNA ABBASSATA — non si misura, si impone.**
+
+   Porta il servo a **battuta + 6°**. Metti il foglio sul piano di riferimento.
+   Infila la penna nei morsetti finché la punta **tocca il foglio**, e stringi.
+
+   Da quel momento `abbassata = battuta + 6°` **per costruzione**, perché l'hai
+   costruita così. Il giorno che cambi penna, rifai lo stesso gesto allo stesso
+   angolo e il numero resta quello: non si rimisura niente.
+
+   Perché proprio 6°, cioè 1,96 mm: è la riserva **verso il basso**, per il
+   giorno che usi una carta più sottile o infili la penna un millimetro più
+   corta e il contatto cade più in basso di oggi. Non costa niente tenerla
+   generosa.
+
+6. **ANGOLO DI PENNA ALZATA — è un conto.**
+
+   `alzata = abbassata + 9°`, cioè 2,95 mm di penna.
+
+   Il criterio di sotto è la banda morta del servo (0,90° = 0,295 mm): con dieci
+   bande morte dentro, l'alzata ripete entro il 10%. Un'alzata da 1 mm sarebbe
+   tre bande morte, cioè ±30%, e non servirebbe a niente.
+
+   Il criterio di sopra lo decide **la prova 7 del disegno di collaudo**: se
+   negli spazi fra i trattini resta un segno, l'alzata non basta a scavalcare il
+   fuori-piano e va aumentata.
+
+7. **Verifica prima di scrivere i numeri nel profilo.**
+
+   - `battuta < abbassata < alzata` — il software lo controlla, ma guardalo
+     anche tu;
+   - alla quota di **alzata**, la punta deve staccarsi dal foglio in modo
+     visibile;
+   - abbassa, alza e riabbassa tre volte: la punta deve tornare **nello stesso
+     posto**. Se no, c'è gioco nel giunto o la penna scivola nei morsetti.
 
 **Quello che devi ottenere:** tre numeri in gradi, nell'ordine
-battuta < appoggio < alzata. La corsa meccanica totale della guida è 26,350 mm
-= 80,5° sui ~180 del servo, quindi ci sta larghissima: se i tre numeri non
-stanno dentro 180°, c'è qualcosa che non torna nel montaggio.
+battuta < abbassata < alzata, con i due salti di 6° e 9°. La corsa meccanica
+totale della guida è 26,350 mm = **80,5°**, e noi ne usiamo 15: ci sta
+larghissima, e non c'è rischio di arrivare al limite superiore. Se i tre numeri
+non stanno dentro quella finestra, c'è qualcosa che non torna nel montaggio.
+
+**Nel profilo** (tab Impostazioni → Penna) vanno **tutti e tre**, ma quello che
+conta ricordare è che solo il primo è una misura. Gli altri due sono battuta +
+6 e battuta + 15.
 
 ## A3. Tradurre i tre angoli in microsecondi per FluidNC
 
