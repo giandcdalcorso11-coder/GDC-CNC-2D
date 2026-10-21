@@ -97,9 +97,21 @@ var Settings = (function () {
       ? ['misurato', 'prov-mis'] : ['nominale', 'prov-damis'];
   }
 
+  /* I tre angoli della penna non hanno la stessa natura, e il distinguo è una
+     decisione del progetto, non un dettaglio: solo la battuta viene dal
+     montaggio, l'abbassata la si IMPONE stringendo la penna a quell'angolo
+     contro il piano di riferimento, l'alzata è un conto (abbassata + 9°). Un
+     badge che dicesse «misurato» a tutti e tre racconterebbe una cosa falsa a
+     chi rilegge il profilo fra un mese. */
+  var NATURA = {
+    gradiBattuta:        ['al montaggio', 'prov-mis'],
+    gradiPennaAbbassata: ['imposto',      'prov-scelto'],
+    gradiPennaAlzata:    ['calcolato',    'prov-calc']
+  };
+
   function rilevato(campo) {
     return Profile.macchina().penna[campo] === null
-      ? ['da misurare', 'prov-damis'] : ['misurato', 'prov-mis'];
+      ? ['da misurare', 'prov-damis'] : NATURA[campo];
   }
 
   /* --------------------------- riempire e aggiornare --------------------- */

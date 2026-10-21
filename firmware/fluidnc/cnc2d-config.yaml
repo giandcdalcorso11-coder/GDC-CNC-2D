@@ -156,32 +156,42 @@ axes:
     steps_per_mm: 100.000
     max_rate_mm_per_min: 1000.000
     acceleration_mm_per_sec2: 100.000
-    max_travel_mm: 10.000
+    # L'alzata utile in millimetri veri di penna: 9 gradi di servo x 0,32725.
+    # Cosi G0 Z0 = penna appoggiata e G0 Z2.945 = penna alzata, e Z e' una quota
+    # leggibile invece di un'unita' arbitraria.
+    max_travel_mm: 2.945
     soft_limits: false
 
     motor0:
       rc_servo:
         output_pin: gpio.32
         pwm_hz: 50
-        # DA TARARE guardando la penna: min = Z0 (appoggiata), max = Z10 (alzata).
-        # Partire vicino al centro e allargare a piccoli passi: portare un SG90
-        # a fine corsa meccanica lo fa ronzare e ne forza gli ingranaggi.
+        # TARATO il 2026-10-21 sul modulo montato, con la dashboard. I tre
+        # angoli sono gradi LOGICI (piu gradi = penna piu in alto):
+        #   battuta   19 -> 2289 us   i cuscinetti in fondo ai blocchi.
+        #                             Limite meccanico: non va nel YAML, ci sta
+        #                             solo come promemoria. FluidNC non puo'
+        #                             comandarlo perche' e' fuori dall'arco fra
+        #                             i due impulsi qui sotto, e mapConstrain()
+        #                             tronca.
+        #   abbassata 25 -> 2222 us   contatto col foglio -> min_pulse_us
+        #   alzata    34 -> 2122 us   -> max_pulse_us
         #
-        # I due numeri si ricavano dai tre angoli da rilevare a penna montata,
-        # e la dashboard e' lo strumento giusto per rilevarli: ha lo slider
-        # manuale e parte in stato "free" (nessun impulso, servo morbido).
-        #   1. angolo di BATTUTA: i cuscinetti arrivano in fondo ai blocchi
-        #      inferiori. Limite meccanico, il PWM non deve mai arrivarci.
-        #   2. angolo di APPOGGIO: sopra la battuta. E' anche l'angolo a cui
-        #      tenere il servo mentre si infila la penna e si stringono i
-        #      morsetti. -> min_pulse_us
-        #   3. angolo di PENNA ALZATA: appoggio + 2/3 mm, cioe' 6,1/9,2 gradi.
-        #      -> max_pulse_us
-        # Con max_travel_mm 10 il mapping e' lineare fra i due impulsi, quindi
-        # G0 Z0 = appoggio e G0 Z10 = alzata, e l'alzata utile si comanda con
-        # una quota intermedia invece di allargare gli impulsi.
-        min_pulse_us: 1000
-        max_pulse_us: 2000
+        # La battuta a 19 e non a 1 perche' a 1 grado logico l'impulso sarebbe
+        # 2489 us, fuori dai 500-2400 di specifica dell'SG90: il pignone era
+        # stato calzato col servo gia' contro il proprio fermo interno.
+        #
+        # min_pulse_us MAGGIORE di max_pulse_us non e' un errore: e' il modo in
+        # cui FluidNC inverte un servo. Da RcServo.cpp, "The rotation can be
+        # inverted by swapping the values", e la mappatura e' una interpolazione
+        # lineare senza controlli sull'ordine dei due estremi. Serve perche' su
+        # questo accoppiamento l'angolo FISICO crescente abbassa la penna.
+        #
+        # Deve concordare con la spunta "Verso del servo invertito" della
+        # dashboard e con `penna.invertito` nel profilo del SLICER: se i tre non
+        # vanno d'accordo, uno alza e l'altro abbassa.
+        min_pulse_us: 2222
+        max_pulse_us: 2122
 
 # LED di stato, comandati dall'interfaccia web con M62/M63.
 # P0 = verde (tutto bene), P1 = giallo (attenzione), P2 = rosso (errore)

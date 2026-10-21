@@ -18,10 +18,13 @@
  *                  direzione di arrivo non può essere lasciata al caso.
  *
  * Uso:  node test-macchina.js --svg prova.svg
- *       node test-macchina.js --gcode prova.gcode --contatto 0 --alzata 2.95
+ *       node test-macchina.js --gcode prova.gcode --contatto 0 --alzata 2.945
  *
- * Il G-code vero si genera DOPO aver montato il modulo penna, quando la quota
- * di contatto e l'alzata sono numeri misurati e non ipotesi.
+ * L'alzata di serie è 2,945 mm: i 9 gradi fra penna abbassata (25°) e penna
+ * alzata (34°) del modulo montato il 2026-10-21, per 0,32725 mm/grado. Il
+ * contatto resta 0 perché in FluidNC Z0 È la penna abbassata: il `min_pulse_us`
+ * del config.yaml lo definisce, e la variazione del singolo foglio la assorbe
+ * il popup dell'altezza di contatto.
  */
 var FontTratto = require('./font-tratto.js');
 
@@ -378,7 +381,8 @@ if (require.main === module) {
   if (a.indexOf('--gcode') > 0) {
     var g = a[a.indexOf('--gcode') + 1];
     var c = a.indexOf('--contatto') > 0 ? parseFloat(a[a.indexOf('--contatto') + 1]) : 0;
-    var z = a.indexOf('--alzata') > 0 ? parseFloat(a[a.indexOf('--alzata') + 1]) : 3;
+    /* 2,945 e non 3: è l'alzata vera del modulo montato, (34 − 25) × 0,32725. */
+    var z = a.indexOf('--alzata') > 0 ? parseFloat(a[a.indexOf('--alzata') + 1]) : 2.945;
     fs.writeFileSync(g, gcode({ contatto: c, alzata: z })); console.log('scritto ' + g);
   }
   var st = statistiche();

@@ -151,16 +151,28 @@ var Profile = (function () {
            alzata e appoggio in millimetri invece che in gradi. */
         raggioPignone: 18.75,
 
-        /* I tre angoli da rilevare a penna montata, con la dashboard (ha lo
-           slider e parte in stato `free`). gradiBattuta è un LIMITE: i
-           cuscinetti in fondo ai blocchi inferiori. Il software non deve mai
-           poter comandare una quota che lo raggiunga.
+        /* I tre angoli, rilevati sul modulo montato il 2026-10-21.
+
+           gradiBattuta è un LIMITE: i cuscinetti in fondo ai blocchi
+           inferiori. Il software non deve mai poter comandare una quota che lo
+           raggiunga. Non è stato misurato ma FISSATO PER COSTRUZIONE: il
+           pignone è stato calzato sull'albero del servo con la dashboard a 19
+           gradi e il modulo appoggiato ai blocchi sotto il suo solo peso.
+           Diciannove e non uno, com'era al primo tentativo, perché a 1 grado
+           logico l'impulso è 2489 µs, fuori dai 500÷2400 di specifica
+           dell'SG90: il pignone era stato calzato col servo già contro il
+           proprio fermo interno, e il fermo del meccanismo non si distingueva
+           da quello del servo. A 19 la battuta è 2289 µs.
+
            gradiPennaAbbassata è il contatto NOMINALE, quello a cui la penna si
-           stringe nel modulo. Il contatto di oggi su questo foglio è un'altra
-           cosa e sta in State: vedi il glossario. */
-        gradiBattuta: null,
-        gradiPennaAbbassata: null,
-        gradiPennaAlzata: null,
+           stringe nel modulo: non si misura, si impone stringendo la penna a
+           quell'angolo contro il piano di riferimento. Il contatto di oggi su
+           questo foglio è un'altra cosa e sta in State: vedi il glossario.
+
+           gradiPennaAlzata è un conto: abbassata + 9°, cioè 2,945 mm. */
+        gradiBattuta: 19,
+        gradiPennaAbbassata: 25,
+        gradiPennaAlzata: 34,
 
         /* Corrispondenza gradi→microsecondi della dashboard: 0÷180° su
            500÷2500 µs. Serve a tradurre i tre angoli negli estremi dell'impulso

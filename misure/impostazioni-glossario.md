@@ -198,15 +198,60 @@ servo, sotto la banda morta del servo stesso.
 | Nome sullo schermo | Chiave | Note |
 |---|---|---|
 | Raggio del pignone del pen-lift | `raggioPignone` | 18,75 mm (z25, modulo 1,5) |
-| Angolo di battuta dei cuscinetti | `gradiBattuta` | **un limite**: il software non deve mai comandarlo |
-| Angolo penna abbassata | `gradiPennaAbbassata` | il contatto nominale |
-| Angolo penna alzata | `gradiPennaAlzata` | |
+| Angolo di battuta dei cuscinetti | `gradiBattuta` | **19°** — un limite: il software non deve mai comandarlo |
+| Angolo penna abbassata | `gradiPennaAbbassata` | **25°** = battuta + 6: il contatto nominale |
+| Angolo penna alzata | `gradiPennaAlzata` | **34°** = abbassata + 9 |
+| Verso del servo invertito | `invertito` | sì: sul modulo montato l'angolo *fisico* crescente abbassa la penna |
 | Impulso a 0° / a 180° | `impulsoMinUs` / `impulsoMaxUs` | 500 / 2500 µs, come la dashboard |
 | mm di penna per grado | *calcolata* | 0,32725 |
-| Alzata utile | *calcolata* | `(alzata − abbassata) × 0,32725` |
+| Alzata utile | *calcolata* | `(alzata − abbassata) × 0,32725` = 2,945 mm |
 
 Regola che il software fa rispettare: **battuta < abbassata < alzata**. Se non
 cresce in quest'ordine, la verifica blocca.
+
+### I tre angoli hanno tre nature diverse
+
+È una distinzione del progetto, non un dettaglio, ed è il motivo per cui la tab
+Impostazioni mette tre etichette diverse accanto ai tre campi:
+
+| Angolo | Natura | Come lo si ottiene |
+|---|---|---|
+| battuta | **al montaggio** | si calza il pignone sull'albero del servo con la dashboard già sull'angolo voluto e il modulo appoggiato ai blocchi sotto il suo solo peso |
+| abbassata | **imposto** | non si misura: si stringe la penna nei morsetti tenendo il servo a battuta + 6° contro il piano di riferimento |
+| alzata | **calcolato** | abbassata + 9°, e i 9 sono dieci bande morte del servo |
+
+### Perché 19° e non 1°
+
+Col verso invertito l'impulso vero è `µs = 2500 − gradi × 11,1111`, quindi
+**l'angolo logico piccolo è l'impulso grande**. A 1° l'impulso sarebbe 2489 µs,
+fuori dai **500÷2400 µs** di specifica dell'SG90: il primo montaggio, del
+2026-10-21, aveva calzato il pignone col servo già contro il proprio fermo
+interno, e in quella condizione il fermo del meccanismo e quello del servo non
+si distinguono. Col pignone spostato di uno spline la finestra di lavoro è:
+
+| Angolo | µs |
+|---|---|
+| battuta 19° | 2289 |
+| abbassata 25° | 2222 |
+| alzata 34° | 2122 |
+
+Tutta dentro specifica, con 111 µs di margine sotto il tetto. La finestra
+accettabile è larga — qualunque battuta fra **13° e 30°** va bene — quindi 19
+non è un bersaglio da centrare: è il centro di un intervallo.
+
+### La battuta come fondo scala, in tre punti della catena
+
+Non è un angolo da comandare, e i tre pezzi di software lo impediscono ognuno a
+modo suo:
+
+- **FluidNC** non ci arriva per costruzione: la battuta sta fuori dall'arco fra
+  `min_pulse_us` e `max_pulse_us`, e `mapConstrain()` tronca.
+- **La dashboard** tronca alla battuta slider e comandi Alza/Abbassa. I soli
+  pulsanti ±1° possono scendere di 2° sotto, e servono a una cosa: la verifica
+  con la striscia di carta, che ha senso solo se si può chiedere al servo di
+  spingere un filo oltre il fermo.
+- **Il profilo del SLICER** la tiene come limite e la verifica controlla
+  l'ordine dei tre.
 
 L'unità di misura vera di questo asse è il **terzo di millimetro**: la banda
 morta del servo SG90 vale ~0,9°, cioè 0,295 mm di penna — la stessa grandezza

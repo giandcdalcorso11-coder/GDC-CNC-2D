@@ -19,22 +19,22 @@ Importante, perché questa è una procedura **di arrivo**, non di oggi:
 | Pezzo | Stato |
 |---|---|
 | Dashboard (pannello di controllo manuale) | funzionante, e dal 2026-10-19 **misura anche posizione e rapporto per asse** |
-| Modulo penna | in attesa dei cuscinetti |
+| Modulo penna | **montato** il 2026-10-21, cuscinetti compresi, e in taratura |
 | FluidNC sul firmware | **mai acceso sulla macchina montata** |
-| `cnc2d-config.yaml` | pin e rapporto corretti; corse e servo da tarare |
+| `cnc2d-config.yaml` | pin, rapporto e **servo** corretti (2026-10-21); corse da riportare |
 | SLICER caricato sulla macchina | **no**, gira solo in modalità finta nel browser |
 | Pannello manuale dentro il SLICER | impalcatura presente, tutta disabilitata |
 | Profilo macchina e profilo di stampa | **fatti** (2026-10-19): tab Impostazioni, salvataggio nel browser, esportazione JSON |
 | Generazione di `config.yaml` dal profilo | **fatta**: un pulsante nella tab Impostazioni |
-| Blocchi di homing stampati | **da stampare**: si agganciano alle staffe TT e LL |
+| Blocchi di homing stampati | **fatti** e misurati (2026-10-20): scostamento X 1,443 mm, Y 0 |
 | Homing a mano nella dashboard | **fatto** (2026-10-19): libera i motori, appoggi i carrelli, riattiva e azzera |
-| Popup di inizio stampa | **da costruire** |
+| Popup di inizio stampa | **fatti** (2026-10-20): tre passi, origine macchina / penna / foglio |
 | Invio del programma alla macchina | **da costruire** |
 
-**Il passo A1 si può fare oggi**, senza modulo penna: i pignoni sulle due
-cremagliere sono definitivi, quindi corsa e rapporto non cambiano più. Il resto
-di Fase A aspetta i cuscinetti. Fase B diventa vera quando i tre "da costruire"
-sono fatti.
+**A1 e A2 sono fatti**: le corse il 2026-10-20, i tre angoli del servo il
+2026-10-21. Quello che resta di Fase A è A4÷A6 — flashare FluidNC e tarare il
+rapporto disegnando — e per quelli serve la stampa di collaudo. Fase B diventa
+vera quando l'invio del programma alla macchina è costruito.
 
 ---
 
@@ -177,25 +177,64 @@ servo ci arriva piano invece che di scatto.
    Verifica in due secondi prima di cominciare: premi `+1°` qualche volta e
    guarda che la penna **salga**. Se scende, la spunta è dalla parte sbagliata.
 
-4. **ANGOLO DI BATTUTA — l'unico dei tre che si misura davvero.**
+4. **ANGOLO DI BATTUTA — l'unico dei tre che non è un conto.**
 
    È una proprietà del meccanismo, non della penna: si prende **una volta sola**,
    al montaggio, e non cambia più finché non smonti il modulo.
 
-   Scendi di un grado per volta. Per accorgerti del contatto **non aspettare che
+   **Fatto il 2026-10-21, e non misurandolo: imponendolo.** Il modo migliore è
+   anche il più semplice — si porta la dashboard sull'angolo che si vuole, si
+   appoggia il modulo ai blocchi sotto il suo solo peso, e si calza il pignone
+   sull'albero del servo. Da quel momento la battuta **è** quell'angolo, per
+   costruzione, senza misurare niente. Due avvertenze, tutte e due imparate
+   sbagliando:
+
+   - **Non premere mentre incastri.** Se spingi il modulo sui blocchi ti
+     costruisci dentro un precarico, e la battuta reale finisce più in alto di
+     quella che hai scritto.
+   - **Non mettere un angolo troppo basso.** Col verso invertito l'angolo
+     logico piccolo è l'impulso grande: a 1° l'impulso è 2489 µs, fuori dai
+     500÷2400 di specifica dell'SG90. Il primo tentativo era a 1°, e il pignone
+     è finito calzato col servo già contro il proprio fermo interno — da lì non
+     si poteva più distinguere il fermo del meccanismo da quello del servo. Il
+     secondo montaggio è a **19°**, cioè 2289 µs. Qualunque valore fra **13° e
+     30°** va bene: 19 non è un bersaglio da centrare, è il centro di una
+     finestra larga, e l'incastro del pignone è quantizzato (~19° per spline
+     dell'SG90) quindi non si cade mai esattamente sul numero scelto. Quello che
+     la pagina segna nel momento in cui il pignone si siede **è** la battuta:
+     scrivilo e basta.
+
+   Dopo l'incastro, la **verifica** — ed è questa che il primo montaggio non
+   permetteva. Infila una **striscia di carta** (un decimo di millimetro) fra un
+   cuscinetto inferiore e il suo blocco, poi scendi di **un grado solo** coi
+   pulsanti ±1°. Se la striscia resta pinzata e niente si muove, il fermo sono i
+   blocchi, e lo sai con certezza perché a quell'impulso il servo ha ancora
+   strada davanti. **Un grado, non più:** 1° = 0,33 mm, quasi tutti assorbiti
+   dai 0,30 mm di gioco d'ingranamento; quattro o cinque gradi sarebbero 1,3 mm
+   di spinta contro un fermo rigido, e un SG90 in stallo a 18,75 mm di raggio fa
+   circa 1 kg sulla cremagliera. I pulsanti ±1° arrivano a 2° sotto la battuta e
+   non oltre — slider e comandi Alza/Abbassa non ci arrivano affatto.
+
+   **Se invece la battuta la stai cercando** perché il pignone è già calzato e
+   non sai a che angolo, allora si misura, e si misura così: scendi di un grado
+   per volta. Per accorgerti del contatto **non aspettare che
    il servo ronzi**: infila una **striscia di carta** (un decimo di millimetro)
    fra un cuscinetto inferiore e il suo blocco, e tirala a ogni grado. Quando
    non esce più, sei al contatto.
 
    Segna **l'ultimo grado in cui la carta usciva ancora**. È il valore
-   conservativo: se sbagli, sbagli stando più in alto della battuta vera.
+   conservativo: se sbagli, sbagli stando più in alto della battuta vera. E
+   controlla l'impulso che ne esce: se è sopra 2400 µs, non hai trovato la
+   battuta del meccanismo, hai trovato il fermo interno del servo, e il pignone
+   va spostato di uno spline.
 
    Poi **risali subito di due o tre gradi**. Non lasciare il servo in battuta:
    è lì che si spianano gli ingranaggi dell'SG90.
 
 5. **ANGOLO DI PENNA ABBASSATA — non si misura, si impone.**
 
-   Porta il servo a **battuta + 6°**. Metti il foglio sul piano di riferimento.
+   Porta il servo a **battuta + 6°**, che col montaggio del 2026-10-21 vuol dire
+   **25°**. Metti il foglio sul piano di riferimento.
    Infila la penna nei morsetti finché la punta **tocca il foglio**, e stringi.
 
    Da quel momento `abbassata = battuta + 6°` **per costruzione**, perché l'hai
@@ -209,7 +248,7 @@ servo ci arriva piano invece che di scatto.
 
 6. **ANGOLO DI PENNA ALZATA — è un conto.**
 
-   `alzata = abbassata + 9°`, cioè 2,95 mm di penna.
+   `alzata = abbassata + 9°`, cioè **34°** e 2,945 mm di penna.
 
    Il criterio di sotto è la banda morta del servo (0,90° = 0,295 mm): con dieci
    bande morte dentro, l'alzata ripete entro il 10%. Un'alzata da 1 mm sarebbe
@@ -229,7 +268,8 @@ servo ci arriva piano invece che di scatto.
      posto**. Se no, c'è gioco nel giunto o la penna scivola nei morsetti.
 
 **Quello che devi ottenere:** tre numeri in gradi, nell'ordine
-battuta < abbassata < alzata, con i due salti di 6° e 9°. La corsa meccanica
+battuta < abbassata < alzata, con i due salti di 6° e 9°. Col montaggio del
+2026-10-21 sono **19 / 25 / 34**, e sono già nel profilo e nel `config.yaml`. La corsa meccanica
 totale della guida è 26,350 mm = **80,5°**, e noi ne usiamo 15: ci sta
 larghissima, e non c'è rischio di arrivare al limite superiore. Se i tre numeri
 non stanno dentro quella finestra, c'è qualcosa che non torna nel montaggio.
@@ -240,20 +280,38 @@ conta ricordare è che solo il primo è una misura. Gli altri due sono battuta +
 
 ## A3. Tradurre i tre angoli in microsecondi per FluidNC
 
-La dashboard mappa 0÷180° su 500÷2500 µs, quindi:
+La dashboard mappa 0÷180° su 500÷2500 µs, ma i gradi che mostra sono **logici**
+(più gradi = penna più in alto) mentre l'accoppiamento è invertito, quindi la
+formula ha il segno meno:
 
 ```
-µs = 500 + gradi × 11,1111
+µs = 2500 − gradi × 11,1111
 ```
+
+**Attenzione al verso**: con `µs = 500 + gradi × 11,1111` escono i numeri
+dell'angolo fisico, e il servo fa l'opposto di quello che ci si aspetta.
+
+Col montaggio del 2026-10-21:
+
+| | gradi logici | µs |
+|---|---|---|
+| battuta | 19 | 2289 — **non va nel YAML** |
+| penna abbassata | 25 | 2222 → `min_pulse_us` |
+| penna alzata | 34 | 2122 → `max_pulse_us` |
 
 Nel YAML va:
 
 ```yaml
-    max_travel_mm: <alzata reale in mm, es. 3.000>
+    max_travel_mm: 2.945          # (34 − 25) × 0,32725: alzata in mm veri
       rc_servo:
-        min_pulse_us: <µs dell'angolo di APPOGGIO>
-        max_pulse_us: <µs dell'angolo di ALZATA>
+        min_pulse_us: 2222        # Z0 = penna abbassata
+        max_pulse_us: 2122        # penna alzata
 ```
+
+`min_pulse_us` **maggiore** di `max_pulse_us` non è un errore di battitura: è il
+modo in cui FluidNC inverte un servo. Dal sorgente di `RcServo.cpp` — «The
+rotation can be inverted by swapping the values» — e la mappatura è una
+interpolazione lineare senza controlli sull'ordine dei due estremi.
 
 Così `Z0` = penna appoggiata e `Z3` = penna alzata, e **Z è in millimetri veri
 di alzata** invece che in unità arbitrarie.

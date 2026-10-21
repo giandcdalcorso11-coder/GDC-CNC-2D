@@ -212,8 +212,37 @@ volatile bool driverEnabled = true;
 // Stato penna: "up", "down", "free" (nessun impulso, servo morbido) o "man" (angolo
 // impostato a mano dallo slider). All'accensione si parte da "free": un servo che va
 // in battuta contro un vincolo meccanico appena dato corrente assorbe moltissimo.
-int penUpDeg = 90;
-int penDownDeg = 60;
+int penUpDeg = 34;
+int penDownDeg = 25;
+
+// Battuta: l'angolo LOGICO a cui i cuscinetti inferiori del modulo appoggiano
+// sui blocchi. Non e' un angolo da comandare, e' il fondo scala meccanico.
+//
+// Fissato per COSTRUZIONE il 2026-10-21, non misurato: il pignone e' stato
+// calzato sull'albero del servo con la pagina a 19 gradi e il modulo appoggiato
+// ai blocchi sotto il suo solo peso, quindi 19 e' la battuta per come e' stato
+// montato.
+//
+// Perche' 19 e non 1, com'era al primo montaggio: la mappa 0-180 -> 500-2500 us
+// col verso invertito manda 1 grado logico a 2489 us, fuori dai 500-2400 di
+// specifica dell'SG90 — il pignone era stato calzato col servo gia' contro il
+// proprio fermo interno, e non si poteva distinguere il fermo del meccanismo da
+// quello del servo. A 19 la battuta sta a 2289 us e l'alzata a 2122: tutto
+// dentro, con 111 us di margine sotto il tetto.
+int penBattutaDeg = 19;
+
+// Quanti gradi SOTTO la battuta possono chiedere i soli pulsanti -1/+1. Serve a
+// una cosa sola: la verifica con la striscia di carta, che ha senso solo se si
+// puo' chiedere al servo di spingere un filo oltre il fermo. Due gradi sono
+// 0,65 mm di penna, in buona parte assorbiti dai 0,30 mm di gioco
+// d'ingranamento. Lo slider e i comandi Alza/Abbassa non ci arrivano.
+const int PEN_TARATURA_GIU = 2;
+
+// Gradi utili SOPRA la battuta. La corsa meccanica della guida del pen-lift e'
+// 26,350 mm da CAD, cioe' 80,5 gradi di servo: oltre, il modulo e' contro il
+// fermo superiore e il servo va in stallo spingendoci. E' il motivo per cui i
+// 90 gradi di fabbrica erano sbagliati — 55 oltre il fermo.
+const int PEN_CORSA_SU = 80;
 
 // Verso del servo. Sul modulo montato il 2026-10-21 l'accoppiamento esce
 // INVERTITO: facendo crescere l'angolo fisico la penna SCENDE. Invece di
@@ -358,11 +387,35 @@ void servoRelease() {
   servoAttached = false;
 }
 
-// Chiede un angolo. Con la rampa attiva non lo applica subito: fissa il
-// bersaglio e ci arriva serviceServo(), un passo ogni SERVO_SLEW_MS.
-void servoGoTo(int deg) {
-  if (deg < 0) deg = 0;
-  if (deg > 180) deg = 180;
+// Chiede un angolo senza scendere sotto `minDeg`. Con la rampa attiva non lo
+// applica subito: fissa il bersaglio e ci arriva serviceServo(), un passo ogni
+// SERVO_SLEW_MS.
+//
+// Il fondo scala e' un parametro e non una costante perche' un solo comando ha
+// bisogno di scendere sotto la battuta — i pulsanti da un grado, per la
+// verifica con la striscia di carta — e tutti gli altri no.
+void servoGoToLimite(int deg, int minDeg) {
+  if (minDeg < 0) minDeg = 0;
+  if (minDeg > 180) minDeg = 180;
+  int maxDeg = penBattutaDeg + PEN_CORSA_SU;
+  if (maxDeg > 180) maxDeg = 180;
+  if (maxDeg < minDeg) maxDeg = minDeg;
+  if (deg > maxDeg) {
+    if (servoTargetDeg != maxDeg) {
+      logMsg("Servo: " + String(deg) + " gradi oltre la corsa della guida, fermato a " +
+             String(maxDeg));
+    }
+    deg = maxDeg;
+  }
+  if (deg < minDeg) {
+    // Una riga per discesa e non una per richiesta: lo slider trascinato in
+    // fondo ne manderebbe una decina al secondo.
+    if (servoTargetDeg != minDeg) {
+      logMsg("Servo: " + String(deg) + " gradi sotto il limite " + String(minDeg) +
+             ", fermato li");
+    }
+    deg = minDeg;
+  }
   servoTargetDeg = deg;
   if (servoSlewDeg <= 0) {
     servoApply(deg);
@@ -371,6 +424,9 @@ void servoGoTo(int deg) {
   if (!servoAttached) servoApply(servoCurrentDeg); // riaggancia dove si era rimasti
   servoLastStepMs = millis();
 }
+
+// La via normale, quella di tutti: la battuta e' invalicabile.
+void servoGoTo(int deg) { servoGoToLimite(deg, penBattutaDeg); }
 
 bool servoBusy() {
   return servoAttached && servoCurrentDeg != servoTargetDeg;
@@ -737,8 +793,8 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
 
   <div class="axis-card" style="margin-top:12px">
     <h3>Penna (servo)</h3>
-    <div class="slider-label"><span>Angolo</span><b id="lbl-pen-live">90&deg;</b></div>
-    <input type="range" id="pen-live" min="0" max="180" step="1" value="90" oninput="penLive()">
+    <div class="slider-label"><span>Angolo</span><b id="lbl-pen-live">25&deg;</b></div>
+    <input type="range" id="pen-live" min="17" max="99" step="1" value="25" oninput="penLive()">
     <div class="axis-run">
       <button onclick="penNudge(-1)">&minus;1&deg;</button>
       <button onclick="penNudge(1)">+1&deg;</button>
@@ -895,12 +951,20 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
     <h3>Penna (servo) &mdash; taratura</h3>
     <p class="pins">Segnale D32 &middot; alimentazione 5 V separata</p>
 
-    <div class="slider-label"><span>Angolo penna alzata</span><b id="lbl-pen-up">90&deg;</b></div>
-    <input type="range" id="pen-up" min="0" max="180" step="1" value="90"
+    <div class="slider-label"><span>Angolo di battuta &mdash; fondo scala meccanico</span><b id="lbl-pen-bat">19&deg;</b></div>
+    <input type="number" id="pen-bat" min="0" max="180" step="1" value="19" onchange="pushPenBattuta()">
+    <p class="hint">L'angolo a cui i cuscinetti appoggiano sui blocchi del modulo. Non &egrave;
+      un angolo da comandare: sotto questo valore il firmware non scende, n&eacute; dallo slider
+      n&eacute; da Alza/Abbassa. I soli pulsanti <b>&minus;1&deg;/+1&deg;</b> possono scendere di
+      2&deg; sotto, e servono a una cosa: la verifica con la striscia di carta. Cambialo solo
+      se rismonti il pignone sull'albero del servo.</p>
+
+    <div class="slider-label"><span>Angolo penna alzata</span><b id="lbl-pen-up">34&deg;</b></div>
+    <input type="range" id="pen-up" min="19" max="99" step="1" value="34"
            oninput="showPen()" onchange="pushPen('up')">
 
-    <div class="slider-label"><span>Angolo penna abbassata</span><b id="lbl-pen-down">60&deg;</b></div>
-    <input type="range" id="pen-down" min="0" max="180" step="1" value="60"
+    <div class="slider-label"><span>Angolo penna abbassata</span><b id="lbl-pen-down">25&deg;</b></div>
+    <input type="range" id="pen-down" min="19" max="99" step="1" value="25"
            oninput="showPen()" onchange="pushPen('down')">
 
     <div class="check">
@@ -1085,6 +1149,11 @@ function pushSlew(){
 function showPen(){
   $('lbl-pen-up').textContent = $('pen-up').value + '°';
   $('lbl-pen-down').textContent = $('pen-down').value + '°';
+  $('lbl-pen-bat').textContent = $('pen-bat').value + '°';
+}
+
+function pushPenBattuta(){
+  fetch('/api/pen/battuta?deg=' + $('pen-bat').value);
 }
 
 function pushPenInvert(){
@@ -1100,8 +1169,16 @@ function pushPen(which){
 // decine al secondo che si accodano, facendo arrivare il servo in ritardo sul dito.
 var penTimer = null;
 var penPending = null;
+var penTarGiu = 2;   // lo aggiorna lo stato: gradi concessi sotto la battuta
 
 function penLive(){
+  /* Il fondo dello slider e battuta-tarGiu, perche i pulsanti da un grado
+     devono poterci scrivere il loro valore. Ma trascinando non si deve poter
+     scendere sotto la battuta: il firmware troncherebbe comunque, e un cursore
+     che si muove senza che la penna segua e peggio di un cursore che non si
+     muove. Quindi qui si risale. */
+  var bat = parseInt($('pen-bat').value, 10);
+  if (parseInt($('pen-live').value, 10) < bat) $('pen-live').value = bat;
   var v = $('pen-live').value;
   $('lbl-pen-live').textContent = v + '°';
   penPending = v;
@@ -1120,12 +1197,19 @@ function penSet(state){
 /* Un grado alla volta, per le misure. Parte dall'angolo mostrato dallo slider,
    non da quello dell'ultimo stato ricevuto: altrimenti due click veloci
    finirebbero sullo stesso punto di partenza e il secondo non farebbe niente. */
+/* Questi due sono i soli comandi che possono scendere sotto la battuta, e di
+   pochi gradi: senza di loro non si puo' verificare che il modulo si fermi sui
+   blocchi e non sul fermo interno del servo. Il flag `t=1` lo dice al firmware,
+   che altrimenti tronca alla battuta. */
 function penNudge(d){
+  var bat = parseInt($('pen-bat').value, 10);
   var v = parseInt($('pen-live').value, 10) + d;
+  if (v < bat - penTarGiu) v = bat - penTarGiu;
   if (v < 0) v = 0;
-  if (v > 180) v = 180;
+  if (v > parseInt($('pen-live').max, 10)) v = parseInt($('pen-live').max, 10);
   $('pen-live').value = v;
-  penLive();
+  $('lbl-pen-live').textContent = v + '°';
+  fetch('/api/pen/angle?deg=' + v + '&t=1');
 }
 
 function penToggle(){
@@ -1233,6 +1317,21 @@ function applyState(s){
     perStepY.toFixed(4) + ' su Y · "1 giro" = ' + s.x.mmPerRev.toFixed(1) + ' / ' +
     s.y.mmPerRev.toFixed(1) + ' mm';
 
+  penTarGiu = s.pen.tarGiu;
+  if (document.activeElement !== $('pen-bat')) $('pen-bat').value = s.pen.battuta;
+  /* Lo slider non deve poter chiedere sotto la battuta: il firmware tronca
+     comunque, ma un cursore che si muove senza che la penna segua e' peggio di
+     un cursore che non si muove. */
+  $('pen-live').min = s.pen.battuta - s.pen.tarGiu;   // ci arrivano solo i ±1°
+  $('pen-up').min = s.pen.battuta;
+  $('pen-down').min = s.pen.battuta;
+  /* E il tetto e' il fermo superiore della guida, non i 180 del servo: sopra,
+     il servo spinge contro un fine corsa. Stringendo gli slider su questo arco
+     si guadagna anche la risoluzione che serve per posare un grado. */
+  var penMax = Math.min(180, s.pen.battuta + s.pen.corsaSu);
+  $('pen-live').max = penMax;
+  $('pen-up').max = penMax;
+  $('pen-down').max = penMax;
   if (document.activeElement !== $('pen-up')) $('pen-up').value = s.pen.up;
   if (document.activeElement !== $('pen-down')) $('pen-down').value = s.pen.down;
   if (document.activeElement !== $('slew')) $('slew').value = s.pen.slew;
@@ -1243,8 +1342,8 @@ function applyState(s){
         ? ("In movimento: " + s.pen.angle + "\u00B0 \u2192 " + s.pen.target + "\u00B0")
         : ("Fermo a " + s.pen.angle + "\u00B0"));
   if (document.activeElement !== $('pen-live') && penPending === null) {
-    $('pen-live').value = s.pen.angle;
-    $('lbl-pen-live').textContent = s.pen.angle + '°';
+    $('pen-live').value = s.pen.target;
+    $('lbl-pen-live').textContent = s.pen.target + '°';
   }
   showPen();
   $('btn-center').textContent = (s.pen.state === 'down') ? 'GIÙ' : 'PENNA';
@@ -1321,6 +1420,9 @@ void sendStateJson() {
                 ",\"mmPerRevNom\":" + String(MM_PER_REV, 4) +
                 ",\"pen\":{\"up\":" + String(penUpDeg) +
                 ",\"down\":" + String(penDownDeg) +
+                ",\"battuta\":" + String(penBattutaDeg) +
+                ",\"tarGiu\":" + String(PEN_TARATURA_GIU) +
+                ",\"corsaSu\":" + String(PEN_CORSA_SU) +
                 ",\"angle\":" + String(penAngle) +
                 ",\"target\":" + String(servoTargetDeg) +
                 ",\"slew\":" + String(servoSlewDeg) +
@@ -1620,7 +1722,10 @@ void handlePenSet() {
 // salvati di penna alzata e abbassata.
 void handlePenAngle() {
   int deg = server.arg("deg").toInt();
-  servoGoTo(deg);
+  // `t=1` lo mandano solo i pulsanti da un grado, e concede PEN_TARATURA_GIU
+  // gradi sotto la battuta. Senza, il fondo scala e' la battuta.
+  if (server.arg("t") == "1") servoGoToLimite(deg, penBattutaDeg - PEN_TARATURA_GIU);
+  else servoGoTo(deg);
   penState = "man";
   server.send(200, "text/plain", "ok");
 }
@@ -1632,6 +1737,30 @@ void handlePenInvert() {
          " (piu gradi = penna piu in alto)");
   // Riapplica subito, cosi il verso nuovo si vede senza toccare altro.
   if (servoAttached) servoApply(servoCurrentDeg);
+  server.send(200, "text/plain", "ok");
+}
+
+// La battuta si cambia solo rismontando il pignone sull'albero, quindi questo
+// campo si tocca una volta per montaggio. Alzandola sopra uno dei due angoli
+// salvati li tira su con se': meglio una penna che alza poco di un servo che
+// spinge sui blocchi.
+void handlePenBattuta() {
+  int deg = constrain(server.arg("deg").toInt(), 0, 180);
+  penBattutaDeg = deg;
+  motorPrefs.putInt("penBat", penBattutaDeg);
+  if (penDownDeg < penBattutaDeg) {
+    penDownDeg = penBattutaDeg;
+    motorPrefs.putInt("penDn", penDownDeg);
+    logMsg("Penna abbassata alzata a " + String(penDownDeg) + " gradi: era sotto la battuta");
+  }
+  if (penUpDeg < penBattutaDeg) {
+    penUpDeg = penBattutaDeg;
+    motorPrefs.putInt("penUp", penUpDeg);
+    logMsg("Penna alzata portata a " + String(penUpDeg) + " gradi: era sotto la battuta");
+  }
+  logMsg("Battuta: " + String(penBattutaDeg) + " gradi. Sotto non si scende, salvo i " +
+         String(PEN_TARATURA_GIU) + " gradi dei pulsanti da un grado");
+  if (servoAttached && servoCurrentDeg < penBattutaDeg) servoGoTo(penBattutaDeg);
   server.send(200, "text/plain", "ok");
 }
 
@@ -1651,8 +1780,10 @@ void handlePenSlew() {
 void handlePenConfig() {
   int up = server.arg("up").toInt();
   int down = server.arg("down").toInt();
-  penUpDeg = constrain(up, 0, 180);
-  penDownDeg = constrain(down, 0, 180);
+  // Fondo scala la battuta, non lo zero: sotto di lei il servo spinge contro i
+  // blocchi, e sono i due angoli che usano il pulsante PENNA e le prove.
+  penUpDeg = constrain(up, penBattutaDeg, penBattutaDeg + PEN_CORSA_SU);
+  penDownDeg = constrain(down, penBattutaDeg, penBattutaDeg + PEN_CORSA_SU);
   motorPrefs.putInt("penUp", penUpDeg);
   motorPrefs.putInt("penDn", penDownDeg);
 
@@ -1869,8 +2000,12 @@ void setup() {
   motorX.mmPerRev = motorPrefs.getFloat("mmRevX", MM_PER_REV);
   motorY.mmPerRev = motorPrefs.getFloat("mmRevY", MM_PER_REV);
   microsteps = motorPrefs.getInt("micro", 16);
-  penUpDeg = motorPrefs.getInt("penUp", 90);
-  penDownDeg = motorPrefs.getInt("penDn", 60);
+  penBattutaDeg = motorPrefs.getInt("penBat", 19);
+  // Valori di fabbrica allineati al montaggio del 2026-10-21. Non sono i 90/60
+  // di prima: 90 gradi logici sono 55 oltre il fermo meccanico superiore, e a
+  // ogni avvio con NVS vergine il servo ci andava in stallo contro.
+  penUpDeg = motorPrefs.getInt("penUp", 34);
+  penDownDeg = motorPrefs.getInt("penDn", 25);
   servoSlewDeg = motorPrefs.getInt("slew", 2);
   penInvert = motorPrefs.getBool("invPen", true);
   penAngle = penUpDeg;
@@ -1932,6 +2067,7 @@ void setup() {
   server.on("/api/pen/config", HTTP_GET, handlePenConfig);
   server.on("/api/pen/slew", HTTP_GET, handlePenSlew);
   server.on("/api/pen/invert", HTTP_GET, handlePenInvert);
+  server.on("/api/pen/battuta", HTTP_GET, handlePenBattuta);
   server.on("/api/demo/start", HTTP_GET, handleDemoStart);
   server.on("/api/demo/stop", HTTP_GET, handleDemoStop);
   server.on("/api/motor/invert", HTTP_GET, handleMotorInvert);
