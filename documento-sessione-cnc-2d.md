@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 45
-**Ultimo aggiornamento:** 2026-10-21 16:01
+**Versione:** 46
+**Ultimo aggiornamento:** 2026-10-21 22:34
 
 ## Regole di co-editing
 
@@ -443,6 +443,7 @@ mano a mano che le misure arrivano):
 - [2026-10-15] **Le misure di taratura sono rinviate al modulo penna, per decisione dell'utente.** Non è un rinvio a vuoto: col modulo penna la taratura si fa disegnando una linea lunga e misurandola, che è una misura di tutta la catena in una volta e per asse, invece di una misura del solo passo della cremagliera. Il metodo col calibro resta scritto e valido in `misure/primo-asse.md` per il giorno in cui servisse separare i contributi
 - [2026-10-20] **Fissaggio del foglio: nastro di carta, in attesa della stampa di collaudo** (decisione dell'utente). Il vincolo che esclude quasi tutto il resto: fra piano carta (Z 44,2) e punto più basso del carrello (Z 46,68) ci sono **2,5 mm**, quindi dentro la zona spazzata dal carrello non ci sta nessuna calamita e nessuna molletta — solo nastro (0,1 mm), colla stick o qualcosa sotto la superficie. **La piattaforma da 44 mm non è ancora costruita**, quindi il fissaggio è una scelta di progetto della piattaforma e non un accessorio da aggiungere dopo. Proposta sul tavolo, non ancora decisa: telaio da 40 mm + **piano in vetro float da 4 mm su tre appoggi regolabili** — tre e non quattro, perché tre punti definiscono un piano e quattro lo svergolano. Tavola confermata **600 × 700**
 - [2026-10-20] **Blocchi di riferimento stampati e montati**, uno per asse, agganciati alle staffe TT e LL. Spostano l'azzeramento da «a occhio» a ripetibile: l'appoggio ripete sotto la risoluzione del calibro, e il margine di sicurezza scende da 8 a 2 mm. Il blocco X è una sella senza viti, tenuta dalla forma; il blocco Y una piastra avvitata con due viti a 22,80 di passo. Misurato quanto si mangiano di corsa: **1,443 mm su X, zero su Y** — il blocco Y sta di fatto sulla battuta
+- [2026-10-21] **Il vincolo che esclude calamite e mollette cambia natura, non conclusione.** Eliminata la piattaforma (vedi Step 6), sotto il carrello non ci sono più 2,5 mm ma 46,68: l'argomento del 2026-10-20 non regge più come scritto. A mordere è ora **l'alzata della penna, 2,945 mm**, perché è quello che passa sopra il foglio fra un tratto e l'altro. Stesso ordine di grandezza, stessa decisione: **nastro di carta**, e si rivede dopo la prova 11 del collaudo
 
 **Problemi aperti su questo step (al 2026-10-15):**
 - ~~Profondità del vano motore da verificare~~ — **risolto il 2026-09-26.** Il motore è un **pancake da 23,1 mm**, non un NEMA 17 standard da 34÷48: il vano da 23,5 mm è quindi corretto e le viti posteriori arrivano eccome al coperchio. Resta però **0,4 mm di gioco assiale**, che è più dei ±0,17 mm di tolleranza di centraggio della doppia elica: il motore va messo **in battuta sulla parete anteriore** (che è il riferimento della quota del pignone) con **due rondelle piane M3 da 0,5 mm** fra coperchio posteriore e parete posteriore, così le viti di dietro lo spingono in avanti invece di tirarlo indietro. Resta da verificare la profondità dei fori filettati posteriori (spesso 4÷5 mm) per scegliere la lunghezza delle viti
@@ -550,8 +551,53 @@ mano a mano che le misure arrivano):
 - [2026-10-17] **I bulloni esagonali nei morsetti: sì, ma il verso del carico decide dov'è la tasca.** La vite non tira, **spinge**: avanza nel filetto e la sua punta preme sul magnete dell'attacco, che schiaccia la penna. La reazione spinge quindi il bullone **verso l'esterno**, cioè fuori da una tasca aperta sul lato della testa. La tasca va aperta verso l'interno (lato penna) e la spalla deve stare sul lato esterno. Misure rilevate: la parete del morsetto va da X 7,50 a X 16,50 (**9,0 mm**), foro Ø5,500 passante, punta della vite a X 6,10. Un dado M6 standard (10,0 sulle facce, 5,0 di spessore) sta in tasca da X 7,50 a 12,70 e lascia **3,80 mm di spalla**: ci sta senza ingrossare niente. Il foro residuo va aperto a Ø6,5. Il fastidio è che la tasca guarda in orizzontale, quindi il dado cade mentre si monta: tasca a 10,1 sulle facce (presa a frizione) e si inserisce prima dell'attacco, che poi lo intrappola
 - [2026-10-16] **Pignone grande o piccolo, per la forza del servo: non è un criterio.** Forza alla cremagliera = coppia / raggio. Con 1,8 kg·cm (≈177 N·mm) e r = 18,750 escono **9,4 N**; con r = 10,5 (z14) 16,9 N. Ma la massa flottante da sollevare è 0,55÷0,60 N, quindi il margine è **15×** già col pignone grande. Quello che il pignone grande compra davvero: la cremagliera cade sulla parete di `pz2` invece che su una mensola (meno massa flottante, che è il parametro fuori budget) ed è **1,8× più veloce** nell'alzata (0,051 s contro 0,091 per 10 mm), il che però conta poco contro il tempo di assestamento. Criterio vero: la geometria, non la coppia
 - [2026-10-21] **MODULO MONTATO**, cuscinetti compresi: il collo di bottiglia del progetto si è sbloccato. L'utente riferisce accoppiamento cremagliera/pignone buono e cuscinetti che scorrono con gioco vicino a zero — resta da **misurare il gioco d'ingranamento**, che da progetto vale 0,30 mm e **non va ridotto**: è quello che ha preso il posto del giunto a gioco morto, e dentro quella banda la penna appoggia col proprio peso invece che con la quota imposta. Due cose scoperte al montaggio: il servo gira **al contrario** (risolto convertendo in un punto solo per lato della catena), e la prima taratura ha messo la battuta a **1° logico = 2489 µs**, fuori dalla specifica 500÷2400 dell'SG90 — l'ingranaggio è stato calettato col servo già contro il proprio fermo interno. Da rifare spostando l'ingranaggio di un dente di cannula (~19°), che porta la zona di lavoro a 2122÷2289 µs
+- [2026-10-21] **La piattaforma da 44 mm è eliminata** (decisione dell'utente). Supera la nota del 2026-10-06, che la dava come necessaria: il piano carta a Z ≈ 44,2 nasceva dal punto più basso del carrello Y a Z 46,68, quando il modulo penna non era ancora disegnato. **Col modulo Tratto Pen montato sulla testina X lo spazio verticale libero è meno di 40 mm**, quindi la piattaforma non ci sta sotto. Il piano resta **unico: la tavola**, e il foglio ci appoggia sopra. Conseguenza sulla taratura: l'angolo di penna abbassata si impone stringendo la penna contro **la tavola**, non contro uno spessore — la quota assoluta non è mai stata un vincolo, perché a regolarla è la penna che scorre nei morsetti (nota del 2026-10-15). CAD aggiornato in arrivo
 
 ## Storico sessioni
+
+### [2026-10-21 22:34] (meccanica+software) I tre angoli del servo diventano numeri veri, e la piattaforma da 44 mm viene eliminata
+
+**Riepilogo:** il pignone del pen-lift è stato ricalzato sull'albero del servo per portare la battuta da 1° a 19° e rientrare nella specifica elettrica dell'SG90; i tre angoli 19/25/34 sono entrati nel profilo, nel `config.yaml` e nei valori di fabbrica della dashboard, dove la battuta è diventata un fondo scala invariabile; e l'utente ha eliminato la piattaforma da 44 mm, correggendo una procedura che gli chiedeva di tarare contro un piano che non esiste.
+
+**Cosa è stato fatto:**
+
+- **Battuta spostata da 1° a 19°** ricalzando il pignone sull'albero: servo a 19 dalla pagina, modulo appoggiato ai blocchi sotto il suo solo peso, pignone calzato. La battuta è quell'angolo **per costruzione**, non per misura. Alla domanda se fosse meglio mettere prima il numero e poi incastrare, o il contrario: prima il numero, sempre — è l'unico modo di avere una battuta nota senza doverla cercare
+- **Chiarito che 19 non è un bersaglio ma il centro di una finestra**: qualunque battuta fra 13° e 30° tiene tutta la corsa di lavoro dentro i 500÷2400 µs dell'SG90, e l'incastro è quantizzato (~19° per spline) quindi sul numero esatto non ci si cade
+- I tre angoli **19 / 25 / 34** (2289 / 2222 / 2122 µs) scritti nel profilo del SLICER, nel `cnc2d-config.yaml` scritto a mano (`min_pulse_us` 2222 > `max_pulse_us` 2122, voluto; `max_travel_mm` 2.945, cioè Z in millimetri veri di penna) e nel default `--alzata` del generatore del disegno di collaudo
+- **La battuta è ora un fondo scala nella dashboard**: campo dedicato salvato in NVS, `servoGoTo()` che tronca lì, e i soli pulsanti ±1° che scendono di 2° sotto per la verifica con la striscia di carta
+- **Badge di provenienza differenziati** per i tre angoli — «al montaggio», «imposto», «calcolato» — perché dire «misurato» a tutti e tre racconterebbe una cosa falsa a chi rilegge il profilo fra un mese
+- **A2 riscritto** col metodo per costruzione e le due avvertenze (non premere mentre incastri, non mettere un angolo troppo basso); **A3 corretto**, perché la formula era ancora quella senza inversione; tabella di stato del documento allineata
+- 189 asserzioni verdi su sei suite, firmware compilato
+
+**Bug: la penna alzata di fabbrica era oltre il fermo meccanico**
+
+**Sintomo:** a ogni avvio con NVS vergine il servo andava in stallo contro il fine corsa superiore della guida.
+**Causa:** `penUpDeg` di fabbrica era 90 gradi logici. La corsa della guida è 26,350 mm = 80,5° di servo, quindi 90 sono **55° oltre il fermo** una volta che la battuta sta a 19.
+**Fix applicato:** valori di fabbrica portati a 34 e 25, e tetto a battuta + 80° applicato in `servoGoToLimite()` e sugli slider della pagina. Da confermare sulla macchina al prossimo flash.
+
+**Bug: la procedura di taratura chiedeva un piano che non esiste**
+
+**Sintomo:** il passo A2 diceva di stringere la penna contro uno spessore da 44 mm. Segnalato dall'utente: «nel modello non ci sono e mi sembra che te li sia inventati».
+**Causa:** mia. I 44 mm vengono dalla decisione del 2026-10-06 di costruire una **piattaforma** alta 44 mm, mai costruita; riscrivendo A2 ho proposto uno spessore come suo sostituto invece di chiedermi se la piattaforma servisse ancora. Nel documento era scritto nero su bianco che non era stata costruita, e c'era anche la nota del 2026-10-15 che diceva che la quota assoluta non è un vincolo perché a regolarla è la penna che scorre nei morsetti.
+**Fix applicato:** A2 ora dice la regola in una riga — il riferimento è il piano su cui il foglio appoggerà davvero quando stampi — e spiega da dove venivano i 44 mm. Verificato: l'utente ha confermato che il piano è unico e la penna lo raggiunge.
+
+**Decisioni prese:**
+
+- **Contesto:** dopo la scoperta che a 1° l'impulso cade fuori specifica, bisognava decidere se spostare il pignone o convivere con la battuta dov'era.
+  **Decisione:** spostare il pignone e **mettere il numero nel pannello prima di incastrare**. 19° logici.
+  **Alternative scartate:** tenere 1° e misurare dove comincia la zona morta (si sarebbe lavorato per sempre al limite elettrico del servo); riscrivere `SERVO_US_MIN/MAX` per rimappare l'1° su un impulso sano (cambia l'etichetta, non la fisica: il pignone sarebbe rimasto calzato col servo contro il proprio fermo interno).
+  **Da rivedere se:** si rismonta il pignone dall'albero, o si cambia servo.
+
+- **Contesto:** la piattaforma da 44 mm era in progetto dal 2026-10-06 e nessuno l'aveva più messa in discussione dopo che il modulo penna è stato disegnato.
+  **Decisione dell'utente:** **la piattaforma è eliminata.** Col modulo Tratto Pen attaccato alla testina dell'asse X lo spazio verticale libero è meno di 40 mm, quindi non ci starebbe sotto. Il piano resta unico: la tavola.
+  **Supera la decisione del 2026-10-06**, che la dava come necessaria — il vincolo da cui nasceva (carrello Y a Z 46,68) riguardava il carrello, non il modulo penna, che allora non esisteva.
+  **Conseguenza registrata:** l'argomento del 2026-10-20 contro calamite e mollette («2,5 mm fra piano carta e carrello») non regge più come scritto; a mordere è ora l'alzata della penna, 2,945 mm. Stesso ordine di grandezza, stessa decisione: nastro di carta, da rivedere dopo la prova 11 del collaudo.
+
+**File consegnati/modificati:** `firmware/cnc2d_dashboard/cnc2d_dashboard.ino`, `firmware/fluidnc/cnc2d-config.yaml`, `webui/js/profile.js`, `webui/js/settings.js`, `webui/tools/test-macchina.js`, `misure/accensione-e-taratura.md`, `misure/impostazioni-glossario.md`
+
+**Impatto su Vision/Pipeline:** due note aggiunte — in **Step 6** l'eliminazione della piattaforma con il motivo e la conseguenza sulla taratura, in **Step 5** il cambio di natura del vincolo sul fissaggio del foglio.
+
+---
 
 ### [2026-10-21 16:01] (meccanica+software) Il modulo penna è montato, il servo gira al contrario, e il disegno di collaudo diventa lo strumento che misura tutta la macchina
 

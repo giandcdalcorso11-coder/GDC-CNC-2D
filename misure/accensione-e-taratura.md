@@ -136,19 +136,16 @@ Sulla macchina com'è montata oggi quel piano è **la tavola stessa**: il piano 
 unico, il foglio ci si appoggia sopra e la penna lo raggiunge. Quindi si stringe
 la penna lì, con un foglio sotto la punta, e non serve nessuno spessore.
 
-**Sui 44 mm, perché non c'entrano qui.** In progetto c'è una *piattaforma* alta
-44 mm (deciso il 2026-10-06: il punto più basso del carrello Y sta a Z 46,68
-sopra la tavola, quindi un piano carta a Z ≈ 44,2 lascerebbe 2,5 mm di franco).
-Quella piattaforma **non è mai stata costruita**, e la macchina funziona senza:
-la quota assoluta non è un vincolo, perché a regolarla è la penna che scorre nei
-morsetti — motivo per cui i morsetti sono un serraggio e non un riferimento di
-quota. Finché la piattaforma non esiste, mettere uno spessore da 44 mm sotto la
-penna per stringerla sarebbe **tarare contro un piano che poi non si usa**.
+**Sui 44 mm, che non esistono più.** In progetto c'era una *piattaforma* alta
+44 mm, decisa il 2026-10-06 quando il modulo penna non era ancora disegnato: il
+punto più basso del carrello Y sta a Z 46,68 sopra la tavola, e un piano carta a
+Z ≈ 44,2 avrebbe lasciato 2,5 mm di franco. **Eliminata il 2026-10-21**: col
+modulo Tratto Pen attaccato alla testina dell'asse X lo spazio verticale libero
+è meno di quei 4 cm, quindi la piattaforma non ci starebbe sotto.
 
-Il giorno che la piattaforma venisse costruita, la penna si riallenta e si
-ristringe allo stesso angolo contro il piano nuovo: sono due viti. Ed è il solo
-motivo per cui vale la pena ricordarsi l'altezza del piano di taratura — non per
-la precisione, ma per sapere quando il gesto va rifatto.
+Nessuno spessore, quindi, e nessuna quota da rispettare: la quota assoluta non è
+mai stata un vincolo, perché a regolarla è la penna che scorre nei morsetti —
+motivo per cui i morsetti sono un serraggio e non un riferimento di quota.
 
 ### Una precauzione sul servo, prima di toccare qualsiasi cosa
 
