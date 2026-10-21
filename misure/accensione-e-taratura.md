@@ -128,20 +128,27 @@ numeri che trovi qui valgono tali e quali.
 ### Prima di cominciare: contro cosa stringi la penna
 
 L'angolo di **penna abbassata** non è una misura: è il gesto con cui stringi la
-penna nei morsetti. Quindi serve un **piano di riferimento alla quota giusta**,
-e la piattaforma da 44 mm non è ancora costruita.
+penna nei morsetti. Il riferimento è quindi uno solo, e si dice in una riga:
 
-Due modi, tutti e due validi:
+> **il piano su cui il foglio appoggerà davvero quando stampi.**
 
-- **la piattaforma vera**, se nel frattempo l'hai fatta;
-- **uno spessore da 44 mm** appoggiato sulla tavola sotto la penna, con sopra un
-  foglio. Non serve che sia preciso al decimo: i 6° di riserva fra battuta e
-  appoggio valgono 2 mm, e il popup dell'altezza di contatto assorbe il resto a
-  ogni stampa. Uno spessore giusto a ±1 mm basta.
+Sulla macchina com'è montata oggi quel piano è **la tavola stessa**: il piano è
+unico, il foglio ci si appoggia sopra e la penna lo raggiunge. Quindi si stringe
+la penna lì, con un foglio sotto la punta, e non serve nessuno spessore.
 
-Misura lo spessore col calibro prima di usarlo, e **segnati quale hai usato**:
-se la piattaforma finita verrà diversa di più di un millimetro, la penna si
-riallenta e si ristringe — sono due viti.
+**Sui 44 mm, perché non c'entrano qui.** In progetto c'è una *piattaforma* alta
+44 mm (deciso il 2026-10-06: il punto più basso del carrello Y sta a Z 46,68
+sopra la tavola, quindi un piano carta a Z ≈ 44,2 lascerebbe 2,5 mm di franco).
+Quella piattaforma **non è mai stata costruita**, e la macchina funziona senza:
+la quota assoluta non è un vincolo, perché a regolarla è la penna che scorre nei
+morsetti — motivo per cui i morsetti sono un serraggio e non un riferimento di
+quota. Finché la piattaforma non esiste, mettere uno spessore da 44 mm sotto la
+penna per stringerla sarebbe **tarare contro un piano che poi non si usa**.
+
+Il giorno che la piattaforma venisse costruita, la penna si riallenta e si
+ristringe allo stesso angolo contro il piano nuovo: sono due viti. Ed è il solo
+motivo per cui vale la pena ricordarsi l'altezza del piano di taratura — non per
+la precisione, ma per sapere quando il gesto va rifatto.
 
 ### Una precauzione sul servo, prima di toccare qualsiasi cosa
 
@@ -234,7 +241,7 @@ servo ci arriva piano invece che di scatto.
 5. **ANGOLO DI PENNA ABBASSATA — non si misura, si impone.**
 
    Porta il servo a **battuta + 6°**, che col montaggio del 2026-10-21 vuol dire
-   **25°**. Metti il foglio sul piano di riferimento.
+   **25°**. Metti un foglio sul piano su cui stamperai davvero — oggi la tavola.
    Infila la penna nei morsetti finché la punta **tocca il foglio**, e stringi.
 
    Da quel momento `abbassata = battuta + 6°` **per costruzione**, perché l'hai
