@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 44
-**Ultimo aggiornamento:** 2026-10-20 22:08
+**Versione:** 45
+**Ultimo aggiornamento:** 2026-10-21 16:01
 
 ## Regole di co-editing
 
@@ -314,6 +314,7 @@ mano a mano che le misure arrivano):
 - [2026-10-19] **Il flusso di inizio stampa, definito dall'utente:** accendi → *slice* → controllo → *stampa* → popup con il pannello manuale per portare la punta sul punto di origine → "homing completato" → popup con il pannello manuale per portare la punta all'altezza di appoggio → "altezza penna completato" → parte la stampa. Approvato nella sostanza, con tre correzioni: (1) il popup XY deve **alzare la penna prima** di abilitare il jog, altrimenti si trascina la punta sul foglio per tutto il posizionamento; (2) dopo "altezza penna completato" l'app deve **alzare subito**, perché quel popup finisce con la punta che tocca; (3) il programma deve cominciare con alza → vai al primo punto → abbassa, altrimenti traccia una riga dall'origine all'inizio del disegno
 - [2026-10-19] **Il punto di origine manuale è un'origine di lavoro, non un riferimento macchina**, e i limiti non vanno agganciati a lui. La frase "da quel punto si setta tutta la macchina" è la trappola che il documento aveva già descritto il 2026-10-06 ("si crede di essere a 25 mm e si è a 12"): la ripetibilità di un posizionamento a occhio è di qualche millimetro, e se i limiti sono riferiti a lui l'errore di parcheggio diventa errore di limite. Per **dove cade il disegno sul foglio** qualche millimetro va benissimo, perché la posizione del foglio è comunque arbitraria. Quindi: origine manuale sì, limiti agganciati a lei no
 - [2026-10-17] **Il gruppo Penna della tab Impostazioni diventa quattro angoli più una conversione**, su richiesta dell'utente. Il valore che mancava è l'**angolo di battuta**, cioè quello a cui i cuscinetti arrivano in fondo ai blocchi inferiori: è un limite meccanico, non una preferenza, e il software non deve poter scendere sotto. Sopra c'è l'angolo di appoggio — che è anche quello a cui tenere il servo mentre si infila la penna e si stringono i morsetti, perché è la stessa posizione — e sopra ancora quello di penna alzata. Aggiunta mia: serve anche la **battuta alta**, perché la pista è limitata dalle due parti (15,350 di salita contro 11,000 di discesa), e serve il **raggio del pignone** come unico parametro di conversione, così alzata e appoggio si inseriscono in millimetri e la pagina li traduce in gradi (0,32725 mm/grado a r = 18,750). Senza quel campo ogni numero della sezione penna è in gradi e nessuno è leggibile
+- [2026-10-21] **Disegno di collaudo** (`webui/tools/test-macchina.js` e `font-tratto.js`): una stampa su 246 × 233 mm con **undici prove in riquadri numerati**, dalla scala per asse all'ortogonalità al gioco al livello del piano, più ripetibilità e velocità. Genera SVG per guardare o G-code per stampare, e il G-code vero si produce **dopo** la taratura della penna, coi numeri veri. Come si legge sta in `misure/disegno-di-collaudo.md`, prova per prova e con l'ordine di lettura — livello e stacchi per primi, perché se il piano è storto tutto il resto è misurato male
 
 ### Step 5 — Struttura meccanica
 
@@ -479,7 +480,7 @@ mano a mano che le misure arrivano):
 
 ### Step 6 — Modulo penna e interfaccia utensili
 
-**Stato:** in corso — **CAD chiuso** (`prova_4`, 2026-10-19: resta solo da riportare nello sketch l'offset di gioco della cremagliera, due quote), **fermo in attesa dei cuscinetti MR63**. Resta il collo di bottiglia di tutto: senza penna la macchina non disegna, e senza disegnare non si tara
+**Stato:** in corso — **MONTATO** il 2026-10-21, cuscinetti compresi, e **in taratura**. Il collo di bottiglia che bloccava tutto il progetto si è sbloccato. Resta da chiudere la taratura dei tre angoli del servo: la prima prova ha messo la battuta a 1° logico, che cade fuori dalla specifica elettrica dell'SG90, e va rifatta spostando l'ingranaggio di un dente
 
 **Obiettivo:** la penna si appoggia e si solleva in modo ripetibile, con pressione costante, e il modulo è intercambiabile con altri utensili senza ritarare la macchina
 
@@ -548,8 +549,90 @@ mano a mano che le misure arrivano):
 - [2026-10-17] **La massa flottante non è più un problema di budget, perché non è più la forza d'appoggio.** Il bilancio aggiornato su `prova_4` dà 46÷56 g con riempimento 35÷50% (0,45÷0,55 N), di cui **19,15 g sono le due viti dei morsetti** in acciaio (9,58 g ciascuna, M6 × ~41). Ma con la presa rigida la forza sulla carta la dà la quota, non il peso: il peso serve solo a essere sollevato, e il servo a r = 18,750 dà 9,4 N contro 0,55, cioè **17× di margine**. Il target 0,20÷0,29 N scritto il 2026-10-16 valeva per l'architettura a gravità e **non si applica più**. Resta un motivo più debole per alleggerire (inerzia e vibrazione sull'alzata), e resta che dentro i 0,30 mm di gioco la penna appoggia col proprio peso: lì 0,55 N è il doppio di quello che si voleva
 - [2026-10-17] **I bulloni esagonali nei morsetti: sì, ma il verso del carico decide dov'è la tasca.** La vite non tira, **spinge**: avanza nel filetto e la sua punta preme sul magnete dell'attacco, che schiaccia la penna. La reazione spinge quindi il bullone **verso l'esterno**, cioè fuori da una tasca aperta sul lato della testa. La tasca va aperta verso l'interno (lato penna) e la spalla deve stare sul lato esterno. Misure rilevate: la parete del morsetto va da X 7,50 a X 16,50 (**9,0 mm**), foro Ø5,500 passante, punta della vite a X 6,10. Un dado M6 standard (10,0 sulle facce, 5,0 di spessore) sta in tasca da X 7,50 a 12,70 e lascia **3,80 mm di spalla**: ci sta senza ingrossare niente. Il foro residuo va aperto a Ø6,5. Il fastidio è che la tasca guarda in orizzontale, quindi il dado cade mentre si monta: tasca a 10,1 sulle facce (presa a frizione) e si inserisce prima dell'attacco, che poi lo intrappola
 - [2026-10-16] **Pignone grande o piccolo, per la forza del servo: non è un criterio.** Forza alla cremagliera = coppia / raggio. Con 1,8 kg·cm (≈177 N·mm) e r = 18,750 escono **9,4 N**; con r = 10,5 (z14) 16,9 N. Ma la massa flottante da sollevare è 0,55÷0,60 N, quindi il margine è **15×** già col pignone grande. Quello che il pignone grande compra davvero: la cremagliera cade sulla parete di `pz2` invece che su una mensola (meno massa flottante, che è il parametro fuori budget) ed è **1,8× più veloce** nell'alzata (0,051 s contro 0,091 per 10 mm), il che però conta poco contro il tempo di assestamento. Criterio vero: la geometria, non la coppia
+- [2026-10-21] **MODULO MONTATO**, cuscinetti compresi: il collo di bottiglia del progetto si è sbloccato. L'utente riferisce accoppiamento cremagliera/pignone buono e cuscinetti che scorrono con gioco vicino a zero — resta da **misurare il gioco d'ingranamento**, che da progetto vale 0,30 mm e **non va ridotto**: è quello che ha preso il posto del giunto a gioco morto, e dentro quella banda la penna appoggia col proprio peso invece che con la quota imposta. Due cose scoperte al montaggio: il servo gira **al contrario** (risolto convertendo in un punto solo per lato della catena), e la prima taratura ha messo la battuta a **1° logico = 2489 µs**, fuori dalla specifica 500÷2400 dell'SG90 — l'ingranaggio è stato calettato col servo già contro il proprio fermo interno. Da rifare spostando l'ingranaggio di un dente di cannula (~19°), che porta la zona di lavoro a 2122÷2289 µs
 
 ## Storico sessioni
+
+### [2026-10-21 16:01] (meccanica+software) Il modulo penna è montato, il servo gira al contrario, e il disegno di collaudo diventa lo strumento che misura tutta la macchina
+
+**Riepilogo:** costruito il disegno di collaudo — undici prove in riquadri numerati su una stampa sola — e montato il modulo penna, che si rivela **invertito**: più gradi, penna più in basso. Risolto convertendo in un punto solo per lato della catena, mentre la prima taratura della battuta finisce fuori dalla specifica elettrica del servo e resta da rifare.
+
+**Cosa è stato fatto:**
+
+- **Due pulsanti da un grado per il servo**, su richiesta dell'utente. Il grado è il passo giusto non per comodità ma perché **è la banda morta dell'SG90**: 10 µs su 2000 per 180°, cioè 0,90° — un comando da mezzo grado può non produrre nessun movimento. Trascinando lo slider si perde il conto, premendo si sa sempre a che angolo si è
+- **Disegno di collaudo** (`webui/tools/test-macchina.js`): una stampa su 246 × 233 mm da cui si tirano fuori undici cose. Prima versione a zone libere, poi **riorganizzato in riquadri numerati** su richiesta dell'utente, col numero in una casella all'angolo che rimanda al documento di lettura
+- **Due prove aggiunte, chieste dall'utente:** la **ripetibilità** (otto volte la stessa tacca arrivando da lontano, due colonne — una sempre dallo stesso verso, una alternata, e la differenza fra le due bande è una **seconda lettura del gioco** indipendente da quella del pettine) e la **velocità** (quattro righe a 600÷4800 mm/min fra due verticali: una riga che non tocca la verticale ha perso passi). Le righe sono lunghe 100 mm perché con 200 mm/s² servono 16 mm solo per arrivare a 80 mm/s, e su un tratto corto la prova non misurerebbe niente
+- **Alfabeto a tratto singolo** (`webui/tools/font-tratto.js`): un font da stampa è fatto di contorni, e una penna che ripassa un contorno disegna una lettera vuota, illeggibile sotto i 6-7 mm
+- **Riordino col vicino più prossimo** nel generatore: gli spostamenti a vuoto scendono da 6522 a 2306 mm. I tratti con un avvicinamento imposto non si rovesciano, perché il loro verso di arrivo *è* la misura
+- **`misure/disegno-di-collaudo.md`**: cosa misurare, con che strumento, il conto da fare e cosa significa ogni risultato possibile, prova per prova. In cima l'**ordine di lettura**, che non è l'ordine dei numeri — livello e stacchi per primi, perché se il piano è storto tutto il resto è misurato male
+- **Passo A2 riscritto** sulla nuova logica: **una misura sola, due conti e un gesto**. La battuta si misura con una striscia di carta fra cuscinetto e blocco invece di aspettare che il servo ronzi, e si segna l'ultimo grado in cui la carta esce ancora, che è il valore conservativo
+- **Modulo penna montato dall'utente**, cuscinetti compresi. Riferito: accoppiamento cremagliera/pignone buono, cuscinetti che scorrono con gioco vicino a zero
+- **Tavola di base confermata 600 × 700**, come già registrato il 2026-10-12. L'utente l'aveva ricordata 800 × 700: verificato sul documento prima di prenderla per buona
+- Verificato **sul sorgente di FluidNC** (`RcServo.cpp`) che l'inversione di un servo si fa **scambiando `min_pulse_us` e `max_pulse_us`**, e che la mappatura è un `mapConstrain` lineare senza controlli sull'ordine dei due estremi. Da cui discende anche che **FluidNC non può comandare il servo fuori da quei due estremi**, qualunque Z arrivi dal G-code
+
+**Bug: il servo va al contrario**
+
+**Sintomo:** premendo «Alza penna» la penna scende, e viceversa.
+**Causa:** l'accoppiamento del modulo montato esce invertito rispetto a quello che tutto il progetto dava per scontato: facendo crescere l'angolo fisico del servo la penna **scende**.
+**Fix applicato:** si poteva convivere con due convenzioni opposte — il meccanismo in un verso e il resto del progetto nell'altro — e sarebbe stato il modo sicuro di sbagliare un segno fra sei mesi. Invece la conversione sta **in un punto solo per ciascun lato**: `servoApply()` nel firmware, `gradiToUs()` nel profilo. Da lì in avanti i gradi che si vedono, si salvano e si mettono nel profilo sono **logici** — più gradi = penna più in alto — e resta valida ovunque la regola `battuta < abbassata < alzata`. Una spunta per lato, entrambe attive di default, con scritto che devono concordare: se non vanno d'accordo, la dashboard alza e FluidNC abbassa. **Verificato dall'utente** dopo il flash.
+
+**Bug: la prima taratura della battuta cade fuori dalla specifica elettrica del servo**
+
+**Sintomo:** l'utente ha calettato l'ingranaggio con il modulo appoggiato ai blocchi e il servo comandato a **1° logico**, per una ragione corretta: così un comando errato verso lo zero può superare il fermo meccanico di un solo grado invece che di venti.
+**Causa:** a 1° logico il firmware manda **2489 µs**, e l'SG90 è specificato 500÷2400. L'ingranaggio è quindi stato inserito con il servo **già contro il proprio fermo interno**, non in una posizione controllata. Conseguenze: i primi gradi della scala sono morti, e «penna abbassata» a 7° finirebbe appiccicata a quella zona morta. Non è inoltre accertato se il modulo avesse smesso di scendere per i cuscinetti o per il servo — la prova della striscia di carta, che li distingue, non è stata fatta.
+**Fix applicato: nessuno, in attesa di decisione dell'utente.** Proposta: spostare l'ingranaggio **di un dente di cannula** (~19°), che porta la battuta a ~19° logici e tutta la zona di lavoro da 2322÷2489 µs a 2122÷2289, dentro la corsa buona con margine da entrambe le parti. Il rischio che l'utente voleva evitare resta coperto da `mapConstrain` di FluidNC, che non può comandare sotto l'angolo di appoggio.
+
+**Bug d'ambiente: l'OTA non parte, `espota` riceve un segnaposto**
+
+**Sintomo:** `espota.exe: error: argument -p/--port: invalid int value: '{upload.port.properties.port}'`, a compilazione già riuscita.
+**Causa:** l'IDE non ha sostituito la proprietà della porta di rete. È un difetto noto dell'associazione fra sketch e porta, che resta appiccicata da una versione precedente.
+**Fix applicato:** riselezionare la porta di rete. **Verificato dall'utente.** La via d'uscita sicura resta il cavo USB, e in alternativa `espota` a mano (hostname `cnc2d`, porta 3232, password `cnc2d2026`).
+
+**Bug d'ambiente: `undefined reference to setup()` a compilazione riuscita**
+
+**Sintomo:** il linker trova il core della ESP32 ma non l'oggetto dello sketch: `main.cpp` chiama `setup()` e `loop()` e nessuno gliele fornisce.
+**Causa:** cache di compilazione non coerente — un `core.a` costruito con una versione del core e linkato con un'altra, dopo un aggiornamento del core a 3.3.8. Verificata prima l'integrità dello sketch (setup e loop al livello giusto, graffe bilanciate, un solo delimitatore di raw literal): non era una nostra modifica.
+**Fix applicato:** svuotare `AppData\Local\arduino\cores\` e `AppData\Local\Temp\arduino\sketches\`. **Verificato dall'utente.**
+
+**Decisioni prese:**
+
+- **Contesto:** servono tre angoli di servo, e l'utente ha chiesto quanto debba valere il salto fra l'uno e l'altro.
+  **Decisione:** **solo la battuta si misura**; «penna abbassata» = battuta + 6° **non si misura, si impone** stringendo la penna a quell'angolo contro il piano di riferimento; «penna alzata» = abbassata + 9° è un conto. Il giorno che si cambia penna si rifà lo stesso gesto allo stesso angolo e non si rimisura niente.
+  **Perché quei due numeri:** i 6° (1,96 mm) sono la riserva **verso il basso**, per carta più sottile o penna infilata più corta. I 9° (2,95 mm) sono l'alzata, e il criterio di sotto è la banda morta: con dieci bande morte dentro l'alzata ripete entro il 10%, mentre un'alzata da 1 mm sarebbe tre bande morte, cioè ±30%.
+  **Da rivedere se:** la prova 7 del collaudo mostra segni negli spazi fra i trattini — vuol dire che l'alzata non scavalca il fuori-piano e i 9° vanno aumentati.
+
+- **Contesto:** il modulo esce invertito.
+  **Decisione:** **una sola conversione per lato della catena**, con i gradi logici ovunque.
+  **Alternative scartate:** girare solo lo slider, o convivere con la regola rovesciata (`battuta > abbassata > alzata`) nel profilo. Entrambe avrebbero lasciato due convenzioni opposte nello stesso progetto.
+
+- **Contesto:** serve un primo disegno da cui capire com'è fatta davvero la macchina.
+  **Decisione:** **undici prove su una stampa sola**, in riquadri numerati, con un documento che dice come leggerle e **in quale ordine**.
+  **Da rivedere se:** la stampa risulta troppo densa da leggere — in quel caso le prove di moto (stacchi, pettine, rettilineità) si spostano su una seconda stampa più piccola.
+
+- **Contesto:** come si fissa il foglio al piano.
+  **Decisione:** **nastro di carta**, e si decide il resto **dopo il collaudo**. Il vincolo che esclude quasi tutto: fra piano carta (Z 44,2) e punto più basso del carrello ci sono **2,5 mm**, quindi dentro la zona spazzata non ci sta nessuna calamita e nessuna molletta.
+  **Alternative scartate per ora:** calamite (sporgono, e vorrebbero un piano ferroso), mollette (sollevano il bordo), biadesivo (strappa la carta). **Sul tavolo, non decisa:** piattaforma con telaio da 40 mm e **piano in vetro float da 4 mm su tre appoggi regolabili** — tre e non quattro, perché tre punti definiscono un piano e quattro lo svergolano.
+  **Da rivedere se:** la prova 11 del collaudo mostra il piano imbarcato o svergolato. Allora il bordo non basta e serve qualcosa che tiri giù tutta la superficie.
+
+- **Contesto:** l'utente propone di compensare il fuori-piano via software, ritoccando la Z punto per punto.
+  **Decisione: parcheggiata**, si decide dopo il collaudo. I dati li raccoglie già la prova 11.
+  **Da rivedere se:** il fuori-piano misurato supera il millimetro — sotto 0,3 mm la compensazione è inutile perché il servo non sa muoversi più fine della sua banda morta.
+
+**File consegnati/modificati:**
+
+- `webui/tools/test-macchina.js` — **nuovo**, il generatore del disegno di collaudo (SVG o G-code)
+- `webui/tools/font-tratto.js` — **nuovo**, alfabeto a tratto singolo
+- `misure/disegno-di-collaudo.md` — **nuovo**, come si legge ogni prova e in quale ordine
+- `firmware/cnc2d_dashboard/cnc2d_dashboard.ino` — pulsanti da un grado, inversione del servo in `servoApply()`, spunta e rotta `/api/pen/invert`, flag in NVS
+- `firmware/cnc2d_dashboard/README.md` — i due pulsanti e il verso del servo
+- `webui/js/profile.js` — `penna.invertito`, conversione in `gradiToUs()`, nota sul `min_pulse_us` maggiore del massimo
+- `webui/index.html` — spunta del verso nella scheda Penna
+- `misure/accensione-e-taratura.md` — passo A2 riscritto per intero
+- `documento-sessione-cnc-2d.md` — questa voce
+
+**Impatto su Vision/Pipeline:** **Step 6 passa da «fermo in attesa dei cuscinetti» a «montato, in taratura»** — il collo di bottiglia di tutto il progetto si è sbloccato. Step 4: aggiunto il generatore del disegno di collaudo fra gli strumenti. Step 5: registrata la decisione sul fissaggio del foglio e il vincolo dei 2,5 mm.
+
+---
 
 ### [2026-10-20 20:43] (software) Il SLICER diventa usabile: due profili, il pannello manuale, i tre popup — e i blocchi di homing trasformano otto millimetri di prudenza in due
 
