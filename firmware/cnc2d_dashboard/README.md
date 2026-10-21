@@ -86,6 +86,14 @@ senza salvare niente. Serve a vedere dove finisce la penna e a trovare gli estre
 prima di fissarli. Gli angoli di lavoro (alzata/abbassata) si tarano e si salvano nella
 tab Motore; questo slider non li tocca.
 
+**Verso del servo.** Sul modulo montato il 2026-10-21 l'accoppiamento esce
+invertito: crescendo l'angolo fisico la penna scende. La spunta *Verso del servo
+invertito* nella tab Motore — attiva di default, salvata in NVS — converte in un
+punto solo (`servoApply`), così **i gradi che si vedono ovunque sono logici: più
+gradi, penna più in alto**. Resta valida la regola `battuta < abbassata < alzata`.
+La stessa spunta esiste nel profilo del SLICER e deve concordare, altrimenti la
+dashboard alza e FluidNC abbassa.
+
 Sotto lo slider ci sono **−1° e +1°**, ed è con quelli che si fanno le misure: un grado
 vale **0,327 mm di penna**, ed è il passo giusto per cercare la battuta dei cuscinetti e
 il punto in cui la punta tocca il foglio. Sotto il grado non ha senso andare: la banda

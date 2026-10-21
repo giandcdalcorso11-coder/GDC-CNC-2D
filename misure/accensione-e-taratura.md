@@ -164,6 +164,19 @@ servo ci arriva piano invece che di scatto.
    modulo. Da qui in avanti si lavora **coi pulsanti −1° e +1°**, non più con lo
    slider: trascinando si perde il conto di dove si è, premendo lo si sa sempre.
 
+   **Il verso.** Sul modulo montato il 2026-10-21 l'accoppiamento esce
+   invertito: facendo crescere l'angolo fisico la penna **scende**. La spunta
+   *Verso del servo invertito*, nella tab Motore, è attiva per impostazione
+   predefinita e converte in un punto solo. Con lei i gradi che vedi, che salvi
+   e che metti nel profilo sono **gradi logici — più gradi = penna più in alto**,
+   e resta valida ovunque la regola `battuta < abbassata < alzata`.
+
+   **La stessa spunta esiste nel profilo del SLICER** e deve concordare: se i
+   due non vanno d'accordo, la dashboard alza e FluidNC abbassa.
+
+   Verifica in due secondi prima di cominciare: premi `+1°` qualche volta e
+   guarda che la penna **salga**. Se scende, la spunta è dalla parte sbagliata.
+
 4. **ANGOLO DI BATTUTA — l'unico dei tre che si misura davvero.**
 
    È una proprietà del meccanismo, non della penna: si prende **una volta sola**,

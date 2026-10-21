@@ -214,6 +214,20 @@ volatile bool driverEnabled = true;
 // in battuta contro un vincolo meccanico appena dato corrente assorbe moltissimo.
 int penUpDeg = 90;
 int penDownDeg = 60;
+
+// Verso del servo. Sul modulo montato il 2026-10-21 l'accoppiamento esce
+// INVERTITO: facendo crescere l'angolo fisico la penna SCENDE. Invece di
+// convivere con due convenzioni opposte — il meccanismo in un verso e tutto il
+// resto del progetto nell'altro — si converte in un posto solo, qui.
+//
+// Da qui in avanti i gradi che si vedono nella pagina, che si salvano in NVS e
+// che finiscono nel profilo del SLICER sono gradi LOGICI: piu gradi = penna
+// piu in alto, sempre. La conversione in angolo fisico la fa servoApply() e
+// non la fa nessun altro.
+//
+// Resta cosi valida ovunque la regola del progetto:
+//     battuta < penna abbassata < penna alzata
+bool penInvert = true;
 int penAngle = 90;
 String penState = "free";
 
@@ -321,9 +335,10 @@ void setDir(Motor& m, int dir) {
 void servoApply(int deg) {
   if (deg < 0) deg = 0;
   if (deg > 180) deg = 180;
-  servoCurrentDeg = deg;
+  servoCurrentDeg = deg;   // logico: e quello che la pagina mostra
   penAngle = deg;
-  long us = SERVO_US_MIN + (long)(SERVO_US_MAX - SERVO_US_MIN) * deg / 180;
+  int fis = penInvert ? (180 - deg) : deg;
+  long us = SERVO_US_MIN + (long)(SERVO_US_MAX - SERVO_US_MIN) * fis / 180;
   uint32_t duty = (uint32_t)(us * (1UL << SERVO_RES_BITS) / 20000UL);
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
   ledcWrite(SERVO_PIN, duty);
@@ -888,6 +903,18 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
     <input type="range" id="pen-down" min="0" max="180" step="1" value="60"
            oninput="showPen()" onchange="pushPen('down')">
 
+    <div class="check">
+      <input type="checkbox" id="pen-invert" checked onchange="pushPenInvert()">
+      <label for="pen-invert" style="margin:0">Verso del servo invertito</label>
+    </div>
+    <p class="hint">Sul modulo montato il 2026-10-21 l'accoppiamento esce invertito: facendo
+      crescere l'angolo fisico la penna <b>scende</b>. Con la spunta, i gradi che vedi
+      ovunque — slider, pulsanti da un grado, angoli salvati — sono <b>gradi logici</b>:
+      pi&ugrave; gradi = penna pi&ugrave; in alto, sempre. La conversione la fa il firmware in un
+      punto solo, e resta valida la regola del progetto
+      <b>battuta &lt; abbassata &lt; alzata</b>. Togli la spunta solo se rimonti il servo
+      dall'altra parte.</p>
+
     <div class="slider-label"><span>Passo della rampa &mdash; pi&ugrave; basso = pi&ugrave; morbido</span><b id="lbl-slew">2&deg;/10 ms</b></div>
     <input type="range" id="slew" min="0" max="10" step="1" value="2"
            oninput="showSlew()" onchange="pushSlew()">
@@ -1060,6 +1087,10 @@ function showPen(){
   $('lbl-pen-down').textContent = $('pen-down').value + '°';
 }
 
+function pushPenInvert(){
+  fetch('/api/pen/invert?on=' + ($('pen-invert').checked ? 1 : 0));
+}
+
 function pushPen(which){
   fetch('/api/pen/config?up=' + $('pen-up').value + '&down=' + $('pen-down').value + '&preview=' + which);
 }
@@ -1218,6 +1249,7 @@ function applyState(s){
   showPen();
   $('btn-center').textContent = (s.pen.state === 'down') ? 'GIÙ' : 'PENNA';
   $('drv-enabled').checked = s.enabled;
+  $('pen-invert').checked = s.pen.invert;
   $('demo-status').textContent = s.demo.running
     ? ('In corso: ' + s.demo.name + ' — tratto ' + s.demo.step + '/' + s.demo.total)
     : 'Nessuna prova in corso';
@@ -1292,6 +1324,7 @@ void sendStateJson() {
                 ",\"angle\":" + String(penAngle) +
                 ",\"target\":" + String(servoTargetDeg) +
                 ",\"slew\":" + String(servoSlewDeg) +
+                ",\"invert\":" + String(penInvert ? "true" : "false") +
                 ",\"moving\":" + String(servoBusy() ? "true" : "false") +
                 ",\"state\":\"" + penState + "\"}" +
                 ",\"demo\":{\"running\":" + String(demoKind != DEMO_NONE ? "true" : "false") +
@@ -1592,6 +1625,16 @@ void handlePenAngle() {
   server.send(200, "text/plain", "ok");
 }
 
+void handlePenInvert() {
+  penInvert = (server.arg("on") == "1");
+  motorPrefs.putBool("invPen", penInvert);
+  logMsg(String("Servo penna: verso ") + (penInvert ? "invertito" : "normale") +
+         " (piu gradi = penna piu in alto)");
+  // Riapplica subito, cosi il verso nuovo si vede senza toccare altro.
+  if (servoAttached) servoApply(servoCurrentDeg);
+  server.send(200, "text/plain", "ok");
+}
+
 void handlePenSlew() {
   int d = server.arg("deg").toInt();
   if (d < 0) d = 0;
@@ -1829,6 +1872,7 @@ void setup() {
   penUpDeg = motorPrefs.getInt("penUp", 90);
   penDownDeg = motorPrefs.getInt("penDn", 60);
   servoSlewDeg = motorPrefs.getInt("slew", 2);
+  penInvert = motorPrefs.getBool("invPen", true);
   penAngle = penUpDeg;
   servoCurrentDeg = penUpDeg;
   servoTargetDeg = penUpDeg;
@@ -1887,6 +1931,7 @@ void setup() {
   server.on("/api/pen/angle", HTTP_GET, handlePenAngle);
   server.on("/api/pen/config", HTTP_GET, handlePenConfig);
   server.on("/api/pen/slew", HTTP_GET, handlePenSlew);
+  server.on("/api/pen/invert", HTTP_GET, handlePenInvert);
   server.on("/api/demo/start", HTTP_GET, handleDemoStart);
   server.on("/api/demo/stop", HTTP_GET, handleDemoStop);
   server.on("/api/motor/invert", HTTP_GET, handleMotorInvert);

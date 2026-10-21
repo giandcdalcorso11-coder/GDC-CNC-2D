@@ -166,7 +166,16 @@ var Profile = (function () {
            500÷2500 µs. Serve a tradurre i tre angoli negli estremi dell'impulso
            che FluidNC vuole. */
         impulsoMinUs: 500,
-        impulsoMaxUs: 2500
+        impulsoMaxUs: 2500,
+
+        /* Verso del servo. Sul modulo montato il 2026-10-21 l'accoppiamento
+           esce invertito: facendo crescere l'angolo FISICO la penna scende.
+           I tre angoli qui sopra sono quindi gradi LOGICI — più gradi = penna
+           più in alto — come li mostra la dashboard, e la conversione in
+           microsecondi veri la fa gradiToUs() in un punto solo.
+           Deve valere lo stesso flag in tutte e due: se il firmware e il
+           profilo non concordano, la dashboard alza e FluidNC abbassa. */
+        invertito: true
       },
 
       /* Sola lettura, e non serve a compensare niente: non c'è un secondo
@@ -430,9 +439,12 @@ var Profile = (function () {
 
   function gradiPerMm(mm) { return mm / mmPerGrado(); }
 
+  /* Da gradi LOGICI a microsecondi veri. È l'unico punto in cui il verso del
+     servo entra nei conti del profilo. */
   function gradiToUs(gradi) {
     var p = macchina().penna;
-    return p.impulsoMinUs + gradi * (p.impulsoMaxUs - p.impulsoMinUs) / 180;
+    var g = p.invertito ? (180 - gradi) : gradi;
+    return p.impulsoMinUs + g * (p.impulsoMaxUs - p.impulsoMinUs) / 180;
   }
 
   /* Alzata utile in millimetri fra penna abbassata e penna alzata. È anche il
@@ -633,10 +645,16 @@ var Profile = (function () {
       '      rc_servo:',
       '        output_pin: ' + PIN.servo,
       '        pwm_hz: 50',
+      /* Con il servo invertito min_pulse_us esce MAGGIORE di max_pulse_us, e
+         non è un errore: è il modo in cui FluidNC inverte un servo. Dal
+         sorgente di RcServo.cpp — «The rotation can be inverted by swapping the
+         values» — e la mappatura è una interpolazione lineare senza controlli
+         sull'ordine dei due estremi. */
       (pen.gradiPennaAbbassata === null
         ? '        min_pulse_us: 1000   # DA TARARE: i tre angoli non sono stati rilevati'
         : '        min_pulse_us: ' + Math.round(gradiToUs(pen.gradiPennaAbbassata)) +
-          '   # penna abbassata, ' + pen.gradiPennaAbbassata + ' gradi'),
+          '   # Z0 = penna abbassata, ' + pen.gradiPennaAbbassata + ' gradi' +
+          (pen.invertito ? ' (servo invertito: min > max, voluto)' : '')),
       (pen.gradiPennaAlzata === null
         ? '        max_pulse_us: 2000   # DA TARARE'
         : '        max_pulse_us: ' + Math.round(gradiToUs(pen.gradiPennaAlzata)) +

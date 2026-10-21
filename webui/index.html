@@ -429,6 +429,12 @@
         <label><span class="flab">Impulso a 180° (µs)</span>
           <input type="number" step="10" data-bind="macchina.penna.impulsoMaxUs"></label>
       </div>
+      <label class="chk"><input type="checkbox" data-bind="macchina.penna.invertito">
+        Verso del servo invertito</label>
+      <p class="muted small">Deve concordare con la stessa spunta nella dashboard: se i due
+        non vanno d'accordo, la dashboard alza e FluidNC abbassa. Con l'inversione il
+        <code>min_pulse_us</code> generato esce <b>maggiore</b> del <code>max_pulse_us</code>,
+        e non è un errore — è il modo in cui FluidNC inverte un servo.</p>
       <div class="readout">
         <div class="ro"><span>mm di penna per grado</span><b data-calc="mmGrado">—</b></div>
         <div class="ro"><span>Alzata utile</span><b data-calc="alzata">—</b></div>
