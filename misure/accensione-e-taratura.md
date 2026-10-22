@@ -298,10 +298,6 @@ servo ci arriva piano invece che di scatto.
    conferma prima di farla scendere, e il `config.yaml` lo dice nel commento
    della riga di avvio.
 
-9. **GIOCO D'INGRANAMENTO — non serve alla taratura, serve a saperlo.**
-
-   Vedi il passo A2.1 più sotto.
-
 **Quello che devi ottenere:** quattro numeri in gradi, nell'ordine
 battuta < abbassata < alzata < tappo. Sulla macchina montata sono
 **17 / 25 / 34 / 90**, e sono già nel profilo e nel `config.yaml`. La corsa meccanica
@@ -313,61 +309,41 @@ non stanno dentro quella finestra, c'è qualcosa che non torna nel montaggio.
 conta ricordare è che solo il primo è una misura. Gli altri due sono battuta +
 6 e battuta + 15.
 
-## A2.1 Il gioco d'ingranamento del pen-lift
+## A2.1 Il gioco d'ingranamento: perché NON si misura
 
-**Non serve alla taratura.** È un numero da sapere, non da usare: il valore di
-progetto è **0,30 mm** e il disegno dice esplicitamente che *non va ridotto
-cercando precisione*. È quel gioco che permette alla penna di appoggiarsi col
-proprio peso invece che a un'altezza imposta dal servo — ha sostituito il
-giunto a gioco morto da 6 mm, e fa lo stesso lavoro con un pezzo in meno.
+Qui c'era una procedura per misurare col calibro i 0,30 mm di gioco della
+coppia cremagliera/pignone. È stata tolta il 2026-10-22, su obiezione
+dell'utente, e questa nota resta per non rimetterla in lista fra un mese.
 
-Quindi la domanda non è «quanto posso stringerlo» ma «quanto è davvero», per
-sapere di quanto la punta è libera quando il servo la tiene ferma.
+**Il modulo costruito è in presa rigida.** Da `modulo-penna/schema.html`: *«il
+giunto a gioco morto da 6 mm non c'è: la quota della punta è l'angolo del
+servo, in presa rigida nei due versi»*. La penna appoggia col proprio peso solo
+**dentro** i 0,30 mm di gioco — che sono **0,92° di servo**, mentre la banda
+morta del servo stesso vale circa 0,9°. È una finestra larga un passo: non ci
+si può mirare dentro con uno strumento che ha quel passo. Fuori di lì la quota
+la impone il servo.
 
-### Come si misura
+Per cui la misura non serve, e per tre motivi che vale la pena tenere scritti:
 
-Serve il modulo **montato e alimentato**, perché il gioco si misura contro un
-servo che tiene la posizione.
+1. **nessuna impostazione dipende da quel numero** — non entra in un conto, non
+   cambia un angolo, non va nel `config.yaml`;
+2. **è una misura difficile per quello che vale**: 0,30 mm a mano, dove la forza
+   del dito sposta la lettura più dello strumento;
+3. **la condizione che ci farebbe agire chiede un altro numero.** La decisione
+   del 2026-10-17 dice: *da rivedere se alla prima stampa il tratto cambia
+   spessore secondo il punto del foglio — e in quel caso la banda morta da
+   aggiungere non è 0,3 mm ma quanto è fuori piano il piano carta*.
 
-1. **Porta il servo a metà corsa** — 50° va bene. Non alla battuta (lì il
-   modulo appoggia sui blocchi e il gioco non si vede) e non al tappo (lì
-   appoggia in cima).
-2. **Scegli due facce**, una su `pz1` — la piastra fissa, quella avvitata al
-   carrello, che porta il servo — e una su `pz2`, lo stadio che porta i
-   morsetti e la penna. Vanno bene due facce orizzontali qualsiasi, purché il
-   calibro ci arrivi e siano le stesse tutte le volte.
-3. **Premi `pz2` verso il basso** con un dito, senza forzare: arriva in fondo
-   al gioco. Leggi.
-4. **Spingilo verso l'alto** allo stesso modo. Leggi.
-5. La differenza è il gioco. **Ripeti cinque volte** e fai la media: la
-   dispersione fra le cinque letture ti dice quanto vale la misura.
+**Chi fa questo lavoro al posto suo:** la **prova 7** del disegno di collaudo
+(se negli spazi fra i trattini resta un segno, l'alzata non basta) e la **prova
+11** (se il tratto cambia spessore da una zona all'altra, il piano è fuori
+squadro più di quanto la catena assorba). Misurano la stessa cosa dove conta,
+sulla carta e con la penna vera.
 
-### Il limite della misura, detto prima e non dopo
-
-Trecento micron su un calibro da 0,01 sono venti volte la risoluzione dello
-strumento, quindi **il calibro basta**. Quello che non basta è la mano: la
-forza con cui premi cambia la lettura più dello strumento, ed è per questo che
-serve ripetere cinque volte invece di fidarsi di una.
-
-Se la dispersione esce sopra il decimo, lo strumento giusto è un
-**comparatore** a base magnetica: tastatore su `pz2`, si azzera premendo in
-basso e si legge premendo in alto. Costa poco e questa è esattamente la misura
-per cui esiste.
-
-### Cosa ne facciamo
-
-Il numero **non entra nel profilo finché non esiste**: un campo vuoto è un
-segnaposto che ci dimenticheremo. Quando ce l'hai me lo dai e lo registro —
-nel glossario accanto agli altri giochi, e nel profilo se servirà a qualche
-conto.
-
-Due letture possibili del risultato:
-
-- **vicino a 0,30** — il montaggio è come da progetto, non si tocca niente;
-- **molto sotto** (diciamo meno di 0,15) — l'accoppiamento è più stretto del
-  previsto. Non è una buona notizia: vuol dire che la penna non è più libera di
-  appoggiarsi col suo peso, e sul foglio si vede come forza di appoggio che
-  cambia da punto a punto.
+Una cosa da tenere d'occhio: al montaggio l'utente ha riportato *«accoppiamento
+perfetto, gioco vicinissimo allo 0»*. Se vale anche per l'ingranamento e non
+solo per i cuscinetti, quella cedevolezza da 0,30 mm **potrebbe non esserci** —
+ed è di nuovo la prova 11 a dirlo.
 
 ---
 
@@ -446,22 +422,66 @@ raggiunga.
 **cancella** lo sketch della dashboard. Si torna indietro riflashando lo sketch,
 ma non convivono. Quindi A1 va chiuso prima.
 
+### Prima di flashare: due minuti con la dashboard che hai già
+
+Da qui in poi i pulsanti ±1° non ci sono più, quindi quello che va guardato col
+servo va guardato adesso.
+
+**Verifica la posizione tappo.** Porta il servo a 90° e controlla che lo stadio
+flottante sia ancora dentro le guide, con un filo di margine. Quel numero
+diventa `max_pulse_us` **e** la riga di avvio: se è ottimista, a ogni accensione
+FluidNC ci va contro.
+
+Non serve invece riflashare la dashboard per avere il pulsante *Tappo*: fa
+comodo solo finché la dashboard c'è, e sta per sparire. Quello che resta — il
+profilo, il `config.yaml`, i popup del SLICER — ce l'ha già.
+
 **Cosa fai:**
 
-1. **Togli la penna dai morsetti.** Al primo avvio FluidNC porta l'asse Z alla
-   sua posizione zero, che con la mappatura di A2 è *penna appoggiata*: senza
-   penna montata il rischio è nullo, con la penna montata la punta va a
-   premere sul piano. Questa è anche la cosa da **osservare** al primo avvio: se
-   il servo scatta in modo brusco, si invertono `min_pulse_us` e `max_pulse_us`
-   così `Z0` diventa la posizione alzata e l'avvio è sempre nella direzione
-   innocua.
+1. **La penna resta nei morsetti, il tappo no.** Togliere la penna vorrebbe dire
+   rifare il gesto di A2 passo 5, cioè ritarare il contatto: non si fa per un
+   flash. Quello che va tolto è il **tappo**, perché al primo avvio FluidNC
+   parte assumendo `Z0`, cioè *penna appoggiata*, e il servo ci va. Con la penna
+   nuda non succede niente — il contatto è stato tarato con un foglio sotto,
+   quindi sulla tavola nuda la punta resta un decimo sopra. Col tappo infilato
+   ci arriva il tappo, e la corsa che manca la paga il meccanismo.
 2. Flash dal web installer, carica `cnc2d-config.yaml`, attivalo con
    `$Config/Filename=cnc2d-config.yaml` e riavvia con `$Bye`. (Il pulsante
    "seleziona configurazione" del browser dei file non ha avuto effetto la volta
    scorsa: il comando da terminale sì.)
-3. Verifica dalla console che non ci siano errori di validazione.
-4. **Prova le quattro frecce e il servo** dalla WebUI di FluidNC, prima di
-   mettere in mezzo il SLICER. Se qualcosa non va, è nel YAML.
+3. **`$CD` — rileggi la configurazione che FluidNC ha davvero capito.** Non è
+   una formalità: il suo parser **ignora le chiavi che hanno un commento in coda**,
+   e una `steps_per_mm` ignorata non dà errore, dà una macchina che si muove
+   sbagliato. Controlla che ci siano i numeri giusti su `steps_per_mm`,
+   `max_travel_mm` e i due `pulse_us`.
+4. **Verso degli assi, prima di qualunque altra cosa.** Un movimento su X deve
+   muovere **il carrello lungo la trave**; uno su Y deve muovere **tutto il
+   portale**. Su X il file dichiara `direction_pin: gpio.26:low` e quel `:low`
+   non è mai stato provato sulla macchina: se l'asse va al contrario, è lì.
+5. **Il servo, dalla WebUI:** `G0 Z0` deve abbassare la penna, `G0 Z21.271`
+   deve portarla in posizione tappo. Se fa il contrario, `min_pulse_us` e
+   `max_pulse_us` sono scambiati rispetto al verso del servo.
+
+## A4.1 La prima stampa non è il collaudo
+
+Il disegno di collaudo è 466 tratti e più di venti minuti di macchina: non è il
+programma con cui si scopre che un asse va al contrario.
+
+1. **Origine a mano:** `$MD` libera i motori, appoggi i carrelli ai blocchi,
+   poi `G92 X0 Y0`. Attenzione all'ordine e al fatto che **nessun comando
+   riabilita i motori**: lo fa il primo movimento. Quindi prima un jog minimo
+   (`$J=G91 X0.01 F100`), poi `G92`.
+2. **Un quadrato piccolo**, 50 mm, disegnato da qualche parte in mezzo al
+   foglio. Serve a tre cose: che i versi siano giusti, che la penna segni per
+   tutto il perimetro, e che il quadrato chiuda dove è partito.
+3. **Poi il collaudo:** `gcode/collaudo.gcode`, già generato con i numeri veri
+   (contatto Z0, alzata Z2.945, tappo Z21.271). Si carica e si lancia dalla
+   WebUI di FluidNC — l'invio del programma dal SLICER non è ancora costruito.
+
+Il disegno occupa 245,5 × 232,5 mm e la corsa percorribile è 251,2 × 236,1:
+restano **5,7 mm di margine su X e 3,6 su Y**. Non è molto, quindi l'origine va
+messa bene: se il quadrato del punto 2 esce storto o fuori posto, sistemalo
+prima di lanciare venti minuti di disegno.
 
 ## A5. Caricare il SLICER sulla macchina
 

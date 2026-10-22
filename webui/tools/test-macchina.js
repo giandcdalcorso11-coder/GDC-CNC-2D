@@ -326,6 +326,10 @@ function svg() {
 
 function gcode(opt) {
   var contatto = opt.contatto, alzata = opt.alzata;
+  /* Quota a cui la penna sale a programma finito: ci sta il tappo senza
+     togliere la penna dai morsetti. 21,271 mm = i 65 gradi fra penna
+     abbassata (25) e posizione tappo (90) del modulo montato. */
+  var tappo = opt.tappo === undefined ? 21.271 : opt.tappo;
   var fd = opt.feedDisegno || 1200, fs = opt.feedSpostamento || 3000;
   var pausa = (opt.pausaMs === undefined ? 200 : opt.pausaMs) / 1000;
   var n = function (v) { return (Math.round(v * 1000) / 1000).toFixed(3); };
@@ -334,6 +338,7 @@ function gcode(opt) {
   L.push('; campo ' + P.larghezza + ' x ' + P.altezza + ' mm');
   L.push('; gradino della prova 11 (livello): ' + P.gradino + ' mm');
   L.push('; contatto Z' + n(contatto) + ', alzata Z' + n(contatto + alzata));
+  if (tappo > alzata) L.push('; a fine programma la penna sale a Z' + n(contatto + tappo) + ' (tappo)');
   L.push('; come si legge: misure/disegno-di-collaudo.md');
   L.push('G21'); L.push('G90');
   L.push('G0 Z' + n(contatto + alzata));
@@ -352,6 +357,9 @@ function gcode(opt) {
     if (pausa > 0) L.push('G4 P' + pausa.toFixed(3));
   });
   L.push('G0 X0 Y0 F' + fs);
+  /* Dopo il ritorno all'origine, non prima: così la testina è già ferma in un
+     angolo quando ci arrivi con il tappo in mano. */
+  if (tappo > alzata) L.push('G0 Z' + n(contatto + tappo));
   L.push('M2');
   return L.join('\n') + '\n';
 }
@@ -387,7 +395,8 @@ if (require.main === module) {
     var c = a.indexOf('--contatto') > 0 ? parseFloat(a[a.indexOf('--contatto') + 1]) : 0;
     /* 2,945 e non 3: è l'alzata vera del modulo montato, (34 − 25) × 0,32725. */
     var z = a.indexOf('--alzata') > 0 ? parseFloat(a[a.indexOf('--alzata') + 1]) : 2.945;
-    fs.writeFileSync(g, gcode({ contatto: c, alzata: z })); console.log('scritto ' + g);
+    var tp = a.indexOf('--tappo') > 0 ? parseFloat(a[a.indexOf('--tappo') + 1]) : 21.271;
+    fs.writeFileSync(g, gcode({ contatto: c, alzata: z, tappo: tp })); console.log('scritto ' + g);
   }
   var st = statistiche();
   console.log('tratti ' + st.tratti + ', punti ' + st.punti + ', disegno ' +

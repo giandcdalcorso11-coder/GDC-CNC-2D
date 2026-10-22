@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 48
-**Ultimo aggiornamento:** 2026-10-22 14:20
+**Versione:** 49
+**Ultimo aggiornamento:** 2026-10-22 14:35
 
 ## Regole di co-editing
 
@@ -556,6 +556,41 @@ mano a mano che le misure arrivano):
 - [2026-10-22] **Battuta misurata 17°** con la striscia di carta, contro i 19 fissati per costruzione il giorno prima: i due gradi sono quello che il modulo aveva ancora da scendere quando il pignone è stato calzato. I 25° di penna abbassata restano, perché non sono battuta + 6 ma l'angolo a cui la penna è stata stretta. **Nasce la posizione tappo a 90°**, che fa due lavori: riposo a fine stampa e all'accensione, e tetto del meccanismo (oltre, lo stadio flottante esce dalle guide). Conseguenza su FluidNC: l'arco dell'asse Z va dal contatto al tappo e non all'alzata, se no `mapConstrain` tronca — `max_travel_mm 21.271`, impulsi 2222 e 1500. **E il parser di FluidNC non accetta commenti in coda a una chiave**, cosa che il nostro config.yaml faceva quasi ovunque: riscritto il generatore, e il file a mano sostituito dalla copia generata
 
 ## Storico sessioni
+
+### [2026-10-22 14:35] (meccanica+software) La misura del gioco d'ingranamento viene scartata, e la macchina è pronta per FluidNC
+
+**Riepilogo:** l'utente ha contestato la misura del gioco d'ingranamento che avevo proposto — «abbiamo deciso che la penna scrive con la forza del servo, non col suo peso» — e aveva ragione: il documento di progetto dice esattamente quello, e la mia procedura si basava su un'architettura che il CAD non ha costruito. La misura è stata tolta; al suo posto resta scritto perché non si fa. Generato il disegno di collaudo coi numeri veri, e riscritta la procedura di flash di FluidNC.
+
+**Cosa è stato fatto:**
+
+- **Tolto il passo A2.1** (misura del gioco d'ingranamento col calibro) e sostituito con una nota che dice perché non c'è, così non torna in lista fra un mese
+- **Generato `gcode/collaudo.gcode`** con i numeri veri: contatto Z0, alzata Z2.945, tappo Z21.271. Verificato che tutte le coordinate stiano dentro la corsa percorribile — occupa 245,5 × 232,5 su 251,2 × 236,1, cioè 5,7 mm di margine su X e 3,6 su Y
+- **Il generatore del collaudo alza la penna in posizione tappo a fine programma**, come fa il SLICER
+- **A4 riscritto** con quello che conta davvero al primo avvio di FluidNC: `$CD` per rileggere la configurazione (il parser ignora le chiavi commentate in coda e non dà errore), il verso degli assi col `:low` su X mai provato, e la prova del servo nei due versi
+- **Nuovo passo A4.1: la prima stampa non è il collaudo.** Origine a mano, un quadrato da 50 mm, e solo dopo i venti minuti del disegno grande
+
+**Bug (mio): avevo proposto una misura basata su un'architettura che non esiste**
+
+**Sintomo:** avevo scritto una procedura per misurare col calibro i 0,30 mm di gioco d'ingranamento, dicendo che «la penna appoggia col proprio peso». L'utente ha obiettato che la penna scrive con la forza del servo.
+**Causa:** la frase era giusta per l'architettura a due stadi con il giunto a gioco morto da 6 mm — che il CAD **non ha costruito**. Il modulo reale è a presa rigida, come `modulo-penna/schema.html` dice dal 2026-10-17: *«la quota della punta è l'angolo del servo, in presa rigida nei due versi»*. La penna galleggia solo dentro i 0,30 mm, che sono **0,92° di servo** contro una banda morta del servo di ~0,9°: una finestra larga un passo, in cui non ci si può mirare.
+**Fix applicato:** procedura tolta. Verificato rileggendo `schema.html` e la decisione del 2026-10-17 nello storico.
+
+**Decisioni prese:**
+
+- **Contesto:** restava da decidere se misurare il gioco d'ingranamento del pen-lift, ultimo numero del modulo non rilevato.
+  **Decisione dell'utente, accolta: non si misura.** Tre motivi: nessuna impostazione dipende da quel numero; 0,30 mm a mano hanno un errore paragonabile alla quantità; e soprattutto la condizione che ci farebbe agire — *il tratto cambia spessore secondo il punto del foglio*, dalla decisione del 2026-10-17 — chiede **un altro numero**, cioè quanto è fuori piano la tavola.
+  **Cosa fa lo stesso lavoro:** la prova 7 e la prova 11 del disegno di collaudo, che misurano la stessa cosa sulla carta e con la penna vera.
+  **Da rivedere se:** la prova 11 mostra il tratto che cambia spessore. Allora si misura la planarità della tavola, non il gioco.
+
+- **Contesto:** l'utente ha chiesto se deve riflashare la dashboard prima di FluidNC.
+  **Decisione: no.** Il pulsante *Tappo* e il fondo scala della battuta servono solo finché la dashboard c'è, e flashare FluidNC la cancella. Quello che resta — profilo, `config.yaml`, popup del SLICER — ha già tutto.
+  **Resta però una verifica da fare con la dashboard attuale, prima di perderla:** che a 90° lo stadio flottante sia ancora dentro le guide. Quel numero è `max_pulse_us` e la riga di avvio: se è ottimista, a ogni accensione FluidNC ci va contro.
+
+**Errore di data (mio, quinta volta su questo progetto):** scritto `15:05` nell'intestazione e nel titolo della voce prima di chiedere l'ora al sistema, che diceva 14:35. Corretto prima del commit. La regola resta quella di sempre e continuo a saltarla: **l'ora si chiede, non si stima.**
+
+**File consegnati/modificati:** `misure/accensione-e-taratura.md`, `webui/tools/test-macchina.js`, `gcode/collaudo.gcode` (nuovo), `gcode/collaudo.svg` (nuovo)
+
+---
 
 ### [2026-10-22 14:20] (meccanica+software) La battuta misurata smentisce il montaggio, nasce la posizione tappo, e FluidNC non accetta i commenti che il nostro config.yaml aveva dappertutto
 
