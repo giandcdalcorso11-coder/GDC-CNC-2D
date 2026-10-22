@@ -380,11 +380,34 @@ Nel YAML va:
     # (90 − 25) × 0,32725: dal contatto al tappo, in mm veri di penna
     max_travel_mm: 21.271
       rc_servo:
-        # Z0 = penna abbassata
+        # min_pulse_us va al FONDO corsa, Z−21.271: penna sul foglio
         min_pulse_us: 2222
-        # Z21.271 = posizione tappo
+        # max_pulse_us va in CIMA, Z0: posizione tappo
         max_pulse_us: 1500
 ```
+
+### Le quote Z sono negative, e non è una scelta
+
+`max_travel_mm` è positivo, ma **le quote da comandare sono negative**. Senza
+finecorsa e senza homing FluidNC mette lo zero macchina all'**estremo alto**
+della corsa e fa correre il resto in negativo: verificato con `$CD` il
+2026-10-22, «`Axis Z (-21.281, 0.010)`».
+
+Quindi `min_pulse_us` non è «la quota zero»: è l'estremo **inferiore**
+dell'intervallo dichiarato, cioè Z−21.271. E `max_pulse_us` è Z0.
+
+| quota macchina | angolo | cosa è |
+|---|---|---|
+| `Z0` | 90° | posizione tappo, in cima |
+| `Z-18.326` | 34° | penna alzata di lavoro |
+| `Z-21.271` | 25° | punta sul foglio |
+
+**Una quota positiva non è «più in alto»: è fuori corsa.** `RcServo` mappa la
+posizione **macchina** con `mapConstrain()`, che non rifiuta quello che cade
+fuori — lo **tronca** all'estremo. Un `G0 Z2.945` non alza la penna di 2,945 mm:
+diventa Z0, la posizione tappo. È esattamente il motivo per cui il 2026-10-22 la
+penna non si muoveva pur avendo gli impulsi giusti nel file: ogni quota che
+mandavamo finiva sullo stesso impulso.
 
 **Regola del parser, che costa un'ora se la si scopre sulla macchina:** FluidNC
 **non accetta commenti in coda a una coppia `chiave: valore`**. Una riga come
@@ -396,21 +419,27 @@ E per far salire la penna in posizione tappo a ogni accensione:
 
 ```yaml
 macros:
-  startup_line0: G90 G0 Z21.271
+  startup_line0: G90 G0 Z0
 ```
 
-Con un avvertimento che va letto: **FluidNC parte assumendo Z0**, cioè il
-contatto, e il servo ci va per un istante prima di eseguire quella riga. Se il
-tappo è ancora infilato e la testina è sopra il foglio, in quell'istante preme.
-La regola pratica è una sola: **il tappo si toglie prima di dare corrente.**
+**FluidNC parte assumendo `Z0`**, e con questa convenzione `Z0` *è* la posizione
+tappo: quello che la macchina crede e dove il servo si trova coincidono, e
+l'istante fra accensione ed esecuzione della riga non muove niente. La riga
+resta perché rende la quota esplicita, non perché corregga qualcosa.
+
+Quello che va tolto prima di dare corrente è comunque il **tappo**: non per
+l'accensione, ma perché il primo comando che abbassa la penna — un jog, il
+popup dell'altezza di contatto, una stampa — ci arriva col tappo infilato e la
+corsa che manca la paga il meccanismo.
 
 `min_pulse_us` **maggiore** di `max_pulse_us` non è un errore di battitura: è il
 modo in cui FluidNC inverte un servo. Dal sorgente di `RcServo.cpp` — «The
 rotation can be inverted by swapping the values» — e la mappatura è una
 interpolazione lineare senza controlli sull'ordine dei due estremi.
 
-Così `Z0` = penna appoggiata e `Z3` = penna alzata, e **Z è in millimetri veri
-di alzata** invece che in unità arbitrarie.
+Così `Z0` = posizione tappo e `Z-21.271` = penna appoggiata, e **Z è in
+millimetri veri di penna** invece che in unità arbitrarie: la differenza fra due
+quote è la distanza vera percorsa dalla punta.
 
 L'angolo di **battuta** non va nel YAML: va nel profilo del SLICER come limite,
 e serve a una cosa sola — il software non deve mai poter comandare una Z che lo
@@ -461,11 +490,13 @@ profilo, il `config.yaml`, i popup del SLICER — ce l'ha già.
 
 1. **La penna resta nei morsetti, il tappo no.** Togliere la penna vorrebbe dire
    rifare il gesto di A2 passo 5, cioè ritarare il contatto: non si fa per un
-   flash. Quello che va tolto è il **tappo**, perché al primo avvio FluidNC
-   parte assumendo `Z0`, cioè *penna appoggiata*, e il servo ci va. Con la penna
-   nuda non succede niente — il contatto è stato tarato con un foglio sotto,
-   quindi sulla tavola nuda la punta resta un decimo sopra. Col tappo infilato
-   ci arriva il tappo, e la corsa che manca la paga il meccanismo.
+   flash. Quello che va tolto è il **tappo**: non per l'istante
+   dell'accensione — lì FluidNC assume `Z0`, che è la posizione tappo, e il
+   servo sta già in cima — ma perché il **primo comando che abbassa la penna**
+   ci arriva col tappo infilato. Con la penna nuda non succede niente: il
+   contatto è stato tarato con un foglio sotto, quindi sulla tavola nuda la
+   punta resta un decimo sopra. Col tappo, la corsa che manca la paga il
+   meccanismo.
 2. Flash dal web installer (`installer.fluidnc.com`, Chrome o Edge: usa la
    WebSerial). **Versione 4.1.1** (2026-09-25). Processore `esp32` (DevKit
    WROOM-32 a 30 pin), variante **wifi**, tipo **fresh-install**, interfaccia
@@ -518,7 +549,9 @@ profilo, il `config.yaml`, i popup del SLICER — ce l'ha già.
 **Esito del 2026-10-22:** `$CD` ha restituito tutti i numeri giusti — `steps_per_mm`
 33.952999 su entrambi gli assi, `max_travel_mm` 253.231995 e 238.063995,
 `direction_pin: 'gpio.26:low'` su X, `rc_servo` su gpio.32 con 2222 e 1500,
-`max_travel_mm` 21.271 su Z, `startup_line0: G90 G0 Z21.271`, `must_home: false`.
+`max_travel_mm` 21.271 su Z, `must_home: false`. (La `startup_line0` letta
+allora era `G90 G0 Z21.271`: è la riga che la correzione delle quote negative ha
+poi sostituito con `G90 G0 Z0` — vedi A3.)
 Nessuna chiave ignorata: il timore dei commenti in coda era fondato ma il file
 generato è pulito.
 
@@ -531,8 +564,15 @@ Due cose lette nel dump che non sono nostre e vanno sapute:
   che si ammorbidisce perde la posizione in silenzio.
 - **`Axis X (-253.261, 0.029)`**: FluidNC mette lo zero macchina all'estremo
   positivo e fa correre la corsa in negativo, perché non c'è homing configurato.
-  Non cambia niente — l'origine la dà `G92` e i limiti software sono spenti — ma
-  le coordinate macchina si leggeranno negative, e non è un guasto.
+  Le coordinate macchina si leggeranno negative, e non è un guasto.
+
+  **Correzione del 2026-10-22, più tardi:** qui era scritto «non cambia
+  niente — l'origine la dà `G92` e i limiti software sono spenti», ed era
+  sbagliato. Su X e Y è vero. **Su Z no**, e il motivo è che `soft_limits: false`
+  spegne i limiti del *pianificatore*, non il `mapConstrain()` dentro `RcServo`,
+  che lavora sulla posizione **macchina** e tronca. `Axis Z (-21.281, 0.010)`
+  voleva dire che ogni quota positiva diventava Z0. La penna immobile di quel
+  pomeriggio è stata questa riga letta e archiviata troppo presto.
 
 4. **`$CD` — rileggi la configurazione che FluidNC ha davvero capito.** Non è
    una formalità: il suo parser **ignora le chiavi che hanno un commento in coda**,
@@ -543,9 +583,15 @@ Due cose lette nel dump che non sono nostre e vanno sapute:
    muovere **il carrello lungo la trave**; uno su Y deve muovere **tutto il
    portale**. Su X il file dichiara `direction_pin: gpio.26:low` e quel `:low`
    non è mai stato provato sulla macchina: se l'asse va al contrario, è lì.
-6. **Il servo, dalla WebUI:** `G0 Z0` deve abbassare la penna, `G0 Z21.271`
-   deve portarla in posizione tappo. Se fa il contrario, `min_pulse_us` e
-   `max_pulse_us` sono scambiati rispetto al verso del servo.
+6. **Il servo, dalla WebUI:** `G0 Z-21.271` deve abbassare la penna, `G0 Z0`
+   deve portarla in posizione tappo, `G0 Z-18.326` è l'alzata di lavoro. Se fa
+   il contrario, `min_pulse_us` e `max_pulse_us` sono scambiati rispetto al
+   verso del servo.
+
+   **Le quote sono negative: provane una positiva e non succede niente**, perché
+   `mapConstrain` la tronca su Z0 — e «non succede niente» è indistinguibile da
+   un servo guasto o da un filo staccato. Se vuoi un movimento di prova veloce,
+   `G0 Z-3` è dentro la corsa e si vede.
 
 ## A4.1 La prima stampa non è il collaudo
 
@@ -560,8 +606,13 @@ programma con cui si scopre che un asse va al contrario.
    foglio. Serve a tre cose: che i versi siano giusti, che la penna segni per
    tutto il perimetro, e che il quadrato chiuda dove è partito.
 3. **Poi il collaudo:** `gcode/collaudo.gcode`, già generato con i numeri veri
-   (contatto Z0, alzata Z2.945, tappo Z21.271). Si carica e si lancia dalla
+   (contatto Z−21.271, alzata Z−18.326, tappo Z0). Si carica e si lancia dalla
    WebUI di FluidNC — l'invio del programma dal SLICER non è ancora costruito.
+
+**Come si riconosce un file generato con la convenzione vecchia:** le righe
+`G1 Z0` e `G0 Z2.945` invece di `G1 Z-21.271` e `G0 Z-18.326`. Un file così non
+sbaglia il disegno: non disegna affatto, perché la penna resta in posizione
+tappo per tutto il percorso. Se in cima al file c'è `; contatto Z0`, è vecchio.
 
 **Lo spazio in flash è il vincolo che non ci aspettavamo.** Dopo l'installazione
 della 4.1.1 con WebUI-2, il browser dei file dichiara **64 kB liberi**:
@@ -575,6 +626,12 @@ resta valida finché non cambia, una coordinata non ripetuta vuol dire «quell'a
 resta dov'è», e gli zeri in coda si tolgono). Il collaudo passa così da 69.268 a
 **44.633 byte**, con lo stesso percorso: verificato ri-eseguendo il file e
 confrontando i 2994 stati con quelli del modello, zero differenze.
+
+Con le quote negative il file è risalito a **48.307 byte**: ogni `Z` costa sei
+caratteri in più (`Z-21.271` contro `Z0`, `Z-18.326` contro `Z2.945`), per 2976
+righe di penna. Resta sotto i 64 kB con 16 di margine, e il controllo è stato
+rifatto sul file nuovo: 3025 stati confrontati, zero differenze, nessuna quota
+fuori dall'intervallo `(-21.281, 0.010)` dichiarato da FluidNC.
 
 Il disegno occupa 245,5 × 232,5 mm e la corsa percorribile è 251,2 × 236,1:
 restano **5,7 mm di margine su X e 3,6 su Y**. Non è molto, quindi l'origine va

@@ -103,6 +103,13 @@ staccare il filo ENABLE dal lato del driver: l'A4988 ha un pull-down interno su 
 pin, quindi scollegato si abilita da solo. Se così il motore gira, il problema è la
 polarità in configurazione e non il cablaggio.
 
-**Lo Z è il servo**, non un asse meccanico. Il G-code alza e abbassa la penna con `G0 Z10`
-e `G0 Z0`, che è più pulito del pilotaggio via M3/M5 previsto inizialmente e permette al
-generatore di G-code di trattare il pen-lift come un movimento qualsiasi.
+**Lo Z è il servo**, non un asse meccanico. Il G-code alza e abbassa la penna con un
+movimento su Z, che è più pulito del pilotaggio via M3/M5 previsto inizialmente e permette
+al generatore di G-code di trattare il pen-lift come un movimento qualsiasi.
+
+**Le quote sono negative.** Senza finecorsa FluidNC mette lo zero macchina in cima alla
+corsa e dichiara il resto in negativo (`Axis Z (-21.281, 0.010)`), e `RcServo` mappa la
+posizione **macchina** con `mapConstrain()`, che tronca invece di rifiutare. Quindi
+`G0 Z0` è la **posizione tappo**, `G0 Z-18.326` la penna alzata e `G0 Z-21.271` la punta
+sul foglio; una quota positiva viene troncata su Z0 senza dire niente. I numeri veri li
+genera il profilo del SLICER — vedi `misure/accensione-e-taratura.md`, sezione A3.

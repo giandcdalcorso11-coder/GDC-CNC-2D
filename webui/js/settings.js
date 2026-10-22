@@ -73,6 +73,15 @@ var Settings = (function () {
       return 'abbassata ' + Math.round(Profile.gradiToUs(p.gradiPennaAbbassata)) +
              ' µs  ·  alzata ' + Math.round(Profile.gradiToUs(p.gradiPennaAlzata)) + ' µs';
     },
+    /* Le tre quote in coordinate MACCHINA: sono quelle che finiscono nel
+       G-code, e sono negative perché lo zero sta in cima. Vederle qui serve a
+       riconoscere al volo un file generato con la convenzione sbagliata. */
+    quoteZ: function () {
+      var su = Profile.zAlzata(), giu = Profile.zContatto(), t = Profile.zTappo();
+      if (su === null || giu === null || t === null) return 'da rilevare (passo A2)';
+      return 'tappo Z' + f3(t) + '  ·  alzata Z' + f3(su) +
+             '  ·  foglio Z' + f3(giu);
+    },
     formato: function () { return State.data.paper.name; }
   };
 

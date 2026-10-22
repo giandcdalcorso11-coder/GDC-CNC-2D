@@ -86,12 +86,22 @@ var Artwork = (function () {
       return p.map(function (q) { return { x: q.x + o.x, y: q.y + o.y }; });
     });
 
-    /* Z è in millimetri veri di penna, e lo zero NON è un numero fisso: è la
-       quota a cui la punta tocca il foglio di oggi, misurata col secondo popup
-       di inizio stampa. Finché quella misura non c'è si usa zero, che è il
-       contatto nominale del profilo — buono per guardare il programma, non per
-       stamparlo. */
-    var contatto = State.data.altezzaContatto === null ? 0 : State.data.altezzaContatto;
+    /* Z è in millimetri veri di penna, in coordinate MACCHINA: Z0 è la
+       posizione tappo, in cima, e la quota di contatto è NEGATIVA, circa
+       -21,27. Il perché sta in profile.js, sopra zDaGradi(): senza homing
+       FluidNC mette lo zero in cima e tronca tutto quello che sta sopra.
+
+       Il contatto non è un numero fisso: è la quota a cui la punta tocca il
+       foglio di oggi, misurata col secondo popup di inizio stampa. Finché
+       quella misura non c'è si usa il contatto nominale del profilo.
+
+       Il ramo a zero resta solo per il caso «profilo non tarato», in cui le
+       quote sono dei segnaposto e FluidNC le troncherebbe: il file esce
+       marcato DA TARARE e verifica() blocca la stampa, quindi serve a
+       guardare il programma e a nient'altro. */
+    var nominale = Profile.zContatto();
+    var contatto = State.data.altezzaContatto !== null ? State.data.altezzaContatto
+                 : (nominale === null ? 0 : nominale);
 
     /* Finché i tre angoli del servo non sono stati rilevati non c'è un'alzata
        vera: si mettono 5 mm per poter guardare il programma, e il file lo
@@ -104,13 +114,17 @@ var Artwork = (function () {
     }
 
     /* La posizione tappo è una quota del profilo macchina, non di stampa: è
-       dove il meccanismo lascia spazio al tappo, e non dipende dal foglio. */
-    var tappo = Profile.tappoMm();
+       dove il meccanismo lascia spazio al tappo, e non dipende dal foglio.
+       Per questo è ASSOLUTA e non contatto + qualcosa: è il fine corsa alto,
+       Z0. Sommarla al contatto misurato darebbe una quota sopra lo zero, che
+       mapConstrain tronca comunque — e con un foglio spesso finirebbe fuori
+       corsa di quel tanto. */
+    var tappo = Profile.zTappo();
 
     prep = Gcode.build(machine, {
       penUp: contatto + alzata,
       penDown: contatto,
-      penTappo: tappo === null ? null : contatto + tappo,
+      penTappo: tappo,
       pennaTarata: tarata,
       pausaMs: st.pausaPennaMs,
       feedDraw: feedDraw,

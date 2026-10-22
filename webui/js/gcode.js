@@ -4,6 +4,12 @@
  * impostata a mano con G92, asse Y verso l'alto. Il file NON contiene un G92:
  * l'origine la decide l'operatore prima di stampare, e un G92 nel programma
  * la sovrascriverebbe azzerando dove capita.
+ *
+ * Z È NEGATIVA, e non per gusto: senza homing FluidNC mette lo zero macchina
+ * in cima alla corsa del servo e dichiara il resto in negativo. Z0 è la
+ * posizione tappo, Z-18,33 l'alzata di lavoro, Z-21,27 la punta sul foglio.
+ * Le quote arrivano già così da chi chiama build(); il perché sta in
+ * profile.js, sopra zDaGradi().
  */
 var Gcode = (function () {
 
@@ -39,8 +45,9 @@ var Gcode = (function () {
       if (p) L.push(p);
     }
     /* Quota a cui la penna sale a programma finito: lascia spazio per
-       infilare il tappo senza togliere la penna dai morsetti. Se il profilo
-       non ce l'ha si resta all'alzata di lavoro, che è il comportamento di
+       infilare il tappo senza togliere la penna dai morsetti. È il fine corsa
+       alto, Z0, quindi sta sopra l'alzata di lavoro che è negativa. Se il
+       profilo non ce l'ha si resta all'alzata, che è il comportamento di
        prima. */
     var zTappo = (typeof opt.penTappo === 'number' && opt.penTappo > zUp)
       ? opt.penTappo : zUp;

@@ -65,13 +65,16 @@ axes:
         direction_pin: gpio.33:low
 
   # Z non è un asse vero: è il servo del pen-lift.
-  # Z0 = penna sul foglio, Z cresce in alto, in millimetri veri di penna.
+  # Senza homing lo zero macchina sta in CIMA e la corsa è negativa:
+  # Z0 = posizione tappo, Z scende in negativo fino al foglio.
+  # Le quote sono millimetri veri di punta di penna.
   z:
     steps_per_mm: 100.000
     max_rate_mm_per_min: 1000.000
     acceleration_mm_per_sec2: 100.000
     # Dal contatto alla posizione tappo: 65 gradi di servo.
-    # L'alzata di lavoro è la quota intermedia Z2.945.
+    # Corsa dichiarata, quindi le quote vanno da Z-21.271 a Z0.
+    # L'alzata di lavoro è la quota intermedia Z-18.326.
     max_travel_mm: 21.271
     soft_limits: false
 
@@ -79,9 +82,10 @@ axes:
       rc_servo:
         output_pin: gpio.32
         pwm_hz: 50
-        # Z0 = penna abbassata, 25 gradi. Servo invertito: min > max, voluto.
+        # min_pulse_us va al FONDO della corsa, cioè Z-21.271:
+        # penna sul foglio, 25 gradi. Servo invertito: min > max, voluto.
         min_pulse_us: 2222
-        # Z21.271 = posizione tappo, 90 gradi.
+        # max_pulse_us va in CIMA, cioè Z0: posizione tappo, 90 gradi.
         max_pulse_us: 1500
         # Battuta dei cuscinetti a 17 gradi (2311 µs): sta fuori
         # dall'arco qui sopra, quindi FluidNC non può comandarla. È voluto.
@@ -97,10 +101,11 @@ start:
   must_home: false
 
 macros:
-  # All'accensione la penna sale in posizione tappo.
-  # ATTENZIONE: FluidNC parte assumendo Z0, cioè il CONTATTO, e il servo
-  # ci va per un istante prima di eseguire questa riga. Se il tappo è
-  # ancora infilato e la testina è sopra il foglio, in quell'istante preme.
-  # Regola: il tappo si toglie PRIMA di dare corrente.
-  startup_line0: G90 G0 Z21.271
+  # All'accensione la penna si porta in posizione tappo.
+  # FluidNC parte assumendo Z0, e Z0 È la posizione tappo: quello che la
+  # macchina crede e quello che il servo fa coincidono, e l'istante fra
+  # accensione ed esecuzione di questa riga non muove niente.
+  # La riga resta perché rende la quota esplicita, non per correggere.
+  # Regola comunque valida: il tappo si toglie PRIMA di dare corrente.
+  startup_line0: G90 G0 Z0
   startup_line1:

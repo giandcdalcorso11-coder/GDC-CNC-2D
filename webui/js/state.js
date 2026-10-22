@@ -11,6 +11,10 @@ var State = (function () {
     host: 'cnc2d.local',
 
     machine: 'Off',          // Off | Idle | Run | Hold | Alarm
+    /* Z0 non è «penna a riposo in basso»: è la POSIZIONE TAPPO, in cima alla
+       corsa, perché senza homing FluidNC mette lo zero macchina all'estremo
+       alto. È anche lo stato in cui FluidNC si crede appena accesa, quindi
+       partire da 0 è giusto per tutt'e tre gli assi. */
     pos: { x: 0, y: 0, z: 0 },
 
     /* `azzerata` dice se `pos` vuol dire qualcosa. Parte falsa — appena
@@ -33,10 +37,12 @@ var State = (function () {
              name: Profile.stampa().foglio.formato },
     sheetOrigin: { x: 20, y: 20 },   // angolo in basso a sinistra del foglio
 
-    /* A che quota la punta tocca QUESTO foglio. Non sta nel profilo e non è una
-       dimenticanza: un decimo di spessore di carta la sposta, e lo spessore non
-       lo conosci quando prendi un foglio. Si misura a ogni stampa, col secondo
-       popup. `null` = non ancora misurata. */
+    /* A che quota la punta tocca QUESTO foglio, in coordinate macchina: un
+       numero intorno a −21,27, non intorno a zero. Non sta nel profilo e non è
+       una dimenticanza: un decimo di spessore di carta la sposta, e lo spessore
+       non lo conosci quando prendi un foglio. Si misura a ogni stampa, col
+       secondo popup. `null` = non ancora misurata, e allora si usa il contatto
+       nominale del profilo. */
     altezzaContatto: null,
 
     /* Vero quando l'angolo del foglio è stato MISURATO sulla macchina, col

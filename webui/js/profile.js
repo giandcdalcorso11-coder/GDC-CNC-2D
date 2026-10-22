@@ -509,6 +509,45 @@ var Profile = (function () {
     return (p.gradiTappo - p.gradiPennaAbbassata) * mmPerGrado();
   }
 
+  /* --------------------- le quote Z in coordinate MACCHINA -----------------
+
+     QUESTE sono le quote da mandare alla macchina, e sono NEGATIVE. Il motivo
+     non è una scelta nostra: è come FluidNC colloca lo zero.
+
+     Senza finecorsa e senza homing, FluidNC mette lo zero macchina all'ESTREMO
+     ALTO della corsa e dichiara il resto in negativo. Verificato con $CD sulla
+     macchina il 2026-10-22: «Axis Z (-21.281, 0.010)».
+
+     Il servo non è un asse vero, e RcServo mappa la posizione MACCHINA, non
+     quella di lavoro, con mapConstrain(): tutto quello che cade fuori da
+     quell'intervallo non viene rifiutato con un errore, viene TRONCATO
+     all'estremo. Quindi Z+2,945 non è «2,945 sopra il contatto»: è fuori
+     corsa, e diventa 0 — la posizione tappo. È il bug per cui il 2026-10-22 la
+     penna non si muoveva pur avendo gli impulsi giusti: ogni quota positiva
+     finiva sullo stesso impulso.
+
+     Da cui la convenzione, e non ce n'è un'altra possibile:
+         Z 0           posizione tappo, in cima (gradiTappo)
+         Z −18,326     penna alzata di lavoro (gradiPennaAlzata)
+         Z −21,271     penna sul foglio (gradiPennaAbbassata)
+     Z scende in negativo verso il foglio, e il fondo corsa è il contatto.
+
+     Un effetto collaterale buono: all'accensione FluidNC assume Z0, e con
+     questa convenzione Z0 è DAVVERO dove va il servo (1500 µs, 90°). Prima
+     assumeva il contatto e il servo andava al tappo: la macchina partiva
+     credendo una cosa e facendone un'altra. */
+  function zDaGradi(gradi) {
+    var p = macchina().penna;
+    if (gradi === null || p.gradiTappo === null) return null;
+    /* La sottrazione in questo verso e non col meno davanti: così il tappo
+       esce 0 e non -0, che è un numero diverso per Object.is e per chi legge. */
+    return (gradi - p.gradiTappo) * mmPerGrado();
+  }
+
+  function zTappo() { return zDaGradi(macchina().penna.gradiTappo); }
+  function zAlzata() { return zDaGradi(macchina().penna.gradiPennaAlzata); }
+  function zContatto() { return zDaGradi(macchina().penna.gradiPennaAbbassata); }
+
   /* ------------------------------- verifica --------------------------------
      Restituisce l'elenco di quello che manca o non torna. Serve in due posti:
      nella tab Impostazioni per dire cosa resta da misurare, e prima di far
@@ -579,13 +618,24 @@ var Profile = (function () {
         testo: 'I tre angoli del servo non sono stati rilevati: si prendono ' +
                'con la dashboard, a modulo penna montato.'
       });
+    } else if (pen.gradiTappo === null) {
+      /* Senza il tappo non c'è lo zero: tutte le quote Z si contano da lì, e
+         senza di esso zDaGradi() non sa dire nemmeno dove sta il contatto. */
+      problemi.push({
+        gravita: 'blocco', campo: 'penna', passo: 'A2',
+        testo: 'Manca la posizione tappo, che è lo zero da cui si contano ' +
+               'tutte le quote della penna: senza di essa il programma non ' +
+               'ha una quota di contatto da comandare.'
+      });
     } else if (!(pen.gradiBattuta < pen.gradiPennaAbbassata &&
-                 pen.gradiPennaAbbassata < pen.gradiPennaAlzata)) {
+                 pen.gradiPennaAbbassata < pen.gradiPennaAlzata &&
+                 pen.gradiPennaAlzata <= pen.gradiTappo)) {
       problemi.push({
         gravita: 'blocco', campo: 'penna',
-        testo: 'I tre angoli del servo devono crescere: battuta < penna ' +
-               'abbassata < penna alzata. Così come sono, il software potrebbe ' +
-               'comandare la battuta meccanica.'
+        testo: 'I quattro angoli del servo devono crescere: battuta < penna ' +
+               'abbassata < penna alzata ≤ posizione tappo. Così come sono, il ' +
+               'software potrebbe comandare la battuta meccanica, o chiedere ' +
+               'una quota sopra il fine corsa alto.'
       });
     }
 
@@ -729,7 +779,9 @@ var Profile = (function () {
        impulsi, quindi se il massimo fosse l'alzata il tappo sarebbe
        irraggiungibile. L'alzata di lavoro diventa una quota intermedia. */
     c('  ', 'Z non è un asse vero: è il servo del pen-lift.');
-    c('  ', 'Z0 = penna sul foglio, Z cresce in alto, in millimetri veri di penna.');
+    c('  ', 'Senza homing lo zero macchina sta in CIMA e la corsa è negativa:');
+    c('  ', 'Z0 = posizione tappo, Z scende in negativo fino al foglio.');
+    c('  ', 'Le quote sono millimetri veri di punta di penna.');
     k('  z:');
     k('    steps_per_mm: 100.000');
     k('    max_rate_mm_per_min: 1000.000');
@@ -737,7 +789,10 @@ var Profile = (function () {
     if (tarata) {
       c('    ', 'Dal contatto alla posizione tappo: ' +
                 n(pen.gradiTappo - pen.gradiPennaAbbassata, 0) + ' gradi di servo.');
-      c('    ', "L'alzata di lavoro è la quota intermedia Z" + n(alzata) + '.');
+      c('    ', 'Corsa dichiarata, quindi le quote vanno da Z' + n(-tappo) +
+                ' a Z0.');
+      c('    ', "L'alzata di lavoro è la quota intermedia Z" +
+                n(zAlzata()) + '.');
       k('    max_travel_mm: ' + n(tappo));
     } else {
       c('    ', 'DA TARARE: i tre angoli del servo non sono stati rilevati.');
@@ -754,10 +809,12 @@ var Profile = (function () {
        RcServo.cpp — «The rotation can be inverted by swapping the values» — e
        la mappatura è una interpolazione lineare senza controlli sull'ordine. */
     if (tarata) {
-      c('        ', 'Z0 = penna abbassata, ' + pen.gradiPennaAbbassata + ' gradi.' +
+      c('        ', 'min_pulse_us va al FONDO della corsa, cioè Z' + n(-tappo) + ':');
+      c('        ', 'penna sul foglio, ' + pen.gradiPennaAbbassata + ' gradi.' +
                     (pen.invertito ? ' Servo invertito: min > max, voluto.' : ''));
       k('        min_pulse_us: ' + Math.round(gradiToUs(pen.gradiPennaAbbassata)));
-      c('        ', 'Z' + n(tappo) + ' = posizione tappo, ' + pen.gradiTappo + ' gradi.');
+      c('        ', 'max_pulse_us va in CIMA, cioè Z0: posizione tappo, ' +
+                    pen.gradiTappo + ' gradi.');
       k('        max_pulse_us: ' + Math.round(gradiToUs(pen.gradiTappo)));
       c('        ', 'Battuta dei cuscinetti a ' + pen.gradiBattuta + ' gradi (' +
                     Math.round(gradiToUs(pen.gradiBattuta)) + ' µs): sta fuori');
@@ -780,14 +837,15 @@ var Profile = (function () {
     k('');
     k('macros:');
     if (tarata) {
-      c('  ', "All'accensione la penna sale in posizione tappo.");
-      c('  ', 'ATTENZIONE: FluidNC parte assumendo Z0, cioè il CONTATTO, e il servo');
-      c('  ', 'ci va per un istante prima di eseguire questa riga. Se il tappo è');
-      c('  ', "ancora infilato e la testina è sopra il foglio, in quell'istante preme.");
-      c('  ', 'Regola: il tappo si toglie PRIMA di dare corrente.');
-      k('  startup_line0: G90 G0 Z' + n(tappo));
+      c('  ', "All'accensione la penna si porta in posizione tappo.");
+      c('  ', 'FluidNC parte assumendo Z0, e Z0 È la posizione tappo: quello che la');
+      c('  ', "macchina crede e quello che il servo fa coincidono, e l'istante fra");
+      c('  ', 'accensione ed esecuzione di questa riga non muove niente.');
+      c('  ', 'La riga resta perché rende la quota esplicita, non per correggere.');
+      c('  ', 'Regola comunque valida: il tappo si toglie PRIMA di dare corrente.');
+      k('  startup_line0: G90 G0 Z' + n(zTappo(), 0));
     } else {
-      c('  ', 'DA COMPILARE quando i tre angoli ci sono: G90 G0 Z<posizione tappo>.');
+      c('  ', 'DA COMPILARE quando i tre angoli ci sono: G90 G0 Z0, il tappo.');
       k('  startup_line0:');
     }
     k('  startup_line1:');
@@ -810,6 +868,7 @@ var Profile = (function () {
 
     mmPerGrado: mmPerGrado, gradiPerMm: gradiPerMm, gradiToUs: gradiToUs,
     alzataMm: alzataMm, tappoMm: tappoMm,
+    zDaGradi: zDaGradi, zTappo: zTappo, zAlzata: zAlzata, zContatto: zContatto,
 
     verifica: verifica, stanoDentro: stanoDentro,
     toJson: toJson, fromJson: fromJson, toYaml: toYaml,

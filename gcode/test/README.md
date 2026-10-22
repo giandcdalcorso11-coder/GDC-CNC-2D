@@ -56,6 +56,12 @@ vedere dove la punta tocca il foglio.
 Se la penna si muove al contrario, si scambiano i due numeri — oppure, in
 modo definitivo, i due valori di impulso nella configurazione.
 
+**Sono file vecchi, e quei due numeri sono casuali.** Dal 2026-10-22 le quote
+vere della macchina sono `Z0` per la posizione tappo, `Z-18.326` per la penna
+alzata e `Z-21.271` per la punta sul foglio, e stanno nel profilo del SLICER.
+Questi file restano solo come prova degli assi: `Z-3` e `Z-7` cadono dentro la
+corsa, quindi il servo si muove, ma non corrispondono a niente di misurato.
+
 Il `G92` azzera **solo X e Y**. Azzerare anche Z sposterebbe il riferimento
 della penna su una posizione arbitraria, e da lì in poi ogni quota sarebbe
 riferita a un punto che nessuno ha scelto.

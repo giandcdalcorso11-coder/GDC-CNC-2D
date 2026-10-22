@@ -124,15 +124,26 @@ var Panel = (function () {
       b.addEventListener('click', function () { Api.homingFatto(); });
     });
 
+    /* Le due quote sono assolute e negative: Z0 è il tappo in cima, il foglio
+       sta in fondo alla corsa. Non sono alzataMm() e 0, che erano le quote di
+       quando lo zero stava sul foglio. */
     uno(el, '.pm-pen-up', function (b) {
-      b.addEventListener('click', function () { Api.penna(Profile.alzataMm()); });
+      b.addEventListener('click', function () { Api.penna(Profile.zAlzata()); });
     });
     uno(el, '.pm-pen-down', function (b) {
-      b.addEventListener('click', function () { Api.penna(0); });
+      b.addEventListener('click', function () { Api.penna(Profile.zContatto()); });
     });
+    /* I passi relativi si fermano ai due estremi della corsa dichiarata. Non
+       è una gentilezza: fuori da quell'intervallo mapConstrain tronca in
+       silenzio, quindi premere ancora non darebbe nessun segnale — il numero
+       sullo schermo salirebbe e la penna starebbe ferma. */
     ognuno(el, '[data-pm-pen]', function (b) {
       b.addEventListener('click', function () {
-        Api.penna(State.data.pos.z + (+this.dataset.pmPen));
+        var z = State.data.pos.z + (+this.dataset.pmPen);
+        var giu = Profile.zContatto(), su = Profile.zTappo();
+        if (giu !== null && z < giu) z = giu;
+        if (su !== null && z > su) z = su;
+        Api.penna(z);
       });
     });
 
@@ -189,17 +200,24 @@ var Panel = (function () {
        sono stati rilevati non esiste nessuna alzata, quindi i comandi restano
        spenti invece di mandare una quota inventata. */
     var alzata = Profile.alzataMm();
+    var zSu = Profile.zAlzata(), zGiu = Profile.zContatto();
+    /* Serve anche la posizione tappo, non solo i due angoli di lavoro: è lei a
+       fissare lo zero da cui si contano le quote. Senza, le due quote da
+       comandare non esistono nemmeno se abbassata e alzata ci sono. */
+    var pennaNota = alzata !== null && zSu !== null && zGiu !== null;
     uno(el, '.pm-nota-pen', function (p) {
-      p.innerHTML = alzata === null
+      p.innerHTML = !pennaNota
         ? '<b class="pm-ko">I tre angoli del servo non sono stati rilevati</b> ' +
           '(passo A2, con la dashboard a modulo penna montato): finché mancano ' +
           'non esiste una quota di penna da comandare.'
-        : 'Zero è il contatto col foglio, ' + alzata.toFixed(2) + ' mm è la penna ' +
-          'alzata. Un decimo di millimetro è sotto la banda morta del servo: ' +
-          'scendere a passi di 0,2 è già il limite utile.';
+        : 'Le quote sono negative: <b>Z0</b> è in alto, dove ci sta il tappo, ' +
+          '<b>Z' + zSu.toFixed(2) + '</b> è la penna alzata e <b>Z' +
+          zGiu.toFixed(2) + '</b> il foglio, cioè ' + alzata.toFixed(2) +
+          ' mm sotto. Un decimo di millimetro è sotto la banda morta del ' +
+          'servo: muoversi a passi di 0,2 è già il limite utile.';
     });
     ognuno(el, '.pm-pen-up, .pm-pen-down, [data-pm-pen]', function (b) {
-      b.disabled = !collegata || liberi || alzata === null;
+      b.disabled = !collegata || liberi || !pennaNota;
     });
   }
 

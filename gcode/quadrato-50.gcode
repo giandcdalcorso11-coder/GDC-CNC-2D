@@ -13,22 +13,25 @@
 ; Misurato col calibro, il lato dice anche quanto sbaglia il rapporto:
 ; lato_vero / 50 e il fattore da applicare ai mm per giro ingranaggio.
 ;
+; LE QUOTE Z SONO NEGATIVE. Senza homing FluidNC mette lo zero macchina in
+; cima alla corsa del servo: Z0 e la posizione tappo, Z-21.271 il foglio.
+; Un file con la penna a Z0 non disegna: resta in alto per tutto il giro.
 ; GDC CNC 2D SLICER
 ; 1 tratti, generato dall'interfaccia
-; penna alzata Z2.945, abbassata Z0.000
-; a fine programma la penna sale a Z21.271 (tappo)
+; penna alzata Z-18.326, abbassata Z-21.271
+; a fine programma la penna sale a Z0 (tappo)
 G21
 G90
-G0 Z2.945
-G0 X100.616 Y93.032 F3000
-G1 Z0.000 F600
+G0 Z-18.326
+X100.616 Y93.032 F3000
+G1 Z-21.271 F600
 G4 P0.200
-G1 X150.616 Y93.032 F1200
-G1 X150.616 Y143.032
-G1 X100.616 Y143.032
-G1 X100.616 Y93.032
-G0 Z2.945
+X150.616 F1200
+Y143.032
+X100.616
+Y93.032
+G0 Z-18.326
 G4 P0.200
-G0 X0 Y0 F3000
-G0 Z21.271
+X0 Y0 F3000
+Z0
 M2

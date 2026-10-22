@@ -439,7 +439,13 @@
         <div class="ro"><span>mm di penna per grado</span><b data-calc="mmGrado">—</b></div>
         <div class="ro"><span>Alzata utile</span><b data-calc="alzata">—</b></div>
         <div class="ro"><span>Impulsi per FluidNC</span><b data-calc="impulsi">—</b></div>
+        <div class="ro"><span>Quote Z da comandare</span><b data-calc="quoteZ">—</b></div>
       </div>
+      <p class="muted small">Le quote della penna sono <b>negative</b>, e non per scelta:
+        senza finecorsa FluidNC mette lo zero macchina in <b>cima</b> alla corsa del servo
+        e dichiara il resto in negativo. <code>Z0</code> è quindi la posizione tappo, e la
+        punta sul foglio è il <b>fondo</b> corsa. Una quota positiva non è «più in alto»:
+        è fuori corsa, e <code>mapConstrain</code> la tronca sullo zero senza dire niente.</p>
       <p class="muted small">Deve valere <b>battuta &lt; abbassata &lt; alzata</b>: la
         battuta è un limite, e il software non deve mai poterla comandare.
         L'unità di misura vera di questo asse è il terzo di millimetro — la banda

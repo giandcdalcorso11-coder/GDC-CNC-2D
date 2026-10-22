@@ -7,10 +7,11 @@
  * e i numeri nei riquadri rimandano lì.
  *
  * Ogni tratto porta tre cose oltre ai punti:
- *   z              quota di penna, in mm sopra il contatto. Quasi tutto sta a
- *                  zero; la prova del livello disegna a quote crescenti, ed è
- *                  così che un pezzo di piano più basso si manifesta — i
- *                  trattini alti non segnano.
+ *   z              scostamento di quota, in mm SOPRA il contatto. Quasi tutto
+ *                  sta a zero; la prova del livello disegna a quote crescenti,
+ *                  ed è così che un pezzo di piano più basso si manifesta — i
+ *                  trattini alti non segnano. Non è la quota macchina: quella
+ *                  esce da contatto + z, e il contatto è negativo.
  *   feed           velocità di quel tratto, per la prova 10. Assente = quella
  *                  di lavoro.
  *   avvicinamento  un punto da cui arrivare a penna alzata, per la prova 9:
@@ -18,13 +19,23 @@
  *                  direzione di arrivo non può essere lasciata al caso.
  *
  * Uso:  node test-macchina.js --svg prova.svg
- *       node test-macchina.js --gcode prova.gcode --contatto 0 --alzata 2.945
+ *       node test-macchina.js --gcode prova.gcode --contatto -21.271 --alzata 2.945
  *
  * L'alzata di serie è 2,945 mm: i 9 gradi fra penna abbassata (25°) e penna
- * alzata (34°) del modulo montato il 2026-10-21, per 0,32725 mm/grado. Il
- * contatto resta 0 perché in FluidNC Z0 È la penna abbassata: il `min_pulse_us`
- * del config.yaml lo definisce, e la variazione del singolo foglio la assorbe
- * il popup dell'altezza di contatto.
+ * alzata (34°) del modulo montato il 2026-10-21, per 0,32725 mm/grado.
+ *
+ * IL CONTATTO È NEGATIVO, −21,271, e qui sta tutta la differenza con la
+ * versione precedente di questo file. Senza finecorsa e senza homing FluidNC
+ * mette lo zero macchina in CIMA alla corsa del servo e dichiara il resto in
+ * negativo — verificato con $CD sulla macchina il 2026-10-22: «Axis Z
+ * (-21.281, 0.010)». RcServo mappa la posizione MACCHINA con mapConstrain(),
+ * che non rifiuta le quote fuori corsa: le TRONCA. Un file generato con il
+ * contatto a 0 non disegna, perché ogni quota positiva finisce sullo stesso
+ * impulso, quello del tappo, e la penna resta in alto per tutto il percorso.
+ *
+ * Quindi: Z0 = posizione tappo, Z−18,326 = penna alzata, Z−21,271 = sul
+ * foglio. La variazione del singolo foglio la assorbe il popup dell'altezza
+ * di contatto nell'interfaccia; qui si usa il nominale.
  */
 var FontTratto = require('./font-tratto.js');
 
@@ -327,9 +338,10 @@ function svg() {
 function gcode(opt) {
   var contatto = opt.contatto, alzata = opt.alzata;
   /* Quota a cui la penna sale a programma finito: ci sta il tappo senza
-     togliere la penna dai morsetti. 21,271 mm = i 65 gradi fra penna
-     abbassata (25) e posizione tappo (90) del modulo montato. */
-  var tappo = opt.tappo === undefined ? 21.271 : opt.tappo;
+     togliere la penna dai morsetti. È il fine corsa ALTO, quindi Z0, e si
+     esprime assoluta e non come contatto + qualcosa: sommarla al contatto
+     misurato darebbe una quota sopra lo zero, che mapConstrain tronca. */
+  var tappo = opt.tappo === undefined ? 0 : opt.tappo;
   var fd = opt.feedDisegno || 1200, fs = opt.feedSpostamento || 3000;
   var pausa = (opt.pausaMs === undefined ? 200 : opt.pausaMs) / 1000;
   /* Zeri in coda tolti: "93.000" diventa "93". Non si perde niente — un passo
@@ -365,7 +377,9 @@ function gcode(opt) {
   L.push('; campo ' + P.larghezza + ' x ' + P.altezza + ' mm');
   L.push('; gradino della prova 11 (livello): ' + P.gradino + ' mm');
   L.push('; contatto Z' + n(contatto) + ', alzata Z' + n(contatto + alzata));
-  if (tappo > alzata) L.push('; a fine programma la penna sale a Z' + n(contatto + tappo) + ' (tappo)');
+  if (tappo > contatto + alzata) {
+    L.push('; a fine programma la penna sale a Z' + n(tappo) + ' (tappo)');
+  }
   L.push('; come si legge: misure/disegno-di-collaudo.md');
   L.push('G21'); L.push('G90');
   var attesa = pausa > 0 ? 'G4 P' + n(pausa) : null;
@@ -385,7 +399,7 @@ function gcode(opt) {
   muovi('G0', 0, 0, undefined, fs);
   /* Dopo il ritorno all'origine, non prima: così la testina è già ferma in un
      angolo quando ci arrivi con il tappo in mano. */
-  if (tappo > alzata) muovi('G0', undefined, undefined, contatto + tappo);
+  if (tappo > contatto + alzata) muovi('G0', undefined, undefined, tappo);
   L.push('M2');
   return L.join('\n') + '\n';
 }
@@ -419,10 +433,13 @@ if (require.main === module) {
   }
   if (a.indexOf('--gcode') > 0) {
     var g = a[a.indexOf('--gcode') + 1];
-    var c = a.indexOf('--contatto') > 0 ? parseFloat(a[a.indexOf('--contatto') + 1]) : 0;
+    /* −21,271 e non 0: i 65 gradi fra posizione tappo (90) e penna abbassata
+       (25), col segno che FluidNC impone. Vedi l'intestazione del file. */
+    var c = a.indexOf('--contatto') > 0 ? parseFloat(a[a.indexOf('--contatto') + 1]) : -21.271;
     /* 2,945 e non 3: è l'alzata vera del modulo montato, (34 − 25) × 0,32725. */
     var z = a.indexOf('--alzata') > 0 ? parseFloat(a[a.indexOf('--alzata') + 1]) : 2.945;
-    var tp = a.indexOf('--tappo') > 0 ? parseFloat(a[a.indexOf('--tappo') + 1]) : 21.271;
+    /* Assoluta: il fine corsa alto è lo zero macchina. */
+    var tp = a.indexOf('--tappo') > 0 ? parseFloat(a[a.indexOf('--tappo') + 1]) : 0;
     fs.writeFileSync(g, gcode({ contatto: c, alzata: z, tappo: tp })); console.log('scritto ' + g);
   }
   var st = statistiche();

@@ -58,14 +58,19 @@ var Popup = (function () {
                'foglio e lascia il segno</b>. Non serve premere: appena segna, ' +
                'sei alla quota giusta.<br><br>' +
                '<b>Il tappo.</b> Se è ancora infilato, al foglio ci arriva lui e ' +
-               'la quota che leggi non è quella della punta.',
+               'la quota che leggi non è quella della punta.<br><br>' +
+               'Le quote della penna sono <b>negative</b>: Z0 è in alto, dove ci ' +
+               'sta il tappo, e il foglio sta intorno a Z-21,3.',
         entra: function () {},
         /* Confermare a penna alzata è l'errore che manda in stampa un disegno
            fatto in aria, e non se ne accorge nessuno finché il foglio non esce
-           bianco. Si pretende che la penna sia almeno scesa sotto metà corsa. */
+           bianco. Si pretende che la penna sia almeno scesa sotto metà alzata.
+           La soglia si conta dal contatto NOMINALE e non da zero: zero è il
+           tappo, in cima, e «z < metà alzata» lì sarebbe vero sempre. */
         pronto: function () {
-          var alzata = Profile.alzataMm();
-          return alzata === null ? false : State.data.pos.z < alzata / 2;
+          var alzata = Profile.alzataMm(), contatto = Profile.zContatto();
+          if (alzata === null || contatto === null) return false;
+          return State.data.pos.z < contatto + alzata / 2;
         },
         attesa: 'La penna è ancora troppo in alto: così disegneresti in aria.',
         etichetta: 'Altezza penna completata',
@@ -101,9 +106,13 @@ var Popup = (function () {
   }
 
   function alzaPenna() {
-    var alzata = Profile.alzataMm();
-    if (alzata === null) return;
-    var base = State.data.altezzaContatto === null ? 0 : State.data.altezzaContatto;
+    var alzata = Profile.alzataMm(), nominale = Profile.zContatto();
+    if (alzata === null || nominale === null) return;
+    /* Finché il contatto di oggi non è misurato si alza da quello nominale:
+       in coordinate macchina il contatto è negativo, e partire da zero
+       porterebbe la penna sopra il fine corsa invece che 3 mm dal foglio. */
+    var base = State.data.altezzaContatto === null ? nominale
+             : State.data.altezzaContatto;
     Api.penna(base + alzata);
   }
 
