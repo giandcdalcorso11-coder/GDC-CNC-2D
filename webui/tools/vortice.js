@@ -17,16 +17,24 @@
  *    punto della figura: fa andare il vortice storto, e si vede a occhio
  *    perché la simmetria è il riferimento.
  *
- * 3. I QUADRATI DIVENTANO PICCOLI. Verso il centro il lato scende sotto il
- *    millimetro, cioè sotto tre volte la larghezza del tratto: è lì che si
- *    legge la risoluzione vera della macchina, e si vede dove smette di
- *    distinguere.
+ * 3. SI CHIUDE CON UN CERCHIO, non con i quadrati più piccoli. Fra due
+ *    quadrati consecutivi la distanza fra i lati vale lato × (1 − rapporto)/2:
+ *    sotto i 10 mm di lato quel numero scende sotto i sette decimi, cioè sotto
+ *    due larghezze di tratto, e i quadratini si impastano in una macchia. Lì si
+ *    smette e si disegna la circonferenza INSCRITTA nell'ultimo quadrato, che
+ *    la tocca nei punti medi dei lati. Il cerchio non ha orientamento, quindi
+ *    chiude la spirale invece di continuarla, e resta leggibile a qualunque
+ *    scala.
  *
  * Uso:  node vortice.js --gcode v.gcode --svg v.svg
- *       ... --lato 150 --f 0.10 --minimo 3 --testo "GDC CNC 2D"
+ *       ... --lato 150 --f 0.16 --minimo 10 --testo "GDC CNC 2D"
  */
 var path = require('path');
 var FontTratto = require(path.join(__dirname, 'font-tratto.js'));
+/* Il numero di lati della spezzata che approssima il cerchio esce da una
+   tolleranza, e la formula sta scritta una volta sola: è quella di
+   prova-geometrica.js, che la usa per il suo cerchio inscritto. */
+var latiCerchio = require(path.join(__dirname, 'prova-geometrica.js')).latiCerchio;
 
 /* Un passo del vortice: dai quattro vertici del quadrato ai quattro del
    successivo, ognuno a frazione f del lato. Il lato si accorcia di
@@ -49,14 +57,36 @@ function costruisci(P) {
 
   /* Un tratto solo: si parte dal primo vertice e non si stacca più. */
   var linea = [V[0]], quadrati = 0;
-  while (lato(V) >= P.minimo) {
+  for (;;) {
     linea.push(V[1], V[2], V[3], V[0]);     // il quadrato, che chiude
     quadrati++;
     var W = prossimo(V, P.f);
+    /* Il controllo sta QUI e non in cima al ciclo: se il prossimo quadrato
+       sarebbe troppo piccolo si esce senza emettere il raccordo, così il
+       percorso finisce su un VERTICE. Controllandolo in cima restava in coda
+       un moncone verso un quadrato mai disegnato. */
+    if (lato(W) < P.minimo) break;
     /* W[0] sta sul lato V0-V1, appena disegnato: ci si arriva ripassandoci
        sopra, a penna giù. È il trucco che rende continua tutta la figura. */
     linea.push(W[0]);
     V = W;
+  }
+
+  /* Il cerchio inscritto nell'ultimo quadrato, nello stesso tratto. Si entra
+     dal punto medio del lato V0-V1, che è dove la circonferenza lo tocca: ci
+     si arriva ripassando mezzo lato, e da lì il cerchio parte TANGENTE, nello
+     stesso verso in cui si stava andando. Nessuna alzata, nessuno spigolo. */
+  var R = 0, nCerchio = 0;
+  if (P.cerchio) {
+    R = lato(V) / 2;                        // apotema del quadrato = raggio
+    var M = { x: (V[0].x + V[1].x) / 2, y: (V[0].y + V[1].y) / 2 };
+    linea.push(M);
+    nCerchio = latiCerchio(R, P.tolleranza);
+    var a0 = Math.atan2(M.y - cy, M.x - cx);
+    for (var j = 1; j <= nCerchio; j++) {
+      var th = a0 + j / nCerchio * 2 * Math.PI;
+      linea.push({ x: cx + R * Math.cos(th), y: cy + R * Math.sin(th) });
+    }
   }
 
   var tratti = [linea];
@@ -82,7 +112,11 @@ function costruisci(P) {
 
   var rapporto = Math.sqrt(P.f * P.f + (1 - P.f) * (1 - P.f));
   return { tratti: tratti, quadrati: quadrati, lunghezza: lung,
-           rapporto: rapporto,
+           rapporto: rapporto, raggio: R, latiCerchio: nCerchio,
+           centro: { x: cx, y: cy },
+           /* Quanto spazio resta fra i lati di due quadrati consecutivi
+              all'ultimo passo: è il numero che decide dove fermarsi. */
+           passoFinale: lato(V) * (1 - rapporto) / 2,
            rotazione: Math.atan2(P.f, 1 - P.f) * 180 / Math.PI,
            latoFinale: lato(V),
            riquadro: { x0: cx - h, y0: P.testo ? P._testo.y : cy - h,
@@ -121,10 +155,15 @@ if (require.main === module) {
   var cx = x0 + L / 2;
   var cy = y0 + L / 2 + (testo ? stacco + alt : 0);
 
-  var P = { cx: cx, cy: cy, lato: L, f: parseFloat(arg('f', 0.10)),
-            /* Sotto il millimetro il quadrato è più stretto di tre tratti di
-               penna e diventa una macchia: è il punto in cui fermarsi. */
-            minimo: parseFloat(arg('minimo', 1)),
+  var P = { cx: cx, cy: cy, lato: L, f: parseFloat(arg('f', 0.16)),
+            /* Dove si smette coi quadrati. Il criterio non è il gusto: fra due
+               quadrati consecutivi la distanza fra i lati vale
+               lato × (1 − rapporto)/2, e sotto due larghezze di tratto (0,7 mm
+               con una penna da 0,35) il bianco in mezzo sparisce. Con f = 0,16
+               quel punto cade sui 10 mm di lato. */
+            minimo: parseFloat(arg('minimo', 10)),
+            cerchio: arg('cerchio') !== 'no',
+            tolleranza: parseFloat(arg('tolleranza', 1 / Profile.passiPerMm('x'))),
             testo: testo, altezzaTesto: alt, stacco: stacco };
   var r = costruisci(P);
 
@@ -152,7 +191,17 @@ if (require.main === module) {
     '; Il lato si accorcia di ' + r.rapporto.toFixed(4) + ' e la figura ruota di ' +
       f2(r.rotazione) + ' gradi a ogni passo,',
     '; da ' + f2(P.lato) + ' mm fino a ' + f2(r.latoFinale) + ' mm.',
-    ';',
+    ';'].concat(P.cerchio ? [
+    '; AL CENTRO UN CERCHIO, non i quadrati piu piccoli. Fra due quadrati',
+    '; consecutivi i lati distano lato x (1 - rapporto) / 2: all ultimo passo',
+    '; sono ' + r.passoFinale.toFixed(2) + ' mm, cioe ancora leggibili con una penna da 0,35.',
+    '; Un quadrato in piu li porterebbe a ' + (r.passoFinale * r.rapporto).toFixed(2) +
+      ' e i tratti si impasterebbero.',
+    '; Quindi li si smette e si disegna la circonferenza INSCRITTA nell ultimo',
+    '; quadrato, raggio ' + f2(r.raggio) + ' mm, che lo tocca nei punti medi dei lati.',
+    '; Ci si entra dal punto medio del lato appena disegnato, quindi il cerchio',
+    '; parte TANGENTE e sempre a penna giu: spezzata di ' + r.latiCerchio + ' lati.',
+    ';'] : []).concat([
     '; IL VORTICE E UNA LINEA SOLA: la penna non si stacca mai. Il passaggio da',
     '; un quadrato al successivo cade su un lato appena disegnato, quindi si fa',
     '; ripassandoci sopra. Per questo la CHIUSURA misura l errore accumulato su',
@@ -162,8 +211,11 @@ if (require.main === module) {
     '; - la SIMMETRIA. Il vortice e il suo stesso riferimento: un errore che',
     ';   dipende dalla direzione lo fa andare storto, e si vede a occhio senza',
     ';   misurare niente.',
-    '; - il CENTRO. Gli ultimi quadrati scendono sotto il millimetro: li si',
-    ';   legge dove la macchina smette di distinguere.',
+    '; - il CENTRO. Fra l ultimo quadrato e il cerchio inscritto restano ' +
+      r.passoFinale.toFixed(2) + ' mm',
+    ';   di bianco, cioe due larghezze di tratto: e la il margine piu stretto',
+    ';   del disegno, e si legge con la lente. Se li i tratti si toccano, il',
+    ';   tratto e piu grosso di quanto il profilo assume.',
     '; - il lato esterno, col calibro: ' + f2(P.lato) + ' mm, e le due diagonali',
     ';   del quadrato esterno uguali fra loro (' + f2(Math.SQRT2 * P.lato) + ' mm).',
     ';',
@@ -173,7 +225,7 @@ if (require.main === module) {
     ';',
     '; LE QUOTE Z SONO NEGATIVE. Z0 e la posizione tappo, in cima alla corsa;',
     '; Z' + giu.toFixed(3) + ' e la punta sul foglio.',
-    ''].join('\n');
+    '']).join('\n');
 
   var out = arg('gcode');
   if (out) { fs.writeFileSync(out, testa + g); console.log('scritto ' + out); }
