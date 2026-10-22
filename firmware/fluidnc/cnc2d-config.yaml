@@ -2,10 +2,6 @@
 # La sorgente è il profilo macchina del SLICER (tab Impostazioni → Scarica
 # config.yaml): modificare questo file a mano fa divergere le due copie.
 #
-# Sostituisce la versione scritta a mano, che aveva max_travel_mm 300 su
-# entrambi gli assi, direction_pin senza :low su X, e i commenti in coda alle
-# chiavi che il parser di FluidNC non accetta.
-#
 # GDC CNC 2D — configurazione FluidNC
 #
 # GENERATO dal profilo macchina del GDC CNC 2D SLICER.
@@ -48,7 +44,7 @@ axes:
       hard_limits: false
       stepstick:
         step_pin: gpio.4
-        direction_pin: gpio.26:low
+        direction_pin: gpio.26
 
   # Y — rotaie di base: ci scorre sopra tutto il portale, basso→alto sul foglio
   y:
@@ -66,7 +62,7 @@ axes:
       hard_limits: false
       stepstick:
         step_pin: gpio.25
-        direction_pin: gpio.33
+        direction_pin: gpio.33:low
 
   # Z non è un asse vero: è il servo del pen-lift.
   # Z0 = penna sul foglio, Z cresce in alto, in millimetri veri di penna.

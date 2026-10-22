@@ -67,8 +67,15 @@ var Profile = (function () {
            quantità diverse: con un valore solo i quadrati escono rettangoli.
            `tarato` dice se il numero viene da una misura o è ancora il
            nominale. */
-        x: { mmPerGiro: MM_PER_GIRO_NOMINALE, tarato: false, invertito: true },
-        y: { mmPerGiro: MM_PER_GIRO_NOMINALE, tarato: false, invertito: false }
+        /* VERIFICATI sulla macchina il 2026-10-22, al primo avvio di FluidNC:
+           erano sbagliati tutti e due. Con `invertito: true` su X e false su Y
+           un `$J=G91 X25` portava il carrello VERSO il suo blocco invece che
+           via, e lo stesso faceva Y al contrario. Non è strano che fossero
+           sbagliati entrambi: nessuno dei due era mai stato provato, e il
+           `:low` su X era una deduzione — il file stesso diceva «da confermare
+           al primo avvio guardando il verso». */
+        x: { mmPerGiro: MM_PER_GIRO_NOMINALE, tarato: false, invertito: false },
+        y: { mmPerGiro: MM_PER_GIRO_NOMINALE, tarato: false, invertito: true }
       },
 
       /* LA CORSA SI CONSERVA IN PASSI, e non è un vezzo.
