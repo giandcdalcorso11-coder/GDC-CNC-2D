@@ -422,6 +422,27 @@ raggiunga.
 **cancella** lo sketch della dashboard. Si torna indietro riflashando lo sketch,
 ma non convivono. Quindi A1 va chiuso prima.
 
+### C'è un secondo ESP32 con FluidNC già installato: conviene scambiarlo?
+
+**No, conviene flashare quello montato.** Il vecchio ESP32 del 2026-09-21 ha
+FluidNC 4.1.0, la rete già configurata e l'hostname `cnc2d`, quindi sembra una
+scorciatoia. Non lo è, per tre motivi in ordine di peso:
+
+1. **Il `config.yaml` va caricato comunque.** Quello sul vecchio è di settembre:
+   `steps_per_mm: 80` (l'ipotesi a cinghia), `max_travel_mm: 300`, nessun numero
+   del servo, nessun `:low` su X. Il caricamento del file è il lavoro vero, ed è
+   identico nei due casi.
+2. **Il circuito è stato rifatto attorno all'ESP32 montato.** I suoi pin sono
+   provati contro *questo* cablaggio, per settimane; quelli del vecchio contro
+   un cablaggio che non esiste più. Mettere una scheda non verificata su quindici
+   connessioni verificate scambia un rischio piccolo con uno grande.
+3. **Quello che si risparmia sono tre minuti di flash** più le credenziali WiFi.
+
+Se lo scambi lo stesso, una cosa da controllare prima di tutto: che sia lo
+**stesso modulo a 30 pin con lo stesso ordine di piedini**. La configurazione
+indirizza i `gpio.`, non le posizioni fisiche: su un modulo a 36 pin il
+`gpio.32` del servo finisce da un'altra parte.
+
 ### Prima di flashare: due minuti con la dashboard che hai già
 
 Da qui in poi i pulsanti ±1° non ci sono più, quindi quello che va guardato col
@@ -445,20 +466,32 @@ profilo, il `config.yaml`, i popup del SLICER — ce l'ha già.
    nuda non succede niente — il contatto è stato tarato con un foglio sotto,
    quindi sulla tavola nuda la punta resta un decimo sopra. Col tappo infilato
    ci arriva il tappo, e la corsa che manca la paga il meccanismo.
-2. Flash dal web installer, carica `cnc2d-config.yaml`, attivalo con
-   `$Config/Filename=cnc2d-config.yaml` e riavvia con `$Bye`. (Il pulsante
+2. Flash dal web installer (`installer.fluidnc.com`, Chrome o Edge: usa la
+   WebSerial). **Versione 4.1.0**, la stessa su cui la configurazione è stata
+   validata il 2026-09-21 — non l'ultima per inerzia: una versione nuova può
+   cambiare i nomi dei campi, e questa li accetta tutti. Processore `esp32`
+   (DevKit WROOM-32 a 30 pin), variante **wifi**, tipo **fresh-install**,
+   interfaccia **WebUI-2**.
+
+   Un fresh-install cancella anche le impostazioni di rete, quindi la macchina
+   riparte in access point e vanno rimesse: **modalità STA, hostname `cnc2d`**,
+   così l'indirizzo resta `http://cnc2d.local` come prima.
+
+3. Carica `cnc2d-config.yaml`, **salvandolo col nome `config.yaml`**: è il nome
+   che FluidNC cerca da solo. Se preferisci tenere il nome lungo, attivalo con
+   `$Config/Filename=cnc2d-config.yaml` e riavvia con `$Bye` — il pulsante
    "seleziona configurazione" del browser dei file non ha avuto effetto la volta
-   scorsa: il comando da terminale sì.)
-3. **`$CD` — rileggi la configurazione che FluidNC ha davvero capito.** Non è
+   scorsa, il comando da terminale sì.
+4. **`$CD` — rileggi la configurazione che FluidNC ha davvero capito.** Non è
    una formalità: il suo parser **ignora le chiavi che hanno un commento in coda**,
    e una `steps_per_mm` ignorata non dà errore, dà una macchina che si muove
    sbagliato. Controlla che ci siano i numeri giusti su `steps_per_mm`,
    `max_travel_mm` e i due `pulse_us`.
-4. **Verso degli assi, prima di qualunque altra cosa.** Un movimento su X deve
+5. **Verso degli assi, prima di qualunque altra cosa.** Un movimento su X deve
    muovere **il carrello lungo la trave**; uno su Y deve muovere **tutto il
    portale**. Su X il file dichiara `direction_pin: gpio.26:low` e quel `:low`
    non è mai stato provato sulla macchina: se l'asse va al contrario, è lì.
-5. **Il servo, dalla WebUI:** `G0 Z0` deve abbassare la penna, `G0 Z21.271`
+6. **Il servo, dalla WebUI:** `G0 Z0` deve abbassare la penna, `G0 Z21.271`
    deve portarla in posizione tappo. Se fa il contrario, `min_pulse_us` e
    `max_pulse_us` sono scambiati rispetto al verso del servo.
 
