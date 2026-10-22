@@ -214,6 +214,33 @@ penna non tocca, dove sale preme. Il gradino è 0,30 mm perché è la banda mort
 del servo: più fine di così il servo non sa muoversi, e si misurerebbe il
 rumore.
 
+### Il lato cieco di questa prova
+
+La prova misura i punti **alti** e non quelli bassi, e l'asimmetria va saputa
+prima di fidarsi della mappa.
+
+I trattini si disegnano a quote crescenti sopra il contatto: 0, +0,30, +0,60,
++0,90. In un punto dove la carta sta **più in alto** del nominale di `e`,
+segnano tutti i trattini con quota fino a `e`: contando quanti segnano si legge
+`e` a passi di 0,30. Ma dove la carta sta **più in basso**, o dove è il portale
+a essere più alto, non segna **nessun** trattino, nemmeno quello a quota zero —
+e da lì in poi la prova non distingue più niente: due decimi e due millimetri
+danno lo stesso risultato, cioè il bianco.
+
+Quindi: trattini che mancano a gruppi = mappa con risoluzione 0,30 mm.
+Trattini che mancano **tutti** in una zona = c'è un punto basso, ma quanto sia
+basso questa prova non lo dice. Serve un comparatore, o si abbassa la quota di
+contatto finché torna a segnare e si legge la differenza.
+
+**Caso reale, 2026-10-22.** Il primo disegno vero (`gcode/vortice.gcode`) ha
+fatto questa prova senza essere stato scritto per farla: nell'angolo in alto a
+sinistra alcuni tratti sono usciti spezzati, con la penna che perdeva il
+contatto e lo riprendeva. Causa trovata dall'operatore: il legno sotto al
+binario della **staffa TT di sinistra** si era alzato. Non alza la carta, alza
+il **portale** — quindi la punta si solleva rispetto al foglio, che per la
+penna è identico a un piano che scende. È esattamente il caso che la prova 11
+non sa quantificare, e infatti l'unico segnale è stato il tratto interrotto.
+
 ---
 
 ## Dopo: cosa finisce nel profilo
