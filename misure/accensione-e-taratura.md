@@ -598,10 +598,31 @@ Due cose lette nel dump che non sono nostre e vanno sapute:
 Il disegno di collaudo è 466 tratti e più di venti minuti di macchina: non è il
 programma con cui si scopre che un asse va al contrario.
 
-1. **Origine a mano:** `$MD` libera i motori, appoggi i carrelli ai blocchi,
-   poi `G92 X0 Y0`. Attenzione all'ordine e al fatto che **nessun comando
-   riabilita i motori**: lo fa il primo movimento. Quindi prima un jog minimo
-   (`$J=G91 X0.01 F100`), poi `G92`.
+1. **Origine a mano**, in questo ordine:
+
+   ```
+   $MD                      libera i motori (e' $Motor/Disable; $MD=X per uno solo)
+   ... appoggi i carrelli ai blocchi, senza forzarli ...
+   G92 X0 Y0                lo zero e' il punto ai blocchi
+   G90 G0 X5 Y5 F1000       riabilita i motori e va al punto home
+   ```
+
+   **Nessun comando riabilita i motori**: lo fa automaticamente il primo
+   comando di movimento. Per questo l'ultima riga non e' facoltativa — finche'
+   non la mandi i motori restano molli, e una spinta accidentale sposta i
+   carrelli senza che nessun impulso lo racconti: lo zero appena messo
+   diventerebbe falso in silenzio.
+
+   **Correzione del 2026-10-22:** qui era scritto l'ordine opposto — prima un
+   jog minimo `$J=G91 X0.01 F100` per riabilitare, poi `G92` — e sono due
+   errori. Il primo e' aritmetico: con 33,953 passi/mm **un passo vale 0,02945
+   mm**, quindi 0,01 mm fa 0,34 passi, arrotondati a **zero**. Un jog che non
+   muove niente non e' detto che riabiliti niente. Il secondo e' di merito:
+   qualunque jog prima del `G92` sposta il carrello via dai blocchi, e lo zero
+   finisce dove il carrello e' arrivato invece che sui blocchi — 0,1 mm sono
+   il doppio della ripetibilita' dell'appoggio (0,05 mm), quindi non si
+   assorbono. Mettendo il `G92` **prima**, i 5 mm del movimento verso il punto
+   home sono contati e lo zero resta esatto.
 2. **Un quadrato piccolo**, 50 mm, disegnato da qualche parte in mezzo al
    foglio. Serve a tre cose: che i versi siano giusti, che la penna segni per
    tutto il perimetro, e che il quadrato chiuda dove è partito.
