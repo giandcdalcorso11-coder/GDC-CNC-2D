@@ -20,8 +20,8 @@ Importante, perché questa è una procedura **di arrivo**, non di oggi:
 |---|---|
 | Dashboard (pannello di controllo manuale) | funzionante, e dal 2026-10-19 **misura anche posizione e rapporto per asse** |
 | Modulo penna | **montato e tarato**: quattro angoli (17/25/34/90), penna stretta, primo disegno a mano riuscito il 2026-10-22 |
-| FluidNC sul firmware | **mai acceso sulla macchina montata** |
-| `cnc2d-config.yaml` | **rigenerato dal profilo** (2026-10-22): corse, servo, posizione tappo e riga di avvio. Mai provato sulla macchina |
+| FluidNC sul firmware | **v4.1.1 installata il 2026-10-22**, configurazione verificata con `$CD`. Assi e servo non ancora mossi |
+| `cnc2d-config.yaml` | **caricato e verificato sulla macchina** (2026-10-22): `$CD` rilegge tutti i numeri, compresi `gpio.26:low`, gli impulsi 2222/1500 e `startup_line0` |
 | SLICER caricato sulla macchina | **no**, gira solo in modalità finta nel browser |
 | Pannello manuale dentro il SLICER | impalcatura presente, tutta disabilitata |
 | Profilo macchina e profilo di stampa | **fatti** (2026-10-19): tab Impostazioni, salvataggio nel browser, esportazione JSON |
@@ -515,6 +515,25 @@ profilo, il `config.yaml`, i popup del SLICER — ce l'ha già.
    `$Config/Filename=cnc2d-config.yaml` e riavvia con `$Bye` — il pulsante
    "seleziona configurazione" del browser dei file non ha avuto effetto la volta
    scorsa, il comando da terminale sì.
+**Esito del 2026-10-22:** `$CD` ha restituito tutti i numeri giusti — `steps_per_mm`
+33.952999 su entrambi gli assi, `max_travel_mm` 253.231995 e 238.063995,
+`direction_pin: 'gpio.26:low'` su X, `rc_servo` su gpio.32 con 2222 e 1500,
+`max_travel_mm` 21.271 su Z, `startup_line0: G90 G0 Z21.271`, `must_home: false`.
+Nessuna chiave ignorata: il timore dei commenti in coda era fondato ma il file
+generato è pulito.
+
+Due cose lette nel dump che non sono nostre e vanno sapute:
+
+- **`idle_disable: true`** compare su ogni asse ed è un valore di default. Il
+  comando globale resta `stepping: idle_ms`, e **255 significa «non disabilitare
+  mai»** — è la convenzione ereditata da grbl, dove il parametro era a 8 bit.
+  Con l'origine messa a mano con `G92` è esattamente quello che serve: un motore
+  che si ammorbidisce perde la posizione in silenzio.
+- **`Axis X (-253.261, 0.029)`**: FluidNC mette lo zero macchina all'estremo
+  positivo e fa correre la corsa in negativo, perché non c'è homing configurato.
+  Non cambia niente — l'origine la dà `G92` e i limiti software sono spenti — ma
+  le coordinate macchina si leggeranno negative, e non è un guasto.
+
 4. **`$CD` — rileggi la configurazione che FluidNC ha davvero capito.** Non è
    una formalità: il suo parser **ignora le chiavi che hanno un commento in coda**,
    e una `steps_per_mm` ignorata non dà errore, dà una macchina che si muove
