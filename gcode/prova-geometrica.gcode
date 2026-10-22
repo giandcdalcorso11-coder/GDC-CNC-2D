@@ -1,0 +1,187 @@
+; GDC CNC 2D - prova geometrica
+; Quadrato 100 mm, cerchio inscritto, pentagono inscritto nel
+; cerchio, diagonali del quadrato, apotemi del pentagono.
+;
+; Angolo in basso a sinistra X25 Y25, opposto X125 Y125.
+; Punto home X5 Y5: la figura sta 20 mm a destra e in alto.
+; Centro X75 Y75, raggio 50.
+;
+; MISURE ATTESE, col calibro:
+;   lato del quadrato      100.000
+;   diagonali (due)        141.421   DEVONO essere uguali
+;   diametro del cerchio   100.000   in ogni direzione
+;   lato del pentagono     58.779
+;   apotema (cinque)       40.451
+;
+; COSA DICE OGNI FIGURA:
+;   diagonali diverse  -> assi non perpendicolari (fuori squadra)
+;   cerchio ovale      -> scala diversa fra X e Y
+;   apotemi che non convergono in un punto -> gioco: il punto di arrivo
+;                         dipende dalla direzione di arrivo
+;
+; Il cerchio è una spezzata di 95 lati: freccia 0.0273 mm, sotto un passo
+; di motore (0.0295 mm). 95 è multiplo di 5, quindi la spezzata
+; passa esattamente per i vertici del pentagono.
+;
+; LE QUOTE Z SONO NEGATIVE. Z0 è la posizione tappo, in cima alla corsa;
+; Z-21.271 è la punta sul foglio.
+; GDC CNC 2D SLICER
+; 8 tratti, generato dall'interfaccia
+; penna alzata Z-18.326, abbassata Z-21.271
+; a fine programma la penna sale a Z0 (tappo)
+; a fine programma la testina torna al punto home X5 Y5, non sullo zero ai blocchi
+G21
+G90
+G0 Z-18.326
+X25 Y25 F3000
+G1 Z-21.271 F600
+G4 P0.200
+X125 F1200
+Y125
+X25
+Y25
+G0 Z-18.326
+G4 P0.200
+G1 Z-21.271 F600
+G4 P0.200
+X125 Y125 F1200
+G0 Z-18.326
+G4 P0.200
+Y25 F3000
+G1 Z-21.271 F600
+G4 P0.200
+X25 Y125 F1200
+G0 Z-18.326
+G4 P0.200
+X75 F3000
+G1 Z-21.271 F600
+G4 P0.200
+X71.695 Y124.891 F1200
+X68.405 Y124.563
+X65.144 Y124.019
+X61.926 Y123.26
+X58.765 Y122.291
+X55.675 Y121.114
+X52.67 Y119.736
+X49.762 Y118.163
+X46.964 Y116.4
+X44.289 Y114.457
+X41.749 Y112.341
+X39.354 Y110.062
+X37.114 Y107.629
+X35.041 Y105.054
+X33.142 Y102.347
+X31.426 Y99.521
+X29.9 Y96.588
+X28.572 Y93.56
+X27.447 Y90.451
+X26.53 Y87.274
+X25.825 Y84.044
+X25.335 Y80.774
+X25.062 Y77.479
+X25.007 Y74.173
+X25.171 Y70.871
+X25.553 Y67.587
+X26.151 Y64.335
+X26.962 Y61.13
+X27.984 Y57.985
+X29.211 Y54.915
+X30.639 Y51.933
+X32.26 Y49.052
+X34.069 Y46.284
+X36.056 Y43.641
+X38.214 Y41.136
+X40.532 Y38.779
+X43.002 Y36.58
+X45.611 Y34.549
+X48.348 Y32.695
+X51.203 Y31.026
+X54.161 Y29.55
+X57.21 Y28.272
+X60.337 Y27.198
+X63.529 Y26.334
+X66.77 Y25.682
+X70.048 Y25.246
+X73.347 Y25.027
+X76.653
+X79.952 Y25.246
+X83.23 Y25.682
+X86.471 Y26.334
+X89.663 Y27.198
+X92.79 Y28.272
+X95.839 Y29.55
+X98.797 Y31.026
+X101.652 Y32.695
+X104.389 Y34.549
+X106.998 Y36.58
+X109.468 Y38.779
+X111.786 Y41.136
+X113.944 Y43.641
+X115.931 Y46.284
+X117.74 Y49.052
+X119.361 Y51.933
+X120.789 Y54.915
+X122.016 Y57.985
+X123.038 Y61.13
+X123.849 Y64.335
+X124.447 Y67.587
+X124.829 Y70.871
+X124.993 Y74.173
+X124.938 Y77.479
+X124.665 Y80.774
+X124.175 Y84.044
+X123.47 Y87.274
+X122.553 Y90.451
+X121.428 Y93.56
+X120.1 Y96.588
+X118.574 Y99.521
+X116.858 Y102.347
+X114.959 Y105.054
+X112.886 Y107.629
+X110.646 Y110.062
+X108.251 Y112.341
+X105.711 Y114.457
+X103.036 Y116.4
+X100.238 Y118.163
+X97.33 Y119.736
+X94.325 Y121.114
+X91.235 Y122.291
+X88.074 Y123.26
+X84.856 Y124.019
+X81.595 Y124.563
+X78.305 Y124.891
+X75 Y125
+G0 Z-18.326
+G4 P0.200
+G1 Z-21.271 F600
+G4 P0.200
+X27.447 Y90.451 F1200
+X45.611 Y34.549
+X104.389
+X122.553 Y90.451
+X75 Y125
+G0 Z-18.326
+G4 P0.200
+X51.224 Y107.725 F3000
+G1 Z-21.271 F600
+G4 P0.200
+X75 Y75 F1200
+X36.529 Y62.5
+G0 Z-18.326
+G4 P0.200
+X75 Y34.549 F3000
+G1 Z-21.271 F600
+G4 P0.200
+Y75 F1200
+X113.471 Y62.5
+G0 Z-18.326
+G4 P0.200
+X98.776 Y107.725 F3000
+G1 Z-21.271 F600
+G4 P0.200
+X75 Y75 F1200
+G0 Z-18.326
+G4 P0.200
+X5 Y5 F3000
+Z0
+M2
