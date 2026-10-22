@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 46
-**Ultimo aggiornamento:** 2026-10-21 22:34
+**Versione:** 47
+**Ultimo aggiornamento:** 2026-10-22 13:30
 
 ## Regole di co-editing
 
@@ -552,8 +552,38 @@ mano a mano che le misure arrivano):
 - [2026-10-16] **Pignone grande o piccolo, per la forza del servo: non è un criterio.** Forza alla cremagliera = coppia / raggio. Con 1,8 kg·cm (≈177 N·mm) e r = 18,750 escono **9,4 N**; con r = 10,5 (z14) 16,9 N. Ma la massa flottante da sollevare è 0,55÷0,60 N, quindi il margine è **15×** già col pignone grande. Quello che il pignone grande compra davvero: la cremagliera cade sulla parete di `pz2` invece che su una mensola (meno massa flottante, che è il parametro fuori budget) ed è **1,8× più veloce** nell'alzata (0,051 s contro 0,091 per 10 mm), il che però conta poco contro il tempo di assestamento. Criterio vero: la geometria, non la coppia
 - [2026-10-21] **MODULO MONTATO**, cuscinetti compresi: il collo di bottiglia del progetto si è sbloccato. L'utente riferisce accoppiamento cremagliera/pignone buono e cuscinetti che scorrono con gioco vicino a zero — resta da **misurare il gioco d'ingranamento**, che da progetto vale 0,30 mm e **non va ridotto**: è quello che ha preso il posto del giunto a gioco morto, e dentro quella banda la penna appoggia col proprio peso invece che con la quota imposta. Due cose scoperte al montaggio: il servo gira **al contrario** (risolto convertendo in un punto solo per lato della catena), e la prima taratura ha messo la battuta a **1° logico = 2489 µs**, fuori dalla specifica 500÷2400 dell'SG90 — l'ingranaggio è stato calettato col servo già contro il proprio fermo interno. Da rifare spostando l'ingranaggio di un dente di cannula (~19°), che porta la zona di lavoro a 2122÷2289 µs
 - [2026-10-21] **La piattaforma da 44 mm è eliminata** (decisione dell'utente). Supera la nota del 2026-10-06, che la dava come necessaria: il piano carta a Z ≈ 44,2 nasceva dal punto più basso del carrello Y a Z 46,68, quando il modulo penna non era ancora disegnato. **Col modulo Tratto Pen montato sulla testina X lo spazio verticale libero è meno di 40 mm**, quindi la piattaforma non ci sta sotto. Il piano resta **unico: la tavola**, e il foglio ci appoggia sopra. Conseguenza sulla taratura: l'angolo di penna abbassata si impone stringendo la penna contro **la tavola**, non contro uno spessore — la quota assoluta non è mai stata un vincolo, perché a regolarla è la penna che scorre nei morsetti (nota del 2026-10-15). CAD aggiornato in arrivo
+- [2026-10-22] **Il CAD con il modulo montato, letto numero per numero** (`misure/cad-assieme.md`). Tavola a Z 0, 700 × 600. **Asse della penna X −198,01 · Y −215,78**, ricavato dalla sede a V su `pz2` (tangenza di un Ø10 esattamente sulla bocca: la sede è disegnata per il Tratto Pen). **Sbalzo in Y 70,47 mm** dalla mezzeria del carrello, 50,94 oltre la faccia della trave — in X la punta è centrata a +7,67. **Punto più basso della testina Z 26,68** (16,68 a fondo corsa dello stadio flottante), quindi il vincolo sul foglio resta l'alzata della penna, 2,945 mm. Zona di disegno stimata X −206,20…49,89, Y −217,91…25,16, tutta sulla tavola con 32,8 mm davanti: ±2 mm, perché dipende da quali facce toccano i blocchi
 
 ## Storico sessioni
+
+### [2026-10-22 13:30] (meccanica) Il CAD con il modulo penna montato, letto numero per numero: dove sta la punta e quanta aria c'è sotto
+
+**Riepilogo:** letto il primo assieme STEP che contiene il modulo penna — ricostruiti albero, trasformazioni e posizioni dai vertici, senza kernel CAD — e ricavati i tre numeri che mancavano: l'asse della penna (X −198,01 · Y −215,78), lo sbalzo in Y (70,47 mm dalla mezzeria del carrello), e il punto più basso della testina (Z 26,68 sopra la tavola, non più i 2,5 mm di franco che si calcolavano con la piattaforma).
+
+**Cosa è stato fatto:**
+
+- **Scritto un lettore di assiemi STEP** (`asm.py` nella cartella di lavoro): ricostruisce l'albero da `NEXT_ASSEMBLY_USAGE_OCCURRENCE`, compone le trasformazioni da `ITEM_DEFINED_TRANSFORMATION` e riporta nel mondo i vertici di ogni pezzo. Serviva perché le rappresentazioni dei pezzi sono vuote e il solido vive in una `ADVANCED_BREP_SHAPE_REPRESENTATION` separata, agganciata da una `SHAPE_REPRESENTATION_RELATIONSHIP`
+- **Fissato il sistema di riferimento:** la faccia superiore della tavola è **Z = 0**, la tavola è 700 × 600 × 20. Controprova che la lettura è giusta: il punto più basso del carrello X esce 46,68, lo stesso numero del 2026-10-06
+- **Trovato l'asse della penna senza che la penna sia modellata**, dalla sede a V su `pz2`: bocca 10,00, profondità 3,00, e i punti di tangenza di un cerchio Ø10 cadono esattamente sulla bocca — la sede è disegnata per il Tratto Pen. Stessa cosa sulla V del morsetto, che nel CAD è aperta di 3,46 mm
+- **Misurato lo sbalzo:** in X la punta è a +7,67 dalla mezzeria del carrello, praticamente centrata; in Y è a **−70,47**, cioè 50,94 mm oltre la faccia vicina della trave. Tutto lo sbalzo è sull'asse motorizzato da un lato solo, quindi è il braccio che moltiplica l'imbardata: è quello che misura la prova 2 del collaudo
+- **Stimata la zona di disegno sulla tavola**: X −206,20 … 49,89, Y −217,91 … 25,16, tutta dentro la tavola col lato stretto davanti (32,8 mm). Dichiarata l'incertezza: ±2 mm, perché dipende da quali facce toccano i blocchi, dedotte dalla geometria e non misurate
+- Aggiornato il commento in `profile.js` che citava ancora 249,5 × 235,0: la corsa percorribile è **254,09 × 241,04**
+- Scritto `misure/cad-assieme.md` con tutte le quote e una tabella di posizioni da cui ripartire al prossimo CAD
+
+**Decisioni prese:** nessuna nuova — la lettura conferma e quantifica quelle del 2026-10-21.
+
+**Note sull'assieme ricevuto:** l'utente ha spostato la cremagliera dell'asse X (nel CAD `cremagliera Y`) e di conseguenza il blocco dell'asse Y, perché prima la punta usciva dalla zona di tavola su cui può appoggiare il foglio. La lettura conferma che ora ci sta. L'utente ha anche avvisato che **i nomi dei pezzi nel CAD sono quelli vecchi e non seguono la convenzione del progetto**: verificato, `blocco  sx asse Y` è il blocco dell'asse X, `blocco front X` quello dell'asse Y, `cremagliera Y` è la cremagliera dell'asse X. Le posizioni sono giuste. La tabella di traduzione è in `misure/cad-assieme.md`.
+
+**Conferme su numeri già registrati:**
+
+- l'**A4 non entra in nessun orientamento**: chiede 297 mm in un verso e il più lungo è 254. Il `foglio A4` nel CAD è un riferimento, non un formato stampabile — sborda di 33 mm a sinistra, 7,5 a destra, 3,8 davanti
+- il vincolo sul fissaggio del foglio è quello registrato ieri: non la testina (26,68 mm, o 16,68 a fondo corsa dello stadio flottante) ma **l'alzata della penna, 2,945 mm**
+
+**File consegnati/modificati:** `misure/cad-assieme.md` (nuovo), `webui/js/profile.js`
+
+**Impatto su Vision/Pipeline:** una nota in **Step 6** con i numeri della punta e il rimando al documento.
+
+---
 
 ### [2026-10-21 22:34] (meccanica+software) I tre angoli del servo diventano numeri veri, e la piattaforma da 44 mm viene eliminata
 

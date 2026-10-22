@@ -204,9 +204,9 @@ var Profile = (function () {
     };
   }
 
-  /* Con 249,5 × 235,0 di corsa percorribile l'A4 non entra in nessun
-     orientamento (mancano 54 mm su Y in verticale, 39,5 su X in orizzontale).
-     La macchina è una A5. */
+  /* Con 254,09 × 241,04 di corsa percorribile l'A4 non entra in nessun
+     orientamento: chiede 297 in un verso e il più lungo è 254. La macchina è
+     una A5 — B5 e un quadrato da 241 ci stanno, l'A4 no. */
   function stampaDefault() {
     return {
       nome: 'A5 — valori di partenza',
