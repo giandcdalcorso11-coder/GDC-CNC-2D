@@ -665,8 +665,34 @@ $LocalFS/Size        totale e usato
 $LocalFS/Run=<path>  lancia un programma dalla flash
 ```
 
-La lista stampa il percorso come FluidNC lo scrive: si copia da lì per il
-`Run`, invece di indovinare dove va la barra.
+La lista stampa il percorso come FluidNC lo scrive. Un nome **senza** barra
+davanti va bene: `canonPath()` ci mette davanti il prefisso del filesystem di
+default, che per questi comandi è la flash.
+
+**Caricare un file senza passare dal pannello.** La flash è montata anche in
+WebDAV, scrivibile, e PUT è fra i metodi permessi:
+
+```cpp
+auto flash_dav = new WebDAV("/flash", LocalFS, true);
+response->addHeader("Allow", "PROPFIND,OPTIONS,DELETE,COPY,MOVE,HEAD,POST,PUT,GET");
+```
+
+Quindi dal PC, con l'indirizzo IP e non il nome mDNS:
+
+```
+curl.exe -T quadrato-60-diagonali.gcode http://192.168.1.14/flash/q60d.gcode
+```
+
+Oppure, sulla stessa rotta che usa il pannello FLASH:
+
+```
+curl.exe -F "file=@quadrato-60-diagonali.gcode" http://192.168.1.14/files
+```
+
+Su Windows si scrive `curl.exe` e non `curl`: in PowerShell `curl` è un alias
+di `Invoke-WebRequest`, che vuole un'altra sintassi. Da `cmd` basta `curl`.
+Conviene dare al file un nome corto nell'URL di destinazione, perché poi va
+ridigitato nel `$LocalFS/Run=`.
 
 **Ogni programma finisce al punto home, non sullo zero.** L'ultimo
 spostamento è un `G0 X5 Y5`, poi la penna sale a `Z0`. Non è un dettaglio
