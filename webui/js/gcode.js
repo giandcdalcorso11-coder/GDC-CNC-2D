@@ -40,13 +40,25 @@ var Gcode = (function () {
        ha dovuto correggere nella 4.1.1. */
     var modo = null, ux = null, uy = null, uz = null, uf = null;
     function muovi(g, x, y, z, f) {
-      var p = '';
-      if (g !== modo) { p += g; modo = g; }
-      if (x !== null && n(x) !== ux) { p += (p ? ' ' : '') + 'X' + n(x); ux = n(x); }
-      if (y !== null && n(y) !== uy) { p += (p ? ' ' : '') + 'Y' + n(y); uy = n(y); }
-      if (z !== null && n(z) !== uz) { p += (p ? ' ' : '') + 'Z' + n(z); uz = n(z); }
-      if (f !== null && String(f) !== uf) { p += (p ? ' ' : '') + 'F' + f; uf = String(f); }
-      if (p) L.push(p);
+      /* Prima la parte di MOVIMENTO: la parola G e i soli assi che cambiano. */
+      var mov = '';
+      if (g !== modo) mov += g;
+      if (x !== null && n(x) !== ux) mov += (mov ? ' ' : '') + 'X' + n(x);
+      if (y !== null && n(y) !== uy) mov += (mov ? ' ' : '') + 'Y' + n(y);
+      if (z !== null && n(z) !== uz) mov += (mov ? ' ' : '') + 'Z' + n(z);
+      /* Se non si muove niente non si emette NIENTE, nemmeno la F. Succede
+         quando un tratto comincia dove finisce il precedente: lo spostamento
+         a penna alzata è un no-op e resterebbe la sola velocità, una riga che
+         non muove la macchina e la cui F viene ridichiarata dal movimento
+         vero subito dopo. Lo stato modale della F NON si aggiorna: se no la
+         prossima F verrebbe omessa credendola già attiva. */
+      if (!mov) return;
+      modo = g;
+      if (x !== null) ux = n(x);
+      if (y !== null) uy = n(y);
+      if (z !== null) uz = n(z);
+      if (f !== null && String(f) !== uf) { mov += ' F' + f; uf = String(f); }
+      L.push(mov);
     }
     /* Quota a cui la penna sale a programma finito: lascia spazio per
        infilare il tappo senza togliere la penna dai morsetti. È il fine corsa

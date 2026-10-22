@@ -367,13 +367,22 @@ function gcode(opt) {
      dovuto correggere nella 4.1.1. */
   var modo = null, ux = null, uy = null, uz = null, uf = null;
   function muovi(g, x, y, z, f) {
-    var p = '';
-    if (g !== modo) { p += (p ? ' ' : '') + g; modo = g; }
-    if (x !== undefined && n(x) !== ux) { p += (p ? ' ' : '') + 'X' + n(x); ux = n(x); }
-    if (y !== undefined && n(y) !== uy) { p += (p ? ' ' : '') + 'Y' + n(y); uy = n(y); }
-    if (z !== undefined && n(z) !== uz) { p += (p ? ' ' : '') + 'Z' + n(z); uz = n(z); }
-    if (f !== undefined && String(f) !== uf) { p += (p ? ' ' : '') + 'F' + f; uf = String(f); }
-    if (p) L.push(p);
+    /* Prima la parte di MOVIMENTO: la parola G e i soli assi che cambiano.
+       Se non si muove niente non si emette niente, nemmeno la F - e lo stato
+       modale della F non si aggiorna, se no la prossima verrebbe omessa
+       credendola già attiva. Stessa regola di webui/js/gcode.js. */
+    var mov = '';
+    if (g !== modo) mov += g;
+    if (x !== undefined && n(x) !== ux) mov += (mov ? ' ' : '') + 'X' + n(x);
+    if (y !== undefined && n(y) !== uy) mov += (mov ? ' ' : '') + 'Y' + n(y);
+    if (z !== undefined && n(z) !== uz) mov += (mov ? ' ' : '') + 'Z' + n(z);
+    if (!mov) return;
+    modo = g;
+    if (x !== undefined) ux = n(x);
+    if (y !== undefined) uy = n(y);
+    if (z !== undefined) uz = n(z);
+    if (f !== undefined && String(f) !== uf) { mov += ' F' + f; uf = String(f); }
+    L.push(mov);
   }
   var L = [];
   L.push('; GDC CNC 2D - disegno di collaudo');
