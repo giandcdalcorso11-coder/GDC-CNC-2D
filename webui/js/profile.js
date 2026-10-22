@@ -544,6 +544,16 @@ var Profile = (function () {
     return (gradi - p.gradiTappo) * mmPerGrado();
   }
 
+  /* Il punto home: non è lo zero, è dove i carrelli si parcheggiano. Un
+     accessore invece di frugare in macchina().homing, perché adesso lo legge
+     anche il generatore di G-code: ogni programma deve FINIRE qui, non sullo
+     zero, se no lascia i carrelli appoggiati ai blocchi — e il blocco è il
+     riferimento, cioè la cosa che non deve muoversi. */
+  function puntoHome() {
+    var h = macchina().homing.puntoHome;
+    return { x: h.x, y: h.y };
+  }
+
   function zTappo() { return zDaGradi(macchina().penna.gradiTappo); }
   function zAlzata() { return zDaGradi(macchina().penna.gradiPennaAlzata); }
   function zContatto() { return zDaGradi(macchina().penna.gradiPennaAbbassata); }
@@ -869,6 +879,7 @@ var Profile = (function () {
     mmPerGrado: mmPerGrado, gradiPerMm: gradiPerMm, gradiToUs: gradiToUs,
     alzataMm: alzataMm, tappoMm: tappoMm,
     zDaGradi: zDaGradi, zTappo: zTappo, zAlzata: zAlzata, zContatto: zContatto,
+    puntoHome: puntoHome,
 
     verifica: verifica, stanoDentro: stanoDentro,
     toJson: toJson, fromJson: fromJson, toYaml: toYaml,

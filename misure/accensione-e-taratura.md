@@ -630,6 +630,16 @@ programma con cui si scopre che un asse va al contrario.
    (contatto Z−21.271, alzata Z−18.326, tappo Z0). Si carica e si lancia dalla
    WebUI di FluidNC — l'invio del programma dal SLICER non è ancora costruito.
 
+**Ogni programma finisce al punto home, non sullo zero.** L'ultimo
+spostamento è un `G0 X5 Y5`, poi la penna sale a `Z0`. Non è un dettaglio
+estetico: finire sullo zero vuol dire lasciare i carrelli **appoggiati ai
+blocchi**, e un carrello fermo contro il riferimento prima o poi lo sposta —
+il riferimento è la cosa che non deve muoversi. Il punto home sta cinque
+millimetri dentro da entrambi, ed è anche la condizione in cui il gioco della
+cremagliera è preso sempre dalla stessa parte, quindi il movimento successivo
+parte da uno stato noto. Un file che termina con `X0 Y0` è stato generato
+prima del 2026-10-22 e va rigenerato.
+
 **Come si riconosce un file generato con la convenzione vecchia:** le righe
 `G1 Z0` e `G0 Z2.945` invece di `G1 Z-21.271` e `G0 Z-18.326`. Un file così non
 sbaglia il disegno: non disegna affatto, perché la penna resta in posizione

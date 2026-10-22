@@ -3,6 +3,7 @@
 ; gradino della prova 11 (livello): 0.3 mm
 ; contatto Z-21.271, alzata Z-18.326
 ; a fine programma la penna sale a Z0 (tappo)
+; e la testina torna al punto home X5 Y5, non sullo zero ai blocchi
 ; come si legge: misure/disegno-di-collaudo.md
 G21
 G90
@@ -3961,6 +3962,6 @@ X93.52
 X92.92 Y22.6
 G0 Z-18.326
 G4 P0.2
-X0 Y0 F3000
+X5 Y5 F3000
 Z0
 M2

@@ -20,6 +20,7 @@
 ; 1 tratti, generato dall'interfaccia
 ; penna alzata Z-18.326, abbassata Z-21.271
 ; a fine programma la penna sale a Z0 (tappo)
+; a fine programma la testina torna al punto home X5 Y5, non sullo zero ai blocchi
 G21
 G90
 G0 Z-18.326
@@ -32,6 +33,6 @@ X100.616
 Y93.032
 G0 Z-18.326
 G4 P0.200
-X0 Y0 F3000
+X5 Y5 F3000
 Z0
 M2

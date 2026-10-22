@@ -20,6 +20,10 @@ var Gcode = (function () {
     return (Math.round(v * 1000) / 1000).toFixed(3).replace(/\.?0+$/, '');
   }
 
+  /* Il punto home con il valore di riserva, in un posto solo: lo usano
+     l'intestazione e il movimento finale, e devono dire la stessa cosa. */
+  function casa0(opt) { return opt.ritorno || { x: 0, y: 0 }; }
+
   function build(polys, opt) {
     var L = [];
     var zUp = opt.penUp, zDown = opt.penDown;
@@ -63,6 +67,8 @@ var Gcode = (function () {
     L.push('; penna alzata Z' + n(zUp) + ', abbassata Z' + n(zDown) +
            (opt.pennaTarata ? '' : ' - DA TARARE'));
     if (zTappo > zUp) L.push('; a fine programma la penna sale a Z' + n(zTappo) + ' (tappo)');
+    L.push('; a fine programma la testina torna al punto home X' + n(casa0(opt).x) +
+           ' Y' + n(casa0(opt).y) + ', non sullo zero ai blocchi');
     L.push('G21');            // millimetri
     L.push('G90');            // coordinate assolute
     muovi('G0', null, null, zUp, null);   // si parte a penna alzata, sempre
@@ -79,9 +85,15 @@ var Gcode = (function () {
       if (attesa) L.push(attesa);
     }
 
-    muovi('G0', 0, 0, null, opt.feedTravel);
+    /* Si torna al PUNTO HOME, non sullo zero. Lo zero è il punto ai blocchi:
+       finirci sopra vuol dire lasciare i carrelli appoggiati al riferimento,
+       e un carrello fermo contro il riferimento prima o poi lo sposta. Il
+       punto home sta cinque millimetri dentro, ed è anche la condizione da
+       cui il gioco della cremagliera è preso sempre dalla stessa parte. */
+    var casa = casa0(opt);
+    muovi('G0', casa.x, casa.y, null, opt.feedTravel);
     /* Ultimo movimento: la penna in alto, dove ci sta il tappo. Va DOPO il
-       ritorno all'origine, non prima: così la testina è già ferma in un
+       ritorno al punto home, non prima: così la testina è già ferma in un
        angolo quando ci arrivi con il tappo in mano. */
     if (zTappo > zUp) muovi('G0', null, null, zTappo, null);
     L.push('M2');             // fine programma

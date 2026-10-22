@@ -20,6 +20,7 @@
  *
  * Uso:  node test-macchina.js --svg prova.svg
  *       node test-macchina.js --gcode prova.gcode --contatto -21.271 --alzata 2.945
+ *       ... --home 5,5   punto home dove la testina si parcheggia alla fine
  *
  * L'alzata di serie è 2,945 mm: i 9 gradi fra penna abbassata (25°) e penna
  * alzata (34°) del modulo montato il 2026-10-21, per 0,32725 mm/grado.
@@ -342,6 +343,8 @@ function gcode(opt) {
      esprime assoluta e non come contatto + qualcosa: sommarla al contatto
      misurato darebbe una quota sopra lo zero, che mapConstrain tronca. */
   var tappo = opt.tappo === undefined ? 0 : opt.tappo;
+  /* Cinque millimetri da entrambi i blocchi: il valore del profilo. */
+  var casa = opt.ritorno || { x: 5, y: 5 };
   var fd = opt.feedDisegno || 1200, fs = opt.feedSpostamento || 3000;
   var pausa = (opt.pausaMs === undefined ? 200 : opt.pausaMs) / 1000;
   /* Zeri in coda tolti: "93.000" diventa "93". Non si perde niente — un passo
@@ -380,6 +383,8 @@ function gcode(opt) {
   if (tappo > contatto + alzata) {
     L.push('; a fine programma la penna sale a Z' + n(tappo) + ' (tappo)');
   }
+  L.push('; e la testina torna al punto home X' + n(casa.x) + ' Y' + n(casa.y) +
+         ', non sullo zero ai blocchi');
   L.push('; come si legge: misure/disegno-di-collaudo.md');
   L.push('G21'); L.push('G90');
   var attesa = pausa > 0 ? 'G4 P' + n(pausa) : null;
@@ -396,9 +401,12 @@ function gcode(opt) {
     muovi('G0', undefined, undefined, contatto + alzata);
     if (attesa) L.push(attesa);
   });
-  muovi('G0', 0, 0, undefined, fs);
-  /* Dopo il ritorno all'origine, non prima: così la testina è già ferma in un
-     angolo quando ci arrivi con il tappo in mano. */
+  /* Al PUNTO HOME, non sullo zero. Lo zero è il punto ai blocchi: finirci
+     sopra lascia i carrelli appoggiati al riferimento, e un carrello fermo
+     contro il riferimento prima o poi lo sposta. */
+  muovi('G0', casa.x, casa.y, undefined, fs);
+  /* Dopo il ritorno al punto home, non prima: così la testina è già ferma in
+     un angolo quando ci arrivi con il tappo in mano. */
   if (tappo > contatto + alzata) muovi('G0', undefined, undefined, tappo);
   L.push('M2');
   return L.join('\n') + '\n';
@@ -440,7 +448,13 @@ if (require.main === module) {
     var z = a.indexOf('--alzata') > 0 ? parseFloat(a[a.indexOf('--alzata') + 1]) : 2.945;
     /* Assoluta: il fine corsa alto è lo zero macchina. */
     var tp = a.indexOf('--tappo') > 0 ? parseFloat(a[a.indexOf('--tappo') + 1]) : 0;
-    fs.writeFileSync(g, gcode({ contatto: c, alzata: z, tappo: tp })); console.log('scritto ' + g);
+    var h = { x: 5, y: 5 };
+    if (a.indexOf('--home') > 0) {
+      var xy = a[a.indexOf('--home') + 1].split(',');
+      h = { x: parseFloat(xy[0]), y: parseFloat(xy[1]) };
+    }
+    fs.writeFileSync(g, gcode({ contatto: c, alzata: z, tappo: tp, ritorno: h }));
+    console.log('scritto ' + g);
   }
   var st = statistiche();
   console.log('tratti ' + st.tratti + ', punti ' + st.punti + ', disegno ' +

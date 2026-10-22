@@ -125,6 +125,7 @@ var Artwork = (function () {
       penUp: contatto + alzata,
       penDown: contatto,
       penTappo: tappo,
+      ritorno: Profile.puntoHome(),
       pennaTarata: tarata,
       pausaMs: st.pausaPennaMs,
       feedDraw: feedDraw,
