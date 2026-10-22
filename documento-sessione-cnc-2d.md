@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 47
-**Ultimo aggiornamento:** 2026-10-22 13:30
+**Versione:** 48
+**Ultimo aggiornamento:** 2026-10-22 14:20
 
 ## Regole di co-editing
 
@@ -553,8 +553,52 @@ mano a mano che le misure arrivano):
 - [2026-10-21] **MODULO MONTATO**, cuscinetti compresi: il collo di bottiglia del progetto si è sbloccato. L'utente riferisce accoppiamento cremagliera/pignone buono e cuscinetti che scorrono con gioco vicino a zero — resta da **misurare il gioco d'ingranamento**, che da progetto vale 0,30 mm e **non va ridotto**: è quello che ha preso il posto del giunto a gioco morto, e dentro quella banda la penna appoggia col proprio peso invece che con la quota imposta. Due cose scoperte al montaggio: il servo gira **al contrario** (risolto convertendo in un punto solo per lato della catena), e la prima taratura ha messo la battuta a **1° logico = 2489 µs**, fuori dalla specifica 500÷2400 dell'SG90 — l'ingranaggio è stato calettato col servo già contro il proprio fermo interno. Da rifare spostando l'ingranaggio di un dente di cannula (~19°), che porta la zona di lavoro a 2122÷2289 µs
 - [2026-10-21] **La piattaforma da 44 mm è eliminata** (decisione dell'utente). Supera la nota del 2026-10-06, che la dava come necessaria: il piano carta a Z ≈ 44,2 nasceva dal punto più basso del carrello Y a Z 46,68, quando il modulo penna non era ancora disegnato. **Col modulo Tratto Pen montato sulla testina X lo spazio verticale libero è meno di 40 mm**, quindi la piattaforma non ci sta sotto. Il piano resta **unico: la tavola**, e il foglio ci appoggia sopra. Conseguenza sulla taratura: l'angolo di penna abbassata si impone stringendo la penna contro **la tavola**, non contro uno spessore — la quota assoluta non è mai stata un vincolo, perché a regolarla è la penna che scorre nei morsetti (nota del 2026-10-15). CAD aggiornato in arrivo
 - [2026-10-22] **Il CAD con il modulo montato, letto numero per numero** (`misure/cad-assieme.md`). Tavola a Z 0, 700 × 600. **Asse della penna X −198,01 · Y −215,78**, ricavato dalla sede a V su `pz2` (tangenza di un Ø10 esattamente sulla bocca: la sede è disegnata per il Tratto Pen). **Sbalzo in Y 70,47 mm** dalla mezzeria del carrello, 50,94 oltre la faccia della trave — in X la punta è centrata a +7,67. **Punto più basso della testina Z 26,68** (16,68 a fondo corsa dello stadio flottante), quindi il vincolo sul foglio resta l'alzata della penna, 2,945 mm. Zona di disegno stimata X −206,20…49,89, Y −217,91…25,16, tutta sulla tavola con 32,8 mm davanti: ±2 mm, perché dipende da quali facce toccano i blocchi
+- [2026-10-22] **Battuta misurata 17°** con la striscia di carta, contro i 19 fissati per costruzione il giorno prima: i due gradi sono quello che il modulo aveva ancora da scendere quando il pignone è stato calzato. I 25° di penna abbassata restano, perché non sono battuta + 6 ma l'angolo a cui la penna è stata stretta. **Nasce la posizione tappo a 90°**, che fa due lavori: riposo a fine stampa e all'accensione, e tetto del meccanismo (oltre, lo stadio flottante esce dalle guide). Conseguenza su FluidNC: l'arco dell'asse Z va dal contatto al tappo e non all'alzata, se no `mapConstrain` tronca — `max_travel_mm 21.271`, impulsi 2222 e 1500. **E il parser di FluidNC non accetta commenti in coda a una chiave**, cosa che il nostro config.yaml faceva quasi ovunque: riscritto il generatore, e il file a mano sostituito dalla copia generata
 
 ## Storico sessioni
+
+### [2026-10-22 14:20] (meccanica+software) La battuta misurata smentisce il montaggio, nasce la posizione tappo, e FluidNC non accetta i commenti che il nostro config.yaml aveva dappertutto
+
+**Riepilogo:** la prova della striscia di carta dice che la battuta è 17 e non i 19 calzati al montaggio; è nata la posizione tappo a 90°, che fa due lavori (riposo e tetto del meccanismo) e che ha costretto a riaprire la mappatura dell'asse Z di FluidNC; e cercando la sintassi delle righe di avvio è saltato fuori che **FluidNC non accetta commenti in coda a una chiave**, cosa che il nostro `config.yaml` faceva su quasi ogni riga.
+
+**Cosa è stato fatto:**
+
+- **Battuta misurata 17°** con la striscia di carta (l'utente). Supera i 19 fissati per costruzione il 2026-10-21: i due gradi sono quello che il modulo aveva ancora da scendere quando il pignone è stato calzato. I 25° di penna abbassata **non si toccano** — non sono battuta + 6 ma l'angolo a cui la penna è stata stretta, e il disegno a mano del 2026-10-22 lo conferma; semplicemente ora sono battuta + 8, con più riserva verso il basso di quanta ne era prevista
+- **Posizione tappo a 90°**, su richiesta dell'utente: la penna ci sale a fine stampa e all'accensione, e c'è spazio per infilare il tappo senza toglierla dai morsetti. Novanta è anche il massimo prima che lo stadio flottante esca dalle guide, quindi lo stesso numero è pure il **tetto** del meccanismo e sostituisce il `PEN_CORSA_SU` di ieri
+- **Dashboard:** pulsante *Tappo*, campo dell'angolo in tab Motore, avviso visibile finché la penna è lassù, e **conferma obbligatoria prima di farla scendere** — perché col tappo infilato al foglio ci arriva il tappo
+- **SLICER:** `gradiTappo` nel profilo, `tappoMm()`, fine programma che sale al tappo dopo il ritorno all'origine, e il promemoria del tappo nel primo e nel secondo popup di stampa
+- **`cnc2d-config.yaml` scritto a mano eliminato**: ora nel repository c'è la copia generata dal profilo. Quello a mano era rimasto indietro di parecchio — `max_travel_mm: 300` su tutti e due gli assi e `direction_pin` senza `:low` su X
+- 202 asserzioni verdi su sei suite, firmware compilato
+
+**Bug: il config.yaml aveva commenti che FluidNC non sa leggere**
+
+**Sintomo:** nessuno ancora — FluidNC non è mai stato acceso sulla macchina. Trovato cercando la sintassi delle righe di avvio.
+**Causa:** il parser YAML di FluidNC è un sottoinsieme: accetta righe che cominciano con `#` ma **non commenti in coda a una coppia `chiave: valore`**. Una riga come `max_travel_mm: 21.271   # dal contatto al tappo` gli fa ignorare la chiave. Il nostro file, generato e scritto a mano, lo faceva quasi ovunque — compresi `steps_per_mm`, `max_travel_mm` e i due impulsi del servo.
+**Fix applicato:** `toYaml()` riscritto, ogni commento su una riga sua, e un'asserzione in `ui-test` che fallisce se ne ricompare uno in coda. Verificato leggendo un `config.yaml` reale di un'altra macchina, che infatti non ne ha nessuno. Da confermare al primo avvio di FluidNC.
+
+**Bug (mio): avevo scritto che 90° erano oltre il fermo meccanico**
+
+**Sintomo:** nella voce di ieri e in un commento del firmware c'era scritto che i 90° di fabbrica di «penna alzata» erano «55° oltre il fermo meccanico superiore».
+**Causa:** conto sbagliato. La corsa della guida è 80,5°, la battuta sta a 17, quindi il fermo è a 97,5 e 90 ci sta dentro — è anzi proprio la posizione tappo. Non c'era nessuno stallo.
+**Fix applicato:** corretti il commento nel firmware e la voce di ieri (segnalata la discrepanza qui, senza riscriverla). La decisione di portare i valori di fabbrica a 34/25 resta giusta, ma per un altro motivo: sono gli angoli veri di lavoro.
+
+**Errore di data (mio, quarta volta su questo progetto):** avevo scritto `2026-10-23` in sei punti fra firmware, profilo e procedura, senza chiedere l'ora al sistema. Corretti tutti a `2026-10-22` prima del commit.
+
+**Decisioni prese:**
+
+- **Contesto:** la posizione tappo è 21,3 mm sopra il contatto, mentre l'arco dichiarato a FluidNC arrivava solo all'alzata di lavoro (2,9 mm). `mapConstrain` tronca tutto quello che cade fuori, quindi il tappo sarebbe stato irraggiungibile.
+  **Decisione:** l'estremo alto dell'asse Z diventa **la posizione tappo**, e l'alzata di lavoro una quota intermedia. `max_travel_mm: 21.271`, `min_pulse_us: 2222` (contatto), `max_pulse_us: 1500` (tappo).
+  **Alternative scartate:** mettere Z0 **al tappo** e il contatto in fondo, che avrebbe risolto anche il tuffo all'accensione — scartata perché inverte il verso di Z rispetto alla convenzione CNC, e un G-code in cui Z cala mentre la penna sale si paga più avanti.
+  **Da rivedere se:** il tuffo all'accensione (FluidNC parte assumendo Z0, cioè il contatto, e il servo ci va per un istante prima di eseguire `startup_line0`) si rivela un problema vero sulla macchina.
+
+- **Contesto:** servivano gli avvisi sul tappo, e un avviso che non si legge non serve.
+  **Decisione:** tre punti, non uno. La dashboard mostra un avviso e **chiede conferma prima di abbassare**; il primo popup di stampa lo dice in testa, prima di tutto il resto; il `config.yaml` lo scrive nel commento della riga di avvio, con la regola pratica — **il tappo si toglie prima di dare corrente**.
+
+**File consegnati/modificati:** `firmware/cnc2d_dashboard/cnc2d_dashboard.ino`, `firmware/fluidnc/cnc2d-config.yaml` (ora generato), `webui/js/profile.js`, `webui/js/gcode.js`, `webui/js/artwork.js`, `webui/js/popup.js`, `misure/accensione-e-taratura.md`, `misure/impostazioni-glossario.md`
+
+**Impatto su Vision/Pipeline:** una nota in **Step 6** con la battuta misurata, la posizione tappo e il bug del parser.
+
+---
 
 ### [2026-10-22 13:30] (meccanica) Il CAD con il modulo penna montato, letto numero per numero: dove sta la punta e quanta aria c'è sotto
 

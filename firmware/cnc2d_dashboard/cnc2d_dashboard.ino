@@ -218,10 +218,16 @@ int penDownDeg = 25;
 // Battuta: l'angolo LOGICO a cui i cuscinetti inferiori del modulo appoggiano
 // sui blocchi. Non e' un angolo da comandare, e' il fondo scala meccanico.
 //
-// Fissato per COSTRUZIONE il 2026-10-21, non misurato: il pignone e' stato
-// calzato sull'albero del servo con la pagina a 19 gradi e il modulo appoggiato
-// ai blocchi sotto il suo solo peso, quindi 19 e' la battuta per come e' stato
-// montato.
+// Fissato per costruzione a 19 il 2026-10-21 calzando il pignone con la pagina
+// a quell'angolo, e MISURATO 17 il 2026-10-22 con la prova della striscia di
+// carta. I due gradi di differenza sono quello che il modulo aveva ancora da
+// scendere quando il pignone e' stato calzato: vale la misura, non il
+// montaggio.
+//
+// Nota: "penna abbassata" resta 25, perche' quello non e' battuta + 6 ma
+// l'angolo a cui la penna E' STATA STRETTA e a cui tocca il foglio. Adesso e'
+// battuta + 8, cioe' c'e' piu' riserva verso il basso di quanta ne era stata
+// prevista. La regola battuta < abbassata < alzata regge.
 //
 // Perche' 19 e non 1, com'era al primo montaggio: la mappa 0-180 -> 500-2500 us
 // col verso invertito manda 1 grado logico a 2489 us, fuori dai 500-2400 di
@@ -229,7 +235,7 @@ int penDownDeg = 25;
 // proprio fermo interno, e non si poteva distinguere il fermo del meccanismo da
 // quello del servo. A 19 la battuta sta a 2289 us e l'alzata a 2122: tutto
 // dentro, con 111 us di margine sotto il tetto.
-int penBattutaDeg = 19;
+int penBattutaDeg = 17;
 
 // Quanti gradi SOTTO la battuta possono chiedere i soli pulsanti -1/+1. Serve a
 // una cosa sola: la verifica con la striscia di carta, che ha senso solo se si
@@ -238,11 +244,20 @@ int penBattutaDeg = 19;
 // d'ingranamento. Lo slider e i comandi Alza/Abbassa non ci arrivano.
 const int PEN_TARATURA_GIU = 2;
 
-// Gradi utili SOPRA la battuta. La corsa meccanica della guida del pen-lift e'
-// 26,350 mm da CAD, cioe' 80,5 gradi di servo: oltre, il modulo e' contro il
-// fermo superiore e il servo va in stallo spingendoci. E' il motivo per cui i
-// 90 gradi di fabbrica erano sbagliati — 55 oltre il fermo.
-const int PEN_CORSA_SU = 80;
+// POSIZIONE TAPPO, e nello stesso tempo il fondo scala SUPERIORE: 90 gradi e'
+// il massimo prima che lo stadio flottante esca dalle guide (verificato
+// sulla macchina dall'utente il 2026-10-22; il CAD dava 26,350 mm di corsa,
+// cioe' 80,5 gradi, che da qui sarebbero 97,5 — vale la macchina).
+//
+// Serve a una cosa pratica: a stampa finita la penna sale qui e c'e' spazio per
+// infilare il tappo senza togliere la penna dai morsetti. Da qui in poi
+// pero' il tappo c'e', e abbassare la penna senza averlo tolto la schianta
+// sul foglio: per quello esiste penTappoAttivo, piu' sotto.
+int penTappoDeg = 90;
+
+// Alzato dal pulsante Tappo, spento da qualunque altro comando della penna.
+// Finche' e' acceso la pagina chiede conferma prima di far SCENDERE la penna.
+bool penTappoAttivo = false;
 
 // Verso del servo. Sul modulo montato il 2026-10-21 l'accoppiamento esce
 // INVERTITO: facendo crescere l'angolo fisico la penna SCENDE. Invece di
@@ -397,12 +412,12 @@ void servoRelease() {
 void servoGoToLimite(int deg, int minDeg) {
   if (minDeg < 0) minDeg = 0;
   if (minDeg > 180) minDeg = 180;
-  int maxDeg = penBattutaDeg + PEN_CORSA_SU;
+  int maxDeg = penTappoDeg;
   if (maxDeg > 180) maxDeg = 180;
   if (maxDeg < minDeg) maxDeg = minDeg;
   if (deg > maxDeg) {
     if (servoTargetDeg != maxDeg) {
-      logMsg("Servo: " + String(deg) + " gradi oltre la corsa della guida, fermato a " +
+      logMsg("Servo: " + String(deg) + " gradi oltre la posizione tappo, fermato a " +
              String(maxDeg));
     }
     deg = maxDeg;
@@ -804,7 +819,15 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
       <button onclick="penSet('down')">Abbassa</button>
       <button onclick="penSet('free')">Rilascia</button>
     </div>
+    <div class="axis-run" style="margin-top:8px">
+      <button onclick="penCap()" style="border-color:#f59e0b;color:#f59e0b">Tappo</button>
+    </div>
     <p class="status" id="pen-status" style="margin-top:8px">--</p>
+    <p class="hint" id="pen-cap-warn" hidden
+       style="border:1px solid #f59e0b;color:#f59e0b;border-radius:8px;padding:8px">
+      <b>Penna in posizione tappo.</b> Se hai messo il tappo, <b>toglilo</b> prima di
+      riabbassarla: con il tappo la punta non arriva al foglio, ci arriva il tappo, e la
+      corsa che manca la paga il meccanismo.</p>
     <p class="hint">Lo slider muove il servo mentre lo trascini, senza salvare niente: serve a
       vedere dove va la penna. I due pulsanti da un grado servono per le <b>misure</b>: un grado
       vale 0,327 mm di penna, ed &egrave; il passo giusto per trovare la battuta dei cuscinetti e
@@ -958,6 +981,12 @@ const char PAGE_HTML[] PROGMEM = R"rawliteral(
       n&eacute; da Alza/Abbassa. I soli pulsanti <b>&minus;1&deg;/+1&deg;</b> possono scendere di
       2&deg; sotto, e servono a una cosa: la verifica con la striscia di carta. Cambialo solo
       se rismonti il pignone sull'albero del servo.</p>
+
+    <div class="slider-label"><span>Posizione tappo &mdash; fondo scala superiore</span><b id="lbl-pen-tap">90&deg;</b></div>
+    <input type="number" id="pen-tap" min="0" max="180" step="1" value="90" onchange="pushPenTappo()">
+    <p class="hint">L'angolo a cui la penna sale a fine stampa per lasciare spazio al tappo.
+      &Egrave; anche il <b>tetto</b>: oltre, lo stadio flottante esce dalle guide, quindi il
+      firmware non ci va n&eacute; con lo slider n&eacute; con i pulsanti da un grado.</p>
 
     <div class="slider-label"><span>Angolo penna alzata</span><b id="lbl-pen-up">34&deg;</b></div>
     <input type="range" id="pen-up" min="19" max="99" step="1" value="34"
@@ -1150,10 +1179,32 @@ function showPen(){
   $('lbl-pen-up').textContent = $('pen-up').value + '°';
   $('lbl-pen-down').textContent = $('pen-down').value + '°';
   $('lbl-pen-bat').textContent = $('pen-bat').value + '°';
+  $('lbl-pen-tap').textContent = $('pen-tap').value + '°';
+}
+
+function showPenLive(){
+  $('lbl-pen-live').textContent = $('pen-live').value + '°';
 }
 
 function pushPenBattuta(){
   fetch('/api/pen/battuta?deg=' + $('pen-bat').value);
+}
+
+function pushPenTappo(){
+  fetch('/api/pen/tappo?deg=' + $('pen-tap').value);
+}
+
+function penCap(){
+  fetch('/api/pen/cap');
+}
+
+/* Un comando che fa SCENDERE la penna mentre e' in posizione tappo va chiesto,
+   perche' se il tappo c'e' ancora al foglio ci arriva lui. Una volta sola: la
+   risposta spegne il flag lato firmware. */
+function tappoOk(cosa){
+  if (!penInTappo) return true;
+  return confirm('La penna e in posizione tappo.\n\nHai tolto il tappo? ' +
+                 'Se no, ' + cosa + ' lo manda a sbattere sul foglio.');
 }
 
 function pushPenInvert(){
@@ -1170,8 +1221,16 @@ function pushPen(which){
 var penTimer = null;
 var penPending = null;
 var penTarGiu = 2;   // lo aggiorna lo stato: gradi concessi sotto la battuta
+var penInTappo = false;   // lo aggiorna lo stato: penna su, tappo forse infilato
+var penTappoDeg = 90;     // lo aggiorna lo stato: tetto e posizione tappo
 
 function penLive(){
+  /* Chiesto una volta sola per trascinamento: la prima chiamata a /api/pen/angle
+     spegne il flag lato firmware, e lo stato lo riporta spento qui. */
+  if (penInTappo && parseInt($('pen-live').value, 10) < penTappoDeg){
+    if (!tappoOk('scendere')){ $('pen-live').value = penTappoDeg; showPenLive(); return; }
+    penInTappo = false;
+  }
   /* Il fondo dello slider e battuta-tarGiu, perche i pulsanti da un grado
      devono poterci scrivere il loro valore. Ma trascinando non si deve poter
      scendere sotto la battuta: il firmware troncherebbe comunque, e un cursore
@@ -1180,7 +1239,7 @@ function penLive(){
   var bat = parseInt($('pen-bat').value, 10);
   if (parseInt($('pen-live').value, 10) < bat) $('pen-live').value = bat;
   var v = $('pen-live').value;
-  $('lbl-pen-live').textContent = v + '°';
+  showPenLive();
   penPending = v;
   if (penTimer) return;
   penTimer = setInterval(function(){
@@ -1191,6 +1250,7 @@ function penLive(){
 }
 
 function penSet(state){
+  if (state === 'down' && !tappoOk('abbassarla')) return;
   fetch('/api/pen/set?state=' + state);
 }
 
@@ -1202,6 +1262,8 @@ function penSet(state){
    blocchi e non sul fermo interno del servo. Il flag `t=1` lo dice al firmware,
    che altrimenti tronca alla battuta. */
 function penNudge(d){
+  if (d < 0 && !tappoOk('scendere')) return;
+  if (d < 0) penInTappo = false;
   var bat = parseInt($('pen-bat').value, 10);
   var v = parseInt($('pen-live').value, 10) + d;
   if (v < bat - penTarGiu) v = bat - penTarGiu;
@@ -1325,13 +1387,17 @@ function applyState(s){
   $('pen-live').min = s.pen.battuta - s.pen.tarGiu;   // ci arrivano solo i ±1°
   $('pen-up').min = s.pen.battuta;
   $('pen-down').min = s.pen.battuta;
-  /* E il tetto e' il fermo superiore della guida, non i 180 del servo: sopra,
-     il servo spinge contro un fine corsa. Stringendo gli slider su questo arco
-     si guadagna anche la risoluzione che serve per posare un grado. */
-  var penMax = Math.min(180, s.pen.battuta + s.pen.corsaSu);
+  /* Il tetto e' la posizione tappo: sopra, lo stadio flottante esce dalle
+     guide. Stringendo gli slider su questo arco si guadagna anche la
+     risoluzione che serve per posare un grado. */
+  penTappoDeg = s.pen.tappoDeg;
+  var penMax = Math.min(180, penTappoDeg);
   $('pen-live').max = penMax;
   $('pen-up').max = penMax;
   $('pen-down').max = penMax;
+  if (document.activeElement !== $('pen-tap')) $('pen-tap').value = penTappoDeg;
+  penInTappo = s.pen.tappo;
+  $('pen-cap-warn').hidden = !penInTappo;
   if (document.activeElement !== $('pen-up')) $('pen-up').value = s.pen.up;
   if (document.activeElement !== $('pen-down')) $('pen-down').value = s.pen.down;
   if (document.activeElement !== $('slew')) $('slew').value = s.pen.slew;
@@ -1422,7 +1488,8 @@ void sendStateJson() {
                 ",\"down\":" + String(penDownDeg) +
                 ",\"battuta\":" + String(penBattutaDeg) +
                 ",\"tarGiu\":" + String(PEN_TARATURA_GIU) +
-                ",\"corsaSu\":" + String(PEN_CORSA_SU) +
+                ",\"tappoDeg\":" + String(penTappoDeg) +
+                ",\"tappo\":" + String(penTappoAttivo ? "true" : "false") +
                 ",\"angle\":" + String(penAngle) +
                 ",\"target\":" + String(servoTargetDeg) +
                 ",\"slew\":" + String(servoSlewDeg) +
@@ -1707,7 +1774,19 @@ void handleMotorMmRev() {
   server.send(200, "text/plain", "ok");
 }
 
+// Porta la penna in alto a infilare il tappo. E' anche il fondo scala
+// superiore, quindi non c'e' niente oltre.
+void handlePenCap() {
+  servoGoTo(penTappoDeg);
+  penState = "man";
+  penTappoAttivo = true;
+  logMsg("Penna in posizione tappo (" + String(penTappoDeg) +
+         " gradi). TOGLI IL TAPPO prima di riabbassarla");
+  server.send(200, "text/plain", "ok");
+}
+
 void handlePenSet() {
+  penTappoAttivo = false;
   String st = server.arg("state");
   if (st == "toggle") st = (penState == "down") ? "up" : "down";
   if (st != "up" && st != "down" && st != "free") {
@@ -1721,6 +1800,7 @@ void handlePenSet() {
 // Angolo libero dallo slider: muove il servo e basta, non tocca i due valori
 // salvati di penna alzata e abbassata.
 void handlePenAngle() {
+  penTappoAttivo = false;
   int deg = server.arg("deg").toInt();
   // `t=1` lo mandano solo i pulsanti da un grado, e concede PEN_TARATURA_GIU
   // gradi sotto la battuta. Senza, il fondo scala e' la battuta.
@@ -1744,8 +1824,29 @@ void handlePenInvert() {
 // campo si tocca una volta per montaggio. Alzandola sopra uno dei due angoli
 // salvati li tira su con se': meglio una penna che alza poco di un servo che
 // spinge sui blocchi.
+// Angolo del tappo, cioe' il fondo scala superiore. Abbassandolo sotto uno dei
+// due angoli salvati li tira giu' con se'.
+void handlePenTappo() {
+  int deg = constrain(server.arg("deg").toInt(), 0, 180);
+  if (deg < penBattutaDeg) deg = penBattutaDeg;
+  penTappoDeg = deg;
+  motorPrefs.putInt("penTap", penTappoDeg);
+  if (penUpDeg > penTappoDeg) {
+    penUpDeg = penTappoDeg; motorPrefs.putInt("penUp", penUpDeg);
+    logMsg("Penna alzata abbassata a " + String(penUpDeg) + " gradi: era oltre il tappo");
+  }
+  if (penDownDeg > penTappoDeg) {
+    penDownDeg = penTappoDeg; motorPrefs.putInt("penDn", penDownDeg);
+    logMsg("Penna abbassata portata a " + String(penDownDeg) + " gradi: era oltre il tappo");
+  }
+  logMsg("Posizione tappo: " + String(penTappoDeg) + " gradi, ed e' anche il tetto");
+  if (servoAttached && servoCurrentDeg > penTappoDeg) servoGoTo(penTappoDeg);
+  server.send(200, "text/plain", "ok");
+}
+
 void handlePenBattuta() {
   int deg = constrain(server.arg("deg").toInt(), 0, 180);
+  if (deg > penTappoDeg) deg = penTappoDeg;
   penBattutaDeg = deg;
   motorPrefs.putInt("penBat", penBattutaDeg);
   if (penDownDeg < penBattutaDeg) {
@@ -1782,8 +1883,8 @@ void handlePenConfig() {
   int down = server.arg("down").toInt();
   // Fondo scala la battuta, non lo zero: sotto di lei il servo spinge contro i
   // blocchi, e sono i due angoli che usano il pulsante PENNA e le prove.
-  penUpDeg = constrain(up, penBattutaDeg, penBattutaDeg + PEN_CORSA_SU);
-  penDownDeg = constrain(down, penBattutaDeg, penBattutaDeg + PEN_CORSA_SU);
+  penUpDeg = constrain(up, penBattutaDeg, penTappoDeg);
+  penDownDeg = constrain(down, penBattutaDeg, penTappoDeg);
   motorPrefs.putInt("penUp", penUpDeg);
   motorPrefs.putInt("penDn", penDownDeg);
 
@@ -2000,10 +2101,12 @@ void setup() {
   motorX.mmPerRev = motorPrefs.getFloat("mmRevX", MM_PER_REV);
   motorY.mmPerRev = motorPrefs.getFloat("mmRevY", MM_PER_REV);
   microsteps = motorPrefs.getInt("micro", 16);
-  penBattutaDeg = motorPrefs.getInt("penBat", 19);
-  // Valori di fabbrica allineati al montaggio del 2026-10-21. Non sono i 90/60
-  // di prima: 90 gradi logici sono 55 oltre il fermo meccanico superiore, e a
-  // ogni avvio con NVS vergine il servo ci andava in stallo contro.
+  penBattutaDeg = motorPrefs.getInt("penBat", 17);
+  penTappoDeg = motorPrefs.getInt("penTap", 90);
+  // Valori di fabbrica allineati al modulo montato: sono gli angoli veri di
+  // lavoro, non i 90/60 generici di prima. (I 90 di prima NON erano oltre il
+  // fermo, come avevo scritto il 2026-10-21 sbagliando il conto: 90 e' proprio
+  // la posizione tappo. Erano solo l'angolo sbagliato per stampare.)
   penUpDeg = motorPrefs.getInt("penUp", 34);
   penDownDeg = motorPrefs.getInt("penDn", 25);
   servoSlewDeg = motorPrefs.getInt("slew", 2);
@@ -2068,6 +2171,8 @@ void setup() {
   server.on("/api/pen/slew", HTTP_GET, handlePenSlew);
   server.on("/api/pen/invert", HTTP_GET, handlePenInvert);
   server.on("/api/pen/battuta", HTTP_GET, handlePenBattuta);
+  server.on("/api/pen/tappo", HTTP_GET, handlePenTappo);
+  server.on("/api/pen/cap", HTTP_GET, handlePenCap);
   server.on("/api/demo/start", HTTP_GET, handleDemoStart);
   server.on("/api/demo/stop", HTTP_GET, handleDemoStop);
   server.on("/api/motor/invert", HTTP_GET, handleMotorInvert);

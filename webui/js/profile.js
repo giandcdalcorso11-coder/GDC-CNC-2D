@@ -162,24 +162,41 @@ var Profile = (function () {
 
            gradiBattuta è un LIMITE: i cuscinetti in fondo ai blocchi
            inferiori. Il software non deve mai poter comandare una quota che lo
-           raggiunga. Non è stato misurato ma FISSATO PER COSTRUZIONE: il
-           pignone è stato calzato sull'albero del servo con la dashboard a 19
-           gradi e il modulo appoggiato ai blocchi sotto il suo solo peso.
-           Diciannove e non uno, com'era al primo tentativo, perché a 1 grado
+           raggiunga. Fissato per costruzione a 19 il 2026-10-21 calzando il
+           pignone con la dashboard a quell'angolo, e MISURATO 17 il
+           2026-10-22 con la prova della striscia di carta: i due gradi di
+           differenza sono quello che il modulo aveva ancora da scendere
+           quando il pignone è stato calzato. Vale la misura (2311 µs).
+           Diciassette e non uno, com'era al primo tentativo, perché a 1 grado
            logico l'impulso è 2489 µs, fuori dai 500÷2400 di specifica
            dell'SG90: il pignone era stato calzato col servo già contro il
            proprio fermo interno, e il fermo del meccanismo non si distingueva
-           da quello del servo. A 19 la battuta è 2289 µs.
+           da quello del servo.
 
            gradiPennaAbbassata è il contatto NOMINALE, quello a cui la penna si
            stringe nel modulo: non si misura, si impone stringendo la penna a
            quell'angolo contro il piano di riferimento. Il contatto di oggi su
            questo foglio è un'altra cosa e sta in State: vedi il glossario.
 
-           gradiPennaAlzata è un conto: abbassata + 9°, cioè 2,945 mm. */
-        gradiBattuta: 19,
+           gradiPennaAlzata è un conto: abbassata + 9°, cioè 2,945 mm.
+
+           Nota sui 25: erano nati come battuta + 6, ma la battuta vera è 17,
+           quindi sono battuta + 8. Non si correggono — 25 è l'angolo a cui la
+           penna È STATA STRETTA e a cui tocca il foglio, verificato
+           disegnando il 2026-10-22. C'è solo più riserva verso il basso di
+           quanta ne era stata prevista. */
+        gradiBattuta: 17,
         gradiPennaAbbassata: 25,
         gradiPennaAlzata: 34,
+
+        /* POSIZIONE TAPPO: l'angolo a cui la penna sale a fine stampa e
+           all'accensione, per lasciare spazio a infilare il tappo senza
+           togliere la penna dai morsetti. È anche il TETTO del meccanismo —
+           90° è il massimo prima che lo stadio flottante esca dalle guide,
+           verificato sulla macchina il 2026-10-22 (il CAD dà 26,350 mm di
+           corsa, cioè 80,5°, che dalla battuta sarebbero 97,5: vale la
+           macchina). */
+        gradiTappo: 90,
 
         /* Corrispondenza gradi→microsecondi della dashboard: 0÷180° su
            500÷2500 µs. Serve a tradurre i tre angoli negli estremi dell'impulso
@@ -475,6 +492,16 @@ var Profile = (function () {
     return (p.gradiPennaAlzata - p.gradiPennaAbbassata) * mmPerGrado();
   }
 
+  /* Quota Z della posizione tappo, in millimetri di penna sopra il contatto.
+     È anche il max_travel_mm dell'asse Z: l'arco che FluidNC deve poter
+     comandare va dal contatto al tappo, non dal contatto all'alzata, se no la
+     posizione tappo cade fuori e mapConstrain la tronca. */
+  function tappoMm() {
+    var p = macchina().penna;
+    if (p.gradiPennaAbbassata === null || p.gradiTappo === null) return null;
+    return (p.gradiTappo - p.gradiPennaAbbassata) * mmPerGrado();
+  }
+
   /* ------------------------------- verifica --------------------------------
      Restituisce l'elenco di quello che manca o non torna. Serve in due posti:
      nella tab Impostazioni per dire cosa resta da misurare, e prima di far
@@ -607,9 +634,18 @@ var Profile = (function () {
      `soft_limits` vuole una macchina azzerata e l'azzeramento vuole i
      finecorsa. Finché è così, l'unica protezione contro un movimento fuori
      area è stanoDentro() qui sopra. */
+  /* Il parser di FluidNC NON accetta commenti in coda a una coppia
+     chiave: valore — solo righe che cominciano con `#`. Una riga come
+     `steps_per_mm: 33.953   # ...` gli fa ignorare la chiave, e con
+     max_travel_mm o con gli impulsi del servo vorrebbe dire scoprirlo sulla
+     macchina. Quindi qui ogni commento sta su una riga sua, e la regola vale
+     anche per chi modifica il file a mano. */
   function toYaml() {
     var m = macchina();
     var n = function (v, d) { return Number(v).toFixed(d === undefined ? 3 : d); };
+    var L = [];
+    var c = function (ind, testo) { L.push(ind + '# ' + testo); };
+    var k = function (riga) { L.push(riga); };
 
     /* FluidNC inverte il livello di un pin con il modificatore `:low`. Da
        confermare al primo avvio guardando il verso: se un asse va al
@@ -620,108 +656,136 @@ var Profile = (function () {
 
     var asse = function (a, nome, descrizione) {
       var t = m.trasmissione[a];
-      return [
-        '  # ' + nome + ' — ' + descrizione,
-        '  ' + a + ':',
-        '    steps_per_mm: ' + n(passiPerMm(a)) +
-          '   # ' + n(t.mmPerGiro, 4) + ' mm per giro ingranaggio' +
-          (t.tarato ? ' (tarato)' : ' (NOMINALE, da tarare)'),
-        '    max_rate_mm_per_min: ' + n(m.dinamica[a].velocitaMax),
-        '    acceleration_mm_per_sec2: ' + n(m.dinamica[a].accelerazione),
-        /* Lo zero di FluidNC è il blocco di homing, non la battuta: il limite
-           di corsa che gli interessa è quello che resta da lì in avanti. */
-        '    max_travel_mm: ' + n(corsaDaHome(a)) +
-          '   # dal blocco di homing. Totale ' + n(corsaTotale(a)) +
-          ' (' + m.corse[a].corsaPassi + ' passi), blocco a ' +
-          n(m.homing[a].scostamento === null ? 0 : m.homing[a].scostamento, 3) +
-          ' dalla battuta — percorribile ' + n(corsaPercorribile(a)) +
-          ' (margine ' + n(m.corse[a].margineSicurezza, 1) + ')',
-        '    soft_limits: false',
-        '',
-        '    motor0:',
-        '      hard_limits: false   # finecorsa non montati: homing a mano sui',
-        '                           # blocchi stampati agganciati alle staffe',
-        '      stepstick:',
-        '        step_pin: ' + PIN[a].step,
-        '        direction_pin: ' + dirPin(a),
-        ''
-      ].join('\n');
+      var sc = m.homing[a].scostamento === null ? 0 : m.homing[a].scostamento;
+      c('  ', nome + ' — ' + descrizione);
+      k('  ' + a + ':');
+      c('    ', n(t.mmPerGiro, 4) + ' mm per giro ingranaggio' +
+                (t.tarato ? ' (tarato)' : ' (NOMINALE, da tarare)'));
+      k('    steps_per_mm: ' + n(passiPerMm(a)));
+      k('    max_rate_mm_per_min: ' + n(m.dinamica[a].velocitaMax));
+      k('    acceleration_mm_per_sec2: ' + n(m.dinamica[a].accelerazione));
+      /* Lo zero di FluidNC è il blocco di homing, non la battuta: il limite
+         di corsa che gli interessa è quello che resta da lì in avanti. */
+      c('    ', 'Corsa dal blocco di homing. Totale ' + n(corsaTotale(a)) +
+                ' (' + m.corse[a].corsaPassi + ' passi), blocco a ' + n(sc, 3) +
+                ' dalla battuta.');
+      c('    ', 'Percorribile ' + n(corsaPercorribile(a)) +
+                ' (margine ' + n(m.corse[a].margineSicurezza, 1) + ').');
+      k('    max_travel_mm: ' + n(corsaDaHome(a)));
+      k('    soft_limits: false');
+      k('');
+      k('    motor0:');
+      c('      ', 'Finecorsa non montati: homing a mano sui blocchi stampati.');
+      k('      hard_limits: false');
+      k('      stepstick:');
+      k('        step_pin: ' + PIN[a].step);
+      k('        direction_pin: ' + dirPin(a));
+      k('');
     };
 
-    var alzata = alzataMm();
     var pen = m.penna;
-    var zBlocco = [
-      '  # Z non è un asse vero: è il servo del pen-lift.',
-      '  z:',
-      '    steps_per_mm: 100.000',
-      '    max_rate_mm_per_min: 1000.000',
-      '    acceleration_mm_per_sec2: 100.000',
-      '    max_travel_mm: ' + (alzata === null ? '10.000   # DA TARARE' : n(alzata) + '   # alzata utile, ' +
-        n(pen.gradiPennaAlzata - pen.gradiPennaAbbassata, 2) + ' gradi di servo'),
-      '    soft_limits: false',
-      '',
-      '    motor0:',
-      '      rc_servo:',
-      '        output_pin: ' + PIN.servo,
-      '        pwm_hz: 50',
-      /* Con il servo invertito min_pulse_us esce MAGGIORE di max_pulse_us, e
-         non è un errore: è il modo in cui FluidNC inverte un servo. Dal
-         sorgente di RcServo.cpp — «The rotation can be inverted by swapping the
-         values» — e la mappatura è una interpolazione lineare senza controlli
-         sull'ordine dei due estremi. */
-      (pen.gradiPennaAbbassata === null
-        ? '        min_pulse_us: 1000   # DA TARARE: i tre angoli non sono stati rilevati'
-        : '        min_pulse_us: ' + Math.round(gradiToUs(pen.gradiPennaAbbassata)) +
-          '   # Z0 = penna abbassata, ' + pen.gradiPennaAbbassata + ' gradi' +
-          (pen.invertito ? ' (servo invertito: min > max, voluto)' : '')),
-      (pen.gradiPennaAlzata === null
-        ? '        max_pulse_us: 2000   # DA TARARE'
-        : '        max_pulse_us: ' + Math.round(gradiToUs(pen.gradiPennaAlzata)) +
-          '   # penna alzata, ' + pen.gradiPennaAlzata + ' gradi'),
-      (pen.gradiBattuta === null ? '' :
-        '        # battuta dei cuscinetti a ' + pen.gradiBattuta + ' gradi (' +
-        Math.round(gradiToUs(pen.gradiBattuta)) + ' µs): MAI comandarla'),
-      ''
-    ].filter(function (r) { return r !== ''; }).join('\n') + '\n';
+    var tappo = tappoMm(), alzata = alzataMm();
+    var tarata = tappo !== null && alzata !== null && pen.gradiBattuta !== null;
 
-    return [
-      '# ' + m.nome + ' — configurazione FluidNC',
-      '#',
-      '# GENERATO dal profilo macchina del GDC CNC 2D SLICER' +
-        (m.aggiornato ? ' il ' + m.aggiornato : '') + '.',
-      '# Non modificarlo a mano: la prossima generazione sovrascrive le modifiche.',
-      '# I numeri si cambiano nella tab Impostazioni, che rigenera questo file.',
-      '#',
-      '# Verifica al primo avvio: un movimento su X deve muovere il carrello',
-      '# lungo la trave, non tutto il portale.',
-      '',
-      'name: ' + m.nome,
-      'board: ESP32 Dev Module',
-      '',
-      'stepping:',
-      '  engine: RMT',
-      '  idle_ms: 255   # driver sempre abilitati: con origine manuale, un asse',
-      '                 # che si ammorbidisce fa perdere la posizione in silenzio',
-      '  pulse_us: 4',
-      '  dir_delay_us: 1',
-      '  disable_delay_us: 0',
-      '',
-      'axes:',
-      '  shared_stepper_disable_pin: ' + PIN.enable,
-      '',
-      asse('x', 'X', 'trave del portale: il carrello che porta la penna, sinistra→destra sul foglio'),
-      asse('y', 'Y', 'rotaie di base: ci scorre sopra tutto il portale, basso→alto sul foglio'),
-      zBlocco,
-      'user_outputs:',
-      '  digital0_pin: ' + PIN.led[0] + '   # verde',
-      '  digital1_pin: ' + PIN.led[1] + '   # giallo',
-      '  digital2_pin: ' + PIN.led[2] + '   # rosso',
-      '',
-      'start:',
-      '  must_home: false   # niente finecorsa: l\'origine la dà G92 e non',
-      '                     # sopravvive a un riavvio',
-      ''
-    ].join('\n');
+    k('# ' + m.nome + ' — configurazione FluidNC');
+    k('#');
+    k('# GENERATO dal profilo macchina del GDC CNC 2D SLICER' +
+      (m.aggiornato ? ' il ' + m.aggiornato : '') + '.');
+    k('# Non modificarlo a mano: la prossima generazione sovrascrive le modifiche.');
+    k('# I numeri si cambiano nella tab Impostazioni, che rigenera questo file.');
+    k('#');
+    k('# Regola del parser: nessun commento in coda a una chiave: valore.');
+    k('#');
+    k('# Verifica al primo avvio: un movimento su X deve muovere il carrello');
+    k('# lungo la trave, non tutto il portale.');
+    k('');
+    k('name: ' + m.nome);
+    k('board: ESP32 Dev Module');
+    k('');
+    k('stepping:');
+    k('  engine: RMT');
+    c('  ', 'Driver sempre abilitati: con origine manuale, un asse che si');
+    c('  ', 'ammorbidisce fa perdere la posizione in silenzio.');
+    k('  idle_ms: 255');
+    k('  pulse_us: 4');
+    k('  dir_delay_us: 1');
+    k('  disable_delay_us: 0');
+    k('');
+    k('axes:');
+    k('  shared_stepper_disable_pin: ' + PIN.enable);
+    k('');
+    asse('x', 'X', 'trave del portale: il carrello che porta la penna, sinistra→destra sul foglio');
+    asse('y', 'Y', 'rotaie di base: ci scorre sopra tutto il portale, basso→alto sul foglio');
+
+    /* L'arco comandabile va dal CONTATTO alla POSIZIONE TAPPO, non
+       dall'alzata: mapConstrain tronca tutto quello che cade fuori dai due
+       impulsi, quindi se il massimo fosse l'alzata il tappo sarebbe
+       irraggiungibile. L'alzata di lavoro diventa una quota intermedia. */
+    c('  ', 'Z non è un asse vero: è il servo del pen-lift.');
+    c('  ', 'Z0 = penna sul foglio, Z cresce in alto, in millimetri veri di penna.');
+    k('  z:');
+    k('    steps_per_mm: 100.000');
+    k('    max_rate_mm_per_min: 1000.000');
+    k('    acceleration_mm_per_sec2: 100.000');
+    if (tarata) {
+      c('    ', 'Dal contatto alla posizione tappo: ' +
+                n(pen.gradiTappo - pen.gradiPennaAbbassata, 0) + ' gradi di servo.');
+      c('    ', "L'alzata di lavoro è la quota intermedia Z" + n(alzata) + '.');
+      k('    max_travel_mm: ' + n(tappo));
+    } else {
+      c('    ', 'DA TARARE: i tre angoli del servo non sono stati rilevati.');
+      k('    max_travel_mm: 10.000');
+    }
+    k('    soft_limits: false');
+    k('');
+    k('    motor0:');
+    k('      rc_servo:');
+    k('        output_pin: ' + PIN.servo);
+    k('        pwm_hz: 50');
+    /* Con il servo invertito min_pulse_us esce MAGGIORE di max_pulse_us, e non
+       è un errore: è il modo in cui FluidNC inverte un servo. Dal sorgente di
+       RcServo.cpp — «The rotation can be inverted by swapping the values» — e
+       la mappatura è una interpolazione lineare senza controlli sull'ordine. */
+    if (tarata) {
+      c('        ', 'Z0 = penna abbassata, ' + pen.gradiPennaAbbassata + ' gradi.' +
+                    (pen.invertito ? ' Servo invertito: min > max, voluto.' : ''));
+      k('        min_pulse_us: ' + Math.round(gradiToUs(pen.gradiPennaAbbassata)));
+      c('        ', 'Z' + n(tappo) + ' = posizione tappo, ' + pen.gradiTappo + ' gradi.');
+      k('        max_pulse_us: ' + Math.round(gradiToUs(pen.gradiTappo)));
+      c('        ', 'Battuta dei cuscinetti a ' + pen.gradiBattuta + ' gradi (' +
+                    Math.round(gradiToUs(pen.gradiBattuta)) + ' µs): sta fuori');
+      c('        ', "dall'arco qui sopra, quindi FluidNC non può comandarla. È voluto.");
+    } else {
+      c('        ', 'DA TARARE: i tre angoli del servo non sono stati rilevati.');
+      k('        min_pulse_us: 1000');
+      k('        max_pulse_us: 2000');
+    }
+    k('');
+    k('user_outputs:');
+    c('  ', 'Verde, giallo, rosso: comandati con M62/M63 P0..P2.');
+    k('  digital0_pin: ' + PIN.led[0]);
+    k('  digital1_pin: ' + PIN.led[1]);
+    k('  digital2_pin: ' + PIN.led[2]);
+    k('');
+    k('start:');
+    c('  ', "Niente finecorsa: l'origine la dà G92 e non sopravvive a un riavvio.");
+    k('  must_home: false');
+    k('');
+    k('macros:');
+    if (tarata) {
+      c('  ', "All'accensione la penna sale in posizione tappo.");
+      c('  ', 'ATTENZIONE: FluidNC parte assumendo Z0, cioè il CONTATTO, e il servo');
+      c('  ', 'ci va per un istante prima di eseguire questa riga. Se il tappo è');
+      c('  ', "ancora infilato e la testina è sopra il foglio, in quell'istante preme.");
+      c('  ', 'Regola: il tappo si toglie PRIMA di dare corrente.');
+      k('  startup_line0: G90 G0 Z' + n(tappo));
+    } else {
+      c('  ', 'DA COMPILARE quando i tre angoli ci sono: G90 G0 Z<posizione tappo>.');
+      k('  startup_line0:');
+    }
+    k('  startup_line1:');
+    k('');
+    return L.join('\n');
   }
 
   return {
@@ -738,7 +802,7 @@ var Profile = (function () {
     taraAsse: taraAsse,
 
     mmPerGrado: mmPerGrado, gradiPerMm: gradiPerMm, gradiToUs: gradiToUs,
-    alzataMm: alzataMm,
+    alzataMm: alzataMm, tappoMm: tappoMm,
 
     verifica: verifica, stanoDentro: stanoDentro,
     toJson: toJson, fromJson: fromJson, toYaml: toYaml,

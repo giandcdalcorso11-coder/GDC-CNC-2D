@@ -19,9 +19,9 @@ Importante, perché questa è una procedura **di arrivo**, non di oggi:
 | Pezzo | Stato |
 |---|---|
 | Dashboard (pannello di controllo manuale) | funzionante, e dal 2026-10-19 **misura anche posizione e rapporto per asse** |
-| Modulo penna | **montato** il 2026-10-21, cuscinetti compresi, e in taratura |
+| Modulo penna | **montato e tarato**: quattro angoli (17/25/34/90), penna stretta, primo disegno a mano riuscito il 2026-10-22 |
 | FluidNC sul firmware | **mai acceso sulla macchina montata** |
-| `cnc2d-config.yaml` | pin, rapporto e **servo** corretti (2026-10-21); corse da riportare |
+| `cnc2d-config.yaml` | **rigenerato dal profilo** (2026-10-22): corse, servo, posizione tappo e riga di avvio. Mai provato sulla macchina |
 | SLICER caricato sulla macchina | **no**, gira solo in modalità finta nel browser |
 | Pannello manuale dentro il SLICER | impalcatura presente, tutta disabilitata |
 | Profilo macchina e profilo di stampa | **fatti** (2026-10-19): tab Impostazioni, salvataggio nel browser, esportazione JSON |
@@ -208,6 +208,14 @@ servo ci arriva piano invece che di scatto.
      la pagina segna nel momento in cui il pignone si siede **è** la battuta:
      scrivilo e basta.
 
+   **Fatto il 2026-10-22, e la misura ha corretto il montaggio: la battuta è
+   17, non 19.** I due gradi sono quello che il modulo aveva ancora da scendere
+   quando il pignone è stato calzato — abbastanza poco da non vedersi a occhio,
+   abbastanza da contare. Vale la misura. Conseguenza sui 25° di penna
+   abbassata: nessuna, perché quello non è battuta + 6 ma l'angolo a cui la
+   penna è stata stretta; semplicemente ora è battuta + 8, cioè c'è più riserva
+   verso il basso di quanta ne era stata prevista.
+
    Dopo l'incastro, la **verifica** — ed è questa che il primo montaggio non
    permetteva. Infila una **striscia di carta** (un decimo di millimetro) fra un
    cuscinetto inferiore e il suo blocco, poi scendi di **un grado solo** coi
@@ -271,9 +279,32 @@ servo ci arriva piano invece che di scatto.
    - abbassa, alza e riabbassa tre volte: la punta deve tornare **nello stesso
      posto**. Se no, c'è gioco nel giunto o la penna scivola nei morsetti.
 
-**Quello che devi ottenere:** tre numeri in gradi, nell'ordine
-battuta < abbassata < alzata, con i due salti di 6° e 9°. Col montaggio del
-2026-10-21 sono **19 / 25 / 34**, e sono già nel profilo e nel `config.yaml`. La corsa meccanica
+8. **POSIZIONE TAPPO — un angolo, due lavori.**
+
+   È la quota a cui la penna sale **a fine stampa e all'accensione**, per
+   lasciare spazio a infilare il tappo senza togliere la penna dai morsetti.
+   Sulla macchina montata vale **90°**, cioè 21,27 mm sopra il contatto, ed è
+   il massimo prima che lo stadio flottante esca dalle guide — quindi lo stesso
+   numero è anche il **tetto** del meccanismo. La dashboard non ci va oltre, né
+   con lo slider né coi pulsanti da un grado.
+
+   Si misura una volta, come la battuta e al contrario: si sale di un grado per
+   volta finché i cuscinetti arrivano in cima, e si segna **l'ultimo grado
+   prima**.
+
+   E poi la regola che va rispettata ogni volta: **il tappo si toglie prima di
+   qualunque cosa muova la penna.** Il primo popup di stampa lo ricorda, la
+   dashboard mostra un avviso finché la penna è in posizione tappo e chiede
+   conferma prima di farla scendere, e il `config.yaml` lo dice nel commento
+   della riga di avvio.
+
+9. **GIOCO D'INGRANAMENTO — non serve alla taratura, serve a saperlo.**
+
+   Vedi il passo A2.1 più sotto.
+
+**Quello che devi ottenere:** quattro numeri in gradi, nell'ordine
+battuta < abbassata < alzata < tappo. Sulla macchina montata sono
+**17 / 25 / 34 / 90**, e sono già nel profilo e nel `config.yaml`. La corsa meccanica
 totale della guida è 26,350 mm = **80,5°**, e noi ne usiamo 15: ci sta
 larghissima, e non c'è rischio di arrivare al limite superiore. Se i tre numeri
 non stanno dentro quella finestra, c'è qualcosa che non torna nel montaggio.
@@ -281,6 +312,64 @@ non stanno dentro quella finestra, c'è qualcosa che non torna nel montaggio.
 **Nel profilo** (tab Impostazioni → Penna) vanno **tutti e tre**, ma quello che
 conta ricordare è che solo il primo è una misura. Gli altri due sono battuta +
 6 e battuta + 15.
+
+## A2.1 Il gioco d'ingranamento del pen-lift
+
+**Non serve alla taratura.** È un numero da sapere, non da usare: il valore di
+progetto è **0,30 mm** e il disegno dice esplicitamente che *non va ridotto
+cercando precisione*. È quel gioco che permette alla penna di appoggiarsi col
+proprio peso invece che a un'altezza imposta dal servo — ha sostituito il
+giunto a gioco morto da 6 mm, e fa lo stesso lavoro con un pezzo in meno.
+
+Quindi la domanda non è «quanto posso stringerlo» ma «quanto è davvero», per
+sapere di quanto la punta è libera quando il servo la tiene ferma.
+
+### Come si misura
+
+Serve il modulo **montato e alimentato**, perché il gioco si misura contro un
+servo che tiene la posizione.
+
+1. **Porta il servo a metà corsa** — 50° va bene. Non alla battuta (lì il
+   modulo appoggia sui blocchi e il gioco non si vede) e non al tappo (lì
+   appoggia in cima).
+2. **Scegli due facce**, una su `pz1` — la piastra fissa, quella avvitata al
+   carrello, che porta il servo — e una su `pz2`, lo stadio che porta i
+   morsetti e la penna. Vanno bene due facce orizzontali qualsiasi, purché il
+   calibro ci arrivi e siano le stesse tutte le volte.
+3. **Premi `pz2` verso il basso** con un dito, senza forzare: arriva in fondo
+   al gioco. Leggi.
+4. **Spingilo verso l'alto** allo stesso modo. Leggi.
+5. La differenza è il gioco. **Ripeti cinque volte** e fai la media: la
+   dispersione fra le cinque letture ti dice quanto vale la misura.
+
+### Il limite della misura, detto prima e non dopo
+
+Trecento micron su un calibro da 0,01 sono venti volte la risoluzione dello
+strumento, quindi **il calibro basta**. Quello che non basta è la mano: la
+forza con cui premi cambia la lettura più dello strumento, ed è per questo che
+serve ripetere cinque volte invece di fidarsi di una.
+
+Se la dispersione esce sopra il decimo, lo strumento giusto è un
+**comparatore** a base magnetica: tastatore su `pz2`, si azzera premendo in
+basso e si legge premendo in alto. Costa poco e questa è esattamente la misura
+per cui esiste.
+
+### Cosa ne facciamo
+
+Il numero **non entra nel profilo finché non esiste**: un campo vuoto è un
+segnaposto che ci dimenticheremo. Quando ce l'hai me lo dai e lo registro —
+nel glossario accanto agli altri giochi, e nel profilo se servirà a qualche
+conto.
+
+Due letture possibili del risultato:
+
+- **vicino a 0,30** — il montaggio è come da progetto, non si tocca niente;
+- **molto sotto** (diciamo meno di 0,15) — l'accoppiamento è più stretto del
+  previsto. Non è una buona notizia: vuol dire che la penna non è più libera di
+  appoggiarsi col suo peso, e sul foglio si vede come forza di appoggio che
+  cambia da punto a punto.
+
+---
 
 ## A3. Tradurre i tre angoli in microsecondi per FluidNC
 
@@ -295,22 +384,49 @@ formula ha il segno meno:
 **Attenzione al verso**: con `µs = 500 + gradi × 11,1111` escono i numeri
 dell'angolo fisico, e il servo fa l'opposto di quello che ci si aspetta.
 
-Col montaggio del 2026-10-21:
+Sulla macchina montata:
 
 | | gradi logici | µs |
 |---|---|---|
-| battuta | 19 | 2289 — **non va nel YAML** |
+| battuta | 17 | 2311 — **non va nel YAML** |
 | penna abbassata | 25 | 2222 → `min_pulse_us` |
-| penna alzata | 34 | 2122 → `max_pulse_us` |
+| penna alzata | 34 | 2122 — **una quota intermedia**, non un estremo |
+| posizione tappo | 90 | 1500 → `max_pulse_us` |
+
+**L'estremo alto è il tappo, non l'alzata.** `mapConstrain` tronca tutto quello
+che cade fuori dai due impulsi, quindi se il massimo fosse l'alzata la posizione
+tappo sarebbe irraggiungibile e il comando non farebbe niente. L'arco va dal
+contatto al tappo, e l'alzata di lavoro diventa una quota in mezzo.
 
 Nel YAML va:
 
 ```yaml
-    max_travel_mm: 2.945          # (34 − 25) × 0,32725: alzata in mm veri
+    # (90 − 25) × 0,32725: dal contatto al tappo, in mm veri di penna
+    max_travel_mm: 21.271
       rc_servo:
-        min_pulse_us: 2222        # Z0 = penna abbassata
-        max_pulse_us: 2122        # penna alzata
+        # Z0 = penna abbassata
+        min_pulse_us: 2222
+        # Z21.271 = posizione tappo
+        max_pulse_us: 1500
 ```
+
+**Regola del parser, che costa un'ora se la si scopre sulla macchina:** FluidNC
+**non accetta commenti in coda a una coppia `chiave: valore`**. Una riga come
+`max_travel_mm: 21.271   # dal contatto al tappo` gli fa ignorare la chiave. I
+commenti stanno su righe loro, e basta. Il file generato dalla tab Impostazioni
+rispetta la regola; se lo modifichi a mano, rispettala anche tu.
+
+E per far salire la penna in posizione tappo a ogni accensione:
+
+```yaml
+macros:
+  startup_line0: G90 G0 Z21.271
+```
+
+Con un avvertimento che va letto: **FluidNC parte assumendo Z0**, cioè il
+contatto, e il servo ci va per un istante prima di eseguire quella riga. Se il
+tappo è ancora infilato e la testina è sopra il foglio, in quell'istante preme.
+La regola pratica è una sola: **il tappo si toglie prima di dare corrente.**
 
 `min_pulse_us` **maggiore** di `max_pulse_us` non è un errore di battitura: è il
 modo in cui FluidNC inverte un servo. Dal sorgente di `RcServo.cpp` — «The

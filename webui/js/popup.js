@@ -31,7 +31,14 @@ var Popup = (function () {
       {
         nome: 'Origine della macchina',
         sezioni: { posizione: true, homing: true, assi: true, penna: false },
-        testo: 'Appoggia i due carrelli ai blocchi di riferimento, <b>a mano e ' +
+        /* Il promemoria del tappo sta qui, nel primo passo, perché qui c'è
+           l'operatore davanti alla macchina e perché da qui in avanti ogni
+           passo muove il servo. A fine stampa la penna resta in posizione
+           tappo, quindi all'inizio della stampa dopo il tappo c'è. */
+        testo: '<b style="color:var(--warn)">Se la penna ha il tappo, toglilo adesso.</b> ' +
+               'La stampa precedente l\'ha lasciata in alto apposta per permetterti ' +
+               'di metterlo, e da qui in avanti ogni passo muove la penna.<br><br>' +
+               'Appoggia i due carrelli ai blocchi di riferimento, <b>a mano e ' +
                'senza forzarli</b>, poi premi «Homing completato». Quel punto — il ' +
                '<b>punto ai blocchi</b> — diventa lo zero; subito dopo la macchina ' +
                'si sposta da sola al <b>punto home</b>, qualche millimetro più in ' +
@@ -49,7 +56,9 @@ var Popup = (function () {
         sezioni: { posizione: true, homing: false, assi: false, penna: true },
         testo: 'Abbassa la penna a piccoli passi finché la punta <b>tocca il ' +
                'foglio e lascia il segno</b>. Non serve premere: appena segna, ' +
-               'sei alla quota giusta.',
+               'sei alla quota giusta.<br><br>' +
+               '<b>Il tappo.</b> Se è ancora infilato, al foglio ci arriva lui e ' +
+               'la quota che leggi non è quella della punta.',
         entra: function () {},
         /* Confermare a penna alzata è l'errore che manda in stampa un disegno
            fatto in aria, e non se ne accorge nessuno finché il foglio non esce

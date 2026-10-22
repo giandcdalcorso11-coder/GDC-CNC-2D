@@ -14,6 +14,12 @@ var Gcode = (function () {
   function build(polys, opt) {
     var L = [];
     var zUp = opt.penUp, zDown = opt.penDown;
+    /* Quota a cui la penna sale a programma finito: lascia spazio per
+       infilare il tappo senza togliere la penna dai morsetti. Se il profilo
+       non ce l'ha si resta all'alzata di lavoro, che è il comportamento di
+       prima. */
+    var zTappo = (typeof opt.penTappo === 'number' && opt.penTappo > zUp)
+      ? opt.penTappo : zUp;
 
     /* La pausa dopo ogni su/giù non è un lusso: il servo ci mette un pezzo ad
        arrivare, e senza attesa la macchina riparte mentre la penna sta ancora
@@ -25,6 +31,7 @@ var Gcode = (function () {
     L.push('; ' + polys.length + ' tratti, generato dall\'interfaccia');
     L.push('; penna alzata Z' + n(zUp) + ', abbassata Z' + n(zDown) +
            (opt.pennaTarata ? '' : ' - DA TARARE'));
+    if (zTappo > zUp) L.push('; a fine programma la penna sale a Z' + n(zTappo) + ' (tappo)');
     L.push('G21');            // millimetri
     L.push('G90');            // coordinate assolute
     L.push('G0 Z' + n(zUp));  // si parte a penna alzata, sempre
@@ -43,6 +50,10 @@ var Gcode = (function () {
     }
 
     L.push('G0 X0 Y0 F' + opt.feedTravel);
+    /* Ultimo movimento: la penna in alto, dove ci sta il tappo. Va DOPO il
+       ritorno all'origine, non prima: così la testina è già ferma in un
+       angolo quando ci arrivi con il tappo in mano. */
+    if (zTappo > zUp) L.push('G0 Z' + n(zTappo));
     L.push('M2');             // fine programma
     return L.join('\n') + '\n';
   }

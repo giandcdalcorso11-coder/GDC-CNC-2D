@@ -1,213 +1,110 @@
-# GDC CNC 2D SLICER — configurazione FluidNC
+# COPIA GENERATA, tenuta nel repository per poterla leggere e confrontare.
+# La sorgente è il profilo macchina del SLICER (tab Impostazioni → Scarica
+# config.yaml): modificare questo file a mano fa divergere le due copie.
 #
-# DAL 2026-10-19 QUESTO FILE SI GENERA: il profilo macchina del SLICER (tab
-# Impostazioni, pulsante «Genera config.yaml per FluidNC») lo produce completo,
-# compresi i tre angoli del servo tradotti in microsecondi. Questa copia resta
-# nel repo come riferimento storico e come rete di sicurezza se il browser
-# perde i profili — ma i numeri si cambiano nel SLICER, non qui, altrimenti
-# tornano due verità in disaccordo.
+# Sostituisce la versione scritta a mano, che aveva max_travel_mm 300 su
+# entrambi gli assi, direction_pin senza :low su X, e i commenti in coda alle
+# chiavi che il parser di FluidNC non accetta.
 #
-# ATTENZIONE: questa è una configurazione di partenza, non definitiva.
-# I valori marcati DA TARARE dipendono dalla meccanica, che non è ancora montata.
-# FluidNC valida il file all'avvio e segnala gli errori sulla console: se qualcosa
-# non gli torna te lo dice, quindi si procede per correzioni successive.
+# GDC CNC 2D — configurazione FluidNC
 #
-# Riferimento schema: http://wiki.fluidnc.com/en/config/overview
+# GENERATO dal profilo macchina del GDC CNC 2D SLICER.
+# Non modificarlo a mano: la prossima generazione sovrascrive le modifiche.
+# I numeri si cambiano nella tab Impostazioni, che rigenera questo file.
+#
+# Regola del parser: nessun commento in coda a una chiave: valore.
+#
+# Verifica al primo avvio: un movimento su X deve muovere il carrello
+# lungo la trave, non tutto il portale.
 
 name: GDC CNC 2D
 board: ESP32 Dev Module
 
 stepping:
   engine: RMT
-  # 255 = i driver restano sempre abilitati, non si disabilitano mai da fermi.
-  # Scelta voluta: l'azzeramento è manuale, quindi un asse che si ammorbidisce
-  # e viene spostato a mano farebbe perdere la posizione senza accorgersene.
+  # Driver sempre abilitati: con origine manuale, un asse che si
+  # ammorbidisce fa perdere la posizione in silenzio.
   idle_ms: 255
   pulse_us: 4
   dir_delay_us: 1
   disable_delay_us: 0
 
 axes:
-  # ENABLE condiviso tra i due driver A4988.
-  #
-  # NESSUN ":low" QUI, ed è controintuitivo: il pin dell'A4988 si chiama ENABLE
-  # ed è attivo basso, quindi verrebbe spontaneo scrivere gpio.27:low. Ma il
-  # campo di FluidNC si chiama *disable*: ci viene scritto "vero" quando i
-  # motori vanno spenti. Sull'A4988 si spegne portando il pin ALTO, quindi
-  # visto da FluidNC è un disable attivo alto, cioè senza modificatore.
-  # Con ":low" la logica si ribalta: FluidNC tiene i motori "accesi" portando
-  # il pin alto, che sull'A4988 li spegne. Sintomo: gli impulsi su STEP
-  # vengono generati regolarmente, le coordinate avanzano, ma i motori
-  # restano immobili e gli alberi molli.
   shared_stepper_disable_pin: gpio.27
 
-  # X = trave del portale (staffa LL): il carrello che porta la penna.
-  # Sul foglio e' il movimento da sinistra a destra. Driver su gpio 4/26.
-  #
-  # CORREZIONE DEL 2026-10-19: i pin dei due assi erano scambiati. Lo scambio
-  # fatto il 15 ottobre serviva ad allineare i NOMI alla convenzione cartesiana,
-  # ma l'abbinamento nome/pin era gia' giusto e non andava toccato. Verifica:
-  # un movimento su X deve muovere il carrello lungo la trave, non il portale.
+  # X — trave del portale: il carrello che porta la penna, sinistra→destra sul foglio
   x:
-    # 33,953 = (200 * 16) / (pi * 1,5 * 20).
-    #
-    # Questa macchina NON ha cinghie: ha cremagliera e pignone z20 in modulo
-    # 1,5, quindi un giro di pignone avanza di pi*m*z = 94,2478 mm. Il valore
-    # 80 che stava qui prima era la formula della cinghia GT2, copiata da un
-    # esempio: con 80 la macchina muove 2,356 volte quello che le si chiede,
-    # e un quadrato da 100 mm uscirebbe da 235,6 — cioe' finirebbe contro il
-    # finecorsa al primo movimento. Il numero qui sotto e' quello che il
-    # firmware della dashboard usa da settembre e con cui le prove di
-    # movimento sono riuscite (vedi stepsPerMm() in cnc2d_dashboard.ino).
-    #
-    # Dipende dai ponticelli MS1/MS2/MS3 del driver: 1/8 -> 16,977;
-    # 1/16 -> 33,953; 1/32 -> 67,906.
-    #
-    # DA TARARE resta la terza cifra, misurando una corsa lunga: il
-    # ritiro di stampa della cremagliera cambia il passo reale, ed e' il
-    # motivo per cui X e Y avranno due valori diversi.
+    # 94.2478 mm per giro ingranaggio (NOMINALE, da tarare)
     steps_per_mm: 33.953
-    # 8000 mm/min = 133 mm/s = 4525 microstep/s a 33,953 passi/mm.
-    #
-    # Il 2000 che stava qui era tarato sul rapporto sbagliato: valeva 2667
-    # microstep/s con 80 passi/mm, ma con il rapporto vero sono 1132, cioe'
-    # un settimo di quello che il motore ha dimostrato di reggere (500 passi
-    # interi/s = 8000 microstep/s = 235 mm/s = 14100 mm/min).
-    #
-    # Questo e' un TETTO, non una velocita' di lavoro: la velocita' vera la
-    # decide la F del G-code. Alzarlo serve solo a non farsi tagliare i
-    # comandi da FluidNC, quindi non c'e' rischio ad alzarlo adesso.
     max_rate_mm_per_min: 8000.000
-
-    # L'accelerazione, al contrario, agisce su OGNI movimento ed e' quella che
-    # scuote il portale. Resta volutamente bassa: va alzata per prove
-    # successive, ma solo col modulo penna montato, perche' e' lo sbalzo del
-    # modulo che decide quanta imbardata genera uno strappo. Su un disegno
-    # fatto di segmenti corti conta molto piu' di max_rate.
     acceleration_mm_per_sec2: 200.000
-
-    max_travel_mm: 300.000     # DA TARARE sulla corsa reale della guida
-
-    # Resta false, e non per scelta: soft_limits vuole una macchina azzerata,
-    # l'azzeramento vuole i finecorsa, e i finecorsa non sono montati
-    # (2026-10-19, decisione dell'utente di non metterli per ora). Finche' e'
-    # cosi' l'UNICA protezione contro un movimento fuori area e' il controllo
-    # dell'ingombro del disegno fatto dall'interfaccia prima di partire.
+    # Corsa dal blocco di homing. Totale 257.532 (8744 passi), blocco a 4.300 dalla battuta.
+    # Percorribile 251.232 (margine 2.0).
+    max_travel_mm: 253.232
     soft_limits: false
 
     motor0:
-      # FINECORSA NON MONTATI (2026-10-19).
-      #
-      # Qui c'era `limit_neg_pin: gpio.14:low:pu` con `hard_limits: true`, per
-      # un pulsante nell'angolo in basso a sinistra che non e' mai stato
-      # cablato. Dichiarare un ingresso di finecorsa su un pin che non ha
-      # niente attaccato e' peggio che non dichiararlo: il pull-up interno
-      # dell'ESP32 e' da decine di kiloohm, quindi il pin e' alta impedenza e
-      # un disturbo captato dai cavi dei motori puo' farlo leggere come
-      # premuto. Sintomo: allarme e stop a metà di un disegno, senza causa
-      # apparente e non riproducibile.
-      #
-      # Per rimetterli il giorno che i microswitch arrivano: riattivare le due
-      # righe qui sotto, aggiungere un blocco `homing:` per asse con
-      # `cycle` e `positive_direction: false`, e portare a true `soft_limits`
-      # qui sopra e `must_home` in fondo al file.
-      #
-      # limit_neg_pin: gpio.14:low:pu
+      # Finecorsa non montati: homing a mano sui blocchi stampati.
       hard_limits: false
-      pulloff_mm: 1.000
       stepstick:
         step_pin: gpio.4
-        direction_pin: gpio.26
+        direction_pin: gpio.26:low
 
-  # Y = rotaie di base (staffe TT): ci scorre sopra tutto il portale.
-  # Sul foglio e' il movimento dal basso verso l'alto. Driver su gpio 25/33.
-  # Vedi la correzione del 2026-10-19 nella nota su X.
-  #
-  # motorizzato su un lato solo.
+  # Y — rotaie di base: ci scorre sopra tutto il portale, basso→alto sul foglio
   y:
-    # Vedi la nota su X. Stesso nominale, ma le due cremagliere sono state
-    # stampate separatamente: dopo la taratura questi due numeri NON saranno
-    # uguali, ed e' corretto che non lo siano.
+    # 94.2478 mm per giro ingranaggio (NOMINALE, da tarare)
     steps_per_mm: 33.953
-    # Vedi le note su X: stesso tetto, stessa accelerazione prudente.
     max_rate_mm_per_min: 8000.000
     acceleration_mm_per_sec2: 200.000
-    max_travel_mm: 300.000     # DA TARARE
+    # Corsa dal blocco di homing. Totale 243.041 (8252 passi), blocco a 4.977 dalla battuta.
+    # Percorribile 236.064 (margine 2.0).
+    max_travel_mm: 238.064
     soft_limits: false
 
     motor0:
-      # FINECORSA NON MONTATI: vedi la nota su X.
-      # limit_neg_pin: gpio.13:low:pu
+      # Finecorsa non montati: homing a mano sui blocchi stampati.
       hard_limits: false
-      pulloff_mm: 1.000
       stepstick:
         step_pin: gpio.25
         direction_pin: gpio.33
 
+  # Z non è un asse vero: è il servo del pen-lift.
+  # Z0 = penna sul foglio, Z cresce in alto, in millimetri veri di penna.
   z:
-    # Z non è un asse vero: è il servo del pen-lift, pilotato come asse
-    # così il G-code può dire "G0 Z5" per alzare e "G0 Z0" per appoggiare.
-    #
-    # Geometria del pen-lift, dal CAD prova_4: pignone z25 modulo 1,5, raggio
-    # primitivo 18,750, quindi 0,32725 mm di penna per grado di servo. La
-    # corsa meccanica totale della guida e' 26,350 mm (11,000 in discesa e
-    # 15,350 in salita dalla posizione modellata), cioe' 80,5 gradi di servo
-    # sui ~180 disponibili.
     steps_per_mm: 100.000
     max_rate_mm_per_min: 1000.000
     acceleration_mm_per_sec2: 100.000
-    # L'alzata utile in millimetri veri di penna: 9 gradi di servo x 0,32725.
-    # Cosi G0 Z0 = penna appoggiata e G0 Z2.945 = penna alzata, e Z e' una quota
-    # leggibile invece di un'unita' arbitraria.
-    max_travel_mm: 2.945
+    # Dal contatto alla posizione tappo: 65 gradi di servo.
+    # L'alzata di lavoro è la quota intermedia Z2.945.
+    max_travel_mm: 21.271
     soft_limits: false
 
     motor0:
       rc_servo:
         output_pin: gpio.32
         pwm_hz: 50
-        # TARATO il 2026-10-21 sul modulo montato, con la dashboard. I tre
-        # angoli sono gradi LOGICI (piu gradi = penna piu in alto):
-        #   battuta   19 -> 2289 us   i cuscinetti in fondo ai blocchi.
-        #                             Limite meccanico: non va nel YAML, ci sta
-        #                             solo come promemoria. FluidNC non puo'
-        #                             comandarlo perche' e' fuori dall'arco fra
-        #                             i due impulsi qui sotto, e mapConstrain()
-        #                             tronca.
-        #   abbassata 25 -> 2222 us   contatto col foglio -> min_pulse_us
-        #   alzata    34 -> 2122 us   -> max_pulse_us
-        #
-        # La battuta a 19 e non a 1 perche' a 1 grado logico l'impulso sarebbe
-        # 2489 us, fuori dai 500-2400 di specifica dell'SG90: il pignone era
-        # stato calzato col servo gia' contro il proprio fermo interno.
-        #
-        # min_pulse_us MAGGIORE di max_pulse_us non e' un errore: e' il modo in
-        # cui FluidNC inverte un servo. Da RcServo.cpp, "The rotation can be
-        # inverted by swapping the values", e la mappatura e' una interpolazione
-        # lineare senza controlli sull'ordine dei due estremi. Serve perche' su
-        # questo accoppiamento l'angolo FISICO crescente abbassa la penna.
-        #
-        # Deve concordare con la spunta "Verso del servo invertito" della
-        # dashboard e con `penna.invertito` nel profilo del SLICER: se i tre non
-        # vanno d'accordo, uno alza e l'altro abbassa.
+        # Z0 = penna abbassata, 25 gradi. Servo invertito: min > max, voluto.
         min_pulse_us: 2222
-        max_pulse_us: 2122
+        # Z21.271 = posizione tappo, 90 gradi.
+        max_pulse_us: 1500
+        # Battuta dei cuscinetti a 17 gradi (2311 µs): sta fuori
+        # dall'arco qui sopra, quindi FluidNC non può comandarla. È voluto.
 
-# LED di stato, comandati dall'interfaccia web con M62/M63.
-# P0 = verde (tutto bene), P1 = giallo (attenzione), P2 = rosso (errore)
 user_outputs:
+  # Verde, giallo, rosso: comandati con M62/M63 P0..P2.
   digital0_pin: gpio.18
   digital1_pin: gpio.19
   digital2_pin: gpio.2
 
 start:
-  # Resta false finche' non ci sono i finecorsa: con must_home vero e nessun
-  # ciclo di azzeramento possibile, FluidNC rifiuterebbe ogni movimento
-  # assoluto e la macchina sarebbe inutilizzabile.
-  #
-  # Conseguenza da tenere a mente: l'origine la si imposta a mano con G92, e
-  # G92 NON sopravvive a un riavvio ne' a un reset. Dopo ogni accensione la
-  # macchina non sa dove si trova, e l'interfaccia deve saperlo: senza
-  # un'origine impostata in questa sessione non deve permettere di eseguire
-  # un programma, solo movimenti relativi a passo limitato.
+  # Niente finecorsa: l'origine la dà G92 e non sopravvive a un riavvio.
   must_home: false
+
+macros:
+  # All'accensione la penna sale in posizione tappo.
+  # ATTENZIONE: FluidNC parte assumendo Z0, cioè il CONTATTO, e il servo
+  # ci va per un istante prima di eseguire questa riga. Se il tappo è
+  # ancora infilato e la testina è sopra il foglio, in quell'istante preme.
+  # Regola: il tappo si toglie PRIMA di dare corrente.
+  startup_line0: G90 G0 Z21.271
+  startup_line1:

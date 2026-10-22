@@ -208,16 +208,40 @@ servo, sotto la banda morta del servo stesso.
 | Nome sullo schermo | Chiave | Note |
 |---|---|---|
 | Raggio del pignone del pen-lift | `raggioPignone` | 18,75 mm (z25, modulo 1,5) |
-| Angolo di battuta dei cuscinetti | `gradiBattuta` | **19°** — un limite: il software non deve mai comandarlo |
-| Angolo penna abbassata | `gradiPennaAbbassata` | **25°** = battuta + 6: il contatto nominale |
+| Angolo di battuta dei cuscinetti | `gradiBattuta` | **17°** — un limite: il software non deve mai comandarlo |
+| Angolo penna abbassata | `gradiPennaAbbassata` | **25°**: il contatto nominale |
 | Angolo penna alzata | `gradiPennaAlzata` | **34°** = abbassata + 9 |
+| Posizione tappo | `gradiTappo` | **90°**: dove la penna sale a fine stampa e all'accensione. È anche il **tetto** del meccanismo |
 | Verso del servo invertito | `invertito` | sì: sul modulo montato l'angolo *fisico* crescente abbassa la penna |
 | Impulso a 0° / a 180° | `impulsoMinUs` / `impulsoMaxUs` | 500 / 2500 µs, come la dashboard |
 | mm di penna per grado | *calcolata* | 0,32725 |
 | Alzata utile | *calcolata* | `(alzata − abbassata) × 0,32725` = 2,945 mm |
+| Quota Z del tappo | *calcolata* | `(tappo − abbassata) × 0,32725` = 21,271 mm |
 
 Regola che il software fa rispettare: **battuta < abbassata < alzata**. Se non
 cresce in quest'ordine, la verifica blocca.
+
+### I 25° non sono battuta + 6, e va bene così
+
+Erano nati come battuta + 6 quando si credeva che la battuta fosse 19. La
+battuta misurata è **17**, quindi i 25 sono battuta + 8. Non si correggono: 25
+è l'angolo a cui la penna **è stata stretta** e a cui tocca il foglio, e lo
+conferma il disegno fatto a mano il 2026-10-22. L'unica conseguenza è che c'è
+più riserva verso il basso di quanta ne era stata prevista, cioè 2,6 mm invece
+di 2,0.
+
+### La posizione tappo, e perché è anche il tetto
+
+A fine stampa la penna sale a **90°**, cioè 21,27 mm sopra il contatto: lì c'è
+spazio per infilare il tappo senza togliere la penna dai morsetti. Novanta è
+anche il massimo prima che lo stadio flottante esca dalle guide, quindi lo
+stesso numero fa due lavori — posizione di riposo e fondo scala superiore.
+
+Conseguenza sul file di FluidNC che non è ovvia: **l'arco fra `min_pulse_us` e
+`max_pulse_us` deve arrivare fino al tappo, non fermarsi all'alzata**, perché
+`mapConstrain` tronca tutto quello che cade fuori. Quindi `max_travel_mm`
+dell'asse Z è 21,271 e non 2,945, e l'alzata di lavoro diventa la quota
+intermedia Z2,945.
 
 ### I tre angoli hanno tre nature diverse
 
@@ -226,11 +250,11 @@ Impostazioni mette tre etichette diverse accanto ai tre campi:
 
 | Angolo | Natura | Come lo si ottiene |
 |---|---|---|
-| battuta | **al montaggio** | si calza il pignone sull'albero del servo con la dashboard già sull'angolo voluto e il modulo appoggiato ai blocchi sotto il suo solo peso |
+| battuta | **misurato** | striscia di carta fra un cuscinetto inferiore e il suo blocco, scendendo di un grado per volta: l'ultimo grado in cui la carta esce ancora. Il montaggio l'aveva data 19, la misura dice 17 |
 | abbassata | **imposto** | non si misura: si stringe la penna nei morsetti tenendo il servo a battuta + 6° contro il piano di riferimento |
 | alzata | **calcolato** | abbassata + 9°, e i 9 sono dieci bande morte del servo |
 
-### Perché 19° e non 1°
+### Perché 17° e non 1°
 
 Col verso invertito l'impulso vero è `µs = 2500 − gradi × 11,1111`, quindi
 **l'angolo logico piccolo è l'impulso grande**. A 1° l'impulso sarebbe 2489 µs,
@@ -241,13 +265,15 @@ si distinguono. Col pignone spostato di uno spline la finestra di lavoro è:
 
 | Angolo | µs |
 |---|---|
-| battuta 19° | 2289 |
+| battuta 17° | 2311 |
 | abbassata 25° | 2222 |
 | alzata 34° | 2122 |
+| tappo 90° | 1500 |
 
-Tutta dentro specifica, con 111 µs di margine sotto il tetto. La finestra
-accettabile è larga — qualunque battuta fra **13° e 30°** va bene — quindi 19
-non è un bersaglio da centrare: è il centro di un intervallo.
+Tutta dentro specifica, con 89 µs di margine sotto il tetto dell'SG90. La
+finestra accettabile è larga — qualunque battuta fra **13° e 30°** va bene —
+quindi il numero esatto non era un bersaglio da centrare: il pignone è stato
+calzato a 19 e la battuta vera è risultata 17, e vanno bene tutti e due.
 
 ### La battuta come fondo scala, in tre punti della catena
 
@@ -256,10 +282,10 @@ modo suo:
 
 - **FluidNC** non ci arriva per costruzione: la battuta sta fuori dall'arco fra
   `min_pulse_us` e `max_pulse_us`, e `mapConstrain()` tronca.
-- **La dashboard** tronca alla battuta slider e comandi Alza/Abbassa. I soli
-  pulsanti ±1° possono scendere di 2° sotto, e servono a una cosa: la verifica
-  con la striscia di carta, che ha senso solo se si può chiedere al servo di
-  spingere un filo oltre il fermo.
+- **La dashboard** tronca alla battuta slider e comandi Alza/Abbassa, e in alto
+  tronca alla posizione tappo. I soli pulsanti ±1° possono scendere di 2° sotto
+  la battuta, e servono a una cosa: la verifica con la striscia di carta, che ha
+  senso solo se si può chiedere al servo di spingere un filo oltre il fermo.
 - **Il profilo del SLICER** la tiene come limite e la verifica controlla
   l'ordine dei tre.
 

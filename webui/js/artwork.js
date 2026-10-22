@@ -103,9 +103,14 @@ var Artwork = (function () {
       alzata = Math.min(alzata, st.alzataLavoro);
     }
 
+    /* La posizione tappo è una quota del profilo macchina, non di stampa: è
+       dove il meccanismo lascia spazio al tappo, e non dipende dal foglio. */
+    var tappo = Profile.tappoMm();
+
     prep = Gcode.build(machine, {
       penUp: contatto + alzata,
       penDown: contatto,
+      penTappo: tappo === null ? null : contatto + tappo,
       pennaTarata: tarata,
       pausaMs: st.pausaPennaMs,
       feedDraw: feedDraw,
