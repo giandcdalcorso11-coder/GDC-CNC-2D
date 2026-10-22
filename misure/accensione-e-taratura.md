@@ -467,11 +467,23 @@ profilo, il `config.yaml`, i popup del SLICER — ce l'ha già.
    quindi sulla tavola nuda la punta resta un decimo sopra. Col tappo infilato
    ci arriva il tappo, e la corsa che manca la paga il meccanismo.
 2. Flash dal web installer (`installer.fluidnc.com`, Chrome o Edge: usa la
-   WebSerial). **Versione 4.1.0**, la stessa su cui la configurazione è stata
-   validata il 2026-09-21 — non l'ultima per inerzia: una versione nuova può
-   cambiare i nomi dei campi, e questa li accetta tutti. Processore `esp32`
-   (DevKit WROOM-32 a 30 pin), variante **wifi**, tipo **fresh-install**,
-   interfaccia **WebUI-2**.
+   WebSerial). **Versione 4.1.1** (2026-09-25). Processore `esp32` (DevKit
+   WROOM-32 a 30 pin), variante **wifi**, tipo **fresh-install**, interfaccia
+   **WebUI-2**.
+
+   La regola resta «non l'ultima per inerzia», ma qui il changelog l'ha
+   giustificata: la 4.1.1 è una **patch** sulla 4.1.0 — la versione su cui la
+   configurazione era stata validata il 2026-09-21 — e nessuna voce tocca i
+   nomi dei campi. Tre correzioni cadono invece esattamente dove lavoriamo:
+   un bug di generazione dei comandi **macro** (`Macro::addf`, va_list
+   riusata), un descrittore di **upload** non rilasciato quando un
+   trasferimento viene abbandonato, e i **riavvii del watchdog** durante le
+   operazioni sui file. Macro e upload sono due cose che usiamo dal primo
+   minuto: la riga di avvio del servo è una macro, e i programmi si caricano
+   dalla WebUI.
+
+   Resta comunque `$CD` a fare da rete: se una versione cambiasse un nome di
+   campo, è lì che si vede.
 
    Un fresh-install cancella anche le impostazioni di rete, quindi la macchina
    riparte in access point e vanno rimesse: **modalità STA, hostname `cnc2d`**,
