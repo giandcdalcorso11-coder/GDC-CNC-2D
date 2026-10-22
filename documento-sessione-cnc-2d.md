@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 49
-**Ultimo aggiornamento:** 2026-10-22 14:35
+**Versione:** 50
+**Ultimo aggiornamento:** 2026-10-22 17:18
 
 ## Regole di co-editing
 
@@ -192,7 +192,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 
 ### Step 3 — Configurazione FluidNC
 
-**Stato:** riaperto il 2026-10-19 — era completato sul banco (quadrato e cerchio verificati a vista sui motori il 2026-09-21), ma il file non porta due decisioni prese dopo, e su macchina montata FluidNC non è mai stato acceso
+**Stato:** in corso — **FluidNC 4.1.1 installata e configurata sulla macchina definitiva il 2026-10-22**, con `$CD` che rilegge ogni chiave. Restano da riprovare i versi dei due assi (corretti ma non riverificati) e da correggere il verso della Z, che il servo non segue finché le quote restano positive. Supera lo stato «riaperto il 2026-10-19»: le due decisioni che mancavano al file adesso ci sono.
 
 **Obiettivo:** FluidNC installato e configurato come firmware definitivo della macchina, con movimento coordinato X/Y e pen-lift sul servo
 
@@ -236,6 +236,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 - [2026-10-19] **`max_rate_mm_per_min: 2000` è da rivedere al rialzo**, conseguenza del rapporto corretto: con 33,953 passi/mm sono 1132 microstep/s, contro i ~8000 che il motore ha dimostrato di reggere. Non è un bug, è un limite lasciato dal rapporto sbagliato
 - [2026-10-19] **Nota di metodo per la tab Impostazioni, dal nostro stesso collaudo del 2026-09-21:** su FluidNC 4.1.0 il comando di modifica a runtime (`$/axes/...=`) **non restituisce nulla** e non ha effetto; quello che funziona è ricaricare il file e riavviare con `$Bye`. Confermato indirettamente dalla documentazione FluidNC, secondo cui le modifiche `$` vivono solo in memoria volatile e vanno scritte con `$CD=config.yaml` per sopravvivere al riavvio, e secondo cui le definizioni dei pin richiedono comunque un riavvio. Conseguenza di progetto: una tab Impostazioni che scrive nella macchina deve **generare il file e caricarlo**, non toccare le impostazioni a runtime
 - [2026-10-06] Conseguenze collaterali del rapporto vero: risoluzione **0,0295 mm per microstep** (il gioco di 0,235 è 8× il passo, quindi è il gioco a dominare, non la risoluzione) e `max_rate_mm_per_min: 2000` corrisponde ora a 1132 microstep/s invece di 2667, cioè **un settimo** di quello che la meccanica regge (il motore è validato a 500 passi interi/s ≈ 235 mm/s). Verifica del rapporto: `G91 G0 X100`, misurare col calibro, correggere in proporzione
+- [2026-10-22] **FluidNC 4.1.1 installata sulla macchina definitiva** e configurazione verificata con `$CD` chiave per chiave: nessuna ignorata. Rete STA, `cnc2d.local`, 192.168.1.14. **Tre scoperte ai primi comandi veri.** (a) Il servo non si muoveva: `RcServo` mappa la posizione MACCHINA e tronca fuori dai limiti dell'asse, e senza homing FluidNC dichiara la corsa in negativo — `Axis Z (-21.281, 0.010)` — quindi tutte le quote positive uscivano a 1500 µs. Confermato con `G0 Z-3`, che muove. La Z va usata in negativo: Z0 = tappo, Z−21.271 = contatto. (b) **I due assi andavano al contrario tutti e due**: invertite le spunte nel profilo, da riprovare. (c) Il flash a 921600 si interrompe sul CH340: 115200.
 
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
@@ -315,6 +316,7 @@ mano a mano che le misure arrivano):
 - [2026-10-19] **Il punto di origine manuale è un'origine di lavoro, non un riferimento macchina**, e i limiti non vanno agganciati a lui. La frase "da quel punto si setta tutta la macchina" è la trappola che il documento aveva già descritto il 2026-10-06 ("si crede di essere a 25 mm e si è a 12"): la ripetibilità di un posizionamento a occhio è di qualche millimetro, e se i limiti sono riferiti a lui l'errore di parcheggio diventa errore di limite. Per **dove cade il disegno sul foglio** qualche millimetro va benissimo, perché la posizione del foglio è comunque arbitraria. Quindi: origine manuale sì, limiti agganciati a lei no
 - [2026-10-17] **Il gruppo Penna della tab Impostazioni diventa quattro angoli più una conversione**, su richiesta dell'utente. Il valore che mancava è l'**angolo di battuta**, cioè quello a cui i cuscinetti arrivano in fondo ai blocchi inferiori: è un limite meccanico, non una preferenza, e il software non deve poter scendere sotto. Sopra c'è l'angolo di appoggio — che è anche quello a cui tenere il servo mentre si infila la penna e si stringono i morsetti, perché è la stessa posizione — e sopra ancora quello di penna alzata. Aggiunta mia: serve anche la **battuta alta**, perché la pista è limitata dalle due parti (15,350 di salita contro 11,000 di discesa), e serve il **raggio del pignone** come unico parametro di conversione, così alzata e appoggio si inseriscono in millimetri e la pagina li traduce in gradi (0,32725 mm/grado a r = 18,750). Senza quel campo ogni numero della sezione penna è in gradi e nessuno è leggibile
 - [2026-10-21] **Disegno di collaudo** (`webui/tools/test-macchina.js` e `font-tratto.js`): una stampa su 246 × 233 mm con **undici prove in riquadri numerati**, dalla scala per asse all'ortogonalità al gioco al livello del piano, più ripetibilità e velocità. Genera SVG per guardare o G-code per stampare, e il G-code vero si produce **dopo** la taratura della penna, coi numeri veri. Come si legge sta in `misure/disegno-di-collaudo.md`, prova per prova e con l'ordine di lettura — livello e stacchi per primi, perché se il piano è storto tutto il resto è misurato male
+- [2026-10-22] **I programmi devono stare in 64 kB**, ed è il browser dei file di FluidNC a dirlo: la partizione LittleFS è 192 kB e `index.html.gz` della WebUI ne occupa 111. Il collaudo scritto per esteso ne occupava 69 e non ci sarebbe entrato. I due generatori emettono ora **G-code modale** — solo quello che cambia — e il collaudo passa a 44.633 byte, con il percorso verificato stato per stato (2994, zero differenze). Stesso conto per l'autonomia del SLICER: **66 kB compressi contro 64 liberi**, quindi ospitarlo chiede un file unico e la rimozione della WebUI di FluidNC.
 
 ### Step 5 — Struttura meccanica
 
@@ -556,6 +558,71 @@ mano a mano che le misure arrivano):
 - [2026-10-22] **Battuta misurata 17°** con la striscia di carta, contro i 19 fissati per costruzione il giorno prima: i due gradi sono quello che il modulo aveva ancora da scendere quando il pignone è stato calzato. I 25° di penna abbassata restano, perché non sono battuta + 6 ma l'angolo a cui la penna è stata stretta. **Nasce la posizione tappo a 90°**, che fa due lavori: riposo a fine stampa e all'accensione, e tetto del meccanismo (oltre, lo stadio flottante esce dalle guide). Conseguenza su FluidNC: l'arco dell'asse Z va dal contatto al tappo e non all'alzata, se no `mapConstrain` tronca — `max_travel_mm 21.271`, impulsi 2222 e 1500. **E il parser di FluidNC non accetta commenti in coda a una chiave**, cosa che il nostro config.yaml faceva quasi ovunque: riscritto il generatore, e il file a mano sostituito dalla copia generata
 
 ## Storico sessioni
+
+### [2026-10-22 17:18] (firmware) FluidNC è sulla macchina, e i primi comandi veri hanno trovato tre cose che nessun ragionamento aveva trovato
+
+**Riepilogo:** installata FluidNC 4.1.1 sull'ESP32 montato, caricata e verificata riga per riga la configurazione generata dal profilo, e poi — appena si è provato a muovere qualcosa — sono saltati fuori il servo che non si muoveva (gli impulsi erano giusti, era il verso delle coordinate macchina a troncare tutto), i due assi che andavano al contrario tutti e due, e un vincolo di spazio in flash che nessuno aveva previsto e che il disegno di collaudo non rispettava.
+
+**Cosa è stato fatto:**
+
+- **FluidNC 4.1.1 installata** sull'ESP32 montato: variante wifi, fresh-install, WebUI-2. La dashboard è stata cancellata, come previsto
+- **Configurazione caricata e verificata con `$CD`**, chiave per chiave: `steps_per_mm` 33.952999 sui due assi, `max_travel_mm` 253.231995 e 238.063995, `rc_servo` su gpio.32 con 2222 e 1500, `max_travel_mm` 21.271 su Z, `startup_line0: G90 G0 Z21.271`, `must_home: false`. **Nessuna chiave ignorata**: il timore dei commenti in coda era fondato ma il file generato è pulito
+- **Rete configurata**: STA, hostname `cnc2d`, IP 192.168.1.14, mDNS attivo. Suggerito di mettere il country a `IT` invece di `01`, perché il dominio «mondo» ammette solo i canali 1÷11 e in Europa i router usano spesso il 12 o il 13 — con `01` l'ESP32 non vedrebbe proprio la rete
+- **La riga di avvio funziona**: al boot la Z è a 21.270 nel modello, cioè `startup_line0` è stata eseguita
+- **Disegno di collaudo e generatore del SLICER riscritti in G-code modale**, per stare nei 64 kB di flash liberi (vedi il bug più sotto)
+- **Misurato quanto pesa il SLICER** in vista dell'autonomia dall'interfaccia di FluidNC: 66 kB compressi contro 64 liberi. Non ci sta accanto alla WebUI di FluidNC, che da sola ne occupa 111
+
+**Bug: il servo non si muoveva, e gli impulsi erano giusti**
+
+**Sintomo:** `G0 Z0`, `G0 Z2.945`, `G0 Z21.271` venivano eseguiti — il DRO mostrava le rampe e le quote giuste — ma la penna restava immobile. I 12 V erano accesi e il circuito non era stato toccato.
+**Causa:** `RcServo` di FluidNC mappa la **posizione macchina in passi**, non la quota di lavoro, fra i limiti dell'asse, e **tronca** quello che cade fuori (`mapConstrain`). Senza homing FluidNC mette lo zero macchina all'estremo alto e dichiara la corsa in negativo: `Axis Z (-21.281, 0.010)`, cioè `_min_steps = -2128`, `_max_steps = +1`. Tutte le quote che comandavamo (0 … +21.271) cadevano al massimo o sopra, quindi uscivano **tutte a 1500 µs**, che è la posizione tappo. Il servo faceva esattamente quello che gli veniva chiesto: stare fermo.
+**Fix applicato:** nessuno ancora nel codice — **la correzione è da fare** (vedi Problemi aperti). Diagnosi **confermata sulla macchina** con `G0 Z-3`, che cade all'85,9% del campo, dà 1602 µs e muove la penna di una decina di gradi. La strada è usare la Z in negativo: `Z0` = posizione tappo, `Z-18.326` = penna alzata, `Z-21.271` = contatto. Gli impulsi nel `config.yaml` restano quelli: è il verso dei numeri che li raggiunge a essere sbagliato.
+
+**Bug: i due assi andavano al contrario tutti e due**
+
+**Sintomo:** `$J=G91 X25` porta il carrello **verso** il suo blocco invece che via; su Y è il meno a fare quello che dovrebbe fare il più.
+**Causa:** nessuno dei due versi era mai stato provato con FluidNC. Il `:low` su X era una deduzione — il file stesso lo diceva, *«da confermare al primo avvio guardando il verso»* — e su Y mancava.
+**Fix applicato:** invertite tutte e due le spunte nel profilo (X da sì a no, Y da no a sì), `config.yaml` rigenerato. **Da riprovare sulla macchina.**
+
+**Bug: il disegno di collaudo non entrava nella flash**
+
+**Sintomo:** il browser dei file dichiara **64 kB liberi**; il collaudo scritto per esteso ne occupava 69.268. Non ci sarebbe entrato, e lo si sarebbe scoperto a configurazione finita.
+**Causa:** la partizione LittleFS è 192 kB e `index.html.gz` della WebUI ne occupa da sola 111.
+**Fix applicato:** i due generatori emettono **G-code modale** — solo quello che cambia: la parola G0/G1 resta valida finché non cambia, una coordinata non ripetuta vuol dire «quell'asse resta dov'è», gli zeri in coda si tolgono, e una riga che non cambierebbe niente non si emette affatto. Il collaudo passa da 69.268 a **44.633 byte**. Verificato ri-eseguendo il file con un interprete e confrontando i **2994 stati** con quelli del modello: zero differenze.
+
+**Bug: il flash si interrompeva all'1%**
+
+**Sintomo:** l'immagine da 1,1 MB si fermava all'1% e la scheda restava in boot loop. I file piccoli passavano con l'hash verificato.
+**Causa:** il convertitore USB è un **CH340** (`VendorID 0x1a86 ProductID 0x7523`) e a 921600 non regge i trasferimenti lunghi. Lo dice esptool stesso due righe dopo il cambio di baud.
+**Fix applicato:** rifatto a **115200**, riuscito. Registrata in A4 la scala di rimedi (cavo corto e porta diretta, poi ESP32 sfilato dalla breadboard) e la nota che conta per chi si spaventa: una scheda interrotta a metà flash non è rotta.
+
+**Decisioni prese:**
+
+- **Contesto:** c'è un secondo ESP32 con FluidNC già installato dal 2026-09-21, e sembrava una scorciatoia.
+  **Decisione: si flasha quello montato.** Il `config.yaml` va caricato comunque — quello sul vecchio è di settembre, con `steps_per_mm: 80` e `max_travel_mm: 300` — e il circuito è stato rifatto attorno alla scheda montata, i cui pin sono provati contro questo cablaggio da settimane. Si risparmiavano tre minuti e si rischiava una scheda non verificata su quindici connessioni verificate.
+  **Da rivedere se:** la scheda montata dà problemi hardware. Il vecchio ESP32 resta come scorta, e volendo ci si flasha la dashboard per avere lo strumento di misura pronto senza toccare la macchina.
+
+- **Contesto:** l'ultima versione era la 4.1.1, mentre la configurazione era validata sulla 4.1.0.
+  **Decisione: 4.1.1.** Il changelog la giustifica: è una patch sulla 4.1.0, nessuna voce tocca i nomi dei campi, e **tre correzioni cadono dentro quello che usiamo** — un bug di generazione dei comandi macro (`Macro::addf`, va_list riusata), un descrittore di upload non rilasciato quando un trasferimento viene abbandonato, e i riavvii del watchdog durante le operazioni sui file. La riga di avvio del servo è una macro e i programmi si caricano dalla WebUI.
+  **Alternative scartate:** prendere la 4.1.0 per prudenza. La regola «non l'ultima per inerzia» resta, ma qui il changelog l'ha sciolta invece di confermarla.
+
+- **Contesto:** l'utente ha chiesto quando potrà usare l'interfaccia del progetto invece di quella di FluidNC.
+  **Decisione: prima le stampe dalla WebUI di FluidNC, poi il pannello nostro.** Il disegno di collaudo valida tutti i numeri misurati in una settimana: mettere fra l'operatore e la macchina un'interfaccia mai provata vorrebbe dire, al primo disegno storto, non sapere se è la macchina o il software nuovo.
+  **Alternative scartate:** collegare subito il SLICER. Oltre al rischio di debug doppio, c'è un vincolo fisico — FluidNC non manda le intestazioni CORS, quindi la pagina deve essere servita dall'ESP32, e il SLICER compresso pesa 66 kB contro 64 liberi.
+  **Da rivedere se:** la 4.1.1 nel frattempo manda le intestazioni CORS. Sono trenta secondi di prova e farebbero sparire tutto il problema dello spazio, perché la pagina girerebbe dal PC.
+
+**Problemi aperti a fine sessione:**
+
+1. **La correzione della Z in negativo non è ancora nel codice.** Vanno aggiornati: i due generatori di G-code, `startup_line0` (da `G90 G0 Z21.271` a `G90 G0 Z0`), la quota di contatto nei popup, e i file `gcode/collaudo.gcode` e `gcode/quadrato-50.gcode` già generati. **Finché non è fatto, nessuno dei due programmi disegna**: la penna resterebbe in posizione tappo per tutto il percorso.
+2. **L'inversione dei due assi è da riprovare** sulla macchina col `config.yaml` nuovo.
+3. **La prova che i motori restano alimentati** (`idle_ms: 255`) non è stata fatta: jog, dieci secondi, e il carrello deve resistere alla mano.
+4. **Ospitare il SLICER** chiede di impacchettarlo in un file solo e di togliere la WebUI di FluidNC per fare spazio — con la conseguenza che il nostro pannello dovrà saper caricare i programmi, non solo muovere gli assi.
+
+**File consegnati/modificati:** `webui/js/profile.js`, `webui/js/gcode.js`, `webui/tools/test-macchina.js`, `firmware/fluidnc/cnc2d-config.yaml`, `misure/accensione-e-taratura.md`, `gcode/collaudo.gcode`, `gcode/collaudo.svg`, `gcode/quadrato-50.gcode` (nuovo)
+
+**Impatto su Vision/Pipeline:** note aggiunte allo **Step 3** (FluidNC installata e configurata sulla macchina definitiva, versi corretti, il bug della mappatura del servo) e allo **Step 4** (G-code modale per il vincolo dei 64 kB, e il conto che dice perché il SLICER non ci sta accanto alla WebUI).
+
+---
 
 ### [2026-10-22 14:35] (meccanica+software) La misura del gioco d'ingranamento viene scartata, e la macchina è pronta per FluidNC
 
