@@ -485,6 +485,27 @@ profilo, il `config.yaml`, i popup del SLICER — ce l'ha già.
    Resta comunque `$CD` a fare da rete: se una versione cambiasse un nome di
    campo, è lì che si vede.
 
+   **Velocità di installazione: 115200, non i 921600 proposti.** Il
+   convertitore USB di questa scheda è un **CH340** (`VendorID 0x1a86,
+   ProductID 0x7523` nel log di esptool), e a 921600 il trasferimento del
+   firmware grande si è interrotto all'1% il 2026-10-22, lasciando la scheda in
+   boot loop. I file piccoli — tabella delle partizioni, bootloader — passano
+   lo stesso: è l'immagine da 1,1 MB che non ce la fa. Lo dice esptool stesso
+   nel log, due righe dopo aver cambiato baud: *«If the chip does not respond
+   to any further commands, consider using a lower baud rate»*.
+
+   A 115200 l'immagine impiega un minuto e mezzo invece di dodici secondi.
+   Vale la pena non doverlo rifare.
+
+   Se fallisce anche a 115200, nell'ordine: **cavo USB più corto** e porta
+   direttamente sul PC, niente hub; poi **sfila l'ESP32 dalla breadboard** e
+   flashalo nudo. Con i 12 V spenti è l'USB ad alimentare tutta la logica
+   della breadboard — driver, LED, servo — e durante la scrittura un calo di
+   tensione resetta la scheda.
+
+   Una scheda interrotta a metà flash **non è rotta**: il boot loop è la
+   conseguenza di una flash incompleta e sparisce quando la scrittura finisce.
+
    Un fresh-install cancella anche le impostazioni di rete, quindi la macchina
    riparte in access point e vanno rimesse: **modalità STA, hostname `cnc2d`**,
    così l'indirizzo resta `http://cnc2d.local` come prima.
