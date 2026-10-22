@@ -630,6 +630,44 @@ programma con cui si scopre che un asse va al contrario.
    (contatto Z−21.271, alzata Z−18.326, tappo Z0). Si carica e si lancia dalla
    WebUI di FluidNC — l'invio del programma dal SLICER non è ancora costruito.
 
+### «Upload filesystem inaccessible»: stai caricando sulla SD
+
+Il browser dei file di WebUI-2 ha **due filesystem**, e il server li serve su
+due rotte diverse:
+
+```cpp
+_webserver->on("/files",  HTTP_ANY, handleFileList,           LocalFSFileupload);  // flash
+_webserver->on("/upload", HTTP_ANY, handle_direct_SDFileList, SDFileUpload);       // SD
+```
+
+Il messaggio esce da `uploadStart()` quando il costruttore di `FluidPath`
+mette un `error_code`, e quello succede **solo nel ramo SD**:
+
+```cpp
+if (_isSD) {
+    if (!config->_sdCard->config_ok) {
+        std::error_code ec = FluidError::SDNotConfigured;
+```
+
+Per la flash locale quel costruttore non può fallire. Quindi il messaggio ha
+una causa sola: **l'upload è stato mandato alla SD**, e con `cs_pin: NO_PIN`
+quella scheda non c'è. Il rimedio è caricare dal pannello **FLASH**.
+
+Secondo modo di finirci, meno ovvio: `canonPath()` rispetta un prefisso di
+volume scritto **nel nome del file**, e un nome che comincia per `/sd/` va
+sulla SD qualunque pannello si usi. Nessun prefisso nei nomi.
+
+Dal terminale, senza passare dalla UI:
+
+```
+$LocalFS/List        cosa c'è sulla flash
+$LocalFS/Size        totale e usato
+$LocalFS/Run=<path>  lancia un programma dalla flash
+```
+
+La lista stampa il percorso come FluidNC lo scrive: si copia da lì per il
+`Run`, invece di indovinare dove va la barra.
+
 **Ogni programma finisce al punto home, non sullo zero.** L'ultimo
 spostamento è un `G0 X5 Y5`, poi la penna sale a `Z0`. Non è un dettaglio
 estetico: finire sullo zero vuol dire lasciare i carrelli **appoggiati ai
