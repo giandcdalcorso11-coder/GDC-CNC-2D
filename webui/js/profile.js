@@ -108,19 +108,26 @@ var Profile = (function () {
          misura col calibro, da un riferimento fisso alla faccia del carrello,
          ripetendo l'appoggio cinque o sei volte. */
       homing: {
-        /* Misurati il 2026-10-19 coi blocchi montati: azzerato sul blocco e
-           portato l'asse all'altra battuta si legge 256,089 su X e 243,071 su
-           Y, contro 257,532 e 243,041 da battuta a battuta.
-           Su X il blocco mangia 1,443 mm di corsa. Su Y ne mangia -0,030, cioè
-           UN PASSO in meno di zero: il blocco sta di fatto sulla battuta, e la
-           corsa utile non la tocca. Il segno negativo è rumore di misura, non
-           corsa in più, quindi si registra zero.
+        /* RIMISURATI il 2026-10-22, dopo che l'utente ha spostato una
+           cremagliera e rifatto un blocco: azzerato sul blocco e portato
+           l'asse all'altra battuta si legge 253,232 su X e 238,064 su Y,
+           contro 257,532 e 243,042 da battuta a battuta (8744 e 8252 passi,
+           misurati il 2026-10-19 senza blocchi e non rimisurati da allora).
+           Quindi i blocchi mangiano 146 passi su X e 169 su Y.
+
+           Le due letture valgono 8597,986 e 8082,987 passi: a quattro decimi
+           di micron da un intero. È la stessa conferma del 2026-10-19 — il DRO
+           non misura millimetri, conta passi e li divide per il rapporto.
+
+           Supera i valori precedenti (1,443 su X e 0 su Y): su Y il blocco non
+           sta più sulla battuta, ne sta 5 mm dentro.
+
            La ripetibilità non è zero: è sotto la risoluzione del calibro, che
            è un'altra cosa. Si registra 0,05 — "più piccola di quanto so
            misurare" — perché uno zero vero direbbe al software che un margine
            di zero basterebbe. */
-        x: { scostamento: 1.443, ripetibilita: 0.05 },
-        y: { scostamento: 0.0,   ripetibilita: 0.05 },
+        x: { scostamento: 4.300, ripetibilita: 0.05 },
+        y: { scostamento: 4.977, ripetibilita: 0.05 },
 
         /* Il PUNTO HOME non è lo zero: lo zero è il PUNTO AI BLOCCHI, dove i
            carrelli toccano. Finito l'azzeramento la macchina si sposta qui, a
@@ -204,9 +211,9 @@ var Profile = (function () {
     };
   }
 
-  /* Con 254,09 × 241,04 di corsa percorribile l'A4 non entra in nessun
-     orientamento: chiede 297 in un verso e il più lungo è 254. La macchina è
-     una A5 — B5 e un quadrato da 241 ci stanno, l'A4 no. */
+  /* Con 251,23 × 236,06 di corsa percorribile l'A4 non entra in nessun
+     orientamento: chiede 297 in un verso e il più lungo è 251. La macchina è
+     una A5 — un B5 ci sta per un millimetro, l'A4 no. */
   function stampaDefault() {
     return {
       nome: 'A5 — valori di partenza',

@@ -28,6 +28,10 @@
  */
 var FontTratto = require('./font-tratto.js');
 
+/* Il campo sta dentro la corsa percorribile rimisurata il 2026-10-22
+   (251,23 × 236,06), con 5,2 mm di margine su X e 3,1 su Y. Se una prossima
+   misura delle corse scende sotto questi due numeri, il campo va stretto:
+   la prova 1 è proprio la cornice del campo utile, e se non ci sta non parte. */
 var P = {
   larghezza: 246,
   altezza: 233,

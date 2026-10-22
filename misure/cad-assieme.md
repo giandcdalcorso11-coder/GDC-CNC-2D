@@ -107,15 +107,15 @@ non per i 2,5 mm che si erano calcolati quando era prevista la piattaforma.
 
 La posa del CAD non è l'home: i carrelli sono fermi a **8,19 mm** dal blocco X e
 a **2,13 mm** dal blocco Y. Sottraendoli, e aggiungendo le corse misurate sulla
-macchina (256,089 su X e 243,071 su Y dall'home):
+macchina (**253,232 su X e 238,064 su Y** dall'home, rimisurate il 2026-10-22):
 
 | | punta al punto ai blocchi | fino a |
 |---|---|---|
-| X | −206,20 | 49,89 |
-| Y | −217,91 | 25,16 |
+| X | −206,20 | 47,03 |
+| Y | −217,91 | 20,15 |
 
-**Margini sul bordo della tavola:** 287 mm a sinistra, 156 a destra, **32,8
-davanti**, 324 dietro. Tutta la zona di disegno è sulla tavola, e il lato stretto
+**Margini sul bordo della tavola:** 287 mm a sinistra, 159 a destra, **32,8
+davanti**, 329 dietro. Tutta la zona di disegno è sulla tavola, e il lato stretto
 è quello davanti — che è esattamente il motivo per cui la cremagliera dell'asse X
 è stata spostata.
 
@@ -125,15 +125,15 @@ Le corse, invece, sono misurate e certe.
 
 ### L'A4 non ci sta, e non è una novità
 
-L'area percorribile è **254,09 × 241,04 mm**. L'A4 chiede 297 in un verso, quindi
+L'area percorribile è **251,23 × 236,06 mm**. L'A4 chiede 297 in un verso, quindi
 non entra in nessun orientamento. Il `foglio A4` nel CAD è un riferimento, non un
-formato stampabile: sborda di 33 mm a sinistra, 7,5 a destra e 3,8 davanti.
+formato stampabile: sborda di 33 mm a sinistra, 10 a destra e 3,8 davanti.
 
 | Formato | Entra? |
 |---|---|
 | A5 210 × 148 | sì, largamente |
-| B5 250 × 176 | sì |
-| quadrato 241 × 241 | sì, al limite |
+| B5 250 × 176 | sì, ma per **1,2 mm** su X: da trattare come non garantito |
+| quadrato 236 × 236 | sì, al limite |
 | A4 297 × 210 | **no** |
 
 ---

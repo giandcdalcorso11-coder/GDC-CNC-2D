@@ -26,7 +26,7 @@ Importante, perché questa è una procedura **di arrivo**, non di oggi:
 | Pannello manuale dentro il SLICER | impalcatura presente, tutta disabilitata |
 | Profilo macchina e profilo di stampa | **fatti** (2026-10-19): tab Impostazioni, salvataggio nel browser, esportazione JSON |
 | Generazione di `config.yaml` dal profilo | **fatta**: un pulsante nella tab Impostazioni |
-| Blocchi di homing stampati | **fatti** e misurati (2026-10-20): scostamento X 1,443 mm, Y 0 |
+| Blocchi di homing stampati | **fatti**, rifatti e rimisurati (2026-10-22): scostamento X 4,300 mm, Y 4,977 |
 | Homing a mano nella dashboard | **fatto** (2026-10-19): libera i motori, appoggi i carrelli, riattiva e azzera |
 | Popup di inizio stampa | **fatti** (2026-10-20): tre passi, origine macchina / penna / foglio |
 | Invio del programma alla macchina | **da costruire** |

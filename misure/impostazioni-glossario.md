@@ -57,14 +57,24 @@ corsa percorribile  +  margine di sicurezza  +  scostamento del blocco  =  corsa
 | **Corsa percorribile** | *calcolata* | dall'home meno il margine: il confine che il software fa rispettare |
 | **Area di lavoro** | *calcolata* | percorribile X × percorribile Y, il riquadro al centro dello schermo |
 
-**Misurati il 2026-10-19**, coi blocchi montati:
+**Rimisurati il 2026-10-22**, dopo lo spostamento di una cremagliera e il
+rifacimento di un blocco:
 
 | | X | Y |
 |---|---|---|
-| corsa totale | 257,532 | 243,041 |
-| corsa dall'home | 256,089 | 243,071 |
-| scostamento | **1,443** | **0** (misurato −0,030, cioè un passo: rumore) |
+| corsa totale | 257,532 (8744 passi) | 243,042 (8252 passi) |
+| corsa dall'home | **253,232** (8598 passi) | **238,064** (8083 passi) |
+| scostamento | **4,300** (146 passi) | **4,977** (169 passi) |
+| corsa percorribile (margine 2,0) | **251,232** | **236,064** |
 | ripetibilità dell'appoggio | sotto la risoluzione del calibro | idem |
+
+La corsa totale è ancora quella del 2026-10-19, presa senza blocchi: non è
+stata rimisurata, e per rifarla i blocchi vanno tolti.
+
+Supera i valori del 2026-10-19 (scostamento 1,443 su X e 0 su Y, quando il
+blocco Y stava di fatto sulla battuta). Le due letture nuove valgono 8597,986
+e 8082,987 passi — a quattro decimi di micron da un intero, che è la stessa
+conferma di allora: il DRO non misura millimetri, conta passi.
 
 Il margine è sceso da **8,0 a 2,0 mm**: gli 8 coprivano l'errore di parcheggio
 di un'origine piazzata a occhio, che coi blocchi non esiste più. Restano il
