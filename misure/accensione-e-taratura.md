@@ -544,6 +544,19 @@ programma con cui si scopre che un asse va al contrario.
    (contatto Z0, alzata Z2.945, tappo Z21.271). Si carica e si lancia dalla
    WebUI di FluidNC — l'invio del programma dal SLICER non è ancora costruito.
 
+**Lo spazio in flash è il vincolo che non ci aspettavamo.** Dopo l'installazione
+della 4.1.1 con WebUI-2, il browser dei file dichiara **64 kB liberi**:
+`index.html.gz` da solo ne occupa 111, e la partizione è quella che è. Quindi
+ogni programma deve stare sotto i 64 kB — il collaudo scritto per esteso ne
+occupava 69 e **non ci sarebbe entrato**.
+
+Si recupera sfruttando la modalità del G-code, che non è un trucco ma il modo in
+cui il linguaggio è fatto: si emette solo quello che cambia (la parola G0/G1
+resta valida finché non cambia, una coordinata non ripetuta vuol dire «quell'asse
+resta dov'è», e gli zeri in coda si tolgono). Il collaudo passa così da 69.268 a
+**44.633 byte**, con lo stesso percorso: verificato ri-eseguendo il file e
+confrontando i 2994 stati con quelli del modello, zero differenze.
+
 Il disegno occupa 245,5 × 232,5 mm e la corsa percorribile è 251,2 × 236,1:
 restano **5,7 mm di margine su X e 3,6 su Y**. Non è molto, quindi l'origine va
 messa bene: se il quadrato del punto 2 esce storto o fuori posto, sistemalo

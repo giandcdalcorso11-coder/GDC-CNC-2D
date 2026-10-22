@@ -332,7 +332,34 @@ function gcode(opt) {
   var tappo = opt.tappo === undefined ? 21.271 : opt.tappo;
   var fd = opt.feedDisegno || 1200, fs = opt.feedSpostamento || 3000;
   var pausa = (opt.pausaMs === undefined ? 200 : opt.pausaMs) / 1000;
-  var n = function (v) { return (Math.round(v * 1000) / 1000).toFixed(3); };
+  /* Zeri in coda tolti: "93.000" diventa "93". Non si perde niente — un passo
+     del motore vale 0,0295 mm, quindi il millesimo è già tre volte più fine
+     di quanto la macchina sappia fare. */
+  var n = function (v) {
+    var t = (Math.round(v * 1000) / 1000).toFixed(3);
+    return t.replace(/\.?0+$/, '');
+  };
+
+  /* Il file deve stare nella flash dell'ESP32, e lo spazio libero è ~64 kB.
+     Scritto per esteso il collaudo ne occupa 69, cioè non ci sta. Si recupera
+     sfruttando la modalità del G-code, che non è un trucco ma il modo in cui
+     il linguaggio è fatto: si emette solo quello che CAMBIA.
+       - la parola di movimento (G0/G1) resta valida fino a quando non cambia;
+       - una coordinata non ripetuta vuol dire "quell'asse resta dov'è";
+       - lo stesso vale per F.
+     Una riga che non cambierebbe niente non si emette affatto: un G1 su un
+     punto identico al precedente è, oltre che inutile, il caso che FluidNC ha
+     dovuto correggere nella 4.1.1. */
+  var modo = null, ux = null, uy = null, uz = null, uf = null;
+  function muovi(g, x, y, z, f) {
+    var p = '';
+    if (g !== modo) { p += (p ? ' ' : '') + g; modo = g; }
+    if (x !== undefined && n(x) !== ux) { p += (p ? ' ' : '') + 'X' + n(x); ux = n(x); }
+    if (y !== undefined && n(y) !== uy) { p += (p ? ' ' : '') + 'Y' + n(y); uy = n(y); }
+    if (z !== undefined && n(z) !== uz) { p += (p ? ' ' : '') + 'Z' + n(z); uz = n(z); }
+    if (f !== undefined && String(f) !== uf) { p += (p ? ' ' : '') + 'F' + f; uf = String(f); }
+    if (p) L.push(p);
+  }
   var L = [];
   L.push('; GDC CNC 2D - disegno di collaudo');
   L.push('; campo ' + P.larghezza + ' x ' + P.altezza + ' mm');
@@ -341,25 +368,24 @@ function gcode(opt) {
   if (tappo > alzata) L.push('; a fine programma la penna sale a Z' + n(contatto + tappo) + ' (tappo)');
   L.push('; come si legge: misure/disegno-di-collaudo.md');
   L.push('G21'); L.push('G90');
-  L.push('G0 Z' + n(contatto + alzata));
+  var attesa = pausa > 0 ? 'G4 P' + n(pausa) : null;
+  muovi('G0', undefined, undefined, contatto + alzata);
   tratti.forEach(function (t) {
     var p = t.punti;
-    if (t.avvicinamento) {
-      L.push('G0 X' + n(t.avvicinamento.x) + ' Y' + n(t.avvicinamento.y) + ' F' + fs);
-    }
-    L.push('G0 X' + n(p[0].x) + ' Y' + n(p[0].y) + ' F' + fs);
-    L.push('G1 Z' + n(contatto + t.z) + ' F600');
-    if (pausa > 0) L.push('G4 P' + pausa.toFixed(3));
+    if (t.avvicinamento) muovi('G0', t.avvicinamento.x, t.avvicinamento.y, undefined, fs);
+    muovi('G0', p[0].x, p[0].y, undefined, fs);
+    muovi('G1', undefined, undefined, contatto + t.z, 600);
+    if (attesa) L.push(attesa);
     for (var i = 1; i < p.length; i++) {
-      L.push('G1 X' + n(p[i].x) + ' Y' + n(p[i].y) + (i === 1 ? ' F' + (t.feed || fd) : ''));
+      muovi('G1', p[i].x, p[i].y, undefined, i === 1 ? (t.feed || fd) : undefined);
     }
-    L.push('G0 Z' + n(contatto + alzata));
-    if (pausa > 0) L.push('G4 P' + pausa.toFixed(3));
+    muovi('G0', undefined, undefined, contatto + alzata);
+    if (attesa) L.push(attesa);
   });
-  L.push('G0 X0 Y0 F' + fs);
+  muovi('G0', 0, 0, undefined, fs);
   /* Dopo il ritorno all'origine, non prima: così la testina è già ferma in un
      angolo quando ci arrivi con il tappo in mano. */
-  if (tappo > alzata) L.push('G0 Z' + n(contatto + tappo));
+  if (tappo > alzata) muovi('G0', undefined, undefined, contatto + tappo);
   L.push('M2');
   return L.join('\n') + '\n';
 }
@@ -381,6 +407,7 @@ function statistiche() {
 }
 
 module.exports = { P: P, costruisci: costruisci, svg: svg, gcode: gcode,
+                   tratti: function () { return tratti; },
                    statistiche: statistiche };
 
 if (require.main === module) {
