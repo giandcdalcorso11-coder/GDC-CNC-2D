@@ -8,8 +8,9 @@
 ;
 ; MISURE ATTESE:
 ;   lati          235.5 e 190 mm
-;   la CHIUSURA   l ultimo tratto deve tornare esattamente dove e
-;                 partito. Uno scalino visibile all angolo e gioco.
+;   diagonali     302.59 mm TUTTE E DUE.
+;                 Differenti = assi fuori squadra, e la leva lunga
+;                 rende la misura piu severa di qualunque altra.
 ;
 ; TRATTO INTERROTTO = il piano o il portale si alzano li. La penna non
 ; ha molla, quindi il fuori-piano non si assorbe. Vedi
@@ -51,7 +52,7 @@ G0 Y5
 ; FERMO: nessun carrello ha toccato il fondo? Allora ~
 M0
 
-; --- 3. IL RETTANGOLO ---
+; --- 3. IL RETTANGOLO E LE DIAGONALI ---
 G21
 G90
 G0 Z-18.326
@@ -64,5 +65,17 @@ X5
 Y5
 G0 Z-18.326
 G4 P0.200
+G1 Z-21.271 F600
+G4 P0.200
+X240.5 Y195 F1200
+G0 Z-18.326
+G4 P0.200
+Y5 F3000
+G1 Z-21.271 F600
+G4 P0.200
+X5 Y195 F1200
+G0 Z-18.326
+G4 P0.200
+Y5 F3000
 Z0
 M2
