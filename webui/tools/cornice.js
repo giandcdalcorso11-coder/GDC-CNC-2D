@@ -17,8 +17,13 @@
  * vorrebbero dire che un avvio per sbaglio libera i motori e rizzera dove
  * capita.
  *
+ * Senza argomenti disegna la cornice piena dell'area utile. Con --da,
+ * --larghezza e --altezza disegna un rettangolo qualsiasi dentro quell'area:
+ * la parola `max` chiede il massimo raggiungibile da dove si parte.
+ *
  * Uso:  node cornice.js --gcode c.gcode
- *       ... --margine 0.5 --penna no --giro no
+ *       ... --da 5,5 --larghezza max --altezza 190
+ *       ... --margine 0.5 --penna no --giro no --diagonali no
  */
 var path = require('path');
 
@@ -54,36 +59,70 @@ if (require.main === module) {
      una riga d'acciaio senza interpretare i decimali, e quello che si perde
      (sette decimi in X, cinque in Y) sta sopra e oltre i 2 mm di margine di
      sicurezza già tolti dalla corsa percorribile. */
-  var P = { x0: m, y0: m,
-            x1: m + Math.floor(area.w - 2 * m),
-            y1: m + Math.floor(area.h - 2 * m) };
+  /* Il bordo utile: oltre non si va. È lo stesso per tutti i rettangoli, da
+     qualunque punto partano. */
+  var limite = { x: m + Math.floor(area.w - 2 * m), y: m + Math.floor(area.h - 2 * m) };
+
+  var da = (arg('da') || (m + ',' + m)).split(',').map(parseFloat);
+  var lato = function (nome, x0, lim) {
+    var v = arg(nome);
+    if (v === undefined || v === 'max') return lim - x0;
+    return parseFloat(v);
+  };
+  var P = { x0: da[0], y0: da[1] };
+  P.x1 = P.x0 + lato('larghezza', P.x0, limite.x);
+  P.y1 = P.y0 + lato('altezza', P.y0, limite.y);
+
   var r = costruisci(P);
-  if (P.x1 > area.w || P.y1 > area.h) throw new Error('la cornice esce dall\'area utile');
+  if (P.x0 < 0 || P.y0 < 0 || P.x1 > area.w || P.y1 > area.h) {
+    throw new Error('il rettangolo esce dall\'area utile: X ' + P.x0 + '..' + P.x1 +
+                    '  Y ' + P.y0 + '..' + P.y1 + '  area ' +
+                    area.w.toFixed(3) + ' x ' + area.h.toFixed(3));
+  }
 
   var giu = Profile.zContatto(), su = Profile.zAlzata(), tappo = Profile.zTappo();
   var st = Profile.stampa();
   var n3 = function (v) { return (Math.round(v * 1000) / 1000).toFixed(3).replace(/\.?0+$/, ''); };
   var f2 = function (v) { return v.toFixed(2); };
 
+  /* Che foglio serve: si confronta l'ingombro coi formati, in entrambi i
+     versi, invece di darlo per scontato. */
+  var formati = [['A4', 210, 297], ['A3', 297, 420], ['A2', 420, 594]];
+  var ciSta = function (f) {
+    return (r.larghezza <= f[1] && r.altezza <= f[2]) ||
+           (r.larghezza <= f[2] && r.altezza <= f[1]);
+  };
+  var buono = formati.filter(ciSta)[0];
+  var orizzontale = buono && r.larghezza > buono[1];
+
+  var pieno = P.x1 >= limite.x && P.y1 >= limite.y && P.x0 <= m && P.y0 <= m;
   var L = [];
-  L.push('; GDC CNC 2D - cornice dell area utile ' + r.larghezza + ' x ' + r.altezza + ' mm');
+  L.push('; GDC CNC 2D - ' + (pieno ? 'cornice dell area utile' : 'rettangolo') +
+         ' ' + r.larghezza + ' x ' + r.altezza + ' mm');
   L.push(';');
-  L.push('; Il rettangolo e il campo di lavoro: da X' + P.x0 + ' Y' + P.y0 +
-         ' a X' + P.x1 + ' Y' + P.y1 + ',');
-  L.push('; contati dal punto ai blocchi. Oltre il tratto restano ' +
-         (area.w - P.x1).toFixed(2) + ' mm in X e ' + (area.h - P.y1).toFixed(2) + ' in Y,');
-  L.push('; piu i ' + Profile.macchina().corse.x.margineSicurezza +
-         ' mm di margine di sicurezza gia tolti dalla corsa percorribile.');
+  L.push('; Da X' + P.x0 + ' Y' + P.y0 + ' a X' + P.x1 + ' Y' + P.y1 +
+         ', contati dal punto ai blocchi.');
+  L.push('; Oltre il tratto restano ' + (area.w - P.x1).toFixed(2) + ' mm in X e ' +
+         (area.h - P.y1).toFixed(2) + ' in Y, piu i ' +
+         Profile.macchina().corse.x.margineSicurezza + ' mm di margine di');
+  L.push('; sicurezza gia tolti dalla corsa percorribile. Area utile ' +
+         area.w.toFixed(3) + ' x ' + area.h.toFixed(3) + '.');
   L.push(';');
-  L.push('; IL FOGLIO DEVE ESSERE GRANDE ' + r.larghezza + ' x ' + r.altezza +
-         ' mm: un A4 NON basta (210 in X).');
-  L.push('; Serve un A3, o due A4 uniti con del nastro sul retro.');
+  L.push('; IL FOGLIO: servono ' + r.larghezza + ' x ' + r.altezza + ' mm, quindi ' +
+         (buono ? 'un ' + buono[0] + (orizzontale ? ' ORIZZONTALE' : ' verticale') + ' basta.'
+                : 'nessun formato standard fino all A2 basta.'));
   L.push(';');
+  var conDiagonali = arg('diagonali') !== 'no';
   L.push('; MISURE ATTESE:');
   L.push(';   lati          ' + r.larghezza + ' e ' + r.altezza + ' mm');
-  L.push(';   diagonali     ' + f2(r.diagonale) + ' mm TUTTE E DUE, sulla campata massima.');
-  L.push(';                 Differenti = assi fuori squadra, ed e la misura piu');
-  L.push(';                 severa possibile perche la leva e la piu lunga.');
+  if (conDiagonali) {
+    L.push(';   diagonali     ' + f2(r.diagonale) + ' mm TUTTE E DUE.');
+    L.push(';                 Differenti = assi fuori squadra, e la leva lunga');
+    L.push(';                 rende la misura piu severa di qualunque altra.');
+  } else {
+    L.push(';   la CHIUSURA   l ultimo tratto deve tornare esattamente dove e');
+    L.push(';                 partito. Uno scalino visibile all angolo e gioco.');
+  }
   L.push(';');
   L.push('; TRATTO INTERROTTO = il piano o il portale si alzano li. La penna non');
   L.push('; ha molla, quindi il fuori-piano non si assorbe. Vedi');
@@ -117,9 +156,10 @@ if (require.main === module) {
 
   if (arg('giro') !== 'no') {
     L.push('');
-    L.push('; --- 2. GIRO A VUOTO DEGLI ESTREMI, penna alta e piano. ---');
-    L.push('; E la prima volta che i carrelli vanno al limite: si guarda prima di');
-    L.push('; consumare il foglio. Se uno forza o rumoreggia, Ctrl-X.');
+    L.push('; --- 2. GIRO A VUOTO DEGLI ANGOLI, penna alta e piano. ---');
+    L.push('; Si percorre il rettangolo senza inchiostro, a velocita ridotta, per');
+    L.push('; vedere dove arriva e che nessun carrello forzi. Se uno tocca il fondo');
+    L.push('; o rumoreggia, Ctrl-X prima di consumare il foglio.');
     L.push('G0 Z' + n3(tappo));
     L.push('G0 X' + n3(P.x0) + ' Y' + n3(P.y0) + ' F1000');
     L.push('G0 X' + n3(P.x1));
@@ -131,8 +171,8 @@ if (require.main === module) {
   }
 
   L.push('');
-  L.push('; --- 3. LA CORNICE E LE DIAGONALI ---');
-  var disegno = Gcode.build([r.cornice].concat(r.diagonali), {
+  L.push('; --- 3. IL RETTANGOLO' + (conDiagonali ? ' E LE DIAGONALI' : '') + ' ---');
+  var disegno = Gcode.build([r.cornice].concat(conDiagonali ? r.diagonali : []), {
     penUp: su, penDown: giu, penTappo: tappo, ritorno: home, pennaTarata: true,
     pausaMs: st.pausaPennaMs, feedDraw: st.velocitaDisegno,
     feedTravel: st.velocitaSpostamento, feedPen: 600
@@ -145,7 +185,7 @@ if (require.main === module) {
   var nome = arg('gcode');
   if (nome) { fs.writeFileSync(nome, out); console.log('scritto ' + nome); }
 
-  var lung = 2 * (r.larghezza + r.altezza) + 2 * r.diagonale;
+  var lung = 2 * (r.larghezza + r.altezza) + (conDiagonali ? 2 * r.diagonale : 0);
   console.log('cornice ' + r.larghezza + ' x ' + r.altezza + ', diagonale ' + f2(r.diagonale) +
               ', disegno ' + lung.toFixed(0) + ' mm, ' + out.length + ' byte, ' +
               (L.filter(function (x) { return x === 'M0'; }).length) + ' pause');

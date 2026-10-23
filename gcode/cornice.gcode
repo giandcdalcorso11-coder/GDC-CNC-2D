@@ -1,17 +1,16 @@
 ; GDC CNC 2D - cornice dell area utile 250 x 235 mm
 ;
-; Il rettangolo e il campo di lavoro: da X0.5 Y0.5 a X250.5 Y235.5,
-; contati dal punto ai blocchi. Oltre il tratto restano 0.73 mm in X e 0.56 in Y,
-; piu i 2 mm di margine di sicurezza gia tolti dalla corsa percorribile.
+; Da X0.5 Y0.5 a X250.5 Y235.5, contati dal punto ai blocchi.
+; Oltre il tratto restano 0.73 mm in X e 0.56 in Y, piu i 2 mm di margine di
+; sicurezza gia tolti dalla corsa percorribile. Area utile 251.232 x 236.064.
 ;
-; IL FOGLIO DEVE ESSERE GRANDE 250 x 235 mm: un A4 NON basta (210 in X).
-; Serve un A3, o due A4 uniti con del nastro sul retro.
+; IL FOGLIO: servono 250 x 235 mm, quindi un A3 verticale basta.
 ;
 ; MISURE ATTESE:
 ;   lati          250 e 235 mm
-;   diagonali     343.11 mm TUTTE E DUE, sulla campata massima.
-;                 Differenti = assi fuori squadra, ed e la misura piu
-;                 severa possibile perche la leva e la piu lunga.
+;   diagonali     343.11 mm TUTTE E DUE.
+;                 Differenti = assi fuori squadra, e la leva lunga
+;                 rende la misura piu severa di qualunque altra.
 ;
 ; TRATTO INTERROTTO = il piano o il portale si alzano li. La penna non
 ; ha molla, quindi il fuori-piano non si assorbe. Vedi
@@ -40,9 +39,10 @@ G0 Z-18.326
 ; schiacciare. Se va bene ~, se no Ctrl-X e si ricomincia.
 M0
 
-; --- 2. GIRO A VUOTO DEGLI ESTREMI, penna alta e piano. ---
-; E la prima volta che i carrelli vanno al limite: si guarda prima di
-; consumare il foglio. Se uno forza o rumoreggia, Ctrl-X.
+; --- 2. GIRO A VUOTO DEGLI ANGOLI, penna alta e piano. ---
+; Si percorre il rettangolo senza inchiostro, a velocita ridotta, per
+; vedere dove arriva e che nessun carrello forzi. Se uno tocca il fondo
+; o rumoreggia, Ctrl-X prima di consumare il foglio.
 G0 Z0
 G0 X0.5 Y0.5 F1000
 G0 X250.5
@@ -52,7 +52,7 @@ G0 Y0.5
 ; FERMO: nessun carrello ha toccato il fondo? Allora ~
 M0
 
-; --- 3. LA CORNICE E LE DIAGONALI ---
+; --- 3. IL RETTANGOLO E LE DIAGONALI ---
 G21
 G90
 G0 Z-18.326
