@@ -134,8 +134,13 @@ if (require.main === module) {
   L.push('; PRIMA DI LANCIARE serve l origine, che NON sta in questo file:');
   L.push(';   $MD  -> appoggia i carrelli ai blocchi -> G92 X0 Y0 -> G90 G0 X5 Y5 F1000');
   L.push(';');
-  L.push('G21');
-  L.push('G90');
+  /* G21/G90 qui servono solo se c'è un preambolo da eseguire prima del
+     disegno: Gcode.build li riemette comunque in testa alla sua parte, e
+     ripeterli senza niente in mezzo e' solo rumore. */
+  if (arg('penna') !== 'no' || arg('giro') !== 'no') {
+    L.push('G21');
+    L.push('G90');
+  }
 
   if (arg('penna') !== 'no') {
     L.push('');
