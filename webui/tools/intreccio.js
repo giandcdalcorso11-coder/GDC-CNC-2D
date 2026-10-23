@@ -141,27 +141,47 @@ function costruisci(P) {
   var apotema = (P.Ro - P.larghezza) * Math.cos(Math.PI / 6);
   anelli.forEach(function (A) {
     A.suoi = [A.fuori, A.dentro];
+    A.ornamenti = [];
     for (var j = 0; j < 3; j++) {
       var f = (3 - j) / 3;                       // 1, 2/3, 1/3
       var r = apotema * f * P.riempimento;
-      A.suoi.push(cerchio(A.c, r, P.latiCerchio));
+      A.ornamenti.push(cerchio(A.c, r, P.latiCerchio));
       /* L'esagono piccolo inscritto nel cerchio, ruotato di 30 gradi rispetto
          a quello grande cosi' i vertici cadono dove il cerchio ha piu' spazio
          e le due figure si leggono separate. */
-      A.suoi.push(esagono(A.c, r, (P.rotazione || 0) + Math.PI / 6));
+      A.ornamenti.push(esagono(A.c, r, (P.rotazione || 0) + Math.PI / 6));
     }
   });
 
   var tratti = [];
-  /* L'intreccio borromeo: ognuno passa SOTTO il successivo. Nessuno e' sopra
-     o sotto a tutti - e' quello che lo rende un intreccio e non una pila.
-     Il taglio vale per TUTTE le linee dell'anello, decorazioni comprese: una
-     fascia che passa sopra copre anche quello che c'e' nel foro. */
+  anelli.forEach(function (a) { a.minimo = P.minimo; });
+
+  /* L'intreccio borromeo: ogni anello passa SOTTO il successivo e sopra
+     l'altro. Nessuno e' sopra o sotto a tutti - e' quello che lo rende un
+     intreccio e non una pila. Il suo contorno si taglia quindi con UNO solo
+     degli altri due. */
   anelli.forEach(function (A, i) {
     var sopra = anelli[(i + 2) % 3];
-    sopra.minimo = P.minimo;
-    A.suoi.forEach(function (linea) {
+    [A.fuori, A.dentro].forEach(function (linea) {
       toglie(linea, sopra).forEach(function (p) { tratti.push(p); });
+    });
+  });
+
+  /* Gli ornamenti no: stanno sulla CARTA, dentro il foro, e il foro e' un
+     buco - si vede quello che ci passa dietro. Quindi li copre qualunque
+     fascia passi di li, tutte e due le altre, non solo quella che sta sopra
+     al loro anello. Tagliarli come se fossero parte dell'anello li faceva
+     comparire sopra una fascia che invece gli passa davanti. */
+  anelli.forEach(function (A, i) {
+    var altri = [anelli[(i + 1) % 3], anelli[(i + 2) % 3]];
+    A.ornamenti.forEach(function (linea) {
+      var pezzi = [linea];
+      altri.forEach(function (B) {
+        var next = [];
+        pezzi.forEach(function (p) { toglie(p, B).forEach(function (q) { next.push(q); }); });
+        pezzi = next;
+      });
+      pezzi.forEach(function (p) { tratti.push(p); });
     });
   });
 
