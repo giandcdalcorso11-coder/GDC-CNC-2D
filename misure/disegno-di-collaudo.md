@@ -13,6 +13,23 @@ node webui/tools/test-macchina.js --gcode prova.gcode --contatto <Z> --alzata <m
 l'alzata sono numeri misurati. Campo **246 × 233 mm** — serve un foglio
 tagliato su misura.
 
+> ### ⚠ Questo disegno NON si può generare, al momento
+>
+> Il 2026-10-23 l'area utile su X si è ristretta a **241,232 mm**: sul lato
+> destro il pignone del carrello tocca la cremagliera dell'asse Y prima della
+> fine corsa. Il campo di questo disegno è largo 246 e **sfora di 4,8 mm**.
+>
+> Le scatole qui dentro hanno coordinate assolute — `scalaX(1, 1, 244, 17)`,
+> `cerchi(173, 20, 72, 72)`, `ripetibilita(149, 171, 96, 23)` — quindi non
+> basta cambiare `P.larghezza`: va rifatta la disposizione della colonna di
+> destra, stringendo le scatole da 72 e 96 mm e spostando il punto del livello
+> che sta a X236.
+>
+> Il generatore se ne accorge da solo e **rifiuta di scrivere il G-code**,
+> confrontando il campo con l'area utile del profilo. L'SVG lo fa comunque,
+> perché serve proprio a rifare la disposizione e un'immagine non manda un
+> carrello contro niente.
+
 Strumenti: **riga d'acciaio da 300**, **calibro**, una **lente** se ce l'hai.
 
 ---

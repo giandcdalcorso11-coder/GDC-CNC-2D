@@ -65,8 +65,21 @@ rifacimento di un blocco:
 | corsa totale | 257,532 (8744 passi) | 243,042 (8252 passi) |
 | corsa dall'home | **253,232** (8598 passi) | **238,064** (8083 passi) |
 | scostamento | **4,300** (146 passi) | **4,977** (169 passi) |
-| corsa percorribile (margine 2,0) | **251,232** | **236,064** |
+| ostacolo meccanico | **10,0** | 0 |
+| corsa percorribile (margine 2,0) | **241,232** | **236,064** |
 | ripetibilità dell'appoggio | sotto la risoluzione del calibro | idem |
+
+**L'ostacolo non è il margine**, e il profilo li tiene in due campi separati.
+Il margine copre l'**incertezza** — quanto ripete l'appoggio al blocco, il
+gioco della cremagliera — e si riduce diventando più precisi. L'ostacolo è un
+impedimento **meccanico certo**: il 2026-10-23 si è visto che sul lato destro
+il pignone del carrello tocca la cremagliera dell'asse Y **prima** che il
+carrello arrivi in fondo. L'interferenza misurata è 5 mm, se ne tolgono 10 per
+stare larghi finché non viene rimisurata. Quei dieci millimetri si recuperano
+spostando la cremagliera di Y, non tarando meglio: per questo stanno scritti a
+parte, se no fra sei mesi non si saprebbe più se sono recuperabili.
+
+Vale quindi: **percorribile + margine + ostacolo + scostamento = totale**.
 
 La corsa totale è ancora quella del 2026-10-19, presa senza blocchi: non è
 stata rimisurata, e per rifarla i blocchi vanno tolti.

@@ -30,14 +30,19 @@ raggiungere.
 |---|---|
 | `G90 G0 X0 Y0 F3000` | **lo zero**, il punto ai blocchi. Ci arriva appoggiandosi al riferimento: usalo per controllare, non per parcheggiare |
 | `G90 G0 X5 Y5 F3000` | **punto home**, 5 mm dentro da entrambi i blocchi. È dove si parcheggia: un carrello fermo contro il riferimento prima o poi lo sposta |
-| `G90 G0 X125.616 Y118.032 F3000` | **centro dell'area utile** |
-| `G90 G0 X250.5 Y235.5 F3000` | **angolo opposto**, il punto utile più lontano |
-| `G90 G0 X250.5 Y0.5 F3000` | angolo in **basso a destra** |
+| `G90 G0 X120.616 Y118.032 F3000` | **centro dell'area utile** |
+| `G90 G0 X240.5 Y235.5 F3000` | **angolo opposto**, il punto utile più lontano |
+| `G90 G0 X240.5 Y0.5 F3000` | angolo in **basso a destra** |
 | `G90 G0 X0.5 Y235.5 F3000` | angolo in **alto a sinistra** |
 
-L'area utile è **251,232 × 236,064 mm**. Gli angoli qui sopra stanno mezzo
+L'area utile è **241,232 × 236,064 mm**. Gli angoli qui sopra stanno mezzo
 millimetro dentro, e oltre il tratto restano comunque i 2 mm di margine di
 sicurezza già tolti dalla corsa percorribile.
+
+**X si è accorciata di 10 mm il 2026-10-23**, e non per taratura: sul lato
+destro il pignone del carrello tocca la cremagliera dell'asse Y prima che il
+carrello arrivi in fondo. Erano 251,232. Si recuperano spostando la
+cremagliera, non diventando più precisi.
 
 ## L'origine, in quest'ordine
 

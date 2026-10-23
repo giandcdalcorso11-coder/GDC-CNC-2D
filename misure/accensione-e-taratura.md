@@ -626,9 +626,14 @@ programma con cui si scopre che un asse va al contrario.
 2. **Un quadrato piccolo**, 50 mm, disegnato da qualche parte in mezzo al
    foglio. Serve a tre cose: che i versi siano giusti, che la penna segni per
    tutto il perimetro, e che il quadrato chiuda dove è partito.
-3. **Poi il collaudo:** `gcode/collaudo.gcode`, già generato con i numeri veri
-   (contatto Z−21.271, alzata Z−18.326, tappo Z0). Si carica e si lancia dalla
-   WebUI di FluidNC — l'invio del programma dal SLICER non è ancora costruito.
+3. **Poi il collaudo** — che però **al momento non si può generare**. Il
+   2026-10-23 l'area utile su X è scesa a 241,232 mm (il pignone del carrello
+   tocca la cremagliera di Y sul lato destro) e il campo del collaudo è largo
+   246: sfora di 4,8 mm. Il generatore lo rileva e rifiuta di scrivere il
+   G-code. Va rifatta la disposizione della colonna di destra — vedi
+   `misure/disegno-di-collaudo.md`. Nel frattempo la cornice dell'area utile
+   (`gcode/cornice.gcode`) copre la parte che serve subito: estensione reale e
+   planarità ai bordi.
 
 ### «Upload filesystem inaccessible»: stai caricando sulla SD
 
@@ -728,10 +733,12 @@ righe di penna. Resta sotto i 64 kB con 16 di margine, e il controllo è stato
 rifatto sul file nuovo: 3025 stati confrontati, zero differenze, nessuna quota
 fuori dall'intervallo `(-21.281, 0.010)` dichiarato da FluidNC.
 
-Il disegno occupa 245,5 × 232,5 mm e la corsa percorribile è 251,2 × 236,1:
-restano **5,7 mm di margine su X e 3,6 su Y**. Non è molto, quindi l'origine va
-messa bene: se il quadrato del punto 2 esce storto o fuori posto, sistemalo
-prima di lanciare venti minuti di disegno.
+Il disegno occupa 245,5 × 232,5 mm. Quando fu scritto la corsa percorribile
+era 251,2 × 236,1 e restavano 5,7 mm di margine su X e 3,6 su Y: poco, ma
+bastava. **Dal 2026-10-23 su X ce ne sono 241,2**, quindi non basta più — vedi
+il punto 3. In ogni caso l'origine va messa bene: se il quadrato del punto 2
+esce storto o fuori posto, sistemalo prima di lanciare venti minuti di
+disegno.
 
 ## A5. Caricare il SLICER sulla macchina
 

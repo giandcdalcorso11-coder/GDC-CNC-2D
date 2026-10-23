@@ -334,6 +334,12 @@
         <label><span class="flab">Margine di sicurezza Y (mm) <b class="prov prov-scelto">scelto</b></span>
           <input type="number" step="0.5" data-bind="macchina.corse.y.margineSicurezza"></label>
       </div>
+      <div class="field-row">
+        <label><span class="flab">Ostacolo meccanico X (mm) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="0.5" min="0" data-bind="macchina.corse.x.ostacolo"></label>
+        <label><span class="flab">Ostacolo meccanico Y (mm) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="0.5" min="0" data-bind="macchina.corse.y.ostacolo"></label>
+      </div>
       <div class="readout">
         <div class="ro"><span>Corsa dall'home X</span><b data-calc="home.x">—</b></div>
         <div class="ro"><span>Corsa dall'home Y</span><b data-calc="home.y">—</b></div>
@@ -341,11 +347,17 @@
         <div class="ro"><span>Corsa percorribile Y</span><b data-calc="perc.y">—</b></div>
         <div class="ro"><span>Area di lavoro</span><b data-calc="area">—</b></div>
       </div>
-      <p class="muted small">Vale sempre: percorribile + margine + scostamento del
-        blocco = totale. Lo zero è il <b>blocco di homing</b>, non la battuta, quindi
-        quello che si percorre parte da lì. Quello che resta scritto sono i
-        <b>passi</b> — sono la misura vera. I millimetri sono un'interpretazione, e
-        cambiano quando tari il rapporto anche se la macchina non è stata toccata.</p>
+      <p class="muted small">Vale sempre: percorribile + margine + <b>ostacolo</b> +
+        scostamento del blocco = totale. Lo zero è il <b>blocco di homing</b>, non la
+        battuta, quindi quello che si percorre parte da lì. Quello che resta scritto
+        sono i <b>passi</b> — sono la misura vera. I millimetri sono un'interpretazione,
+        e cambiano quando tari il rapporto anche se la macchina non è stata toccata.</p>
+      <p class="muted small"><b>Margine e ostacolo non sono la stessa cosa.</b> Il
+        margine copre l'<b>incertezza</b>: quanto ripete l'appoggio al blocco, il gioco
+        della cremagliera. L'ostacolo è un impedimento <b>meccanico certo</b> — qualcosa
+        che si tocca prima di arrivare in fondo — e si toglie smontando o spostando un
+        pezzo, non diventando più precisi. Tenendoli separati, fra sei mesi si sa ancora
+        quali millimetri sono recuperabili.</p>
     </section>
 
     <section class="card">

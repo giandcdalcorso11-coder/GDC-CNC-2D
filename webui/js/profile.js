@@ -97,8 +97,23 @@ var Profile = (function () {
            millimetri li coprono con abbondanza. L'errore di scala NON entra:
            limite e comando sono entrambi in unità del DRO, quindi si
            semplifica. */
-        x: { corsaPassi: 8744, margineSicurezza: 2.0, misurato: '2026-10-19' },
-        y: { corsaPassi: 8252, margineSicurezza: 2.0, misurato: '2026-10-19' }
+        /* `ostacolo` è un'altra cosa dal margine, e tenerli separati non è
+           pedanteria: il margine copre l'INCERTEZZA (quanto ripete l'appoggio,
+           il gioco), l'ostacolo è un impedimento MECCANICO certo, che si toglie
+           smontando qualcosa e non diventando più precisi. Sommarli in un unico
+           numero vorrebbe dire, fra sei mesi, non sapere più se quei millimetri
+           si possono recuperare o no.
+
+           X vale 10 il 2026-10-23: il pignone del carrello tocca la cremagliera
+           dell'asse Y sul lato destro PRIMA che il carrello arrivi in fondo.
+           L'interferenza misurata è 5 mm, se ne tolgono 10 per stare larghi
+           finché non è rimisurata con calma. È un limite della geometria del
+           montaggio: sparirà se la cremagliera di Y verrà spostata, non
+           migliorando la taratura. */
+        x: { corsaPassi: 8744, margineSicurezza: 2.0, ostacolo: 10.0,
+             misurato: '2026-10-19' },
+        y: { corsaPassi: 8252, margineSicurezza: 2.0, ostacolo: 0,
+             misurato: '2026-10-19' }
       },
 
       /* Niente finecorsa elettrici, ma un riferimento fisico: blocchi stampati
@@ -298,6 +313,11 @@ var Profile = (function () {
       var vecchio = letto.corse && letto.corse[a];
       if (!vecchio) return;
       if (typeof vecchio.margine === 'number') m.corse[a].margineSicurezza = vecchio.margine;
+      /* Un profilo salvato prima del 2026-10-23 non ha il campo: senza questo
+         resterebbe undefined e la sottrazione darebbe NaN, cioè un'area di
+         lavoro che non è un numero. Zero è il valore giusto per chi non ha
+         mai rilevato un ostacolo. */
+      if (typeof m.corse[a].ostacolo !== 'number') m.corse[a].ostacolo = 0;
       if (typeof vecchio.corsa === 'number') {
         /* La corsa era in millimetri: si riporta in passi col rapporto con cui
            era stata letta, che è quello salvato nello stesso profilo. */
@@ -431,13 +451,16 @@ var Profile = (function () {
     return corsaTotale(asse) - (sc === null ? 0 : Math.max(0, sc));
   }
 
-  /* Corsa percorribile: quella dall'home, meno il margine di sicurezza. È il
-     confine che il software fa rispettare, e vale l'identità del glossario
-     (percorribile + margine + scostamento = totale). Senza finecorsa non c'è
-     nessuno che lo faccia rispettare a valle, quindi è l'interfaccia a dover
-     verificare l'ingombro prima di far partire un programma. */
+  /* Corsa percorribile: quella dall'home, meno il margine di sicurezza e meno
+     l'eventuale ostacolo meccanico. È il confine che il software fa rispettare,
+     e vale l'identità del glossario
+     (percorribile + margine + ostacolo + scostamento = totale).
+     Senza finecorsa non c'è nessuno che lo faccia rispettare a valle, quindi è
+     l'interfaccia a dover verificare l'ingombro prima di far partire un
+     programma. */
   function corsaPercorribile(asse) {
-    return Math.max(0, corsaDaHome(asse) - macchina().corse[asse].margineSicurezza);
+    var c = macchina().corse[asse];
+    return Math.max(0, corsaDaHome(asse) - c.margineSicurezza - (c.ostacolo || 0));
   }
 
   function passiPercorribili(asse) {
@@ -601,8 +624,15 @@ var Profile = (function () {
       if (c.corsaPassi > 0 && corsaPercorribile(a) <= 0) {
         problemi.push({
           gravita: 'blocco', campo: 'corse.' + a,
-          testo: 'Sull\'asse ' + A + ' il margine di sicurezza si mangia tutta ' +
-                 'la corsa: non resta niente da percorrere.'
+          testo: 'Sull\'asse ' + A + ' il margine di sicurezza e l\'ostacolo si ' +
+                 'mangiano tutta la corsa: non resta niente da percorrere.'
+        });
+      }
+      if (c.ostacolo < 0) {
+        problemi.push({
+          gravita: 'blocco', campo: 'corse.' + a,
+          testo: 'L\'ostacolo meccanico sull\'asse ' + A + ' è negativo: un ' +
+                 'impedimento non può allungare la corsa.'
         });
       }
       /* La ripetibilità dell'appoggio al blocco di homing è il motivo per cui
@@ -737,7 +767,14 @@ var Profile = (function () {
                 ' (' + m.corse[a].corsaPassi + ' passi), blocco a ' + n(sc, 3) +
                 ' dalla battuta.');
       c('    ', 'Percorribile ' + n(corsaPercorribile(a)) +
-                ' (margine ' + n(m.corse[a].margineSicurezza, 1) + ').');
+                ' (margine ' + n(m.corse[a].margineSicurezza, 1) +
+                (m.corse[a].ostacolo ? ', ostacolo ' + n(m.corse[a].ostacolo, 1) : '') + ').');
+      if (m.corse[a].ostacolo) {
+        c('    ', "L'ostacolo è un impedimento meccanico: qualcosa si tocca prima");
+        c('    ', 'della fine corsa. max_travel_mm resta la corsa FISICA, perché');
+        c('    ', 'descrive la macchina; a non uscire dal percorribile ci pensa');
+        c('    ', "l'interfaccia prima di generare un programma.");
+      }
       k('    max_travel_mm: ' + n(corsaDaHome(a)));
       k('    soft_limits: false');
       k('');

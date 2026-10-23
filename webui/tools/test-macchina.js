@@ -442,7 +442,45 @@ module.exports = { P: P, costruisci: costruisci, svg: svg, gcode: gcode,
                    statistiche: statistiche };
 
 if (require.main === module) {
-  var fs = require('fs'), a = process.argv;
+  var fs = require('fs'), a = process.argv, path = require('path');
+
+  /* Il campo di questo disegno è disposto a coordinate assolute e non si
+     stringe cambiando un numero. Quindi, invece di fidarsi, si CONFRONTA con
+     l'area utile del profilo prima di scrivere qualunque cosa: un programma
+     che esce dall'area non sbaglia il disegno, manda il carrello contro
+     qualcosa. Il 2026-10-23 l'area si è ristretta di 10 mm in X (il pignone
+     del carrello tocca la cremagliera di Y) e questo controllo è l'unica cosa
+     che impedisce di caricare un collaudo ormai troppo largo. */
+  (function controllaArea() {
+    var mem = {};
+    global.window = { localStorage: {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+      setItem: function (k, v) { mem[k] = String(v); },
+      removeItem: function (k) { delete mem[k]; } } };
+    eval(fs.readFileSync(path.join(__dirname, '..', 'js', 'profile.js'), 'utf8'));
+    Profile.load();
+    var area = Profile.areaUtile();
+    if (P.larghezza > area.w || P.altezza > area.h) {
+      var dove = 'IL CAMPO NON CI STA PIU. Il disegno è ' + P.larghezza + ' × ' +
+        P.altezza + ' e l\'area utile è ' + area.w.toFixed(3) + ' × ' + area.h.toFixed(3) +
+        ': sfora di ' + Math.max(0, P.larghezza - area.w).toFixed(3) + ' in X e ' +
+        Math.max(0, P.altezza - area.h).toFixed(3) + ' in Y.';
+      /* L'SVG si fa comunque: e un'immagine, non puo mandare un carrello
+         contro niente, e serve proprio per rifare la disposizione. Il G-code
+         no. */
+      if (a.indexOf('--gcode') < 0) {
+        console.error(dove + '\nL\'SVG si genera lo stesso, il G-code no.');
+        return;
+      }
+      throw new Error('IL CAMPO NON CI STA PIU. Il disegno è ' + P.larghezza + ' × ' +
+        P.altezza + ' e l\'area utile è ' + area.w.toFixed(3) + ' × ' + area.h.toFixed(3) +
+        ': sfora di ' + Math.max(0, P.larghezza - area.w).toFixed(3) + ' in X e ' +
+        Math.max(0, P.altezza - area.h).toFixed(3) + ' in Y.\n' +
+        'Le scatole di questo disegno hanno coordinate assolute: non basta cambiare ' +
+        'P.larghezza, va rifatta la disposizione della colonna di destra.');
+    }
+  })();
+
   costruisci();
   if (a.indexOf('--svg') > 0) {
     var o = a[a.indexOf('--svg') + 1];

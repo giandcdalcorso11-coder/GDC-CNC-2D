@@ -35,7 +35,11 @@ axes:
     max_rate_mm_per_min: 8000.000
     acceleration_mm_per_sec2: 200.000
     # Corsa dal blocco di homing. Totale 257.532 (8744 passi), blocco a 4.300 dalla battuta.
-    # Percorribile 251.232 (margine 2.0).
+    # Percorribile 241.232 (margine 2.0, ostacolo 10.0).
+    # L'ostacolo è un impedimento meccanico: qualcosa si tocca prima
+    # della fine corsa. max_travel_mm resta la corsa FISICA, perché
+    # descrive la macchina; a non uscire dal percorribile ci pensa
+    # l'interfaccia prima di generare un programma.
     max_travel_mm: 253.232
     soft_limits: false
 

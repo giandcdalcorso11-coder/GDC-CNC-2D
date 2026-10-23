@@ -1,14 +1,14 @@
-; GDC CNC 2D - cornice dell area utile 250 x 235 mm
+; GDC CNC 2D - cornice dell area utile 240 x 235 mm
 ;
-; Da X0.5 Y0.5 a X250.5 Y235.5, contati dal punto ai blocchi.
+; Da X0.5 Y0.5 a X240.5 Y235.5, contati dal punto ai blocchi.
 ; Oltre il tratto restano 0.73 mm in X e 0.56 in Y, piu i 2 mm di margine di
-; sicurezza gia tolti dalla corsa percorribile. Area utile 251.232 x 236.064.
+; sicurezza gia tolti dalla corsa percorribile. Area utile 241.232 x 236.064.
 ;
-; IL FOGLIO: servono 250 x 235 mm, quindi un A3 verticale basta.
+; IL FOGLIO: servono 240 x 235 mm, quindi un A3 verticale basta.
 ;
 ; MISURE ATTESE:
-;   lati          250 e 235 mm
-;   diagonali     343.11 mm TUTTE E DUE.
+;   lati          240 e 235 mm
+;   diagonali     335.89 mm TUTTE E DUE.
 ;                 Differenti = assi fuori squadra, e la leva lunga
 ;                 rende la misura piu severa di qualunque altra.
 ;
@@ -27,7 +27,7 @@ G90
 
 ; --- 1. LA PENNA. Si ferma due volte: riparti con ~ (cycle start). ---
 G0 Z0
-G0 X125.5 Y118 F1000
+G0 X120.5 Y118 F1000
 G0 Z-21.271
 ; FERMO: infila la penna finche la punta TOCCA il foglio, senza premere,
 ; e stringi i morsetti. Poi ~
@@ -45,7 +45,7 @@ M0
 ; o rumoreggia, Ctrl-X prima di consumare il foglio.
 G0 Z0
 G0 X0.5 Y0.5 F1000
-G0 X250.5
+G0 X240.5
 G0 Y235.5
 G0 X0.5
 G0 Y0.5
@@ -59,7 +59,7 @@ G0 Z-18.326
 X0.5 Y0.5 F3000
 G1 Z-21.271 F600
 G4 P0.200
-X250.5 F1200
+X240.5 F1200
 Y235.5
 X0.5
 Y0.5
@@ -67,7 +67,7 @@ G0 Z-18.326
 G4 P0.200
 G1 Z-21.271 F600
 G4 P0.200
-X250.5 Y235.5 F1200
+X240.5 Y235.5 F1200
 G0 Z-18.326
 G4 P0.200
 Y0.5 F3000
