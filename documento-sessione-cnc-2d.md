@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 50
-**Ultimo aggiornamento:** 2026-10-22 17:18
+**Versione:** 51
+**Ultimo aggiornamento:** 2026-10-23 21:12
 
 ## Regole di co-editing
 
@@ -192,7 +192,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 
 ### Step 3 — Configurazione FluidNC
 
-**Stato:** in corso — **FluidNC 4.1.1 installata e configurata sulla macchina definitiva il 2026-10-22**, con `$CD` che rilegge ogni chiave. Restano da riprovare i versi dei due assi (corretti ma non riverificati) e da correggere il verso della Z, che il servo non segue finché le quote restano positive. Supera lo stato «riaperto il 2026-10-19»: le due decisioni che mancavano al file adesso ci sono.
+**Stato:** in corso — **la macchina esegue e disegna.** Versi dei due assi riprovati e corretti, quote Z negative applicate e verificate, origine manuale rodata, programmi caricati e lanciati dalla flash. Resta **un blocco vero**: le stampe lunghe si fermano a metà portandosi giù il server web (vedi la voce del 2026-10-23), con una causa individuata nel sorgente ma non ancora confermata né risolta. Finché non è chiusa, i disegni oltre i pochi minuti non sono affidabili.
 
 **Obiettivo:** FluidNC installato e configurato come firmware definitivo della macchina, con movimento coordinato X/Y e pen-lift sul servo
 
@@ -237,11 +237,12 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 - [2026-10-19] **Nota di metodo per la tab Impostazioni, dal nostro stesso collaudo del 2026-09-21:** su FluidNC 4.1.0 il comando di modifica a runtime (`$/axes/...=`) **non restituisce nulla** e non ha effetto; quello che funziona è ricaricare il file e riavviare con `$Bye`. Confermato indirettamente dalla documentazione FluidNC, secondo cui le modifiche `$` vivono solo in memoria volatile e vanno scritte con `$CD=config.yaml` per sopravvivere al riavvio, e secondo cui le definizioni dei pin richiedono comunque un riavvio. Conseguenza di progetto: una tab Impostazioni che scrive nella macchina deve **generare il file e caricarlo**, non toccare le impostazioni a runtime
 - [2026-10-06] Conseguenze collaterali del rapporto vero: risoluzione **0,0295 mm per microstep** (il gioco di 0,235 è 8× il passo, quindi è il gioco a dominare, non la risoluzione) e `max_rate_mm_per_min: 2000` corrisponde ora a 1132 microstep/s invece di 2667, cioè **un settimo** di quello che la meccanica regge (il motore è validato a 500 passi interi/s ≈ 235 mm/s). Verifica del rapporto: `G91 G0 X100`, misurare col calibro, correggere in proporzione
 - [2026-10-22] **FluidNC 4.1.1 installata sulla macchina definitiva** e configurazione verificata con `$CD` chiave per chiave: nessuna ignorata. Rete STA, `cnc2d.local`, 192.168.1.14. **Tre scoperte ai primi comandi veri.** (a) Il servo non si muoveva: `RcServo` mappa la posizione MACCHINA e tronca fuori dai limiti dell'asse, e senza homing FluidNC dichiara la corsa in negativo — `Axis Z (-21.281, 0.010)` — quindi tutte le quote positive uscivano a 1500 µs. Confermato con `G0 Z-3`, che muove. La Z va usata in negativo: Z0 = tappo, Z−21.271 = contatto. (b) **I due assi andavano al contrario tutti e due**: invertite le spunte nel profilo, da riprovare. (c) Il flash a 921600 si interrompe sul CH340: 115200.
+- [2026-10-23] **Le tre cose del giorno prima sono chiuse, e se ne apre una più grossa.** Quote Z negative in produzione e verificate sulla macchina (Z0, Z−18.326, Z−21.271 tutte raggiunte); versi dei due assi riprovati con quattro jog da 25 mm, **giusti**. Risolto anche «Upload filesystem inaccessible», che non era un guasto: le rotte della WebUI sono separate — `/files` è la flash, `/upload` è la SD — e l'upload finiva sulla SD inesistente. Si carica con `curl -T http://IP/flash/nome`, perché la flash è montata in WebDAV. **Ma due stampe lunghe si sono bloccate a metà** rendendo irraggiungibile la WebUI: la casella comandi crea un canale per ogni comando e `$LocalFS/Run` se lo tiene per tutta la durata del job, quindi la connessione HTTP del browser resta aperta per minuti. Da provare lanciando dalla seriale USB, che è insieme prova e rimedio.
 
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
 
-**Stato:** in corso — dal 2026-10-20 l'applicazione è **completa a monte**: profilo macchina e profili di stampa, tab Impostazioni, pannello manuale, tre popup di inizio stampa, generazione del `config.yaml`. Restano due cose, e tutte e due aspettano FluidNC acceso: l'**invio del programma alla macchina** e il **caricamento della pagina sull'ESP32**
+**Stato:** in corso — l'applicazione è **completa a monte** e ora anche **corretta a valle**: le quote Z sono quelle vere della macchina, i programmi finiscono al punto home e i file generati sono stati stampati davvero. Restano le stesse due cose, ma non aspettano più: **invio del programma** e **caricamento della pagina sull'ESP32**, e dal 2026-10-23 si sa che la seconda non è opzionale (niente CORS in FluidNC) e che i conti tornano (62,5 kB compressi contro i 111,6 della WebUI da rimuovere)
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
 
@@ -317,10 +318,11 @@ mano a mano che le misure arrivano):
 - [2026-10-17] **Il gruppo Penna della tab Impostazioni diventa quattro angoli più una conversione**, su richiesta dell'utente. Il valore che mancava è l'**angolo di battuta**, cioè quello a cui i cuscinetti arrivano in fondo ai blocchi inferiori: è un limite meccanico, non una preferenza, e il software non deve poter scendere sotto. Sopra c'è l'angolo di appoggio — che è anche quello a cui tenere il servo mentre si infila la penna e si stringono i morsetti, perché è la stessa posizione — e sopra ancora quello di penna alzata. Aggiunta mia: serve anche la **battuta alta**, perché la pista è limitata dalle due parti (15,350 di salita contro 11,000 di discesa), e serve il **raggio del pignone** come unico parametro di conversione, così alzata e appoggio si inseriscono in millimetri e la pagina li traduce in gradi (0,32725 mm/grado a r = 18,750). Senza quel campo ogni numero della sezione penna è in gradi e nessuno è leggibile
 - [2026-10-21] **Disegno di collaudo** (`webui/tools/test-macchina.js` e `font-tratto.js`): una stampa su 246 × 233 mm con **undici prove in riquadri numerati**, dalla scala per asse all'ortogonalità al gioco al livello del piano, più ripetibilità e velocità. Genera SVG per guardare o G-code per stampare, e il G-code vero si produce **dopo** la taratura della penna, coi numeri veri. Come si legge sta in `misure/disegno-di-collaudo.md`, prova per prova e con l'ordine di lettura — livello e stacchi per primi, perché se il piano è storto tutto il resto è misurato male
 - [2026-10-22] **I programmi devono stare in 64 kB**, ed è il browser dei file di FluidNC a dirlo: la partizione LittleFS è 192 kB e `index.html.gz` della WebUI ne occupa 111. Il collaudo scritto per esteso ne occupava 69 e non ci sarebbe entrato. I due generatori emettono ora **G-code modale** — solo quello che cambia — e il collaudo passa a 44.633 byte, con il percorso verificato stato per stato (2994, zero differenze). Stesso conto per l'autonomia del SLICER: **66 kB compressi contro 64 liberi**, quindi ospitarlo chiede un file unico e la rimozione della WebUI di FluidNC.
+- [2026-10-23] **Il generatore produce finalmente quote che la macchina esegue.** La convenzione Z vive in un punto solo (`Profile.zDaGradi()`) e la prendono tutti; i programmi finiscono al **punto home** e non più addosso ai blocchi, che è il difetto che il profilo avvertiva da sempre nel commento di `puntoHome`. Soppresse le righe di sola velocità che non muovono niente. Nati cinque generatori nuovi — cornice dell'area utile (con la procedura della penna dentro il file, via `M0`), prova geometrica, vortice, riempimenti, intreccio — e tutti i file rigenerati. **Il conto sull'ospitare il SLICER è stato rifatto sul sorgente e la conclusione si è irrigidita:** in tutto il server web di FluidNC non c'è una sola intestazione CORS, quindi la pagina **deve** essere servita dall'ESP32, non è una preferenza. Il nostro bundle gzippato è 62.539 byte contro i 111.625 della WebUI: togliendola restano ~113 kB liberi invece di 64.
 
 ### Step 5 — Struttura meccanica
 
-**Stato:** completato nella struttura (2026-10-15) — staffa LL tagliata, portale montato sulla base, i due assi si muovono da dashboard senza difficoltà. Resta aperto solo il modulo penna (Step 6), senza il quale la macchina non disegna e non si può tarare
+**Stato:** completato nella struttura (2026-10-15), **ma l'area utile si è ristretta il 2026-10-23**: il pignone del carrello X tocca la cremagliera dell'asse Y sul lato destro prima della fine corsa, e X perde 10 mm prudenziali sui 5 misurati. Area utile 251,232 × 236,064 → **241,232 × 236,064**. È un impedimento meccanico, non una taratura: si recupera spostando la cremagliera di Y. Emersa anche una planarità da sorvegliare sotto la staffa TT di sinistra
 
 **Obiettivo:** struttura a portale che porta la penna su un'area di **circa 242 × 256 mm**, con entrambi gli assi motorizzati e il pen-lift solidale al carrello Y. *(Formato ridimensionato il 2026-10-06: l'obiettivo originale era "tutta l'area di un foglio A4 in orizzontale", ma con cremagliere in un pezzo solo il lato da 297 non entra su nessuno dei due assi — il massimo raggiungibile è 281,6 × 292,8. L'area è equivalente a un A4, la forma è quadrata. Un A4 vero richiede una cremagliera giuntata.)*
 
@@ -446,6 +448,7 @@ mano a mano che le misure arrivano):
 - [2026-10-20] **Fissaggio del foglio: nastro di carta, in attesa della stampa di collaudo** (decisione dell'utente). Il vincolo che esclude quasi tutto il resto: fra piano carta (Z 44,2) e punto più basso del carrello (Z 46,68) ci sono **2,5 mm**, quindi dentro la zona spazzata dal carrello non ci sta nessuna calamita e nessuna molletta — solo nastro (0,1 mm), colla stick o qualcosa sotto la superficie. **La piattaforma da 44 mm non è ancora costruita**, quindi il fissaggio è una scelta di progetto della piattaforma e non un accessorio da aggiungere dopo. Proposta sul tavolo, non ancora decisa: telaio da 40 mm + **piano in vetro float da 4 mm su tre appoggi regolabili** — tre e non quattro, perché tre punti definiscono un piano e quattro lo svergolano. Tavola confermata **600 × 700**
 - [2026-10-20] **Blocchi di riferimento stampati e montati**, uno per asse, agganciati alle staffe TT e LL. Spostano l'azzeramento da «a occhio» a ripetibile: l'appoggio ripete sotto la risoluzione del calibro, e il margine di sicurezza scende da 8 a 2 mm. Il blocco X è una sella senza viti, tenuta dalla forma; il blocco Y una piastra avvitata con due viti a 22,80 di passo. Misurato quanto si mangiano di corsa: **1,443 mm su X, zero su Y** — il blocco Y sta di fatto sulla battuta
 - [2026-10-21] **Il vincolo che esclude calamite e mollette cambia natura, non conclusione.** Eliminata la piattaforma (vedi Step 6), sotto il carrello non ci sono più 2,5 mm ma 46,68: l'argomento del 2026-10-20 non regge più come scritto. A mordere è ora **l'alzata della penna, 2,945 mm**, perché è quello che passa sopra il foglio fra un tratto e l'altro. Stesso ordine di grandezza, stessa decisione: **nastro di carta**, e si rivede dopo la prova 11 del collaudo
+- [2026-10-23] **Due cose meccaniche trovate disegnando, non misurando.** (a) **Il pignone del carrello X tocca la cremagliera dell'asse Y** sul lato destro prima che il carrello arrivi in fondo: interferenza 5 mm, se ne tolgono 10 per stare larghi, e l'area utile su X scende a 241,232. Nel profilo è un campo suo, `ostacolo`, tenuto separato dal margine di sicurezza perché si risolve in modo opposto — l'uno smontando, l'altro diventando più precisi. Conseguenza pesante: **il disegno di collaudo non ci sta più** e va riprogettato nella colonna di destra. (b) **Il legno sotto al binario della staffa TT di sinistra si era alzato**, e nel primo disegno vero ha prodotto tratti spezzati nell'angolo in alto a sinistra: non alza la carta, alza il portale, e per la penna è identico a un piano che scende. Sistemato dall'operatore. Da qui la scoperta che la prova 11 del collaudo misura i punti alti e **non** quelli bassi
 
 **Problemi aperti su questo step (al 2026-10-15):**
 - ~~Profondità del vano motore da verificare~~ — **risolto il 2026-09-26.** Il motore è un **pancake da 23,1 mm**, non un NEMA 17 standard da 34÷48: il vano da 23,5 mm è quindi corretto e le viti posteriori arrivano eccome al coperchio. Resta però **0,4 mm di gioco assiale**, che è più dei ±0,17 mm di tolleranza di centraggio della doppia elica: il motore va messo **in battuta sulla parete anteriore** (che è il riferimento della quota del pignone) con **due rondelle piane M3 da 0,5 mm** fra coperchio posteriore e parete posteriore, così le viti di dietro lo spingono in avanti invece di tirarlo indietro. Resta da verificare la profondità dei fori filettati posteriori (spesso 4÷5 mm) per scegliere la lunghezza delle viti
@@ -483,7 +486,7 @@ mano a mano che le misure arrivano):
 
 ### Step 6 — Modulo penna e interfaccia utensili
 
-**Stato:** in corso — **MONTATO** il 2026-10-21, cuscinetti compresi, e **in taratura**. Il collo di bottiglia che bloccava tutto il progetto si è sbloccato. Resta da chiudere la taratura dei tre angoli del servo: la prima prova ha messo la battuta a 1° logico, che cade fuori dalla specifica elettrica dell'SG90, e va rifatta spostando l'ingranaggio di un dente
+**Stato:** **completato quanto alla funzione** — dal 2026-10-23 il modulo disegna, e la procedura di inserimento della penna è rodata e scritta: si porta il servo alla quota di contatto già decisa (`G0 Z-21.271`), si infila la penna finché tocca il foglio e si stringe lì. I quattro angoli (battuta 17°, foglio 25°, alzata 34°, tappo 90°) sono stabili e il tratto esce costante su metri di disegno. Resta da misurare il **gioco**, che nel profilo vale 0,30 mm come valore nominale e non è mai stato rilevato su questa macchina
 
 **Obiettivo:** la penna si appoggia e si solleva in modo ripetibile, con pressione costante, e il modulo è intercambiabile con altri utensili senza ritarare la macchina
 
@@ -556,8 +559,110 @@ mano a mano che le misure arrivano):
 - [2026-10-21] **La piattaforma da 44 mm è eliminata** (decisione dell'utente). Supera la nota del 2026-10-06, che la dava come necessaria: il piano carta a Z ≈ 44,2 nasceva dal punto più basso del carrello Y a Z 46,68, quando il modulo penna non era ancora disegnato. **Col modulo Tratto Pen montato sulla testina X lo spazio verticale libero è meno di 40 mm**, quindi la piattaforma non ci sta sotto. Il piano resta **unico: la tavola**, e il foglio ci appoggia sopra. Conseguenza sulla taratura: l'angolo di penna abbassata si impone stringendo la penna contro **la tavola**, non contro uno spessore — la quota assoluta non è mai stata un vincolo, perché a regolarla è la penna che scorre nei morsetti (nota del 2026-10-15). CAD aggiornato in arrivo
 - [2026-10-22] **Il CAD con il modulo montato, letto numero per numero** (`misure/cad-assieme.md`). Tavola a Z 0, 700 × 600. **Asse della penna X −198,01 · Y −215,78**, ricavato dalla sede a V su `pz2` (tangenza di un Ø10 esattamente sulla bocca: la sede è disegnata per il Tratto Pen). **Sbalzo in Y 70,47 mm** dalla mezzeria del carrello, 50,94 oltre la faccia della trave — in X la punta è centrata a +7,67. **Punto più basso della testina Z 26,68** (16,68 a fondo corsa dello stadio flottante), quindi il vincolo sul foglio resta l'alzata della penna, 2,945 mm. Zona di disegno stimata X −206,20…49,89, Y −217,91…25,16, tutta sulla tavola con 32,8 mm davanti: ±2 mm, perché dipende da quali facce toccano i blocchi
 - [2026-10-22] **Battuta misurata 17°** con la striscia di carta, contro i 19 fissati per costruzione il giorno prima: i due gradi sono quello che il modulo aveva ancora da scendere quando il pignone è stato calzato. I 25° di penna abbassata restano, perché non sono battuta + 6 ma l'angolo a cui la penna è stata stretta. **Nasce la posizione tappo a 90°**, che fa due lavori: riposo a fine stampa e all'accensione, e tetto del meccanismo (oltre, lo stadio flottante esce dalle guide). Conseguenza su FluidNC: l'arco dell'asse Z va dal contatto al tappo e non all'alzata, se no `mapConstrain` tronca — `max_travel_mm 21.271`, impulsi 2222 e 1500. **E il parser di FluidNC non accetta commenti in coda a una chiave**, cosa che il nostro config.yaml faceva quasi ovunque: riscritto il generatore, e il file a mano sostituito dalla copia generata
+- [2026-10-23] **Il modulo disegna, e la procedura di montaggio della penna è quella definitiva.** Non si cerca la quota giusta muovendo il servo: si porta il servo alla quota **già decisa** e si stringe la penna lì — i 25° non sono una misura, sono un'imposizione, e il profilo lo dice da sempre. Il foglio deve essere sotto durante la stretta, perché la quota è definita *punta sul foglio* e non *punta sulla tavola*. Verificata su più stampe: il tratto resta costante su 4,4 m (vortice) e su 21 m di spirografo per quanto ne ha fatto. **Resta aperto il gioco**, l'ultimo parametro del profilo mai misurato: la rosa mistica dei medaglioni è stata disegnata apposta per leggerlo — nove vertici su cui convergono otto corde ciascuno, e se il punto d'arrivo dipende dalla direzione d'arrivo i vertici chiudono in una rosellina larga quanto il gioco
 
 ## Storico sessioni
+
+### [2026-10-23 21:12] (firmware+software) La macchina disegna davvero, l'area si accorcia di un centimetro, e due stampe lunghe muoiono a metà
+
+**Riepilogo:** La correzione della Z va in produzione e la macchina fa il suo primo disegno vero (il vortice, 6,5 metri di tratto senza staccare la penna); poi il pignone del carrello si scopre toccare la cremagliera di Y e l'area utile perde 10 mm in X, il che manda fuori misura il disegno di collaudo; e infine due stampe lunghe si bloccano a metà portandosi giù il server web, con una causa individuata nel sorgente ma non ancora risolta.
+
+**Cosa è stato fatto:**
+
+- **La correzione della Z è entrata in tutta la catena** — il problema aperto numero uno della v50. La convenzione vive ora in un punto solo, `Profile.zDaGradi()`, con `zTappo/zAlzata/zContatto` sopra: Z0 = tappo, Z−18,326 = alzata di lavoro, Z−21,271 = punta sul foglio. La prendono profilo, i due generatori, i pulsanti del pannello, il popup dell'altezza di contatto e la riga di avvio. Verificata sulla macchina: tutte e tre le quote raggiunte.
+- **I versi dei due assi sono confermati sulla macchina**, con quattro jog da 25 mm. Chiude l'altro problema aperto della v50.
+- **Prima stampa vera riuscita**: il vortice di quadrati, 18 quadrati, 4,4 m di tratto, una linea sola. Spessore costante, angoli netti, il cerchio centrale distinto dall'ultimo quadrato.
+- Creati nove generatori/disegni nuovi (vedi File), fra cui la cornice dell'area utile con la procedura della penna dentro il file, la prova geometrica, il vortice, i medaglioni, l'intreccio.
+- Scritta `misure/comandi-rapidi.md`, la scheda dei comandi che si usano davvero.
+
+**Bug: le quote Z positive venivano troncate**
+
+**Sintomo:** il servo non si muoveva pur avendo gli impulsi giusti nel `config.yaml`; qualunque `G0 Z<positiva>` non faceva niente.
+**Causa:** senza homing FluidNC mette lo zero macchina in cima alla corsa e dichiara il resto in negativo (`Axis Z (-21.281, 0.010)`); `RcServo` mappa la posizione MACCHINA con `mapConstrain()`, che **tronca** invece di rifiutare. Ogni quota positiva finiva sullo stesso impulso, quello del tappo. `soft_limits: false` non c'entra: spegne i limiti del pianificatore, non quel troncamento.
+**Fix applicato:** convenzione negativa in tutta la catena, `startup_line0: G90 G0 Z0`. **Verificato sulla macchina**, e il collaudo riverificato replay alla mano: 3025 stati confrontati col modello, zero differenze.
+
+**Bug: «Upload filesystem inaccessible» a ogni caricamento**
+
+**Sintomo:** ogni tentativo di caricare un file dalla WebUI rispondeva così, mentre la flash era sana e con spazio libero.
+**Causa:** trovata leggendo il sorgente. Il messaggio esce da un punto solo, e l'`error_code` che lo scatena viene impostato **solo nel ramo SD** di `FluidPath` (`!config->_sdCard->config_ok`): per la flash quel costruttore non può fallire. Le rotte sono separate — `/files` è la flash, `/upload` è la SD — quindi l'upload veniva mandato alla SD, che con `cs_pin: NO_PIN` non esiste. Il messaggio diceva il vero.
+**Fix applicato:** caricare dal pannello FLASH, oppure saltare del tutto la WebUI con `curl -T file http://IP/flash/nome` — la flash è montata anche in WebDAV, scrivibile, e PUT è fra i metodi dell'header `Allow`. **Verificato**, è la strada usata da lì in poi.
+
+**Bug: la sequenza dell'origine era scritta al contrario, e con un numero impossibile**
+
+**Sintomo:** nessuno — il difetto era nel documento, non sulla macchina.
+**Causa:** due errori. Aritmetico: il jog «minimo» di riabilitazione era `$J=G91 X0.01 F100`, ma con 33,953 passi/mm **un passo vale 0,02945 mm**, quindi 0,01 fa 0,34 passi, arrotondati a zero — un jog che non muove niente, e non è detto che riabiliti niente. Di merito: qualunque jog **prima** del `G92` porta il carrello via dai blocchi, e lo zero finisce dove il carrello è arrivato; 0,1 mm sono il doppio della ripetibilità dell'appoggio.
+**Fix applicato:** sequenza invertita — `$MD`, appoggio, `G92 X0 Y0`, poi `G90 G0 X5 Y5 F1000`, che è il movimento che riabilita i motori e i cui 5 mm sono contati. **Verificato in uso.**
+
+**Bug: ogni programma finiva addosso ai blocchi**
+
+**Sintomo:** l'ultimo movimento di ogni file generato era `G0 X0 Y0`, cioè esattamente il punto ai blocchi.
+**Causa:** il generatore non leggeva il punto home, che nel profilo esiste da sempre proprio per questo — il commento accanto dice «un carrello fermo contro il riferimento prima o poi lo sposta».
+**Fix applicato:** `Gcode.build` prende un `ritorno`, `Profile.puntoHome()` lo fornisce, tutti i file rigenerati finiscono a X5 Y5. **Verificato** con due asserzioni nuove, una sulla catena vera via `Artwork.prepare()`.
+
+**Bug: righe di sola velocità che non muovono niente**
+
+**Sintomo:** nei file usciva ogni tanto una riga `F3000` da sola.
+**Causa:** quando un tratto comincia dove finisce il precedente, lo spostamento a penna alzata è un no-op e dell'intera riga resta solo la F — proprio la riga che la generazione modale dice di non emettere.
+**Fix applicato:** soppressa in entrambi gli emettitori, **con l'accortezza che conta**: sopprimendo la riga lo stato modale della F non si aggiorna, se no la F successiva verrebbe omessa credendola già attiva. Il collaudo cala di 180 byte.
+
+**Bug: il piano si alza sotto la staffa TT di sinistra**
+
+**Sintomo:** nel primo disegno vero, alcuni tratti nell'angolo in alto a sinistra sono usciti spezzati, con la penna che perdeva il contatto e lo riprendeva.
+**Causa:** trovata dall'operatore — il legno sotto al binario della staffa TT di sinistra si era alzato. Non alza la carta, alza il **portale**: la punta si solleva rispetto al foglio, che per la penna è identico a un piano che scende.
+**Fix applicato:** sistemato dall'operatore. **Ne è uscita una proprietà della prova 11 del collaudo che non era scritta da nessuna parte:** quella prova misura i punti **alti** e non quelli bassi. I trattini si disegnano a quote crescenti, quindi dove la carta è più alta di `e` se ne contano fino a `e` a passi di 0,30; ma dove è più bassa — o dove è il portale a essere più alto — non segna **nessun** trattino, nemmeno quello a quota zero, e da lì in poi due decimi e due millimetri danno lo stesso risultato. Registrato in `misure/disegno-di-collaudo.md` col caso reale.
+
+**Bug: due stampe lunghe si bloccano a metà e portano giù il server web — NON RISOLTO**
+
+**Sintomo:** l'intreccio (6 min) si è fermato a circa il 90%, lo spirografo (18 min) a circa il 10%. In entrambi i casi la WebUI è diventata irraggiungibile, ricaricare la pagina non funzionava, ed è servito spegnere e riaccendere la macchina. I disegni erano corretti fin dove sono arrivati, quindi il G-code non c'entra.
+**Causa (individuata nel sorgente, non confermata sulla macchina):** la casella comandi della WebUI crea un **canale nuovo per ogni comando** (`new WebClient()` su `/command`), e `$LocalFS/Run` restituisce `Error::Deferred` — il job **si tiene quel canale** come riferimento. La connessione HTTP del browser resta quindi aperta per tutta la durata del disegno, a fare da uscita del job. Quando il browser o lo stack TCP mollano scatta `onDisconnect`, che prova a distruggere il canale mentre il job lo tiene ancora; nel codice c'è perfino un ramo che logga «Could not queue HTTP command channel for deletion, leaking it». Le segnalazioni pubbliche confermano il pattern: crash sistematico lanciando dalla WebUI e meno frequente via USB, con `ESP_ERR_NO_MEM` nei log.
+**Fix applicato: nessuno.** Proposto all'operatore di lanciare dalla **seriale USB** a scheda browser chiusa — il canale della UART non si disconnette mai — che è insieme la prova e il rimedio: se si ferma lo stesso, la seriale stampa il panic che finora ci manca.
+
+**Decisioni prese:**
+
+- **Contesto:** il rapporto mm/giro non è mai stato tarato ed è ancora il nominale 94,2478 (π × 30), un conto geometrico e non una misura; scala ogni quota disegnata, e nessun comando può rivelarlo perché il DRO legge passi diviso quel rapporto.
+  **Decisione (dell'utente):** **non si tara.** Il criterio dichiarato è «se l'errore è sotto il millimetro mi va bene», ed è già soddisfatto dai dati esistenti: un quadratino da 60 mm che misura 60,0 col calibro limita l'errore allo 0,08%, cioè meno di due decimi sulla campata massima.
+  **Alternative scartate:** una figura di taratura a coppie di linee parallele con avvicinamento monotono, già progettata ma non costruita.
+  **Da rivedere se:** si volesse disegnare su quote assolute (fori, incastri, sovrastampe su stampato), o se una misura futura mostrasse scarti sopra il millimetro.
+  Resta scritto `tarato: false` nel profilo, perché fra sei mesi si sappia che è un'assunzione.
+
+- **Contesto:** il pignone del carrello X tocca la cremagliera dell'asse Y sul lato destro prima che il carrello arrivi in fondo. Interferenza misurata 5 mm, se ne tolgono 10 per stare larghi.
+  **Decisione:** il numero va in un campo **suo**, `corse.<asse>.ostacolo`, non sommato al margine di sicurezza. Il margine copre l'**incertezza** e si riduce diventando più precisi; l'ostacolo è un impedimento **meccanico certo** e si toglie spostando la cremagliera. L'identità del glossario diventa percorribile + margine + ostacolo + scostamento = totale.
+  **Alternative scartate:** portare il margine di sicurezza da 2 a 12 — fra sei mesi non si saprebbe più quali millimetri sono recuperabili.
+  **Da rivedere se:** la cremagliera di Y viene spostata, o se l'interferenza viene rimisurata con calma (i 10 mm sono prudenziali sui 5 veri).
+
+- **Contesto:** `max_travel_mm` nel `config.yaml` potrebbe seguire l'area utile o la corsa fisica.
+  **Decisione:** resta la **corsa fisica**, perché quel campo descrive la macchina; a non uscire dal percorribile ci pensa l'interfaccia prima di generare un programma. Conseguenza pratica: il `config.yaml` sulla macchina non va ricaricato, cambiano solo commenti.
+  **Da rivedere se:** si attivassero i `soft_limits`, che oggi sono spenti e renderebbero quel campo una protezione vera.
+
+- **Contesto:** l'invio del G-code dal SLICER chiede di decidere dove gira il programma.
+  **Decisione:** **deve essere servito dall'ESP32**, e non è una preferenza. Cercando `Access-Control-Allow-Origin` in tutto il server web di FluidNC: **zero occorrenze**. Senza CORS il browser blocca ogni richiesta da una pagina che non arriva dall'ESP32 stesso, e non è aggirabile dal nostro lato. I numeri tornano: partizione 196.608, WebUI di FluidNC 111.625, il nostro programma gzippato **62.539** — togliendo la sua WebUI restano ~113 kB liberi contro i 64 di adesso. Verificato nel sorgente che FluidNC serve da solo i `.gz` con `Content-Encoding: gzip`.
+  **Alternative scartate:** tenere la pagina sul PC e parlare con la macchina — impossibile senza CORS.
+  **Da rivedere se:** una versione futura di FluidNC aggiungesse le intestazioni CORS.
+  **Rischio accettato:** senza la WebUI di FluidNC, un difetto del nostro programma lascia senza interfaccia grafica — ma non senza macchina: telnet sulla porta 23 e la USB restano, e la WebUI si può ricaricare.
+
+- **Contesto:** il disegno di collaudo ha il campo largo 246 mm e l'area utile è scesa a 241,232.
+  **Decisione:** **il collaudo è sospeso** finché non viene rifatta la disposizione della colonna di destra. Le sue scatole hanno coordinate assolute — `scalaX(1,1,244,17)`, `cerchi(173,20,72,72)`, `ripetibilita(149,171,96,23)` — quindi non basta cambiare `P.larghezza`. Aggiunta una guardia nel generatore che confronta il campo con l'area utile del profilo e **rifiuta di scrivere il G-code**; l'SVG lo fa comunque, perché serve a rifare la disposizione e un'immagine non manda un carrello contro niente. Tolto `gcode/collaudo.gcode`, che era già scritto e avrebbe portato il carrello 4,3 mm dentro l'ostacolo.
+  **Da rivedere se:** la cremagliera di Y viene spostata e l'area torna a 251 — allora il collaudo com'è tornerebbe valido.
+
+**Collisione con la sessione parallela, da sapere:** fra le 19:50 e le 20:19 un'altra sessione ha lavorato sullo stesso branch creando `trame.js`, `trifoglio.js` e `rosone.js` (cancellando il `medaglioni.js` che avevo appena fatto) e un proprio `webui/tools/intreccio.js`. **Il mio commit `ac1a39b` ha riscritto quell'`intreccio.js`**, quindi la loro implementazione dell'intreccio è stata sostituita dalla mia. Nessuna delle due sessioni ha toccato questo documento, quindi qui non c'è disallineamento — ma i file sì, e vale la pena saperlo prima di cercare codice che non c'è più.
+
+**File consegnati/modificati:**
+- `webui/js/profile.js` — `zDaGradi/zTappo/zAlzata/zContatto`, `puntoHome()`, campo `ostacolo`, `corsaPercorribile` che lo sottrae, migrazione per i profili salvati prima di oggi, due controlli nuovi in `verifica()`, blocco Z e `startup_line0` del `toYaml`
+- `webui/js/gcode.js` — convenzione negativa documentata, `opt.ritorno`, soppressione delle righe a vuoto
+- `webui/js/artwork.js`, `panel.js`, `popup.js`, `settings.js`, `state.js` — quote macchina, clamp dei passi relativi, soglia del popup contata dal contatto, readout delle tre quote Z
+- `webui/index.html` — campi `ostacolo`, readout `quoteZ`, paragrafi di spiegazione
+- `webui/tools/` — `cornice.js` (nuovo, generalizzato a rettangolo qualsiasi), `prova-geometrica.js`, `vortice.js`, `riempimenti.js`, `intreccio.js` (nuovi); `test-macchina.js` (guardia sull'area, emettitore allineato)
+- `gcode/` — rigenerati tutti; nuovi `cornice`, `rettangolo-home`, `prova-geometrica`, `vortice`, `hilbert`, `spirografo`, `intreccio`, `quadrato-60`, `quadrato-60-diagonali`; **tolto `collaudo.gcode`**
+- `firmware/fluidnc/cnc2d-config.yaml` — rigenerato
+- `misure/comandi-rapidi.md` — nuovo
+- `misure/accensione-e-taratura.md` — A3 riscritta con le quote negative, A4 con la prova del servo e la diagnosi dell'upload, sequenza dell'origine corretta, collaudo sospeso
+- `misure/disegno-di-collaudo.md` — il lato cieco della prova 11, e l'avviso che il disegno non si può generare
+- `misure/impostazioni-glossario.md` — tabella delle corse e identità con l'ostacolo
+- `firmware/fluidnc/README.md`, `gcode/test/README.md` — convenzione Z
+
+**Impatto su Vision/Pipeline:** aggiornati gli stati e le note di **Step 3** (FluidNC funziona, resta il blocco delle stampe lunghe), **Step 4** (la Z, il punto home, la decisione sull'ospitare il SLICER), **Step 5** (l'ostacolo che accorcia X) e **Step 6** (la procedura di inserimento penna funziona).
+
+---
 
 ### [2026-10-22 17:18] (firmware) FluidNC è sulla macchina, e i primi comandi veri hanno trovato tre cose che nessun ragionamento aveva trovato
 
