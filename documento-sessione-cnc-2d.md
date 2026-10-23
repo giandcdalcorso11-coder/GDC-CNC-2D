@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 51
-**Ultimo aggiornamento:** 2026-10-23 21:12
+**Versione:** 52
+**Ultimo aggiornamento:** 2026-10-23 21:40
 
 ## Regole di co-editing
 
@@ -563,7 +563,7 @@ mano a mano che le misure arrivano):
 
 ## Storico sessioni
 
-### [2026-10-23 21:12] (firmware+software) La macchina disegna davvero, l'area si accorcia di un centimetro, e due stampe lunghe muoiono a metà
+### [2026-10-23 21:40] (firmware+software) La macchina disegna davvero, l'area si accorcia di un centimetro, e due stampe lunghe muoiono a metà
 
 **Riepilogo:** La correzione della Z va in produzione e la macchina fa il suo primo disegno vero (il vortice, 6,5 metri di tratto senza staccare la penna); poi il pignone del carrello si scopre toccare la cremagliera di Y e l'area utile perde 10 mm in X, il che manda fuori misura il disegno di collaudo; e infine due stampe lunghe si bloccano a metà portandosi giù il server web, con una causa individuata nel sorgente ma non ancora risolta.
 
@@ -620,7 +620,8 @@ mano a mano che le misure arrivano):
 **Decisioni prese:**
 
 - **Contesto:** il rapporto mm/giro non è mai stato tarato ed è ancora il nominale 94,2478 (π × 30), un conto geometrico e non una misura; scala ogni quota disegnata, e nessun comando può rivelarlo perché il DRO legge passi diviso quel rapporto.
-  **Decisione (dell'utente):** **non si tara.** Il criterio dichiarato è «se l'errore è sotto il millimetro mi va bene», ed è già soddisfatto dai dati esistenti: un quadratino da 60 mm che misura 60,0 col calibro limita l'errore allo 0,08%, cioè meno di due decimi sulla campata massima.
+  **Decisione (dell'utente):** **non si tara.** Il criterio dichiarato è «se l'errore è sotto il millimetro mi va bene».
+  **Correzione del 2026-10-23 21:40:** avevo scritto che il criterio era già soddisfatto, basandomi su un quadratino da 60 mm misurato 60,0 **col calibro**. L'operatore ha poi precisato che la misura è **col righello**, quindi la lettura vale ±0,5 mm e non ±0,05: il limite sull'errore passa dallo 0,08% allo **0,83%**, che sulla campata massima di 241 mm fa **2 mm** — il doppio del criterio, non un decimo. **Il criterio NON è dimostrato.** Si chiude con una misura sola, su carta già stampata: il lato della cornice da 240 mm di uno dei disegni fatti. A ±0,5 mm di righello quella campata limita l'errore allo 0,21%, cioè 0,5 mm sul massimo, e il criterio è soddisfatto davvero.
   **Alternative scartate:** una figura di taratura a coppie di linee parallele con avvicinamento monotono, già progettata ma non costruita.
   **Da rivedere se:** si volesse disegnare su quote assolute (fori, incastri, sovrastampe su stampato), o se una misura futura mostrasse scarti sopra il millimetro.
   Resta scritto `tarato: false` nel profilo, perché fra sei mesi si sappia che è un'assunzione.
@@ -644,7 +645,7 @@ mano a mano che le misure arrivano):
   **Decisione:** **il collaudo è sospeso** finché non viene rifatta la disposizione della colonna di destra. Le sue scatole hanno coordinate assolute — `scalaX(1,1,244,17)`, `cerchi(173,20,72,72)`, `ripetibilita(149,171,96,23)` — quindi non basta cambiare `P.larghezza`. Aggiunta una guardia nel generatore che confronta il campo con l'area utile del profilo e **rifiuta di scrivere il G-code**; l'SVG lo fa comunque, perché serve a rifare la disposizione e un'immagine non manda un carrello contro niente. Tolto `gcode/collaudo.gcode`, che era già scritto e avrebbe portato il carrello 4,3 mm dentro l'ostacolo.
   **Da rivedere se:** la cremagliera di Y viene spostata e l'area torna a 251 — allora il collaudo com'è tornerebbe valido.
 
-**Collisione con la sessione parallela, da sapere:** fra le 19:50 e le 20:19 un'altra sessione ha lavorato sullo stesso branch creando `trame.js`, `trifoglio.js` e `rosone.js` (cancellando il `medaglioni.js` che avevo appena fatto) e un proprio `webui/tools/intreccio.js`. **Il mio commit `ac1a39b` ha riscritto quell'`intreccio.js`**, quindi la loro implementazione dell'intreccio è stata sostituita dalla mia. Nessuna delle due sessioni ha toccato questo documento, quindi qui non c'è disallineamento — ma i file sì, e vale la pena saperlo prima di cercare codice che non c'è più.
+**Lavoro abbandonato rimasto in repository, da sapere:** fra le 19:50 e le 20:19 sono stati creati `trame.js`, `trifoglio.js` e `rosone.js` (cancellando il `medaglioni.js` appena fatto) più un primo `webui/tools/intreccio.js`, poi riscritto da `ac1a39b`. **Non era una sessione parallela:** l'operatore ha riavvolto la conversazione per risparmiare token, perché quei disegni non gli piacevano. Ma **riavvolgere la conversazione non annulla i commit**: i file sono ancora lì, e sono lavoro scartato. Restano in repository `webui/tools/{trame,trifoglio,rosone}.js` e `gcode/{onde,reticolo,trifoglio,rosone}.gcode` con i loro SVG. Da decidere se tenerli come materiale o toglierli.
 
 **File consegnati/modificati:**
 - `webui/js/profile.js` — `zDaGradi/zTappo/zAlzata/zContatto`, `puntoHome()`, campo `ostacolo`, `corsaPercorribile` che lo sottrae, migrazione per i profili salvati prima di oggi, due controlli nuovi in `verifica()`, blocco Z e `startup_line0` del `toYaml`
