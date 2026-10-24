@@ -42,10 +42,31 @@ var Paper = (function () {
 
   /* --------------------------- il piano --------------------------- */
 
+  /* LA FINESTRA SUL PIANO, che non coincide con l'area di lavoro.
+     Un foglio più grande della corsa sporge per forza, e quello che sporge
+     deve vedersi: se la vista fosse l'area e basta, la parte fuori sarebbe
+     tagliata — invisibile e, siccome l'SVG non disegna quello che sta fuori
+     dalla viewBox, nemmeno afferrabile col mouse.
+
+     Il margine dipende da QUANTO il foglio è più grande, non da dove si trova:
+     deve restare fermo mentre lo si trascina. Una vista che si allarga a ogni
+     movimento del mouse cambia la scala sotto il cursore, e il foglio sembra
+     scappare dalla mano. */
+  function vista() {
+    var a = State.data.area, p = State.data.paper;
+    var mx = Math.max(6, p.w - a.w + 6);
+    var my = Math.max(6, p.h - a.h + 6);
+    return { x0: -mx, y0: -my, w: a.w + 2 * mx, h: a.h + 2 * my };
+  }
+
   function renderBed() {
-    var a = State.data.area;
-    svg.setAttribute('viewBox', '0 0 ' + a.w + ' ' + a.h);
-    flip.setAttribute('transform', 'translate(0,' + a.h + ') scale(1,-1)');
+    var a = State.data.area, v = vista();
+    svg.setAttribute('viewBox', v.x0 + ' ' + v.y0 + ' ' + v.w + ' ' + v.h);
+    /* Il ribaltamento porta la y della macchina in quella dell'SVG: serve la
+       somma degli estremi verticali della vista, che con una vista che non
+       parte da zero non è più semplicemente l'altezza. */
+    flip.setAttribute('transform',
+      'translate(0,' + (2 * v.y0 + v.h) + ') scale(1,-1)');
 
     var out = '<rect class="bed" x="0" y="0" width="' + a.w + '" height="' + a.h + '"></rect>';
 
@@ -70,30 +91,77 @@ var Paper = (function () {
 
   /* --------------------------- il foglio -------------------------- */
 
+  /* QUANTO DEL FOGLIO LA PENNA RAGGIUNGE: l'intersezione fra il foglio e la
+     corsa. Con un foglio più grande dell'area è il numero che conta davvero —
+     non «il foglio esce», che con un foglio così è sempre vero e non dice
+     niente, ma «su questo foglio puoi disegnare in questo rettangolo, a tanti
+     millimetri dal bordo sinistro e tanti dal basso». */
+  function raggiungibile() {
+    var a = State.data.area, p = State.data.paper, o = State.data.sheetOrigin;
+    var x0 = Math.max(0, o.x), x1 = Math.min(a.w, o.x + p.w);
+    var y0 = Math.max(0, o.y), y1 = Math.min(a.h, o.y + p.h);
+    return {
+      w: Math.max(0, x1 - x0),
+      h: Math.max(0, y1 - y0),
+      /* Da dove comincia, misurato sul FOGLIO: è il numero che si usa col
+         righello sulla carta vera. */
+      dax: x0 - o.x,
+      day: y0 - o.y,
+      sporge: o.x < 0 || o.y < 0 || o.x + p.w > a.w || o.y + p.h > a.h,
+      piuGrande: p.w > a.w || p.h > a.h
+    };
+  }
+
   function renderSheet() {
     var p = State.data.paper, o = State.data.sheetOrigin;
-    layerSheet.innerHTML =
-      '<rect class="sheet" x="' + o.x + '" y="' + o.y +
-      '" width="' + p.w + '" height="' + p.h + '" rx="0.6"></rect>';
+    var a = State.data.area, r = raggiungibile();
+    var vuoto = r.w <= 0 || r.h <= 0;
 
-    var a = State.data.area;
-    var fuori = o.x < 0 || o.y < 0 || o.x + p.w > a.w || o.y + p.h > a.h;
-    layerSheet.firstChild.classList.toggle('sheet-out', fuori);
+    var html = '<rect class="sheet" x="' + o.x + '" y="' + o.y +
+               '" width="' + p.w + '" height="' + p.h + '" rx="0.6"></rect>';
+
+    /* IL RETTANGOLO RAGGIUNGIBILE, disegnato SOPRA la carta.
+       Serve perché un foglio più grande della corsa copre il piano: il
+       riquadro dell'area e il reticolo finiscono sotto il foglio, e senza
+       questo segno non si vedrebbe più dove la penna arriva — che è l'unica
+       cosa che si ha bisogno di sapere guardando questo disegno. */
+    if (!vuoto && r.sporge) {
+      html += '<rect class="reach" x="' + Math.max(0, o.x) + '" y="' + Math.max(0, o.y) +
+              '" width="' + r.w + '" height="' + r.h + '"></rect>';
+    }
+    layerSheet.innerHTML = html;
+
+    /* Rosso solo quando c'è qualcosa da correggere. Un foglio più grande della
+       corsa sporge per costruzione: segnarlo in rosso ogni volta vorrebbe dire
+       un allarme che è sempre acceso, cioè un allarme che non si guarda più.
+       Resta rosso se il foglio è fuori del tutto, o se sporge pur essendo più
+       piccolo dell'area — lì sporgere è una svista, non una necessità. */
+    layerSheet.firstChild.classList.toggle('sheet-out',
+      vuoto || (r.sporge && !r.piuGrande));
     layerSheet.firstChild.classList.toggle('sheet-fisso', State.data.foglioMisurato);
 
     /* Un decimale: l'area è un numero CALCOLATO (corsa percorribile, cioè
        passi diviso rapporto), quindi ha tutti i decimali del mondo. Stamparli
        tutti non aggiunge informazione — la macchina non li sa fare: un passo
        vale tre centesimi. */
+    var coda = '';
+    if (vuoto) {
+      coda = ' · il foglio è tutto fuori dalla corsa';
+    } else if (r.sporge) {
+      coda = ' · la penna ne raggiunge ' + r.w.toFixed(1) + ' × ' + r.h.toFixed(1) +
+             ' mm, da ' + r.dax.toFixed(0) + ' mm dal bordo sinistro e ' +
+             r.day.toFixed(0) + ' dal basso';
+    }
+
     caption.textContent =
       'Area ' + a.w.toFixed(1) + ' × ' + a.h.toFixed(1) + ' mm · foglio ' + p.name +
-      ' ' + p.w + ' × ' + p.h + ' mm' +
-      (fuori ? ' · il foglio esce dall’area' : '');
+      ' ' + p.w + ' × ' + p.h + ' mm' + coda;
   }
 
   function apply() {
     State.data.paper.name = nomeFormato(State.data.paper.w, State.data.paper.h);
     markPreset();
+    etichettaCentra();
     renderBed();
     renderSheet();
     rebuildPath();
@@ -303,6 +371,19 @@ var Paper = (function () {
     rebuildPath();
   }
 
+  /* Il pulsante dice due cose diverse a seconda di chi contiene chi, e sono
+     davvero due operazioni diverse: con un foglio piccolo lo si mette in mezzo
+     alla corsa, con un foglio grande si mette la corsa in mezzo al foglio. Il
+     conto è lo stesso — cambia solo il segno del risultato. */
+  function etichettaCentra() {
+    var b = document.getElementById('btn-center-sheet');
+    if (!b) return;
+    var a = State.data.area, p = State.data.paper;
+    b.textContent = (p.w > a.w || p.h > a.h)
+      ? 'Centra l\'area nel foglio'
+      : 'Centra il foglio nell\'area';
+  }
+
   /* Il foglio passa da «posizione indicativa» a «posizione misurata» e
      viceversa. Lo accende il terzo popup di inizio stampa; lo spegne solo una
      richiesta esplicita, perché spegnerlo vuol dire buttare via una misura. */
@@ -462,10 +543,15 @@ var Paper = (function () {
       });
     });
 
+    /* `|| 0` sarebbe sbagliato qui: un campo appena svuotato darebbe 0, e lo
+       zero è una posizione vera — l'angolo dei blocchi. Si tiene il valore
+       buono finché non se ne scrive uno nuovo. */
     ['sheet-x', 'sheet-y'].forEach(function (id) {
       document.getElementById(id).addEventListener('input', function () {
-        setSheetOrigin(+document.getElementById('sheet-x').value || 0,
-                       +document.getElementById('sheet-y').value || 0);
+        var x = parseFloat(document.getElementById('sheet-x').value);
+        var y = parseFloat(document.getElementById('sheet-y').value);
+        setSheetOrigin(isNaN(x) ? State.data.sheetOrigin.x : x,
+                       isNaN(y) ? State.data.sheetOrigin.y : y);
       });
     });
 
@@ -491,7 +577,7 @@ var Paper = (function () {
 
   return {
     init: init, setSize: setSize, refreshArea: refreshArea,
-    renderFormati: renderFormati,
+    renderFormati: renderFormati, raggiungibile: raggiungibile,
     setSheetOrigin: setSheetOrigin, centerSheet: centerSheet,
     rebuildPath: rebuildPath, fissa: fissa
   };

@@ -85,16 +85,59 @@ var Popup = (function () {
       {
         nome: 'Angolo del foglio',
         sezioni: { posizione: true, homing: false, assi: true, penna: true },
-        testo: 'Porta la punta sull\'<b>angolo in basso a sinistra del foglio</b>. ' +
-               'Se vuoi la conferma, abbassa un attimo la penna: adesso la quota ' +
-               'di contatto la conosce, quindi un puntino te lo dice.',
+
+        /* IL TESTO CAMBIA PERCHÉ CAMBIA IL GESTO. Con un foglio più piccolo
+           della corsa si tocca il suo angolo e basta. Con un foglio più grande
+           quell'angolo sta FUORI dalla corsa — la macchina non ci arriva — e
+           chiedere di toccarlo sarebbe chiedere l'impossibile: è la
+           configurazione che l'operatore usa davvero, coi fogli tagliati a
+           mano più larghi della campata. Allora si tocca un punto qualsiasi
+           del foglio che la macchina raggiunge, e si dichiara quanto quel
+           punto dista dai due bordi. */
+        testo: function () {
+          var r = Paper.raggiungibile();
+          if (!r.piuGrande) {
+            return 'Porta la punta sull\'<b>angolo in basso a sinistra del ' +
+                   'foglio</b>. Se vuoi la conferma, abbassa un attimo la penna: ' +
+                   'adesso la quota di contatto la conosce, quindi un puntino te ' +
+                   'lo dice.';
+          }
+          return '<b>Questo foglio è più grande della corsa</b>, quindi il suo ' +
+                 'angolo in basso a sinistra sta fuori: la macchina non ci ' +
+                 'arriva. Porta la punta su un punto del foglio che la macchina ' +
+                 'raggiunge — il più comodo è l\'angolo in basso a sinistra del ' +
+                 '<b>tratteggio azzurro</b> — e scrivi qui sotto quanto quel ' +
+                 'punto dista dal <b>bordo sinistro</b> e dal <b>bordo ' +
+                 'inferiore</b> del foglio, col righello sulla carta.';
+        },
+
+        /* I due scostamenti arrivano precompilati con quelli che si vedono
+           già sullo schermo: nel caso normale l'operatore conferma invece di
+           ricopiare, e se il foglio è nella posizione che voleva sono già
+           quelli giusti. */
+        extra: function () {
+          var r = Paper.raggiungibile();
+          return '<div class="pop-off"><p class="muted small">Distanza del punto ' +
+                 'toccato dai bordi del foglio</p><div class="field-row">' +
+                 '<label>Dal bordo sinistro (mm) <input type="number" id="pop-off-x" ' +
+                 'step="0.5" value="' + (r.piuGrande ? r.dax.toFixed(0) : '0') + '"></label>' +
+                 '<label>Dal bordo inferiore (mm) <input type="number" id="pop-off-y" ' +
+                 'step="0.5" value="' + (r.piuGrande ? r.day.toFixed(0) : '0') + '"></label>' +
+                 '</div></div>';
+        },
+
         entra: function () {},
         pronto: function () { return State.data.azzerata; },
         attesa: 'Serve una posizione nota.',
         etichetta: 'Inizio foglio completato',
         esci: function () {
           alzaPenna();
-          Paper.setSheetOrigin(State.data.pos.x, State.data.pos.y);
+          /* L'angolo del foglio è il punto toccato MENO la distanza dai bordi:
+             con scostamento zero si ricade esattamente nel caso di prima. */
+          var dx = parseFloat((document.getElementById('pop-off-x') || {}).value);
+          var dy = parseFloat((document.getElementById('pop-off-y') || {}).value);
+          Paper.setSheetOrigin(State.data.pos.x - (isNaN(dx) ? 0 : dx),
+                               State.data.pos.y - (isNaN(dy) ? 0 : dy));
           if (!controllaIngombro()) return false;
           /* Da qui il foglio sullo schermo non è più un'ipotesi: è dove sta
              davvero, e si blocca. */
@@ -138,9 +181,13 @@ var Popup = (function () {
     box.hidden = false;
     passoEtichetta.textContent = 'Passo ' + (i + 1) + ' di ' + passi.length;
     titolo.textContent = p.nome;
-    descrizione.innerHTML = p.testo;
+    descrizione.innerHTML = typeof p.testo === 'function' ? p.testo() : p.testo;
     okBtn.textContent = p.etichetta;
     Panel.mount(contenitore, p.sezioni);
+    /* Campi che appartengono al passo e non al pannello: il pannello è un
+       componente condiviso, e infilarci dentro i campi di un passo lo
+       legherebbe a una procedura che non è affar suo. */
+    if (p.extra) contenitore.insertAdjacentHTML('beforeend', p.extra());
     p.entra();
     aggiorna();
   }

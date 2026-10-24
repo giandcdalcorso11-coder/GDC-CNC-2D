@@ -397,6 +397,17 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 #bed-svg { touch-action: none; }
 .sheet-out { stroke: var(--danger); stroke-width: .8; stroke-dasharray: 2 1.5; }
 
+/* Dove la penna arriva, segnato sulla carta. Tratteggiato e non pieno perche'
+   non e' un bordo del foglio: e' un limite della macchina che capita di
+   trovarsi li' in mezzo. */
+.reach {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: .7;
+  stroke-dasharray: 4 2.5;
+  pointer-events: none;
+}
+
 .trace-draw { fill: none; stroke: var(--ink); stroke-width: .4; stroke-linecap: round; stroke-linejoin: round; }
 .trace-move { fill: none; stroke: #9aa3b0; stroke-width: .25; stroke-dasharray: 1.4 1.4; }
 .trace-done { stroke: var(--accent); }
@@ -791,3 +802,13 @@ code {
   font-variant-numeric: tabular-nums;
   color: var(--fg-dim, #888);
 }
+
+/* I campi dello scostamento, nel terzo passo di stampa. Separati dal pannello
+   da una riga: sono una dichiarazione dell'operatore, non un comando alla
+   macchina, e le due cose non vanno confuse premendo in fretta. */
+.pop-off {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+.pop-off p { margin: 0 0 6px; }

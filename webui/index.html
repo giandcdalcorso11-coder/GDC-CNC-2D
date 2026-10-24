@@ -62,11 +62,11 @@
         </div>
         <button class="btn btn-ghost full" id="btn-rotate-paper">Ruota foglio</button>
         <div class="field-row">
-          <label>Margine X (mm) <input type="number" id="sheet-x" value="20" min="0" step="1"></label>
-          <label>Margine Y (mm) <input type="number" id="sheet-y" value="20" min="0" step="1"></label>
+          <label>Angolo foglio X (mm) <input type="number" id="sheet-x" value="20" min="-400" max="400" step="1"></label>
+          <label>Angolo foglio Y (mm) <input type="number" id="sheet-y" value="20" min="-400" max="400" step="1"></label>
         </div>
         <button class="btn btn-ghost full" id="btn-center-sheet">Centra il foglio nell'area</button>
-        <p class="placeholder-note">Distanza dell'angolo in basso a sinistra del foglio dallo zero della macchina. Il foglio si può anche trascinare direttamente sul piano, e il disegno lo segue.</p>
+        <p class="placeholder-note">Dove sta l'angolo in basso a sinistra del foglio, rispetto allo zero della macchina. <strong>I due numeri possono essere negativi</strong>: un foglio più grande della corsa deve per forza cominciare più a sinistra e più in basso dello zero, e allora la penna ne raggiunge solo la parte centrale. Il foglio si può anche trascinare sul piano, e il disegno lo segue.</p>
       </section>
 
       <section class="card">
