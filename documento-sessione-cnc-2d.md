@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 53
-**Ultimo aggiornamento:** 2026-10-24 08:20
+**Versione:** 54
+**Ultimo aggiornamento:** 2026-10-24 18:50
 
 ## Regole di co-editing
 
@@ -239,11 +239,12 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 - [2026-10-22] **FluidNC 4.1.1 installata sulla macchina definitiva** e configurazione verificata con `$CD` chiave per chiave: nessuna ignorata. Rete STA, `cnc2d.local`, 192.168.1.14. **Tre scoperte ai primi comandi veri.** (a) Il servo non si muoveva: `RcServo` mappa la posizione MACCHINA e tronca fuori dai limiti dell'asse, e senza homing FluidNC dichiara la corsa in negativo — `Axis Z (-21.281, 0.010)` — quindi tutte le quote positive uscivano a 1500 µs. Confermato con `G0 Z-3`, che muove. La Z va usata in negativo: Z0 = tappo, Z−21.271 = contatto. (b) **I due assi andavano al contrario tutti e due**: invertite le spunte nel profilo, da riprovare. (c) Il flash a 921600 si interrompe sul CH340: 115200.
 - [2026-10-23] **Le tre cose del giorno prima sono chiuse, e se ne apre una più grossa.** Quote Z negative in produzione e verificate sulla macchina (Z0, Z−18.326, Z−21.271 tutte raggiunte); versi dei due assi riprovati con quattro jog da 25 mm, **giusti**. Risolto anche «Upload filesystem inaccessible», che non era un guasto: le rotte della WebUI sono separate — `/files` è la flash, `/upload` è la SD — e l'upload finiva sulla SD inesistente. Si carica con `curl -T http://IP/flash/nome`, perché la flash è montata in WebDAV. **Ma due stampe lunghe si sono bloccate a metà** rendendo irraggiungibile la WebUI: la casella comandi crea un canale per ogni comando e `$LocalFS/Run` se lo tiene per tutta la durata del job, quindi la connessione HTTP del browser resta aperta per minuti. Da provare lanciando dalla seriale USB, che è insieme prova e rimedio.
 - [2026-10-24] **Il blocco delle stampe lunghe è confermato, ed è il canale HTTP.** L'intreccio, fermatosi due volte su due lanciato dalla WebUI, lanciato dalla **seriale USB** a scheda del browser chiusa è arrivato in fondo: sette minuti, nessun reset. Una variabile sola cambiata. Da qui la regola operativa — **i disegni lunghi si lanciano dalla seriale** — e la conferma che lo streaming riga per riga del SLICER non è solo comodità. Procedura provata: browser chiuso, USB collegata a macchina spenta, 12 V riaccesi, monitor seriale a 115200 con fine riga «New Line», `$I` per verificare, `$LocalFS/List`, `$MD`, battuta, `G92 X0 Y0`, `G90 G0 X5 Y5 F1000`, penna, foglio, `$LocalFS/Run=<file>`. **Nota pratica sulla flash:** prima di caricare serve spazio vero, perché il gestore di upload tiene da parte una riserva — 20 KB liberi non bastano per un file da 19,5 KB.
+- [2026-10-24] **Il WebSocket di FluidNC è un canale di comando a tutti gli effetti**, e da oggi è quello che usa il nostro programma. Letto nel sorgente: `WSChannel.cpp` mette i frame in arrivo in `push()` e registra il canale in `allChannels` come la UART; `WebUIServer.cpp` lo monta sulla radice. Nessun controllo dell'header `Origin` — i WebSocket non passano per il CORS — quindi la pagina parla con la macchina anche servita da altrove. Provato sulla macchina: collegamento, jog, homing, spostamento a coordinate. È la stessa cura del blocco delle stampe lunghe, vista dal lato del firmware: un canale solo che non si disconnette, invece di uno nuovo per comando.
 
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
 
-**Stato:** in corso — l'applicazione è **completa a monte** e ora anche **corretta a valle**: le quote Z sono quelle vere della macchina, i programmi finiscono al punto home e i file generati sono stati stampati davvero. Restano le stesse due cose, ma non aspettano più: **invio del programma** e **caricamento della pagina sull'ESP32**, e dal 2026-10-23 si sa che la seconda non è opzionale (niente CORS in FluidNC) e che i conti tornano (62,5 kB compressi contro i 111,6 della WebUI da rimuovere). Dal **2026-10-24** nemmeno la prima è solo ergonomia: lo streaming riga per riga è anche la **cura** del blocco delle stampe lunghe, confermato quel giorno
+**Stato:** in corso — **l'applicazione comanda la macchina.** Il 2026-10-24 l'invio del programma è stato costruito (WebSocket, una riga per volta, freno sugli `ok`) e il trasporto è stato provato sull'ESP32 vero: collegamento, jog, homing, «vai al punto». Restano due cose, e sono diverse da prima. **Una:** mandare un programma INTERO, mai fatto. **Due:** installare la pagina come `index.html.gz` al posto della WebUI di FluidNC — e si sa perché deve essere quel nome, non un altro (il gestore generico serve ogni altro file con `Content-Disposition: attachment`, cioè il browser lo scarica invece di aprirlo). Scoperta che ha sbloccato lo sviluppo: i WebSocket non passano per il CORS, quindi la pagina parla con la macchina anche aperta dal disco, e l'installazione non è più un prerequisito per provare
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
 
@@ -321,6 +322,8 @@ mano a mano che le misure arrivano):
 - [2026-10-22] **I programmi devono stare in 64 kB**, ed è il browser dei file di FluidNC a dirlo: la partizione LittleFS è 192 kB e `index.html.gz` della WebUI ne occupa 111. Il collaudo scritto per esteso ne occupava 69 e non ci sarebbe entrato. I due generatori emettono ora **G-code modale** — solo quello che cambia — e il collaudo passa a 44.633 byte, con il percorso verificato stato per stato (2994, zero differenze). Stesso conto per l'autonomia del SLICER: **66 kB compressi contro 64 liberi**, quindi ospitarlo chiede un file unico e la rimozione della WebUI di FluidNC.
 - [2026-10-23] **Il generatore produce finalmente quote che la macchina esegue.** La convenzione Z vive in un punto solo (`Profile.zDaGradi()`) e la prendono tutti; i programmi finiscono al **punto home** e non più addosso ai blocchi, che è il difetto che il profilo avvertiva da sempre nel commento di `puntoHome`. Soppresse le righe di sola velocità che non muovono niente. Nati cinque generatori nuovi — cornice dell'area utile (con la procedura della penna dentro il file, via `M0`), prova geometrica, vortice, riempimenti, intreccio — e tutti i file rigenerati. **Il conto sull'ospitare il SLICER è stato rifatto sul sorgente e la conclusione si è irrigidita:** in tutto il server web di FluidNC non c'è una sola intestazione CORS, quindi la pagina **deve** essere servita dall'ESP32, non è una preferenza. Il nostro bundle gzippato è 62.539 byte contro i 111.625 della WebUI: togliendola restano ~113 kB liberi invece di 64.
 - [2026-10-24] **L'invio del programma non è più solo una comodità: è la cura di un guasto.** Confermato sulla macchina che il blocco delle stampe lunghe nasce dal canale HTTP che `$LocalFS/Run` si tiene aperto per l'intera durata del job (vedi Step 3). Mandando il G-code **riga per riga** quel canale non esiste: non c'è niente che debba restare appeso per venti minuti. Conseguenza sul progetto dell'invio: lo stato della stampa va ricostruito dal nostro lato contando le righe accettate, non chiedendolo a un comando che blocca, e serve una coda con controllo di flusso sugli `ok` invece di un'unica richiesta lunga.
+- [2026-10-24] **L'invio esiste, e il programma è diventato l'interfaccia della macchina.** `sender.js` manda il G-code riga per riga su un WebSocket solo, con al più 16 righe non confermate in volo: il freno è l'`ok`, che FluidNC manda quando la riga è entrata nel pianificatore. Non send-and-wait, che lascerebbe il pianificatore vuoto e la macchina a scatti; non tutto insieme, che riempirebbe la memoria della scheda — il lato in ingresso di quel socket non ha né limite né contropressione. L'interruzione **non è un reset**: accoda alzata e ritorno a casa, così il `G92` sopravvive. Attorno all'invio, la giornata di interfaccia: tastierino a otto direzioni con le quote della penna al centro, fogli personalizzati, fogli più grandi della corsa, rotella sul piano, la tavola di legno disegnata e misurata, colonne ridimensionabili. **Provato sulla macchina:** collegamento, jog, homing, vai al punto. **Non ancora provato:** un programma intero. Prove da 230 a 389 asserzioni.
+- [2026-10-24] **L'editor SVG è in pipeline ma non costruito, e c'è una precondizione da sapere prima di cominciarlo:** `SvgImport.parse` appiattisce le curve in polilinee al caricamento, quindi su un disegno importato non esiste più nessuna Bézier a cui attaccare una maniglia. Il primo pezzo di lavoro è un modello di tracciato che TIENE le curve e le appiattisce solo in uscita verso il G-code. Direzione scelta: **modificare prima di creare**.
 
 ### Step 5 — Struttura meccanica
 
@@ -564,6 +567,109 @@ mano a mano che le misure arrivano):
 - [2026-10-23] **Il modulo disegna, e la procedura di montaggio della penna è quella definitiva.** Non si cerca la quota giusta muovendo il servo: si porta il servo alla quota **già decisa** e si stringe la penna lì — i 25° non sono una misura, sono un'imposizione, e il profilo lo dice da sempre. Il foglio deve essere sotto durante la stretta, perché la quota è definita *punta sul foglio* e non *punta sulla tavola*. Verificata su più stampe: il tratto resta costante su 4,4 m (vortice) e su 21 m di spirografo per quanto ne ha fatto. **Resta aperto il gioco**, l'ultimo parametro del profilo mai misurato: la rosa mistica dei medaglioni è stata disegnata apposta per leggerlo — nove vertici su cui convergono otto corde ciascuno, e se il punto d'arrivo dipende dalla direzione d'arrivo i vertici chiudono in una rosellina larga quanto il gioco
 
 ## Storico sessioni
+
+### [2026-10-24 18:50] (software) Il SLICER manda il programma, e diventa l'interfaccia della macchina
+
+**Riepilogo:** Il buco grosso del programma è chiuso: l'invio del G-code esiste, passa da un WebSocket solo e persistente invece che da una richiesta HTTP per riga, e la pagina ha parlato con la macchina vera — collegamento, jog, homing, «vai al punto» tutti provati sull'ESP32. Attorno a quello, una giornata di interfaccia: tastierino rifatto, fogli personalizzati, fogli più grandi della corsa, rotella e trascinamento sul piano, la tavola di legno disegnata e misurata, colonne laterali ridimensionabili. Le prove passano da 230 a 389 asserzioni.
+
+**Cosa è stato fatto:**
+
+- **L'invio del programma** (`sender.js`, nuovo, e `api.js` riscritto). Il trasporto non è più `/command?commandText=` — una richiesta HTTP per riga, cioè un canale nuovo per riga dentro FluidNC — ma **un WebSocket solo**, aperto una volta, registrato in `allChannels` esattamente come la UART. Letto nel sorgente: `WSChannel.cpp` mette i frame in arrivo in `push()`, i caratteri real-time hanno un instradamento loro, e `WebUIServer.cpp` monta il socket sulla **radice** (`new AsyncWebSocket("/")`).
+- **Scoperta che sblocca lo sviluppo:** i WebSocket **non passano per il CORS**, e FluidNC non guarda l'header `Origin`. Quindi la pagina parla con la macchina anche servita da altrove, e l'operatore ha potuto provarla aprendo il file dal disco, senza installare niente sull'ESP32.
+- **Provata sulla macchina vera.** Collegamento riuscito (`Collegata a ws://192.168.1.14/`), jog dal pannello, procedura di homing completa, «vai al punto». È il pezzo che non era mai stato provato. **Resta non provato l'invio di un programma intero.**
+- **Il tastierino rifatto**, su otto richieste dell'operatore: quadrato per costruzione, otto direzioni (le diagonali sono **un solo** `$J`, due comandi separati farebbero una L), le tre quote della penna al centro con una tacca disegnata in CSS, due frecce da un grado, lo STOP sceso sotto, il passo attivo evidenziato, un quinto posto che è un campo libero, e «vai al punto» scrivendo le coordinate.
+- **I fogli personalizzati**: un «+» acceso solo su misure nuove, matita e cestino che compaiono passandoci sopra, e il formato in uso finalmente evidenziato *dai dati* (prima la classe era scritta a mano su A5 nell'HTML: giusta all'avvio e sbagliata appena si ruotava il foglio).
+- **I fogli più grandi della corsa**, che sono quelli che l'operatore usa davvero: l'angolo del foglio può stare in negativo, la vista si allarga a contenerlo, l'avviso dice quanto se ne raggiunge invece di gridare «esce dall'area» a ogni foglio, e un rettangolo tratteggiato disegnato **sopra la carta** segna dove la penna arriva.
+- **Rotella e trascinamento sul piano**: zoom ancorato al puntatore, trascinamento del fondo per spostarsi, tasto centrale che sposta la vista anche sopra la carta, doppio clic per riadattare.
+- **La tavola di legno e l'area di appoggio**, disegnate attorno all'area di lavoro, con i loro otto numeri in Impostazioni e un controllo di coerenza.
+- **Le due colonne laterali si ridimensionano** trascinando, con il contenuto che si riadatta (container query, non media query).
+- **Il pulsante «Crea / Edit»** e l'elenco di dove trovare disegni, con Book of Shapes come primo.
+- **Tolto il disegno di esempio** dal piano: con tre rettangoli da guardare faceva credere che ci fosse qualcosa da stampare.
+
+**Bug: la strada vecchia dell'invio avrebbe riprodotto il guasto appena risolto**
+
+**Sintomo:** nessuno ancora — `api.js` non aveva mai mandato un programma.
+**Causa:** mandava ogni comando su `/command`, la rotta su cui FluidNC crea un canale per ogni richiesta; e faceva polling dello stato ogni 500 ms sulla stessa rotta. Un programma da 2500 righe avrebbe creato 2500 canali, e il polling uno ogni mezzo secondo per sempre.
+**Fix applicato:** trasporto riscritto sul WebSocket. **Collegamento e comandi singoli verificati sulla macchina**, l'invio di un programma no.
+
+**Bug: `homingFatto()` mandava ancora il jog che il documento dichiara sbagliato dal 2026-10-23**
+
+**Sintomo:** nessuno visibile — il jog non muove niente, ed è proprio quello il problema.
+**Causa:** `$J=G91 X0.01 F100` vale 0,34 passi, cioè zero passi arrotondati, e un jog prima del `G92` porterebbe il carrello via dai blocchi. La voce del 2026-10-23 lo registrava come difetto corretto; il **codice** se l'era tenuto.
+**Fix applicato:** tolto. Azzera e poi si sposta al punto home, che è anche il movimento che riaccende i motori. **Verificato sulla macchina** dall'operatore e da un'asserzione nuova più stretta: fra `$MD` e `G92` non deve passare nessun comando di movimento.
+
+**Bug: il DRO leggeva `MPos` come se fosse la posizione di lavoro**
+
+**Sintomo:** nessuno osservato, perché prima del WebSocket il DRO non aveva mai letto un rapporto vero con un `G92` attivo.
+**Causa:** la posizione di lavoro è `MPos − WCO`, e Grbl manda `WCO` solo ogni tanto per non ripeterlo in ogni riga. Senza la sottrazione il DRO avrebbe mostrato numeri veri riferiti a un'origine che non è la nostra — plausibili e falsi.
+**Fix applicato:** si accettano sia `MPos` sia `WPos`, e il `WCO` si ricorda fra un rapporto e l'altro.
+
+**Bug: il ribaltamento dell'asse Y era calcolato dalla finestra**
+
+**Sintomo:** nessuno, finché non è esistito il trascinamento della vista.
+**Causa:** quel numero dice dove cade la y zero della macchina nelle coordinate del disegno, e non dipende da dove si sta guardando. Col margine simmetrico i due conti davano lo stesso risultato, quindi il difetto era invisibile — si sarebbe visto al primo trascinamento, facendo scorrere il disegno **sotto** la finestra mentre la finestra scorre sul disegno: il doppio del movimento, nel verso sbagliato.
+**Fix applicato:** costante, derivata dalla sola altezza dell'area.
+
+**Bug: il campo dei collegamenti era `type="url"` e bloccava l'invio**
+
+**Sintomo:** incollando `sito.com` e premendo «+» non succedeva niente.
+**Causa:** con `type="url"` il browser rifiuta un indirizzo senza schema **prima** di lasciar partire il `submit`, quindi il codice che aggiunge `https://` da sé non veniva mai raggiunto.
+**Fix applicato:** `type="text"` con validazione nostra. Trovato provando, non leggendo.
+
+**Due misure nuove, e nessuna delle due era scritta da nessuna parte:**
+
+- **La banda morta del servo vale 0,9°, cioè 0,295 mm.** Conseguenza: i due pulsanti da **0,2 mm** della scheda penna valgono 0,61° e **stanno sotto la banda morta** — spesso non muovono niente. La nota del pannello diceva il contrario. Un grado (0,327 mm) è il primo passo che la penna sente davvero, ed è per questo che le frecce nuove sono da un grado.
+- **Un passo di motore vale 0,0295 mm**, quindi i millimetri tondi quasi mai sono un numero intero di passi: il pulsante da **0,1 mm muove 0,0884**, il 12% in meno di quello che c'è scritto sopra. Gli altri tre stanno sotto i 15 micron. Ogni pulsante ora porta il movimento vero nel suggerimento.
+
+**La geometria della tavola, misurata:** tavola 700 × 600 (dal CAD, e quelle dimensioni valgono perché sono di un pezzo di legno); **zero macchina a 280 da sinistra e 20 dal basso**; area di appoggio del foglio **355 × 400**. L'area di lavoro ci cade dentro con 70 mm di carta liberi a sinistra, 44 a destra, 10 sotto e 154 sopra. Le forchette calcolate *prima* di chiedere le misure (zeroX fra 210 e 324, zeroY fra 10 e 174) sono state rispettate, il che conferma anche la lettura delle misure orizzontali.
+
+**E una correzione dell'operatore che vale una nota:** quei 10 mm sotto **non sono un margine risicato**. Il bordo inferiore dell'appoggio è una **battuta fisica**, e ci si spinge contro il foglio per posarlo dritto. Arrivare a filo è il gesto giusto, non un rischio — scritto nel commento del codice e in quello della prova, perché un numero piccolo in fondo a una tabella si rilegge volentieri al contrario.
+
+**Decisioni prese:**
+
+- **Contesto:** come il SLICER manda il G-code alla macchina.
+  **Decisione:** **un WebSocket solo e persistente**, con le righe mandate una per una e un **freno a finestra**: al più 16 righe non confermate in volo, e il freno è l'`ok`.
+  **Alternative scartate:** `/command` per riga, che è la causa confermata del guasto del 2026-10-23; **send-and-wait** (una riga, aspetta, la prossima), che lascerebbe il pianificatore vuoto e la macchina a scatti fra un segmento e l'altro; **riversare tutto insieme**, che riempirebbe la memoria dell'ESP32 — il lato in ingresso del WebSocket non ha né limite né contropressione, `WS_EVT_DATA` passa il frame a `push()` senza guardare quanto è lungo.
+  **Da rivedere se:** la macchina si mostrasse a scatti su disegni molto fitti, nel qual caso la finestra va allargata, non tolta.
+  **Costo accettato:** la stampa dipende dalla rete per tutta la sua durata, e chiudere la pagina la interrompe. Col file in memoria non succedeva. In cambio si vede l'avanzamento, si può mettere in pausa, e la macchina non muore.
+
+- **Contesto:** fermare una stampa in corso.
+  **Decisione:** **l'interruzione non è un reset.** Si smette di alimentare, si butta via quello che non è partito, e si **accodano** alzata e ritorno a casa, che il pianificatore esegue dopo le righe già dentro.
+  **Alternative scartate:** Ctrl-X, che azzera FluidNC **e con lui il `G92`**, cioè l'origine presa a mano sui blocchi — per ricominciare bisognerebbe rifare tutta la procedura.
+  **Costo accettato:** le righe già in volo vengono disegnate lo stesso, al più la finestra, cioè qualche millimetro. Detto nel registro.
+
+- **Contesto:** dove installare la pagina sull'ESP32.
+  **Decisione:** **deve chiamarsi `index.html.gz` e prende il posto della WebUI di FluidNC.** Non è una preferenza: il gestore generico (`handle_not_found` → `myStreamFile` con `download=true`) serve qualunque file della flash ma con `Content-Disposition: attachment`, quindi una pagina messa lì accanto con un nome suo verrebbe **scaricata** invece che aperta. L'unico percorso che il browser apre è la radice.
+  **Alternative scartate:** far convivere le due interfacce, che il sorgente non permette.
+  **Rischio gestito:** la rotta WebDAV non dipende da nessuna pagina, quindi si torna indietro sempre — il README del firmware ha il giro completo, copia di sicurezza prima.
+
+- **Contesto:** dove salvare le cose nuove (fogli personalizzati, larghezze delle colonne, collegamenti).
+  **Decisione:** **i fogli nel profilo** (al primo livello, fuori da `stampa`, così non spariscono cambiando profilo di stampa); **larghezze e collegamenti in chiavi loro**. Il profilo descrive la **macchina**, si esporta e si rimette su un altro computer: la larghezza di una colonna sullo schermo di chi guarda e un segnalibro non c'entrano niente con una taratura.
+  **Da rivedere se:** si volesse un vero «spazio di lavoro» esportabile, che allora sarebbe una terza cosa ancora.
+
+- **Contesto:** l'editor SVG chiesto dall'operatore.
+  **Decisione:** per ora **solo il pulsante e la tab**, che dichiara di essere vuota. Costruito prima il resto. E quando si farà, **modificare prima di creare**: per *creare* da zero Inkscape o Boxy fanno meglio di quanto faremo noi in mesi; per **sistemare un disegno destinato a questa macchina** — togliere un tratto doppio, chiudere un buco, riscalare sul foglio sapendo dov'è la battuta — il giro «esporta, reimporta, riguarda» è il fastidio che l'operatore vuole togliere.
+  **Precondizione architetturale trovata, e non è un dettaglio:** `SvgImport.parse` **appiattisce le curve in polilinee** appena si carica il file. Un editor con maniglie per le Bézier ha bisogno delle curve vere: su un disegno appiattito una curva è una collana di cento punti e non c'è niente a cui attaccare una maniglia. Quindi il primo pezzo di lavoro è invisibile — un modello di tracciato che tiene le curve e le appiattisce solo in uscita verso il G-code — e senza quello il resto non esiste.
+  **Due cose che faremmo meglio di un editor generico**, ed entrambe sono del plotter: il **testo a tratto singolo** (`font-tratto.js` esiste già; un font da stampa è fatto di contorni, e una penna che ripassa un contorno sotto i 6-7 mm fa macchie) e l'**anteprima vera** con ordine dei tratti, alzate e tempo.
+  **Alternative scartate:** cominciare dalla tela senza il modello, che vorrebbe dire rifarla.
+
+**File consegnati/modificati:**
+- `webui/js/api.js` — riscritto sul WebSocket: finestra di 16 righe, caratteri real-time che scavalcano la coda, righe ricomposte dai frame, `MPos − WCO`, `jogXY`, `homingFatto()` corretta
+- `webui/js/sender.js` — **nuovo**: preparazione del programma, scorta di 32 righe, avanzamento contato sugli `ok`, pausa, interruzione pulita
+- `webui/js/layout.js`, `webui/js/sorgenti.js` — **nuovi**: colonne ridimensionabili; collegamenti e pulsante Crea/Edit
+- `webui/js/panel.js` — tastierino a otto direzioni, quote della penna, frecce da un grado, passo libero, vai al punto
+- `webui/js/paper.js` — fogli personalizzati, foglio più grande della corsa, rettangolo raggiungibile, rotella e trascinamento, tavola e appoggio, niente più disegno di esempio
+- `webui/js/profile.js` — formati dell'operatore, blocco `tavola` con le misure del 2026-10-24, `tavolaRect`/`appoggioRect`
+- `webui/js/popup.js` — il passo 3 cambia gesto quando l'angolo del foglio è fuori dalla corsa
+- `webui/js/artwork.js`, `app.js`, `jog.js`, `state.js`, `settings.js` — invio, avanzamento, pulsanti della stampa, campo `stampa`, sezione Tavola
+- `webui/index.html`, `webui/css/*` — tab Editor, sezione Tavola, manici, container query
+- `firmware/fluidnc/index.html.gz` — **nuovo**: il programma compresso, pronto da installare
+- `firmware/fluidnc/README.md` — perché deve chiamarsi `index.html.gz`, e il giro con la copia di sicurezza
+- Prove: `api-test.js` e `layout-test.js` nuovi, `panel-test`/`popup-test`/`foglio-test`/`ui-test` ampliati. **Da 230 a 389 asserzioni.**
+
+**Impatto su Vision/Pipeline:** **Step 4** — lo stato passa da «restano invio e ospitare la pagina» a «l'invio c'è e il trasporto è provato sulla macchina; resta da provare un programma intero e da installare la pagina», con le note della giornata. **Step 3** — nota sull'interfaccia che ora comanda la macchina da sé.
+
+---
 
 ### [2026-10-24 08:20] (firmware+software) Il blocco delle stampe lunghe è confermato sulla macchina, e il criterio del millimetro è dimostrato
 
