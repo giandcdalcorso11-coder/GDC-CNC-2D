@@ -16,6 +16,14 @@
 var Paper = (function () {
   var svg, flip, caption, layerBed, layerSheet, layerTrace;
 
+  /* LA FINESTRA SUL PIANO, quando l'operatore l'ha mossa lui.
+     `null` vuol dire «adattata», cioè ricalcolata da vista() a ogni cambio di
+     foglio o di area. Appena si usa la rotella o si trascina il fondo diventa
+     un rettangolo suo, e da lì in poi comanda quello: un ingrandimento che si
+     annulla da solo perché nel frattempo è cambiato un margine sarebbe peggio
+     di non averlo. */
+  var finestra = null;
+
   var FORMATI = { A4: [210, 297], A5: [148, 210], A6: [105, 148] };
 
   function nomeFormato(w, h) {
@@ -59,14 +67,31 @@ var Paper = (function () {
     return { x0: -mx, y0: -my, w: a.w + 2 * mx, h: a.h + 2 * my };
   }
 
-  function renderBed() {
-    var a = State.data.area, v = vista();
+  /* Il rettangolo che si sta guardando: quello scelto a mano, o l'adattato. */
+  function finestraCorrente() { return finestra || vista(); }
+
+  function applicaVista() {
+    var v = finestraCorrente();
     svg.setAttribute('viewBox', v.x0 + ' ' + v.y0 + ' ' + v.w + ' ' + v.h);
-    /* Il ribaltamento porta la y della macchina in quella dell'SVG: serve la
-       somma degli estremi verticali della vista, che con una vista che non
-       parte da zero non è più semplicemente l'altezza. */
-    flip.setAttribute('transform',
-      'translate(0,' + (2 * v.y0 + v.h) + ') scale(1,-1)');
+    var b = document.getElementById('btn-fit');
+    if (b) b.hidden = !finestra;
+  }
+
+  function adatta() {
+    finestra = null;
+    applicaVista();
+  }
+
+  function renderBed() {
+    var a = State.data.area;
+    applicaVista();
+    /* IL RIBALTAMENTO NON DIPENDE DALLA FINESTRA e non deve dipenderne: dice
+       dove cade la y zero della macchina dentro il sistema di coordinate
+       dell'SVG, e quel legame non cambia perché si ingrandisce o si sposta lo
+       sguardo. Ricalcolarlo dalla finestra farebbe scorrere il disegno sotto
+       la finestra mentre la finestra scorre sul disegno: il doppio del
+       movimento, nel verso sbagliato. */
+    flip.setAttribute('transform', 'translate(0,' + a.h + ') scale(1,-1)');
 
     var out = '<rect class="bed" x="0" y="0" width="' + a.w + '" height="' + a.h + '"></rect>';
 
@@ -328,6 +353,101 @@ var Paper = (function () {
     return pt.matrixTransform(flip.getScreenCTM().inverse());
   }
 
+  /* Il punto sotto il puntatore, in coordinate dell'SVG — non della macchina:
+     la finestra si ragiona in quelle, ed è l'unico posto del file in cui non
+     si passa per il gruppo ribaltato. */
+  function toSvg(evt) {
+    var pt = svg.createSVGPoint();
+    pt.x = evt.clientX;
+    pt.y = evt.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  /* ZOOM CON LA ROTELLA, ancorato al puntatore: quello che sta sotto il mouse
+     ci resta. È l'unico ingrandimento che non costringe a rincorrere il punto
+     che si stava guardando.
+     I due limiti servono a non perdersi: non si scende sotto i 20 mm di
+     larghezza — più in là non c'è niente da vedere, un passo di motore sono
+     tre centesimi — e non si va oltre il quadruplo dell'adattato. */
+  function enableZoom() {
+    svg.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      var v = finestraCorrente();
+      var fit = vista();
+      var f = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+
+      var nw = v.w * f;
+      if (nw < 20) f = 20 / v.w;
+      if (nw > fit.w * 4) f = fit.w * 4 / v.w;
+
+      var p = toSvg(e);
+      finestra = {
+        x0: p.x - (p.x - v.x0) * f,
+        y0: p.y - (p.y - v.y0) * f,
+        w: v.w * f,
+        h: v.h * f
+      };
+      applicaVista();
+    }, { passive: false });
+
+    /* Doppio clic sul fondo: si torna a vedere tutto. Sul foglio no — lì il
+       doppio clic è due clic, e il foglio si trascina. */
+    svg.addEventListener('dblclick', function (e) {
+      if (e.target.closest('.sheet')) return;
+      adatta();
+    });
+  }
+
+  /* TRASCINARE IL FONDO SPOSTA LO SGUARDO, non il foglio: ingrandire senza
+     potersi spostare vorrebbe dire uscire e rientrare ogni volta.
+     Lo spostamento si conta in PIXEL e si converte con la scala presa alla
+     partenza. Contarlo in millimetri sarebbe un cane che si morde la coda: la
+     conversione dipende dalla finestra, e la finestra è proprio quello che si
+     sta cambiando. */
+  function enablePan() {
+    var pan = null;
+
+    svg.addEventListener('pointerdown', function (e) {
+      /* CHI SI PRENDE IL TRASCINAMENTO.
+         Sul fondo, lo sguardo. Sul foglio, il foglio — ma solo finché il
+         foglio è libero: una volta misurato non si sposta più, e lasciare
+         quella zona morta vorrebbe dire che da ingranditi, con la carta che
+         copre tutto lo schermo, non resta niente da afferrare per spostarsi.
+         Il tasto centrale sposta lo sguardo sempre, dovunque si prema: è la
+         via d'uscita quando il foglio riempie la vista. */
+      var sulFoglio = !!e.target.closest('.sheet');
+      var centrale = e.button === 1;
+      if (!centrale && sulFoglio && !State.data.foglioMisurato) return;
+      if (centrale) e.preventDefault();
+
+      var r = svg.getBoundingClientRect();
+      var v = finestraCorrente();
+      pan = { x: e.clientX, y: e.clientY, x0: v.x0, y0: v.y0,
+              sx: v.w / r.width, sy: v.h / r.height, w: v.w, h: v.h };
+      svg.setPointerCapture(e.pointerId);
+      svg.classList.add('is-panning');
+    });
+
+    svg.addEventListener('pointermove', function (e) {
+      if (!pan) return;
+      finestra = {
+        x0: pan.x0 - (e.clientX - pan.x) * pan.sx,
+        y0: pan.y0 - (e.clientY - pan.y) * pan.sy,
+        w: pan.w, h: pan.h
+      };
+      applicaVista();
+    });
+
+    ['pointerup', 'pointercancel'].forEach(function (ev) {
+      svg.addEventListener(ev, function (e) {
+        if (!pan) return;
+        pan = null;
+        svg.classList.remove('is-panning');
+        svg.releasePointerCapture(e.pointerId);
+      });
+    });
+  }
+
   function enableDrag() {
     var grab = null;
 
@@ -571,6 +691,10 @@ var Paper = (function () {
 
     aggiornaLucchetto();
 
+    document.getElementById('btn-fit').addEventListener('click', adatta);
+
+    enableZoom();
+    enablePan();
     enableDrag();
     apply();
   }
@@ -578,6 +702,7 @@ var Paper = (function () {
   return {
     init: init, setSize: setSize, refreshArea: refreshArea,
     renderFormati: renderFormati, raggiungibile: raggiungibile,
+    adatta: adatta,
     setSheetOrigin: setSheetOrigin, centerSheet: centerSheet,
     rebuildPath: rebuildPath, fissa: fissa
   };

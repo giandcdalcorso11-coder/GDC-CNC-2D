@@ -812,3 +812,11 @@ code {
   border-top: 1px solid var(--line-soft);
 }
 .pop-off p { margin: 0 0 6px; }
+
+/* Il piano si puo' ingrandire con la rotella e spostare trascinando il fondo.
+   Il cursore lo dice: una mano aperta sul fondo, chiusa mentre si trascina.
+   Sul foglio resta il cursore del trascinamento del foglio, che e' un'altra
+   cosa e non va confusa. */
+#bed-svg { cursor: grab; }
+#bed-svg.is-panning { cursor: grabbing; }
+#bed-svg .sheet { cursor: move; }
