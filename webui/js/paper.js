@@ -177,10 +177,34 @@ var Paper = (function () {
     };
   }
 
+  /* IL FOGLIO STA SULLA TAVOLA? È una domanda diversa da «la penna ci
+     arriva»: qui non si parla di corsa ma di legno. Un foglio che esce
+     dall'area di appoggio non è irraggiungibile, è appoggiato nel vuoto o
+     contro la struttura — si piega, si solleva, e la punta ci scrive storto.
+     Non è un errore della stessa famiglia e non si segnala con lo stesso
+     colore.
+
+     ATTENZIONE A NON LEGGERLO AL CONTRARIO: arrivare a filo del bordo
+     inferiore non è un rischio da evitare, è il gesto giusto. Quel bordo è una
+     BATTUTA fisica, e l'operatore ci spinge contro il foglio per posarlo
+     dritto. L'avviso scatta solo quando il foglio va OLTRE, cioè quando sotto
+     non ha più niente. */
+  function fuoriAppoggio() {
+    var ap = Profile.appoggioRect();
+    if (!ap) return null;
+    var p = State.data.paper, o = State.data.sheetOrigin, f = [];
+    if (o.x < ap.x0)                 f.push('a sinistra di ' + (ap.x0 - o.x).toFixed(0));
+    if (o.y < ap.y0)                 f.push('sotto di ' + (ap.y0 - o.y).toFixed(0));
+    if (o.x + p.w > ap.x0 + ap.w)    f.push('a destra di ' + (o.x + p.w - ap.x0 - ap.w).toFixed(0));
+    if (o.y + p.h > ap.y0 + ap.h)    f.push('sopra di ' + (o.y + p.h - ap.y0 - ap.h).toFixed(0));
+    return f.length ? f : null;
+  }
+
   function renderSheet() {
     var p = State.data.paper, o = State.data.sheetOrigin;
     var a = State.data.area, r = raggiungibile();
     var vuoto = r.w <= 0 || r.h <= 0;
+    var fa = fuoriAppoggio();
 
     var html = '<rect class="sheet" x="' + o.x + '" y="' + o.y +
                '" width="' + p.w + '" height="' + p.h + '" rx="0.6"></rect>';
@@ -203,6 +227,7 @@ var Paper = (function () {
        piccolo dell'area — lì sporgere è una svista, non una necessità. */
     layerSheet.firstChild.classList.toggle('sheet-out',
       vuoto || (r.sporge && !r.piuGrande));
+    layerSheet.firstChild.classList.toggle('sheet-giu', !!fa);
     layerSheet.firstChild.classList.toggle('sheet-fisso', State.data.foglioMisurato);
 
     /* Un decimale: l'area è un numero CALCOLATO (corsa percorribile, cioè
@@ -217,6 +242,8 @@ var Paper = (function () {
              ' mm, da ' + r.dax.toFixed(0) + ' mm dal bordo sinistro e ' +
              r.day.toFixed(0) + ' dal basso';
     }
+
+    if (fa) coda += ' · ESCE DALLA TAVOLA ' + fa.join(' e ') + ' mm';
 
     caption.textContent =
       'Area ' + a.w.toFixed(1) + ' × ' + a.h.toFixed(1) + ' mm · foglio ' + p.name +

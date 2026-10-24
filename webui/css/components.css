@@ -837,3 +837,8 @@ code {
   stroke-width: .5;
   stroke-dasharray: 5 3;
 }
+
+/* Il foglio appoggiato fuori dal legno. Ambra e non rosso: non e' un errore di
+   corsa - la penna ci arriverebbe - e' carta che non ha sotto niente su cui
+   stare. Due guai diversi, due colori diversi. */
+.sheet-giu { stroke: var(--warn); stroke-width: .8; stroke-dasharray: 4 2; }

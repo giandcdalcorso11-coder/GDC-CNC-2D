@@ -268,9 +268,14 @@ var Profile = (function () {
         altezza: 600,
 
         /* Dove cade lo zero macchina — l'angolo ai blocchi — misurato
-           dall'angolo in basso a sinistra della tavola. */
-        zeroX: null,
-        zeroY: null,
+           dall'angolo in basso a sinistra della tavola.
+
+           MISURATI IL 2026-10-24, col metro: la punta portata al PUNTO HOME
+           stava a 285 dal bordo sinistro e 25 dal basso. Il punto home è
+           X5 Y5, quindi lo zero sta cinque millimetri più indietro su
+           entrambi — ed è lo zero che serve qui, non il punto home. */
+        zeroX: 280,
+        zeroY: 20,
 
         appoggio: {
           daSinistra: 210,
@@ -400,6 +405,15 @@ var Profile = (function () {
          un profilo di default è sempre meglio di una pagina che non apre. */
       p = defaults();
     }
+    /* `null` in questi due campi vuol dire «mai misurato», e fino al
+       2026-10-24 era vero per chiunque. Da quel giorno i valori di partenza
+       SONO una misura, quindi un profilo salvato prima se li prende invece di
+       restare senza tavola: non si sta sovrascrivendo niente, si sta
+       riempiendo un buco. */
+    var tav = macchinaDefault().tavola;
+    if (p.macchina.tavola.zeroX === null) p.macchina.tavola.zeroX = tav.zeroX;
+    if (p.macchina.tavola.zeroY === null) p.macchina.tavola.zeroY = tav.zeroY;
+
     p.schema = SCHEMA;
     corrente = p;
     return corrente;
