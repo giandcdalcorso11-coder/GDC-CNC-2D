@@ -64,7 +64,29 @@ var Paper = (function () {
     var a = State.data.area, p = State.data.paper;
     var mx = Math.max(6, p.w - a.w + 6);
     var my = Math.max(6, p.h - a.h + 6);
-    return { x0: -mx, y0: -my, w: a.w + 2 * mx, h: a.h + 2 * my };
+    var v = { x0: -mx, y0: -my, w: a.w + 2 * mx, h: a.h + 2 * my };
+
+    /* La tavola, quando si sa dov'è, entra nella vista adattata: è il pezzo
+       più grande di tutti e mostrarne metà non servirebbe a niente. Costa
+       spazio all'area di lavoro, che diventa più piccola sullo schermo — per
+       quello c'è la rotella. */
+    var t = Profile.tavolaRect();
+    if (t) {
+      var s = svgRect(t);
+      var x0 = Math.min(v.x0, s.x0 - 6), y0 = Math.min(v.y0, s.y0 - 6);
+      var x1 = Math.max(v.x0 + v.w, s.x0 + s.w + 6);
+      var y1 = Math.max(v.y0 + v.h, s.y0 + s.h + 6);
+      v = { x0: x0, y0: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    return v;
+  }
+
+  /* Dal rettangolo in coordinate MACCHINA a quello in coordinate dell'SVG.
+     Non serve per disegnare — il gruppo ribaltato ci pensa da sé — ma serve
+     per la vista, che vive in coordinate SVG e non passa da quel gruppo. */
+  function svgRect(r) {
+    var a = State.data.area;
+    return { x0: r.x0, y0: a.h - (r.y0 + r.h), w: r.w, h: r.h };
   }
 
   /* Il rettangolo che si sta guardando: quello scelto a mano, o l'adattato. */
@@ -93,7 +115,25 @@ var Paper = (function () {
        movimento, nel verso sbagliato. */
     flip.setAttribute('transform', 'translate(0,' + a.h + ') scale(1,-1)');
 
-    var out = '<rect class="bed" x="0" y="0" width="' + a.w + '" height="' + a.h + '"></rect>';
+    /* TRE RETTANGOLI, dal più grande al più piccolo, e sono tre domande
+       diverse: dove c'è legno, dove si può posare il foglio, dove la punta
+       arriva. Si disegnano in quest'ordine perché il più piccolo deve restare
+       sopra, e perché è l'ordine in cui si guardano. */
+    var out = '';
+
+    var tav = Profile.tavolaRect();
+    if (tav) {
+      out += '<rect class="tavola" x="' + tav.x0 + '" y="' + tav.y0 +
+             '" width="' + tav.w + '" height="' + tav.h + '" rx="2"></rect>';
+    }
+
+    var app = Profile.appoggioRect();
+    if (app) {
+      out += '<rect class="appoggio" x="' + app.x0 + '" y="' + app.y0 +
+             '" width="' + app.w + '" height="' + app.h + '"></rect>';
+    }
+
+    out += '<rect class="bed" x="0" y="0" width="' + a.w + '" height="' + a.h + '"></rect>';
 
     /* Reticolo ogni 10 mm, più marcato ogni 50: dà la scala a colpo d'occhio
        e rende evidente se un disegno è fuori misura. */

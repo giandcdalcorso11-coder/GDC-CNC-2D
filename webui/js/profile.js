@@ -246,7 +246,39 @@ var Profile = (function () {
       /* Resta a zero, e non è una dimenticanza: l'origine la si imposta
          portando LA PUNTA della penna sul punto, quindi l'offset fra
          riferimento del carrello e punta è già assorbito. */
-      utensile: { offsetX: 0, offsetY: 0 }
+      utensile: { offsetX: 0, offsetY: 0 },
+
+      /* LA TAVOLA DI LEGNO e l'area in cui il foglio si può appoggiare.
+         Sono due rettangoli più grandi dell'area di lavoro, e servono a
+         rispondere a una domanda che l'area di lavoro non risponde: dove si
+         può MATERIALMENTE mettere il foglio. La penna arriva dove arriva, ma
+         il foglio può stare anche dove la punta non ci va.
+
+         700 × 600 vengono dal CAD, e quelle sono buone: è un pezzo di legno,
+         le sue dimensioni non dipendono dal montaggio. La POSA della macchina
+         sopra la tavola invece nel CAD è quella di prima del montaggio, quindi
+         `zeroX` e `zeroY` si misurano col metro e restano `null` finché non
+         sono stati misurati davvero — meglio non disegnare niente che
+         disegnare una posa inventata.
+
+         I quattro numeri dell'appoggio sono DISTANZE DAI BORDI della tavola,
+         perché è così che si misurano: metro appoggiato al bordo del legno. */
+      tavola: {
+        larghezza: 700,
+        altezza: 600,
+
+        /* Dove cade lo zero macchina — l'angolo ai blocchi — misurato
+           dall'angolo in basso a sinistra della tavola. */
+        zeroX: null,
+        zeroY: null,
+
+        appoggio: {
+          daSinistra: 210,
+          daDestra: 135,
+          daSotto: 10,
+          daSopra: 190
+        }
+      }
     };
   }
 
@@ -594,6 +626,35 @@ var Profile = (function () {
      nella tab Impostazioni per dire cosa resta da misurare, e prima di far
      partire una stampa. Mai un booleano solo: se qualcosa blocca, chi lo legge
      deve poter dire ALL'UTENTE che cosa. */
+  /* -------------------- la tavola e l'appoggio --------------------
+     Tre rettangoli concentrici, e sono tre cose diverse che è facile
+     confondere:
+
+       la TAVOLA         il legno su cui sta tutto
+       l'APPOGGIO        dove il foglio ci si può posare senza urtare niente
+       l'AREA DI LAVORO  dove la punta della penna arriva
+
+     L'ultimo si calcola dalle corse e lo sappiamo da sempre. I primi due no:
+     dipendono da come la macchina è stata avvitata sulla tavola, che è un
+     dato del montaggio e non del disegno — nel CAD la posa è quella di prima
+     del montaggio, quindi le misure vanno prese col metro. */
+
+  function tavolaRect() {
+    var t = macchina().tavola;
+    if (t.zeroX === null || t.zeroY === null) return null;
+    return { x0: -t.zeroX, y0: -t.zeroY, w: t.larghezza, h: t.altezza };
+  }
+
+  function appoggioRect() {
+    var t = macchina().tavola;
+    if (t.zeroX === null || t.zeroY === null) return null;
+    var a = t.appoggio;
+    var w = t.larghezza - a.daSinistra - a.daDestra;
+    var h = t.altezza - a.daSotto - a.daSopra;
+    if (!(w > 0 && h > 0)) return null;
+    return { x0: a.daSinistra - t.zeroX, y0: a.daSotto - t.zeroY, w: w, h: h };
+  }
+
   /* ---------------------- formati di foglio ---------------------- */
 
   function formati() { return get().formati; }
@@ -951,6 +1012,8 @@ var Profile = (function () {
   return {
     load: load, get: get, macchina: macchina, stampa: stampa,
     save: save, reset: reset, defaults: defaults,
+
+    tavolaRect: tavolaRect, appoggioRect: appoggioRect,
 
     formati: formati, trovaFormato: trovaFormato,
     aggiungiFormato: aggiungiFormato, modificaFormato: modificaFormato,

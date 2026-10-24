@@ -820,3 +820,20 @@ code {
 #bed-svg { cursor: grab; }
 #bed-svg.is-panning { cursor: grabbing; }
 #bed-svg .sheet { cursor: move; }
+
+/* I due rettangoli attorno all'area di lavoro. Tutte le misure dentro l'SVG
+   sono in millimetri, quindi anche gli spessori: in pixel cambierebbero con
+   lo zoom. */
+
+/* La tavola di legno. Un colore caldo e spento: deve leggersi come "legno" e
+   stare sotto a tutto senza tirare l'occhio. */
+.tavola { fill: #241f19; stroke: #4a3f31; stroke-width: .6; }
+
+/* Dove il foglio ci si puo' posare. Non e' un oggetto ma un permesso, quindi
+   tratteggiato: un bordo pieno sembrerebbe un pezzo che non c'e'. */
+.appoggio {
+  fill: #1c1e1c;
+  stroke: #5f7a5f;
+  stroke-width: .5;
+  stroke-dasharray: 5 3;
+}

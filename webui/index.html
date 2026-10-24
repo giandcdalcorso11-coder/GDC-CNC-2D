@@ -319,6 +319,53 @@
     </section>
 
     <section class="card">
+      <h2>Tavola e appoggio del foglio</h2>
+      <p class="muted small">Tre rettangoli, tre domande diverse: dove c'è <b>legno</b>,
+        dove il <b>foglio</b> si può posare, dove la <b>punta</b> arriva. L'ultimo lo
+        sa già la macchina — è la corsa. I primi due dipendono da come la macchina è
+        stata avvitata sulla tavola, quindi si misurano col metro: nel CAD la posa è
+        quella di prima del montaggio.</p>
+      <div class="field-row">
+        <label><span class="flab">Larghezza tavola (mm) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="1" data-bind="macchina.tavola.larghezza"></label>
+        <label><span class="flab">Altezza tavola (mm) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="1" data-bind="macchina.tavola.altezza"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Zero macchina da sinistra (mm) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="1" data-bind="macchina.tavola.zeroX"></label>
+        <label><span class="flab">Zero macchina dal basso (mm) <b class="prov prov-mis">misurato</b></span>
+          <input type="number" step="1" data-bind="macchina.tavola.zeroY"></label>
+      </div>
+      <p class="muted small">I due numeri qui sopra sono <b>l'unico legame fra la
+        tavola e la macchina</b>: dove cade lo zero — l'angolo ai blocchi, cioè dove
+        si ferma la punta dopo l'azzeramento — misurato dall'<b>angolo in basso a
+        sinistra della tavola</b>. Finché sono vuoti la tavola non viene disegnata,
+        perché disegnarla a caso sarebbe peggio che non disegnarla.</p>
+      <div class="field-row">
+        <label><span class="flab">Appoggio, dal bordo sinistro (mm)</span>
+          <input type="number" step="1" data-bind="macchina.tavola.appoggio.daSinistra"></label>
+        <label><span class="flab">Appoggio, dal bordo destro (mm)</span>
+          <input type="number" step="1" data-bind="macchina.tavola.appoggio.daDestra"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="flab">Appoggio, dal bordo inferiore (mm)</span>
+          <input type="number" step="1" data-bind="macchina.tavola.appoggio.daSotto"></label>
+        <label><span class="flab">Appoggio, dal bordo superiore (mm)</span>
+          <input type="number" step="1" data-bind="macchina.tavola.appoggio.daSopra"></label>
+      </div>
+      <div class="readout">
+        <div class="ro"><span>Area di appoggio</span><b data-calc="appoggio">—</b></div>
+        <div class="ro"><span>Coerenza</span><b data-calc="coerenza">—</b></div>
+      </div>
+      <p class="muted small">Le quattro distanze si prendono col metro appoggiato al
+        bordo del legno, perché è così che si misurano davvero. <b>La coerenza è un
+        controllo, non un vincolo:</b> l'area che la penna raggiunge dovrebbe cadere
+        dentro quella in cui il foglio si appoggia — se esce, uno dei numeri è
+        sbagliato, e conviene saperlo adesso invece che col foglio in macchina.</p>
+    </section>
+
+    <section class="card">
       <h2>Corse e limiti</h2>
       <div class="field-row">
         <label><span class="flab">Corsa totale X (passi) <b class="prov prov-mis">misurato</b></span>

@@ -41,6 +41,31 @@ var Settings = (function () {
       var d = new Date(a);
       return isNaN(d.getTime()) ? a : d.toLocaleString('it-IT');
     },
+    appoggio: function () {
+      var r = Profile.appoggioRect();
+      if (!r) return 'serve lo zero sulla tavola';
+      return r.w.toFixed(0) + ' × ' + r.h.toFixed(0) + ' mm';
+    },
+
+    /* Il controllo che vale la pena fare: l'area che la penna raggiunge deve
+       stare dentro quella in cui il foglio si appoggia. Se esce, uno dei
+       numeri è sbagliato — e con quattro distanze prese col metro, sbagliare
+       di un bordo è la cosa più facile del mondo. Si dice di quanto e da che
+       parte, se no «non torna» non aiuta a trovare l'errore. */
+    coerenza: function () {
+      var r = Profile.appoggioRect();
+      if (!r) return '—';
+      var ax = Profile.corsaPercorribile('x'), ay = Profile.corsaPercorribile('y');
+      var fuori = [];
+      if (r.x0 > 0)           fuori.push('a sinistra di ' + r.x0.toFixed(0));
+      if (r.y0 > 0)           fuori.push('sotto di ' + r.y0.toFixed(0));
+      if (r.x0 + r.w < ax)    fuori.push('a destra di ' + (ax - r.x0 - r.w).toFixed(0));
+      if (r.y0 + r.h < ay)    fuori.push('sopra di ' + (ay - r.y0 - r.h).toFixed(0));
+      return fuori.length
+        ? 'l\'area di lavoro esce dall\'appoggio ' + fuori.join(' e ') + ' mm'
+        : 'l\'area di lavoro cade dentro l\'appoggio';
+    },
+
     passiMm: function () {
       return 'X ' + f3(Profile.passiPerMm('x')) + '  ·  Y ' + f3(Profile.passiPerMm('y'));
     },
