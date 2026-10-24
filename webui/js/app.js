@@ -5,9 +5,13 @@
      elenco unico evita che un pulsante resti attivo per dimenticanza e mandi
      un comando nel vuoto. */
   var NEEDS_LINK = [
-    'btn-send', 'btn-pause', 'btn-abort',
-    'log-input', 'btn-log-send'
+    'btn-send', 'log-input', 'btn-log-send'
   ];
+
+  /* Pausa e Interrompi non dipendono dal collegamento ma dalla STAMPA: con la
+     macchina collegata e niente in corso non c'è niente da mettere in pausa, e
+     un pulsante attivo che non fa niente insegna a non fidarsi dei pulsanti.
+     Li governa refreshStampa(). */
 
   var STATE_LABEL = {
     Off: 'Disconnesso', Idle: 'Pronta', Run: 'In movimento',
@@ -62,6 +66,10 @@
     Panel.aggiorna();
 
     document.getElementById('btn-connect').textContent = on ? 'Disconnetti' : 'Connetti';
+
+    /* Dopo aver riacceso i pulsanti del collegamento si rilegge lo stato della
+       stampa, che su «Invia» ha l'ultima parola. */
+    refreshStampa();
   }
 
   /* Il DRO in alto dice anche quando NON sa: una posizione con due decimali,
@@ -74,6 +82,40 @@
       el.textContent = nota ? p[a].toFixed(2) : '—';
       el.classList.toggle('dro-ko', !nota);
     });
+  }
+
+  /* L'avanzamento, in una riga sola. Non è una barra perché il numero che
+     serve davvero mentre si guarda la macchina è «quanto manca», e quello si
+     legge meglio scritto che disegnato. */
+  function refreshStampa() {
+    var s = State.data.stampa;
+    var inCorso = s.stato === 'invio' || s.stato === 'pausa';
+    var box = document.getElementById('prog');
+
+    document.getElementById('btn-pause').disabled = !inCorso;
+    document.getElementById('btn-abort').disabled = !inCorso;
+    document.getElementById('btn-pause').textContent =
+      s.stato === 'pausa' ? 'Riprendi' : 'Pausa';
+
+    /* Mentre una stampa è in corso «Invia» non deve essere premibile: una
+       seconda stampa sulla stessa macchina non ha nessun significato buono. */
+    var send = document.getElementById('btn-send');
+    if (send) send.disabled = !State.data.connected || inCorso;
+
+    if (s.stato === 'fermo') { box.hidden = true; return; }
+
+    box.hidden = false;
+    var t = s.fatte + ' di ' + s.totale + ' righe — ' + s.percento + '%';
+    if (s.stato === 'pausa')  t = 'In pausa a ' + s.percento + '% (' + s.fatte +
+                                  ' di ' + s.totale + ' righe)';
+    if (s.stato === 'fine')   t = 'Consegnato per intero: ' + s.totale + ' righe. ' +
+                                  'La macchina sta finendo il buffer.';
+    if (s.stato === 'errore') t = 'Interrotta da un errore alla riga ' + (s.fatte + 1) +
+                                  ' di ' + s.totale + '.';
+    if (s.stato === 'invio' && s.rimanente !== null) {
+      t += ' — ' + Sender.durata(s.rimanente) + ' circa alla fine';
+    }
+    box.textContent = t;
   }
 
   function refreshCalib() {
@@ -177,11 +219,13 @@
        quindi il DRO va riscritto anche quando le coordinate non si muovono. */
     State.on('azzerata', function () { refreshCalib(); refreshPos(); });
     State.on('motoriLiberi', refreshCalib);
+    State.on('stampa', refreshStampa);
 
     refreshState();
     refreshLink();
     refreshPos();
     refreshCalib();
+    refreshStampa();
 
     Log.add('msg', 'Interfaccia avviata in modalità finta. Premi Connetti per iniziare.');
   });

@@ -58,7 +58,14 @@ var State = (function () {
     origin: null,            // origine impostata a mano
     bounds: null,            // area calibrata: {x0,y0,x1,y1}
 
-    scrub: 0                 // 0..1, avanzamento dell'anteprima
+    scrub: 0,                // 0..1, avanzamento dell'anteprima
+
+    /* Avanzamento della stampa in corso, scritto dal Sender. Sta nello stato
+       e non dentro il Sender perché chi lo mostra non deve conoscerlo: la
+       barra in alto, i pulsanti e il registro ascoltano `stampa` e basta.
+       `stato` vale fermo | invio | pausa | fine | errore. */
+    stampa: { stato: 'fermo', nome: '', fatte: 0, totale: 0,
+              percento: 0, rimanente: null }
   };
 
   var listeners = {};

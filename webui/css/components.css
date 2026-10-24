@@ -592,3 +592,12 @@ code {
 
 /* Un foglio misurato si vede che è fermo. */
 .sheet-fisso { stroke: #43b581; stroke-width: .5; }
+
+/* Riga di avanzamento della stampa. Discreta ma leggibile da lontano: si
+   guarda mentre si guarda la macchina, non mentre si guarda lo schermo. */
+.prog {
+  margin: .5rem 0 .25rem;
+  font-size: .9rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-dim, #888);
+}

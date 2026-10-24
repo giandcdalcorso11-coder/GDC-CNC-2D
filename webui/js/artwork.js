@@ -157,20 +157,29 @@ var Artwork = (function () {
                    Gcode.durata(d.secondi) + ' stimati.');
   }
 
-  /* L'invio alla macchina non è ancora costruito, e preferisco dirlo invece di
-     far finta: FluidNC vuole il file caricato sul suo filesystem e poi avviato,
-     non tremila righe sparate una per una sulla rotta dei comandi. Il programma
-     però è pronto e scaricabile, quindi la procedura non si butta via. */
+  /* L'invio passa dal Sender, che manda le righe una per una sul WebSocket.
+     Qui si decide solo SE si può partire; come si parte è affar suo. */
   function invia() {
     if (!prep) { Log.add('err', 'Nessun programma preparato.'); return; }
+
     if (State.data.mock) {
       Log.add('msg', 'Modalità finta: il programma non viene inviato a nessuno. ' +
-                     'Sarebbe partito adesso, ' + prep.split('\n').length + ' righe.');
+                     'Sarebbero partite ' +
+                     Sender.prepara(prep).length + ' righe di comando.');
       return;
     }
-    Log.add('err', 'L\'invio del programma alla macchina non è ancora costruito. ' +
-                   'Le tre misure sono state prese e il G-code è rigenerato con ' +
-                   'quelle: scaricalo e caricalo a mano dalla pagina di FluidNC.');
+
+    /* Senza origine non si stampa. Le coordinate del programma sono assolute e
+       riferite all'azzeramento sui blocchi: mandarle a una macchina che non sa
+       dove sia significa disegnare da qualche parte, forse fuori dalla tavola. */
+    if (!State.data.azzerata) {
+      Log.add('err', 'La macchina non è azzerata: le coordinate del programma ' +
+                     'non avrebbero un riferimento. Fai prima l\'azzeramento.');
+      return;
+    }
+
+    var name = (State.data.artName || 'disegno').replace(/\.svg$/i, '');
+    Sender.avvia(prep, name);
   }
 
   function download() {
