@@ -113,3 +113,36 @@ posizione **macchina** con `mapConstrain()`, che tronca invece di rifiutare. Qui
 `G0 Z0` è la **posizione tappo**, `G0 Z-18.326` la penna alzata e `G0 Z-21.271` la punta
 sul foglio; una quota positiva viene troncata su Z0 senza dire niente. I numeri veri li
 genera il profilo del SLICER — vedi `misure/accensione-e-taratura.md`, sezione A3.
+
+## L'interfaccia: `index.html.gz`
+
+In questa cartella c'è anche `index.html.gz`, cioè il GDC CNC 2D SLICER compresso e
+pronto da installare. Si genera con `python3 webui/tools/build.py` seguito da
+`gzip -9`, e va rigenerato ogni volta che si tocca qualcosa in `webui/`.
+
+**Perché proprio quel nome, e perché sostituisce la WebUI di FluidNC.** FluidNC serve
+`index.html.gz` sulla radice, e quello è l'unico percorso che il browser APRE: il
+gestore generico (`handle_not_found`) manda qualunque altro file con
+`Content-Disposition: attachment`, quindi una pagina messa lì accanto con un nome suo
+verrebbe scaricata invece che aperta. Non c'è una configurazione in cui le due
+interfacce convivono: o c'è la loro, o c'è la nostra.
+
+**Prima di sostituirla, salvarla.** La rotta WebDAV funziona anche senza nessuna
+interfaccia grafica, quindi si può sempre tornare indietro:
+
+    curl http://INDIRIZZO/flash/index.html.gz -o fluidnc-webui.html.gz   # copia di sicurezza
+    curl -X DELETE http://INDIRIZZO/flash/index.html.gz                  # via la vecchia
+    curl -T index.html.gz http://INDIRIZZO/flash/index.html.gz           # dentro la nuova
+
+E per tornare alla WebUI di FluidNC basta rimettere la copia:
+
+    curl -T fluidnc-webui.html.gz http://INDIRIZZO/flash/index.html.gz
+
+**Lo spazio.** La partizione è 192 kB. La WebUI di FluidNC ne occupa 111.625 byte, la
+nostra 65.183: finché c'è la loro non c'entra anche la nostra, quindi la vecchia va
+cancellata PRIMA di caricare. Tolta quella, restano ~113 kB liberi invece di 64, cioè
+spazio vero anche per i programmi.
+
+**Se la nostra pagina non funziona non si resta a piedi.** La macchina si comanda dalla
+seriale USB e da telnet sulla porta 23, e la rotta WebDAV qui sopra non dipende da
+nessuna pagina.
