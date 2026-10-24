@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 52
-**Ultimo aggiornamento:** 2026-10-23 21:40
+**Versione:** 53
+**Ultimo aggiornamento:** 2026-10-24 08:20
 
 ## Regole di co-editing
 
@@ -192,7 +192,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 
 ### Step 3 — Configurazione FluidNC
 
-**Stato:** in corso — **la macchina esegue e disegna.** Versi dei due assi riprovati e corretti, quote Z negative applicate e verificate, origine manuale rodata, programmi caricati e lanciati dalla flash. Resta **un blocco vero**: le stampe lunghe si fermano a metà portandosi giù il server web (vedi la voce del 2026-10-23), con una causa individuata nel sorgente ma non ancora confermata né risolta. Finché non è chiusa, i disegni oltre i pochi minuti non sono affidabili.
+**Stato:** in corso — **la macchina esegue e disegna, anche a lungo.** Versi dei due assi riprovati e corretti, quote Z negative applicate e verificate, origine manuale rodata, programmi caricati e lanciati dalla flash. Il blocco delle stampe lunghe ha **causa confermata sulla macchina** il 2026-10-24: è il canale HTTP che il job si tiene aperto per tutta la durata, e lanciando dalla **seriale USB** non si presenta. Finché il SLICER non invia il programma da sé, i disegni lunghi si lanciano dalla seriale: è un rimedio operativo, non una cura.
 
 **Obiettivo:** FluidNC installato e configurato come firmware definitivo della macchina, con movimento coordinato X/Y e pen-lift sul servo
 
@@ -238,11 +238,12 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 - [2026-10-06] Conseguenze collaterali del rapporto vero: risoluzione **0,0295 mm per microstep** (il gioco di 0,235 è 8× il passo, quindi è il gioco a dominare, non la risoluzione) e `max_rate_mm_per_min: 2000` corrisponde ora a 1132 microstep/s invece di 2667, cioè **un settimo** di quello che la meccanica regge (il motore è validato a 500 passi interi/s ≈ 235 mm/s). Verifica del rapporto: `G91 G0 X100`, misurare col calibro, correggere in proporzione
 - [2026-10-22] **FluidNC 4.1.1 installata sulla macchina definitiva** e configurazione verificata con `$CD` chiave per chiave: nessuna ignorata. Rete STA, `cnc2d.local`, 192.168.1.14. **Tre scoperte ai primi comandi veri.** (a) Il servo non si muoveva: `RcServo` mappa la posizione MACCHINA e tronca fuori dai limiti dell'asse, e senza homing FluidNC dichiara la corsa in negativo — `Axis Z (-21.281, 0.010)` — quindi tutte le quote positive uscivano a 1500 µs. Confermato con `G0 Z-3`, che muove. La Z va usata in negativo: Z0 = tappo, Z−21.271 = contatto. (b) **I due assi andavano al contrario tutti e due**: invertite le spunte nel profilo, da riprovare. (c) Il flash a 921600 si interrompe sul CH340: 115200.
 - [2026-10-23] **Le tre cose del giorno prima sono chiuse, e se ne apre una più grossa.** Quote Z negative in produzione e verificate sulla macchina (Z0, Z−18.326, Z−21.271 tutte raggiunte); versi dei due assi riprovati con quattro jog da 25 mm, **giusti**. Risolto anche «Upload filesystem inaccessible», che non era un guasto: le rotte della WebUI sono separate — `/files` è la flash, `/upload` è la SD — e l'upload finiva sulla SD inesistente. Si carica con `curl -T http://IP/flash/nome`, perché la flash è montata in WebDAV. **Ma due stampe lunghe si sono bloccate a metà** rendendo irraggiungibile la WebUI: la casella comandi crea un canale per ogni comando e `$LocalFS/Run` se lo tiene per tutta la durata del job, quindi la connessione HTTP del browser resta aperta per minuti. Da provare lanciando dalla seriale USB, che è insieme prova e rimedio.
+- [2026-10-24] **Il blocco delle stampe lunghe è confermato, ed è il canale HTTP.** L'intreccio, fermatosi due volte su due lanciato dalla WebUI, lanciato dalla **seriale USB** a scheda del browser chiusa è arrivato in fondo: sette minuti, nessun reset. Una variabile sola cambiata. Da qui la regola operativa — **i disegni lunghi si lanciano dalla seriale** — e la conferma che lo streaming riga per riga del SLICER non è solo comodità. Procedura provata: browser chiuso, USB collegata a macchina spenta, 12 V riaccesi, monitor seriale a 115200 con fine riga «New Line», `$I` per verificare, `$LocalFS/List`, `$MD`, battuta, `G92 X0 Y0`, `G90 G0 X5 Y5 F1000`, penna, foglio, `$LocalFS/Run=<file>`. **Nota pratica sulla flash:** prima di caricare serve spazio vero, perché il gestore di upload tiene da parte una riserva — 20 KB liberi non bastano per un file da 19,5 KB.
 
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
 
-**Stato:** in corso — l'applicazione è **completa a monte** e ora anche **corretta a valle**: le quote Z sono quelle vere della macchina, i programmi finiscono al punto home e i file generati sono stati stampati davvero. Restano le stesse due cose, ma non aspettano più: **invio del programma** e **caricamento della pagina sull'ESP32**, e dal 2026-10-23 si sa che la seconda non è opzionale (niente CORS in FluidNC) e che i conti tornano (62,5 kB compressi contro i 111,6 della WebUI da rimuovere)
+**Stato:** in corso — l'applicazione è **completa a monte** e ora anche **corretta a valle**: le quote Z sono quelle vere della macchina, i programmi finiscono al punto home e i file generati sono stati stampati davvero. Restano le stesse due cose, ma non aspettano più: **invio del programma** e **caricamento della pagina sull'ESP32**, e dal 2026-10-23 si sa che la seconda non è opzionale (niente CORS in FluidNC) e che i conti tornano (62,5 kB compressi contro i 111,6 della WebUI da rimuovere). Dal **2026-10-24** nemmeno la prima è solo ergonomia: lo streaming riga per riga è anche la **cura** del blocco delle stampe lunghe, confermato quel giorno
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
 
@@ -319,6 +320,7 @@ mano a mano che le misure arrivano):
 - [2026-10-21] **Disegno di collaudo** (`webui/tools/test-macchina.js` e `font-tratto.js`): una stampa su 246 × 233 mm con **undici prove in riquadri numerati**, dalla scala per asse all'ortogonalità al gioco al livello del piano, più ripetibilità e velocità. Genera SVG per guardare o G-code per stampare, e il G-code vero si produce **dopo** la taratura della penna, coi numeri veri. Come si legge sta in `misure/disegno-di-collaudo.md`, prova per prova e con l'ordine di lettura — livello e stacchi per primi, perché se il piano è storto tutto il resto è misurato male
 - [2026-10-22] **I programmi devono stare in 64 kB**, ed è il browser dei file di FluidNC a dirlo: la partizione LittleFS è 192 kB e `index.html.gz` della WebUI ne occupa 111. Il collaudo scritto per esteso ne occupava 69 e non ci sarebbe entrato. I due generatori emettono ora **G-code modale** — solo quello che cambia — e il collaudo passa a 44.633 byte, con il percorso verificato stato per stato (2994, zero differenze). Stesso conto per l'autonomia del SLICER: **66 kB compressi contro 64 liberi**, quindi ospitarlo chiede un file unico e la rimozione della WebUI di FluidNC.
 - [2026-10-23] **Il generatore produce finalmente quote che la macchina esegue.** La convenzione Z vive in un punto solo (`Profile.zDaGradi()`) e la prendono tutti; i programmi finiscono al **punto home** e non più addosso ai blocchi, che è il difetto che il profilo avvertiva da sempre nel commento di `puntoHome`. Soppresse le righe di sola velocità che non muovono niente. Nati cinque generatori nuovi — cornice dell'area utile (con la procedura della penna dentro il file, via `M0`), prova geometrica, vortice, riempimenti, intreccio — e tutti i file rigenerati. **Il conto sull'ospitare il SLICER è stato rifatto sul sorgente e la conclusione si è irrigidita:** in tutto il server web di FluidNC non c'è una sola intestazione CORS, quindi la pagina **deve** essere servita dall'ESP32, non è una preferenza. Il nostro bundle gzippato è 62.539 byte contro i 111.625 della WebUI: togliendola restano ~113 kB liberi invece di 64.
+- [2026-10-24] **L'invio del programma non è più solo una comodità: è la cura di un guasto.** Confermato sulla macchina che il blocco delle stampe lunghe nasce dal canale HTTP che `$LocalFS/Run` si tiene aperto per l'intera durata del job (vedi Step 3). Mandando il G-code **riga per riga** quel canale non esiste: non c'è niente che debba restare appeso per venti minuti. Conseguenza sul progetto dell'invio: lo stato della stampa va ricostruito dal nostro lato contando le righe accettate, non chiedendolo a un comando che blocca, e serve una coda con controllo di flusso sugli `ok` invece di un'unica richiesta lunga.
 
 ### Step 5 — Struttura meccanica
 
@@ -562,6 +564,40 @@ mano a mano che le misure arrivano):
 - [2026-10-23] **Il modulo disegna, e la procedura di montaggio della penna è quella definitiva.** Non si cerca la quota giusta muovendo il servo: si porta il servo alla quota **già decisa** e si stringe la penna lì — i 25° non sono una misura, sono un'imposizione, e il profilo lo dice da sempre. Il foglio deve essere sotto durante la stretta, perché la quota è definita *punta sul foglio* e non *punta sulla tavola*. Verificata su più stampe: il tratto resta costante su 4,4 m (vortice) e su 21 m di spirografo per quanto ne ha fatto. **Resta aperto il gioco**, l'ultimo parametro del profilo mai misurato: la rosa mistica dei medaglioni è stata disegnata apposta per leggerlo — nove vertici su cui convergono otto corde ciascuno, e se il punto d'arrivo dipende dalla direzione d'arrivo i vertici chiudono in una rosellina larga quanto il gioco
 
 ## Storico sessioni
+
+### [2026-10-24 08:20] (firmware+software) Il blocco delle stampe lunghe è confermato sulla macchina, e il criterio del millimetro è dimostrato
+
+**Riepilogo:** La prova proposta ieri è stata fatta e ha risposto: l'intreccio, che dalla WebUI si era fermato due volte, lanciato dalla seriale USB a scheda del browser chiusa è arrivato in fondo — la causa individuata nel sorgente è confermata sulla macchina, e c'è un rimedio operativo da subito. La cornice da 240 × 235 del foglio appena stampato, misurata col righello, chiude anche la questione del rapporto rimasta aperta ieri.
+
+**Cosa è stato fatto:**
+
+- **Eseguita la prova della seriale**, cambiando **una variabile sola**: stesso file, stessa macchina, stesso foglio, stessa sequenza d'origine — cambia solo il canale da cui parte il comando. Procedura: scheda del browser chiusa, USB collegata a macchina spenta, 12 V riaccesi, monitor seriale dell'Arduino IDE a 115200 con fine riga «New Line», `$I` per verificare il collegamento (FluidNC v4.1.1, `GDC CNC 2D`, IP 192.168.1.14), poi origine manuale e `$LocalFS/Run=i.gcode`. **Disegno completato, circa 7 minuti, nessun reset.**
+- **Liberata la flash prima dell'upload.** Con `sp.gcode` dentro restavano 20 KB liberi contro i 19.556 byte dell'intreccio: nominalmente ci stava per 900 byte, che non è un margine, ed è comunque sotto la riserva che il gestore di upload di FluidNC si tiene da parte. Cancellato `sp.gcode` (è in repository, si riscarica) e caricato con `curl -T i.gcode http://192.168.1.14/flash/i.gcode`.
+- **Misurata la cornice del foglio stampato:** lato orizzontale **240 mm**, lato verticale **235 mm**. Col righello, leggendo lo stesso bordo delle due linee perché lo spessore della penna si elidesse invece di sommarsi.
+- **Verificato che l'intreccio porta già una cornice 240 × 235** (da X0,5 a X240,5 e da Y0,5 a Y235,5): è la ragione per cui quella misura non è costata una stampa in più.
+
+**Bug: due stampe lunghe si bloccano a metà e portano giù il server web — CAUSA CONFERMATA**
+
+**Sintomo:** vedi la voce del 2026-10-23 21:40. L'intreccio si era fermato a circa il 90%, lo spirografo a circa il 10%, con la WebUI irraggiungibile e la necessità di spegnere e riaccendere.
+**Causa: confermata sulla macchina.** Lo stesso identico file, lanciato dalla seriale invece che dalla casella comandi della WebUI, è arrivato in fondo. È il canale HTTP che il job si tiene aperto per tutta la durata a far cadere tutto; il canale della UART non si disconnette mai, e il blocco non si presenta. **Onestà sul grado di prova:** è **una corsa sola**, quindi una conferma forte e non una dimostrazione — ma quel file si era bloccato **due volte su due** dalla WebUI, e l'unica variabile cambiata è quella.
+**Fix applicato: rimedio operativo, non cura.** I disegni lunghi si lanciano dalla seriale. La cura vera è lo **streaming riga per riga** dal SLICER, che non apre nessun canale destinato a restare appeso per l'intera durata del job — ed è lo stesso lavoro già deciso per altre ragioni (vedi Step 4).
+
+**Decisioni prese:**
+
+- **Contesto:** finché il SLICER non invia il G-code, i disegni lunghi vanno comunque lanciati in qualche modo.
+  **Decisione:** **dalla seriale USB, con la scheda del browser chiusa.** Non è una preferenza di comodità: la WebUI è esattamente la configurazione in cui il blocco si riproduce.
+  **Alternative scartate:** continuare dalla WebUI accettando il rischio — due stampe perse su due dicono che non è un rischio ma una certezza; telnet sulla porta 23, mai provato e con lo stesso difetto di fondo, un canale di rete che può cadere.
+  **Da rivedere se:** il SLICER comincia a mandare il programma da sé, nel qual caso questa regola decade da sola.
+
+- **Contesto:** la correzione del 2026-10-23 21:40 aveva stabilito che il criterio «errore sotto il millimetro» **non era dimostrato**, perché il quadratino da 60 mm letto col righello limita l'errore solo a 2 mm sulla campata massima.
+  **Decisione: il criterio è dimostrato.** La cornice da 240 mm sul foglio stampato legge 240. A ±0,5 mm di righello su 240 mm l'errore di scala è limitato allo **0,21%**, che sulla corsa massima di 241,232 mm fa **0,51 mm**. Il lato da 235 legge 235, quindi la conclusione vale su **entrambi gli assi** e non solo su X. **Completa la decisione del 2026-10-23 21:40:** la scelta di non tarare resta quella, cambia che adesso ha sotto una misura invece di un'assunzione.
+  **Da rivedere se:** come prima — quote assolute (fori, incastri, sovrastampe su stampato), o uno scarto futuro sopra il millimetro. Resta `tarato: false` nel profilo, perché il rapporto continua a essere il nominale: è dimostrato che l'errore è piccolo, non che non ci sia.
+
+**File consegnati/modificati:** nessun file di progetto — sessione di prova sulla macchina. Aggiornato solo questo documento.
+
+**Impatto su Vision/Pipeline:** **Step 3** — lo stato passa da «resta un blocco vero, causa non confermata» a «causa confermata, rimedio operativo disponibile», con la nota della prova. **Step 4** — l'invio riga per riga acquista una seconda ragione: non più solo ergonomia, ma la cura del blocco.
+
+---
 
 ### [2026-10-23 21:40] (firmware+software) La macchina disegna davvero, l'area si accorcia di un centimetro, e due stampe lunghe muoiono a metà
 
