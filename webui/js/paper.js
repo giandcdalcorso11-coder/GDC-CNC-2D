@@ -23,7 +23,21 @@ var Paper = (function () {
       if (FORMATI[k][0] === w && FORMATI[k][1] === h) return k;
       if (FORMATI[k][1] === w && FORMATI[k][0] === h) return k + ' orizzontale';
     }
+    /* Anche i fogli dell'operatore hanno un nome, e va usato: la didascalia
+       sotto il piano dice «foglio Personalizzato» solo quando davvero non ha
+       un nome, non ogni volta che non è un formato ISO. */
+    var l = Profile.formati();
+    for (var i = 0; i < l.length; i++) {
+      if (l[i].larghezza === w && l[i].altezza === h) return l[i].nome;
+      if (l[i].altezza === w && l[i].larghezza === h) return l[i].nome + ' orizzontale';
+    }
     return 'Personalizzato';
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
+    });
   }
 
   /* --------------------------- il piano --------------------------- */
@@ -79,6 +93,7 @@ var Paper = (function () {
 
   function apply() {
     State.data.paper.name = nomeFormato(State.data.paper.w, State.data.paper.h);
+    markPreset();
     renderBed();
     renderSheet();
     rebuildPath();
@@ -100,16 +115,77 @@ var Paper = (function () {
     State.data.paper.h = h;
     document.getElementById('paper-w').value = w;
     document.getElementById('paper-h').value = h;
-    markPreset(w, h);
     apply();
   }
 
-  function markPreset(w, h) {
+  /* QUALE FORMATO È IN USO si decide dai dati, non dal markup. Prima la classe
+     `is-active` era scritta a mano su A5 nell'HTML: giusta all'avvio e sbagliata
+     subito dopo, perché nessuno la toglieva se il foglio arrivava da un profilo
+     salvato.
+
+     E riconosce il foglio RUOTATO: un A5 girato per il lungo è sempre un A5, e
+     spegnere il pulsante appena si preme «Ruota foglio» vorrebbe dire dire che
+     non si sa più che foglio si ha in mano. */
+  function markPreset() {
+    var w = State.data.paper.w, h = State.data.paper.h;
     var btns = document.querySelectorAll('.preset');
     for (var i = 0; i < btns.length; i++) {
+      var bw = +btns[i].dataset.w, bh = +btns[i].dataset.h;
       btns[i].classList.toggle('is-active',
-        +btns[i].dataset.w === w && +btns[i].dataset.h === h);
+        (bw === w && bh === h) || (bw === h && bh === w));
     }
+    aggiornaPiu();
+  }
+
+  /* Il «+» è acceso SOLO quando le misure non sono già un formato. Un pulsante
+     che salva un doppione di A5 non serve a niente, e lasciarlo premibile
+     significa riempire la riga di fogli identici con nomi diversi. */
+  function aggiornaPiu() {
+    var b = document.getElementById('btn-paper-add');
+    if (!b) return;
+    var nuovo = !document.querySelector('.preset.is-active');
+    b.disabled = !nuovo;
+    b.title = nuovo
+      ? 'Salva ' + State.data.paper.w + ' × ' + State.data.paper.h +
+        ' mm come foglio tuo'
+      : 'Queste misure sono già un formato: cambiale per salvarne uno nuovo';
+  }
+
+  /* --------------------- i fogli dell'operatore --------------------- */
+
+  var MATITA = '<svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">' +
+    '<path d="M1 11l.6-2.4L8 2.2l1.8 1.8-6.4 6.4z" fill="currentColor"/>' +
+    '<path d="M8.6 1.6l1.8 1.8 1-1a.8.8 0 0 0 0-1.1l-.7-.7a.8.8 0 0 0-1.1 0z" fill="currentColor"/></svg>';
+
+  var CESTINO = '<svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true">' +
+    '<path d="M2.5 3.5h7l-.6 7a1 1 0 0 1-1 .9H4.1a1 1 0 0 1-1-.9z" fill="currentColor"/>' +
+    '<path d="M1.5 2.8h9M4.6 2.8V1.6a.7.7 0 0 1 .7-.7h1.4a.7.7 0 0 1 .7.7v1.2" ' +
+    'fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>';
+
+  function renderFormati() {
+    var row = document.getElementById('preset-row');
+    var piu = document.getElementById('btn-paper-add');
+    var vecchi = row.querySelectorAll('.preset-wrap');
+    for (var i = 0; i < vecchi.length; i++) row.removeChild(vecchi[i]);
+
+    var l = Profile.formati(), html = '';
+    for (var j = 0; j < l.length; j++) {
+      var f = l[j];
+      var mis = f.larghezza + ' × ' + f.altezza + ' mm';
+      html += '<span class="preset-wrap">' +
+        '<button class="btn btn-ghost preset" data-w="' + f.larghezza +
+        '" data-h="' + f.altezza + '" title="' + esc(f.nome) + ' — ' + mis + '">' +
+        esc(f.nome) + '</button>' +
+        '<button class="mini mini-edit" data-fog-edit="' + f.id +
+        '" title="Modifica nome e misure" aria-label="Modifica">' + MATITA + '</button>' +
+        '<button class="mini mini-del" data-fog-del="' + f.id +
+        '" title="Elimina questo foglio" aria-label="Elimina">' + CESTINO + '</button>' +
+        '</span>';
+    }
+    /* I fogli dell'operatore stanno DOPO i tre fissi e PRIMA del «+», così il
+       più resta in fondo alla fila dove lo si è sempre trovato. */
+    piu.insertAdjacentHTML('beforebegin', html);
+    markPreset();
   }
 
   /* ------------------------- il disegno --------------------------- */
@@ -269,6 +345,64 @@ var Paper = (function () {
     setSheetOrigin(Math.round((a.w - p.w) / 2), Math.round((a.h - p.h) / 2));
   }
 
+  /* La finestrella: `null` vuol dire «stai creando», un id «stai correggendo
+     quello». È l'unico stato che serve, e sta qui invece che nel DOM. */
+  var inModifica = null;
+
+  function apriModale(id) {
+    var f = id ? Profile.trovaFormato(id) : null;
+    if (id && !f) return;
+    inModifica = id || null;
+    document.getElementById('fog-titolo').textContent =
+      f ? 'Modifica «' + f.nome + '»' : 'Nuovo foglio';
+    document.getElementById('fog-nome').value =
+      f ? f.nome : State.data.paper.w + ' × ' + State.data.paper.h;
+    document.getElementById('fog-w').value = f ? f.larghezza : State.data.paper.w;
+    document.getElementById('fog-h').value = f ? f.altezza : State.data.paper.h;
+    document.getElementById('fog-nota').textContent = '';
+    document.getElementById('fog-modal').hidden = false;
+    document.getElementById('fog-nome').focus();
+    document.getElementById('fog-nome').select();
+  }
+
+  function chiudiModale() {
+    document.getElementById('fog-modal').hidden = true;
+    inModifica = null;
+  }
+
+  function salvaModale() {
+    var nome = document.getElementById('fog-nome').value.trim();
+    var w = Math.round(+document.getElementById('fog-w').value);
+    var h = Math.round(+document.getElementById('fog-h').value);
+    var nota = document.getElementById('fog-nota');
+
+    if (!nome) { nota.textContent = 'Serve un nome: senza, il pulsante è vuoto.'; return; }
+    if (!(w >= 20 && w <= 400 && h >= 20 && h <= 400)) {
+      nota.textContent = 'Le misure stanno fra 20 e 400 mm.';
+      return;
+    }
+
+    if (inModifica) Profile.modificaFormato(inModifica, nome, w, h);
+    else Profile.aggiungiFormato(nome, w, h);
+
+    chiudiModale();
+    renderFormati();
+    setSize(w, h);
+    Log.add('msg', 'Foglio «' + nome + '» ' + w + ' × ' + h + ' mm salvato.');
+  }
+
+  function eliminaFormato(id) {
+    var f = Profile.trovaFormato(id);
+    if (!f) return;
+    if (!window.confirm('Elimino il foglio «' + f.nome + '» (' + f.larghezza +
+                        ' × ' + f.altezza + ' mm)?')) return;
+    Profile.eliminaFormato(id);
+    renderFormati();
+    apply();          // il nome torna «Personalizzato»: quel formato non c'è più
+    Log.add('msg', 'Foglio «' + f.nome + '» eliminato. Le misure del foglio in ' +
+                   'uso non cambiano: è sparito il pulsante, non la carta.');
+  }
+
   function init() {
     svg = document.getElementById('bed-svg');
     flip = document.getElementById('flip');
@@ -277,12 +411,49 @@ var Paper = (function () {
     layerSheet = document.getElementById('layer-sheet');
     layerTrace = document.getElementById('layer-trace');
 
-    var presets = document.querySelectorAll('.preset');
-    for (var i = 0; i < presets.length; i++) {
-      presets[i].addEventListener('click', function () {
-        setSize(+this.dataset.w, +this.dataset.h);
-      });
-    }
+    /* Un ascoltatore sulla riga invece di uno per pulsante: i fogli
+       dell'operatore nascono e muoiono mentre la pagina è aperta, e agganciare
+       i listener ai nodi vuol dire ricordarsi di riagganciarli ogni volta —
+       cioè dimenticarsene una volta. */
+    document.getElementById('preset-row').addEventListener('click', function (e) {
+      var ed = e.target.closest('[data-fog-edit]');
+      if (ed) { apriModale(ed.dataset.fogEdit); return; }
+
+      var del = e.target.closest('[data-fog-del]');
+      if (del) { eliminaFormato(del.dataset.fogDel); return; }
+
+      var p = e.target.closest('.preset');
+      if (p) setSize(+p.dataset.w, +p.dataset.h);
+    });
+
+    /* Il «+» salva subito, col nome delle misure: rinominarlo è un click sulla
+       matita, e chiedere un nome prima di aver visto il pulsante sarebbe un
+       passaggio in più per la cosa che si fa più spesso. */
+    document.getElementById('btn-paper-add').addEventListener('click', function () {
+      if (this.disabled) return;
+      var w = State.data.paper.w, h = State.data.paper.h;
+      var f = Profile.aggiungiFormato(w + ' × ' + h, w, h);
+      renderFormati();
+      /* Il nome del foglio si ricalcola in apply(): senza questa chiamata la
+         didascalia sotto il piano continuerebbe a dire «Personalizzato» per un
+         foglio che un nome adesso ce l'ha. */
+      apply();
+      Log.add('msg', 'Foglio «' + f.nome + '» aggiunto. Con la matita gli dai ' +
+                     'un nome, col cestino lo togli.');
+    });
+
+    document.getElementById('fog-ok').addEventListener('click', salvaModale);
+    document.getElementById('fog-annulla').addEventListener('click', chiudiModale);
+    document.getElementById('fog-modal').addEventListener('click', function (e) {
+      if (e.target === this) chiudiModale();      // click sul fondo scuro
+    });
+    document.addEventListener('keydown', function (e) {
+      if (document.getElementById('fog-modal').hidden) return;
+      if (e.key === 'Escape') chiudiModale();
+      if (e.key === 'Enter') salvaModale();
+    });
+
+    renderFormati();
 
     ['paper-w', 'paper-h'].forEach(function (id) {
       document.getElementById(id).addEventListener('input', function () {
@@ -320,6 +491,7 @@ var Paper = (function () {
 
   return {
     init: init, setSize: setSize, refreshArea: refreshArea,
+    renderFormati: renderFormati,
     setSheetOrigin: setSheetOrigin, centerSheet: centerSheet,
     rebuildPath: rebuildPath, fissa: fissa
   };

@@ -50,10 +50,11 @@
 
       <section class="card">
         <h2>Foglio</h2>
-        <div class="preset-row">
+        <div class="preset-row" id="preset-row">
           <button class="btn btn-ghost preset" data-w="210" data-h="297">A4</button>
-          <button class="btn btn-ghost preset is-active" data-w="148" data-h="210">A5</button>
+          <button class="btn btn-ghost preset" data-w="148" data-h="210">A5</button>
           <button class="btn btn-ghost preset" data-w="105" data-h="148">A6</button>
+          <button class="btn btn-ghost preset-add" id="btn-paper-add" disabled>+</button>
         </div>
         <div class="field-row">
           <label>Larghezza (mm) <input type="number" id="paper-w" value="148" min="20" max="400" step="1"></label>
@@ -551,6 +552,30 @@
 <!-- ==================== POPUP DI INIZIO STAMPA ====================
      Tre passi, tre misure che valgono per questa stampa e basta. Montano lo
      stesso pannello manuale della tab dedicata: vedi js/popup.js. -->
+<!-- La finestrella del foglio personalizzato. Piccola e sua, non il modale
+     dei tre passi di stampa: quello è una procedura con uno stato dentro, e
+     prestarlo per cambiare un nome vorrebbe dire intrecciare due cose che non
+     c'entrano niente. -->
+<div class="modal" id="fog-modal" hidden>
+  <div class="modal-box modal-stretto" role="dialog" aria-modal="true" aria-labelledby="fog-titolo">
+    <header class="modal-head"><h2 id="fog-titolo">Foglio personalizzato</h2></header>
+    <div class="modal-body">
+      <label class="campo">Nome
+        <input id="fog-nome" maxlength="24" autocomplete="off">
+      </label>
+      <div class="field-row">
+        <label>Larghezza (mm) <input type="number" id="fog-w" min="20" max="400" step="1"></label>
+        <label>Altezza (mm) <input type="number" id="fog-h" min="20" max="400" step="1"></label>
+      </div>
+      <p class="modal-nota" id="fog-nota"></p>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn btn-ghost" id="fog-annulla">Annulla</button>
+      <button class="btn btn-primary" id="fog-ok">Salva</button>
+    </footer>
+  </div>
+</div>
+
 <div class="modal" id="modal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-titolo">
     <header class="modal-head">

@@ -41,8 +41,79 @@
 .btn-row { display: flex; gap: 7px; }
 .btn-row .btn { flex: 1; }
 
-.preset-row { display: flex; gap: 6px; }
-.preset-row .btn { flex: 1; }
+/* La riga dei formati: i tre fissi, poi quelli dell'operatore, poi il «+».
+   Va a capo perche' i fogli tagliati a mano possono essere parecchi e una riga
+   che si stringe all'infinito diventa illeggibile prima di diventare piena. */
+.preset-row { display: flex; flex-wrap: wrap; gap: 6px; }
+/* I tre fissi hanno nomi di due caratteri, i fogli dell'operatore no: «270 ×
+   255» in 54 pixel diventa «27…», che non e' un nome. Base piu' larga per
+   quelli, cosi' la riga va a capo prima invece di tagliare. */
+.preset-row > .btn { flex: 1 1 46px; min-width: 0; }
+.preset-wrap { flex: 1 1 86px; min-width: 0; }
+.preset-row .preset {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Il «+» non si allarga come gli altri: e' un comando, non un formato. */
+/* Discendente diretto nel selettore, come la regola sopra: con la sola classe
+   `.preset-add` quella piu' specifica vinceva e il piu' si allargava come un
+   formato. */
+.preset-row > .preset-add {
+  flex: 0 0 34px;
+  font-size: 16px;
+  line-height: 1;
+  padding: 7px 0;
+}
+
+/* Il foglio dell'operatore porta due comandi suoi, che compaiono passandoci
+   sopra. Stanno FUORI dal pulsante e non dentro: un pulsante dentro un
+   pulsante non e' HTML valido, e un browser lo riscrive come gli pare. */
+.preset-wrap { position: relative; display: flex; }
+.mini {
+  position: absolute;
+  top: -7px;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--text-dim);
+  cursor: pointer;
+  z-index: 2;
+}
+.mini-edit { left: -7px; }
+.mini-del  { right: -7px; }
+/* `focus-within` e non solo `hover`: con la tastiera il foglio si raggiunge
+   lo stesso, e due comandi che esistono solo per il mouse sono due comandi
+   che per qualcuno non esistono. */
+.preset-wrap:hover .mini,
+.preset-wrap:focus-within .mini { display: flex; }
+.mini:hover { color: var(--text); border-color: var(--accent); }
+.mini-del:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Una nota d'avviso senza niente dentro resta una barra gialla che avvisa di
+   nulla. Sparisce finche' non c'e' qualcosa da dire. */
+.modal-nota:empty { display: none; }
+
+.modal-stretto { width: 340px; }
+.campo { display: flex; flex-direction: column; gap: 4px; font-size: 12px;
+         color: var(--text-dim); margin-bottom: 10px; }
+.campo input {
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
 .preset.is-active, .step.is-active {
   background: var(--accent-dim);
   border-color: var(--accent-dim);

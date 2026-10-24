@@ -274,7 +274,15 @@ var Profile = (function () {
       schema: SCHEMA,
       macchina: macchinaDefault(),
       stampa: stampaDefault(),
-      libreria: []        // profili di stampa salvati, ognuno col suo nome
+      libreria: [],       // profili di stampa salvati, ognuno col suo nome
+
+      /* I fogli che l'operatore si taglia da sé — il 270 × 255 con cui è stato
+         stampato l'intreccio, per dire. A4/A5/A6 non stanno qui: quelli sono
+         costanti del mondo e vivono nel markup.
+         Stanno al PRIMO livello, fuori da `stampa`, di proposito: i profili di
+         stampa si salvano e si ricaricano col loro nome, e un foglio tagliato
+         in garage non deve sparire perché si è cambiato profilo. */
+      formati: []
     };
   }
 
@@ -586,6 +594,46 @@ var Profile = (function () {
      nella tab Impostazioni per dire cosa resta da misurare, e prima di far
      partire una stampa. Mai un booleano solo: se qualcosa blocca, chi lo legge
      deve poter dire ALL'UTENTE che cosa. */
+  /* ---------------------- formati di foglio ---------------------- */
+
+  function formati() { return get().formati; }
+
+  function trovaFormato(id) {
+    var l = formati();
+    for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i];
+    return null;
+  }
+
+  function aggiungiFormato(nome, w, h) {
+    var f = {
+      id: 'f' + Date.now().toString(36) + Math.floor(Math.random() * 1000),
+      nome: String(nome).trim(),
+      larghezza: +w,
+      altezza: +h
+    };
+    get().formati.push(f);
+    save();
+    return f;
+  }
+
+  function modificaFormato(id, nome, w, h) {
+    var f = trovaFormato(id);
+    if (!f) return null;
+    f.nome = String(nome).trim();
+    f.larghezza = +w;
+    f.altezza = +h;
+    save();
+    return f;
+  }
+
+  function eliminaFormato(id) {
+    var l = get().formati;
+    for (var i = 0; i < l.length; i++) {
+      if (l[i].id === id) { l.splice(i, 1); save(); return true; }
+    }
+    return false;
+  }
+
   function verifica() {
     var m = macchina(), problemi = [];
 
@@ -903,6 +951,10 @@ var Profile = (function () {
   return {
     load: load, get: get, macchina: macchina, stampa: stampa,
     save: save, reset: reset, defaults: defaults,
+
+    formati: formati, trovaFormato: trovaFormato,
+    aggiungiFormato: aggiungiFormato, modificaFormato: modificaFormato,
+    eliminaFormato: eliminaFormato,
 
     elencoStampe: elencoStampe, salvaStampa: salvaStampa,
     caricaStampa: caricaStampa, eliminaStampa: eliminaStampa,
