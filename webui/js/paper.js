@@ -354,29 +354,26 @@ var Paper = (function () {
      all'angolo in basso a sinistra del foglio. Così spostare il foglio lo
      porta con sé senza ricalcolare niente, e un SVG importato resta valido
      anche se poi il foglio viene trascinato altrove. La posizione sul piano
-     si somma soltanto al momento di disegnare, in rebuildPath. */
-  function demoArt() {
-    var p = State.data.paper;
-    var m = Math.min(p.w, p.h) * 0.18;
-    var x0 = m, y0 = m, x1 = p.w - m, y1 = p.h - m;
+     si somma soltanto al momento di disegnare, in rebuildPath.
 
-    var quad = [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 },
-                { x: x0, y: y1 }, { x: x0, y: y0 }];
-
-    var cx = p.w / 2, cy = p.h / 2, r = Math.min(p.w, p.h) * 0.22, cer = [];
-    for (var i = 0; i <= 72; i++) {
-      var a = i / 72 * Math.PI * 2;
-      cer.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
-    }
-    return [quad, cer];
-  }
+     QUI NON C'È PIÙ UN DISEGNO DI ESEMPIO. C'era un quadrato con un cerchio
+     dentro, messo quando il piano era vuoto e non si capiva a cosa servisse.
+     Adesso il piano ha tre rettangoli da guardare e il finto disegno fa solo
+     confusione: a colpo d'occhio sembra che ci sia qualcosa da stampare. Senza
+     disegno caricato il percorso è vuoto, e si vede che è vuoto. */
 
   /* Dalle polilinee del foglio ai segmenti in coordinate macchina, con gli
      spostamenti a penna alzata resi espliciti: sono corsa vera e devono
      comparire nell'anteprima come tutto il resto. */
   function rebuildPath() {
     var o = State.data.sheetOrigin;
-    var art = State.data.art || demoArt();
+    var art = State.data.art;
+    if (!art || !art.length) {
+      State.data.path = [];
+      renderPath();
+      State.emit('path');
+      return;
+    }
     var seg = [], cur = { x: -o.x, y: -o.y };   // lo zero macchina, visto dal foglio
 
     for (var i = 0; i < art.length; i++) {
@@ -690,8 +687,16 @@ var Paper = (function () {
       var del = e.target.closest('[data-fog-del]');
       if (del) { eliminaFormato(del.dataset.fogDel); return; }
 
+      /* Scegliere un formato lo mette anche AL CENTRO dell'area di lavoro:
+         è quello che si vuole nove volte su dieci, e le altre si trascina.
+         Non lo fa invece scrivendo a mano larghezza e altezza — lì il foglio
+         scapperebbe sotto le dita a ogni cifra battuta.
+         Un foglio già misurato non si tocca: la sua posizione è una misura. */
       var p = e.target.closest('.preset');
-      if (p) setSize(+p.dataset.w, +p.dataset.h);
+      if (p) {
+        setSize(+p.dataset.w, +p.dataset.h);
+        if (!State.data.foglioMisurato) centerSheet();
+      }
     });
 
     /* Il «+» salva subito, col nome delle misure: rinominarlo è un click sulla

@@ -115,8 +115,13 @@ var Panel = (function () {
     }
     h += '<div class="jog-mid"><div class="jog-h">';
     for (var q = 0; q < QUOTE.length; q++) {
-      h += '<button class="btn btn-ghost pm-h" data-pm-h="' + QUOTE[q][0] + '">' +
-           '<i class="h-ind ' + QUOTE[q][2] + '"></i>' + QUOTE[q][1] + '</button>';
+      /* Il nome sta in uno span suo perché in una colonna stretta va tolto:
+         meglio la sola tacca, che si capisce, che «Contatto» tagliato a
+         «Cont», che non si capisce. Il titolo resta e lo dice per esteso. */
+      h += '<button class="btn btn-ghost pm-h" data-pm-h="' + QUOTE[q][0] +
+           '" title="Penna alla quota ' + QUOTE[q][1].toLowerCase() + '">' +
+           '<i class="h-ind ' + QUOTE[q][2] + '"></i>' +
+           '<span class="pm-h-nome">' + QUOTE[q][1] + '</span></button>';
     }
     h += '</div><div class="jog-deg">' +
          '<button class="btn btn-ghost pm-deg" data-pm-deg="1" ' +
@@ -156,8 +161,10 @@ var Panel = (function () {
   }
 
   function rigaAsse(asse, etichetta) {
-    return '<div class="pm-ax"><span>' + etichetta + '</span>' +
-           '<b class="pm-pos" data-pm-ax="' + asse + '">—</b></div>';
+    /* Il titolo ripete l'etichetta: in una colonna stretta il nome viene
+       accorciato coi puntini, e il modo di rileggerlo intero deve esserci. */
+    return '<div class="pm-ax" title="' + etichetta + '"><span>' + etichetta +
+           '</span><b class="pm-pos" data-pm-ax="' + asse + '">—</b></div>';
   }
 
   /* --------------------------------- istanza ------------------------------ */

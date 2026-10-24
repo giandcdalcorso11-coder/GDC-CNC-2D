@@ -127,6 +127,13 @@
 
     </aside>
 
+    <!-- Il manico che allarga e stringe la colonna dei controlli. Non si
+         aggiunge fra le colonne: PRENDE IL POSTO dell'intercapedine, così lo
+         spazio che occupa è quello che c'era già. -->
+    <div class="hmanico" id="hmanico-sx" data-var="--sidebar-w" data-verso="1"
+         role="separator" aria-orientation="vertical"
+         title="Trascina per allargare o stringere. Doppio clic: larghezza di partenza."></div>
+
     <!-- ---------- centro: il foglio ---------- -->
     <section class="stage">
       <div class="stage-inner">
@@ -156,6 +163,10 @@
       </div>
     </section>
 
+    <div class="hmanico" id="hmanico-dx" data-var="--scrub-w" data-verso="-1"
+         role="separator" aria-orientation="vertical"
+         title="Trascina per allargare o stringere. Doppio clic: larghezza di partenza."></div>
+
     <!-- ---------- colonna destra: anteprima del movimento ---------- -->
     <aside class="scrubber">
       <h2>Anteprima</h2>
@@ -167,7 +178,7 @@
         <span class="muted small" id="scrub-pos">X 0,0 · Y 0,0</span>
       </div>
       <button class="btn btn-ghost btn-small full" id="btn-play">Riproduci</button>
-      <p class="placeholder-note">Trascina il pallino per seguire il percorso della penna. Il tracciato mostrato è di esempio finché non si carica un disegno.</p>
+      <p class="placeholder-note">Trascina il pallino per seguire il percorso della penna, dopo aver caricato un disegno.</p>
     </aside>
 
   </div>
@@ -594,6 +605,7 @@
 <script src="js/preview.js"></script>
 <script src="js/panel.js"></script>
 <script src="js/popup.js"></script>
+<script src="js/layout.js"></script>
 <script src="js/sender.js"></script>
 <script src="js/jog.js"></script>
 <script src="js/settings.js"></script>

@@ -188,6 +188,11 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    /* Prima di tutto il resto: le larghezze salvate vanno applicate mentre la
+       pagina si sta ancora componendo, se no si vede il piano saltare dalla
+       misura di fabbrica a quella scelta. */
+    Layout.init();
+
     Log.init();
     Paper.init();
     Preview.init();

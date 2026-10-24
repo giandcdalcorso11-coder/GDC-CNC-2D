@@ -38,8 +38,14 @@
 .btn-small { padding: 4px 8px; font-size: 12px; }
 .full { width: 100%; }
 
-.btn-row { display: flex; gap: 7px; }
-.btn-row .btn { flex: 1; }
+/* I pulsanti affiancati VANNO A CAPO quando non ci stanno, e la base e' `auto`
+   e non zero: con base zero flexbox decide di mandarli a capo guardando una
+   larghezza ipotetica che non e' quella del testo, quindi crede che ci stiano
+   e poi li lascia uscire dal bordo. Con `auto` la decisione la prende
+   guardando quanto sono larghi davvero. Niente soglia: vale a ogni larghezza
+   della colonna, anche a una non prevista. */
+.btn-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.btn-row .btn { flex: 1 1 auto; }
 
 /* La riga dei formati: i tre fissi, poi quelli dell'operatore, poi il «+».
    Va a capo perche' i fogli tagliati a mano possono essere parecchi e una riga
@@ -667,6 +673,11 @@ code {
   border-radius: var(--r-sm);
   padding: 8px 10px;
 }
+/* QUANDO LO SPAZIO MANCA, SI ACCORCIA IL NOME E MAI IL NUMERO. Il nome
+   dell'asse e' un promemoria - "X e' la trave del portale" - e letto a meta'
+   si capisce lo stesso; la posizione e' il dato, e letta a meta' e' un altro
+   numero. Niente soglia: vale a qualunque larghezza, anche a una che non
+   abbiamo previsto. */
 .pm-ax {
   display: flex;
   justify-content: space-between;
@@ -674,7 +685,15 @@ code {
   gap: 10px;
   font-size: 11.5px;
   color: var(--text-mute);
+  min-width: 0;
 }
+.pm-ax > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pm-ax > b { flex: 0 0 auto; }
 .pm-pos {
   font-size: 14px;
   font-weight: 600;

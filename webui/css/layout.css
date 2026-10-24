@@ -62,14 +62,56 @@
 .panel { display: none; flex: 1 1 auto; min-height: 0; }
 .panel.is-active { display: flex; flex-direction: column; }
 
+/* CINQUE COLONNE, non tre: le due in piu' sono i manici, e stanno dove prima
+   c'era il `gap`. Occupano quindi lo spazio che c'era gia' - l'impaginazione
+   non cambia di un pixel - ma adesso quello spazio e' afferrabile. */
 .workspace {
   display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--scrub-w);
-  gap: var(--gap);
+  grid-template-columns:
+    var(--sidebar-w) var(--gap) minmax(0, 1fr) var(--gap) var(--scrub-w);
+  gap: 0;
   padding: var(--gap);
   flex: 1 1 auto;
   min-height: 0;
 }
+
+.hmanico {
+  cursor: col-resize;
+  position: relative;
+  /* Il manico e' largo quanto l'intercapedine, ma la zona che risponde al
+     mouse sborda di qualche pixel da una parte e dall'altra: quattordici pixel
+     si centrano, sei no, e mancare il manico tre volte di fila insegna a non
+     usarlo. */
+}
+.hmanico::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  right: -3px;
+}
+/* Il segno che compare passandoci sopra: una riga sottile al centro. Non c'e'
+   a riposo, perche' a riposo e' un'intercapedine e deve sembrare vuota. */
+.hmanico::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--line);
+  opacity: 0;
+  transition: opacity .12s;
+}
+.hmanico:hover::after,
+.hmanico.is-trascinato::after { opacity: 1; background: var(--accent); }
+
+/* Mentre si trascina, il cursore resta quello del ridimensionamento ovunque
+   vada il mouse, e niente si seleziona per sbaglio. */
+body.sta-ridimensionando { cursor: col-resize; user-select: none; }
 
 .sidebar {
   display: flex;
@@ -132,9 +174,13 @@
    passa sotto il foglio, che è la prima a poter perdere spazio. */
 @media (max-width: 1100px) {
   .workspace {
-    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    grid-template-columns: var(--sidebar-w) var(--gap) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
   }
+  /* L'anteprima passa sotto, quindi il manico di destra non separa piu'
+     niente: sparisce invece di restare un'intercapedine afferrabile che non
+     fa niente. */
+  #hmanico-dx { display: none; }
   .scrubber {
     grid-column: 1 / -1;
     flex-direction: row;
@@ -146,6 +192,70 @@
 @media (max-width: 760px) {
   body { overflow: auto; }
   .workspace { grid-template-columns: minmax(0, 1fr); }
+  /* Una colonna sola: non c'e' niente da ridimensionare. */
+  .hmanico { display: none; }
   .topbar { flex-wrap: wrap; height: auto; padding: 10px 14px; gap: 12px; }
   .dro { margin-left: 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   IL CONTENUTO SI ADATTA ALLA COLONNA, non alla finestra.
+
+   Sono `container query`: guardano quanto e' larga LA COLONNA, non lo schermo.
+   E' la differenza che conta qui, perche' la colonna adesso la decide chi
+   trascina: una `media query` continuerebbe a leggere la finestra, che e'
+   rimasta larga uguale, e non cambierebbe niente proprio mentre la colonna si
+   stringe sotto le dita.
+   --------------------------------------------------------------------------- */
+.sidebar  { container-type: inline-size; container-name: lato; }
+.scrubber { container-type: inline-size; container-name: destra; }
+
+/* Sotto i 230 px due campi affiancati non ci stanno piu': si impilano. */
+@container lato (max-width: 230px) {
+  .field-row { flex-direction: column; gap: 7px; }
+  .step-row { flex-wrap: wrap; }
+  .step-row .btn { flex: 1 1 40px; }
+  .pm-step-free { flex: 1 1 54px; }
+
+  /* "Vai al punto" sotto i suoi due campi invece che di fianco. */
+  .pm-goto { flex-wrap: wrap; }
+  .pm-goto-go { flex: 1 1 100%; }
+
+  .readout .ro { font-size: 11px; }
+}
+
+/* Sotto i 200 px il tastierino resta leggibile solo rimpicciolendo le
+   scritte del centro: i nomi delle tre quote sono la parte che si stringe
+   per prima, ed e' giusto che sia cosi' - una freccia senza etichetta si
+   capisce lo stesso, "Contatto" tagliato a "Cont" no. */
+@container lato (max-width: 200px) {
+  .jog-h .btn { font-size: 9px; gap: 2px; }
+  .jog-deg .btn { font-size: 10px; padding: 0 3px; }
+  .h-ind { width: 7px; height: 11px; }
+  .h-ind::after { width: 7px; }
+  .btn-jog { font-size: 14px; }
+}
+
+/* La colonna dell'anteprima: sotto i 120 px la scritta della percentuale e le
+   coordinate si stringono invece di uscire dal bordo. */
+@container destra (max-width: 120px) {
+  .scrub-pct { font-size: 15px; }
+  .scrubber h2 { font-size: 9px; }
+  .placeholder-note { font-size: 10px; }
+}
+
+/* I pulsanti a tutta larghezza hanno etichette intere - "Centra il foglio
+   nell'area" - e `.btn` le tiene su una riga sola. In una colonna stretta
+   quella riga esce dal bordo: qui si lascia andare a capo. */
+@container lato (max-width: 240px) {
+  .btn.full { white-space: normal; line-height: 1.3; }
+}
+
+/* Sotto i 250 px delle tre quote resta la sola tacca. La soglia e' misurata,
+   non scelta: a 268 i nomi ci stanno, a 230 no. E' la degradazione giusta -
+   la tacca dice l'altezza da se', un nome tagliato no, e il titolo lo dice per
+   esteso a chi ci passa sopra. */
+@container lato (max-width: 250px) {
+  .pm-h-nome { display: none; }
+  .jog-h .btn { gap: 0; }
 }
