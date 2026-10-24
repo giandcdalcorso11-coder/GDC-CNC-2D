@@ -27,7 +27,7 @@ var Artwork = (function () {
     document.getElementById('file-info').hidden = true;
     document.getElementById('prep').hidden = true;
     Paper.rebuildPath();
-    Log.add('msg', 'Disegno rimosso: torna il tracciato di esempio.');
+    Log.add('msg', 'Disegno rimosso: il piano resta con le sole aree.');
   }
 
   /* Ricalcola posizione e dimensione sul foglio. Va richiamata quando cambia
