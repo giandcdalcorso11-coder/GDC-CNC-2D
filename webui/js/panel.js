@@ -20,6 +20,25 @@ var Panel = (function () {
      sbaglio vicino a fine corsa mandano il carrello in battuta. */
   var PASSI = [0.1, 1, 10, 50];
 
+  /* Le otto direzioni del tastierino, in ordine di lettura. I due numeri sono
+     i segni di X e Y: la griglia CSS li mette al loro posto, quindi l'ordine
+     qui non conta per il risultato ma conta per chi legge il codice. */
+  var DIR = [
+    ['NO', -1,  1, '&#8598;'], ['N',  0,  1, '&uarr;'],  ['NE',  1,  1, '&#8599;'],
+    ['O',  -1,  0, '&larr;'],                            ['E',   1,  0, '&rarr;'],
+    ['SO', -1, -1, '&#8601;'], ['S',  0, -1, '&darr;'],  ['SE',  1, -1, '&#8600;']
+  ];
+
+  /* Le tre quote della penna, dall'alto in basso come stanno nella realtà.
+     Il segno grafico è una tacca su una guida verticale: dice a che altezza
+     si va senza doverlo leggere, e si disegna in CSS invece di affidarsi a un
+     carattere speciale che poi su un browser non c'è. */
+  var QUOTE = [
+    ['tappo',    'Tappo',    'h-top'],
+    ['alzata',   'Alzata',   'h-mid'],
+    ['contatto', 'Contatto', 'h-low']
+  ];
+
   function markup(sez) {
     var h = '<div class="pm">';
 
@@ -42,20 +61,28 @@ var Panel = (function () {
     }
 
     if (sez.assi) {
-      h += '<div class="pm-sez">' +
-           '<div class="jog-pad">' +
-           '<button class="btn btn-jog" data-pm-jog="Y+">&uarr;</button>' +
-           '<button class="btn btn-jog" data-pm-jog="X-">&larr;</button>' +
-           '<button class="btn btn-jog btn-stop" data-pm-jog="stop">STOP</button>' +
-           '<button class="btn btn-jog" data-pm-jog="X+">&rarr;</button>' +
-           '<button class="btn btn-jog" data-pm-jog="Y-">&darr;</button>' +
-           '</div><div class="step-row">';
+      h += '<div class="pm-sez">' + tastierino() +
+
+           '<p class="muted small pm-lab">mm di spostamento con un click</p>' +
+           '<div class="step-row">';
+      /* Ogni pulsante porta nel suggerimento quanto si muove DAVVERO. Un passo
+         del motore vale 0,0295 mm, quindi i millimetri tondi quasi mai sono un
+         numero intero di passi: 0,1 mm sono 3,4 passi, la macchina ne fa 3, e
+         il movimento vero è 0,088 — il 12% in meno di quello che c'è scritto
+         sopra. Sugli altri tre lo scarto sta sotto i quindici micron. */
       for (var i = 0; i < PASSI.length; i++) {
         h += '<button class="btn btn-ghost btn-small pm-step' +
-             (PASSI[i] === 1 ? ' is-active' : '') + '" data-pm-step="' + PASSI[i] + '">' +
+             (PASSI[i] === 1 ? ' is-active' : '') + '" data-pm-step="' + PASSI[i] +
+             '" title="' + veroPasso(PASSI[i]) + '">' +
              String(PASSI[i]).replace('.', ',') + '</button>';
       }
-      h += '<span class="muted small">mm</span></div></div>';
+      /* Il quinto posto non è un pulsante ma un campo: i quattro valori fissi
+         coprono i casi di tutti i giorni, questo copre quello che non avevamo
+         previsto. Si comporta come gli altri — scrivendoci dentro diventa lui
+         il passo attivo, e gli altri si spengono. */
+      h += '<input type="number" class="pm-step-free" min="0" step="0.1" ' +
+           'placeholder="altro" title="Un passo qualsiasi, in millimetri">';
+      h += '</div>' + vaiAlPunto() + '</div>';
     }
 
     if (sez.penna) {
@@ -75,6 +102,59 @@ var Panel = (function () {
     return h + '</div>';
   }
 
+  /* IL TASTIERINO. Otto direzioni intorno, e al centro i comandi della penna
+     invece del vecchio STOP: le tre quote in colonna, e accanto le due frecce
+     da un grado. Lo STOP non è sparito, è sceso sotto le due frecce — un
+     pannello di movimento senza un modo di fermarlo non si consegna. */
+  function tastierino() {
+    var h = '<div class="jog-pad">';
+    for (var i = 0; i < DIR.length; i++) {
+      h += '<button class="btn btn-jog" data-pm-jog="' + DIR[i][0] + '" ' +
+           'data-pm-dx="' + DIR[i][1] + '" data-pm-dy="' + DIR[i][2] + '">' +
+           DIR[i][3] + '</button>';
+    }
+    h += '<div class="jog-mid"><div class="jog-h">';
+    for (var q = 0; q < QUOTE.length; q++) {
+      h += '<button class="btn btn-ghost pm-h" data-pm-h="' + QUOTE[q][0] + '">' +
+           '<i class="h-ind ' + QUOTE[q][2] + '"></i>' + QUOTE[q][1] + '</button>';
+    }
+    h += '</div><div class="jog-deg">' +
+         '<button class="btn btn-ghost pm-deg" data-pm-deg="1" ' +
+         'title="Alza la penna di un grado di servo">&uarr;1&deg;</button>' +
+         '<button class="btn btn-ghost pm-deg" data-pm-deg="-1" ' +
+         'title="Abbassa la penna di un grado di servo">&darr;1&deg;</button>' +
+         '<button class="btn btn-ghost btn-stop pm-stop" ' +
+         'title="Ferma il movimento in corso">STOP</button>' +
+         '</div></div></div>';
+    return h;
+  }
+
+  /* Andare a un punto scrivendolo. Le frecce servono a cercare, questo a
+     tornare: un punto misurato una volta si raggiunge di nuovo senza contare
+     i click. I campi si svuotano quando la macchina È ARRIVATA, non quando il
+     comando è stato accettato — sono due momenti diversi, e il secondo
+     arriverebbe mentre i carrelli sono ancora per strada. */
+  function vaiAlPunto() {
+    return '<div class="pm-goto">' +
+           '<label class="pm-goto-f">X<input type="number" class="pm-goto-x" ' +
+           'step="0.1" placeholder="mm"></label>' +
+           '<label class="pm-goto-f">Y<input type="number" class="pm-goto-y" ' +
+           'step="0.1" placeholder="mm"></label>' +
+           '<button class="btn btn-small pm-goto-go">Vai al punto</button>' +
+           '</div><p class="muted small pm-goto-nota"></p>';
+  }
+
+  /* Quanto si muove davvero un passo chiesto, in parole. */
+  function veroPasso(mm) {
+    var spm = Profile.passiPerMm('x');
+    var passi = Math.round(mm * spm);
+    var vero = passi / spm;
+    var scarto = (vero - mm) * 1000;
+    return mm.toString().replace('.', ',') + ' mm chiesti = ' + passi + ' passi = ' +
+           vero.toFixed(4).replace('.', ',') + ' mm veri (' +
+           (scarto >= 0 ? '+' : '') + scarto.toFixed(0) + ' µm)';
+  }
+
   function rigaAsse(asse, etichetta) {
     return '<div class="pm-ax"><span>' + etichetta + '</span>' +
            '<b class="pm-pos" data-pm-ax="' + asse + '">—</b></div>';
@@ -92,24 +172,81 @@ var Panel = (function () {
     };
     el.innerHTML = markup(sez);
 
-    var ist = { el: el, sez: sez, passo: 1 };
+    /* `meta` è il punto verso cui si sta andando, quando si sta andando da
+       qualche parte scrivendolo nei campi. Serve a sapere quando svuotarli:
+       all'ARRIVO, non alla partenza. */
+    var ist = { el: el, sez: sez, passo: 1, meta: null };
     istanze.push(ist);
 
+    /* Una sola riga `$J` anche per le diagonali: due comandi separati
+       farebbero una L invece di una diagonale, e si vedrebbe. */
     ognuno(el, '[data-pm-jog]', function (b) {
       b.addEventListener('click', function () {
-        var d = this.dataset.pmJog;
-        if (d === 'stop') { Api.feedHold(); return; }
-        Api.jog(d[0], (d[1] === '-' ? -ist.passo : ist.passo).toFixed(3), 1000);
+        Api.jogXY(+this.dataset.pmDx * ist.passo,
+                  +this.dataset.pmDy * ist.passo, 1000);
       });
+    });
+
+    uno(el, '.pm-stop', function (b) {
+      b.addEventListener('click', function () { Api.feedHold(); });
     });
 
     ognuno(el, '[data-pm-step]', function (b) {
       b.addEventListener('click', function () {
         ist.passo = +this.dataset.pmStep;
-        ognuno(el, '[data-pm-step]', function (x) {
-          x.classList.toggle('is-active', +x.dataset.pmStep === ist.passo);
-        });
+        uno(el, '.pm-step-free', function (i) { i.value = ''; });
+        segnaPasso(el, ist);
       });
+    });
+
+    /* Scrivere nel campo libero vale come premere un pulsante: cambia il passo
+       e spegne gli altri. Un valore non positivo si ignora invece di azzerare
+       il passo, perché un tastierino che non muove niente sembra rotto. */
+    uno(el, '.pm-step-free', function (inp) {
+      inp.addEventListener('input', function () {
+        var v = parseFloat(this.value);
+        if (!(v > 0)) return;
+        ist.passo = v;
+        segnaPasso(el, ist);
+      });
+    });
+
+    /* Le tre quote della penna, dal tastierino. Sono le stesse che usa il
+       generatore: non si inventano qui. */
+    ognuno(el, '[data-pm-h]', function (b) {
+      b.addEventListener('click', function () {
+        var q = this.dataset.pmH;
+        Api.penna(q === 'tappo' ? Profile.zTappo()
+                : q === 'alzata' ? Profile.zAlzata()
+                : Profile.zContatto());
+      });
+    });
+
+    /* UN GRADO ALLA VOLTA, e il numero non è scelto a caso: la banda morta di
+       questo servo vale 0,9 gradi, quindi un grado è il PRIMO passo che la
+       penna sente davvero. Chiedere meno vuol dire mandare un impulso che il
+       servo non distingue da quello di prima. In millimetri un grado fa
+       0,327: più grosso dei passi da 0,2 della scheda penna, che infatti
+       stanno sotto la banda morta e spesso non muovono niente.
+       Si ferma alle due quote dichiarate: oltre, mapConstrain tronca in
+       silenzio e il numero sullo schermo salirebbe con la penna ferma. */
+    ognuno(el, '[data-pm-deg]', function (b) {
+      b.addEventListener('click', function () {
+        var z = State.data.pos.z + (+this.dataset.pmDeg) * Profile.mmPerGrado();
+        var giu = Profile.zContatto(), su = Profile.zTappo();
+        if (giu !== null && z < giu) z = giu;
+        if (su !== null && z > su) z = su;
+        Api.penna(z);
+      });
+    });
+
+    /* Vai al punto. */
+    ognuno(el, '.pm-goto-x, .pm-goto-y', function (i) {
+      i.addEventListener('input', function () { etichettaVai(el); });
+    });
+
+    uno(el, '.pm-goto-go', function (b) {
+      b.addEventListener('click', function () { vai(el, ist); });
     });
 
     uno(el, '.pm-free', function (b) {
@@ -151,6 +288,67 @@ var Panel = (function () {
     return ist;
   }
 
+  /* Quale dei cinque posti è il passo attivo. Se nessuno dei quattro valori
+     fissi corrisponde, l'attivo è il campo libero: così il pannello dice
+     SEMPRE di quanto si muoverà, che è l'unica cosa che conta sapere prima di
+     premere una freccia su una macchina senza finecorsa. */
+  function segnaPasso(el, ist) {
+    var fisso = false;
+    ognuno(el, '[data-pm-step]', function (x) {
+      var on = Math.abs(+x.dataset.pmStep - ist.passo) < 1e-9;
+      x.classList.toggle('is-active', on);
+      if (on) fisso = true;
+    });
+    uno(el, '.pm-step-free', function (i) { i.classList.toggle('is-active', !fisso); });
+  }
+
+  function etichettaVai(el) {
+    var x = valore(el, '.pm-goto-x'), y = valore(el, '.pm-goto-y');
+    uno(el, '.pm-goto-go', function (b) {
+      b.textContent = (x === null && y === null) ? 'Vai al punto'
+        : 'Vai a X ' + (x === null ? '—' : x) + ' Y ' + (y === null ? '—' : y);
+    });
+  }
+
+  function valore(el, sel) {
+    var i = el.querySelector(sel);
+    if (!i || !i.value.trim()) return null;
+    var v = parseFloat(i.value);
+    return isNaN(v) ? null : v;
+  }
+
+  function dice(el, testo) {
+    uno(el, '.pm-goto-nota', function (p) { p.textContent = testo; });
+  }
+
+  /* Tre controlli prima di muovere, e nessuno è di cortesia: senza
+     azzeramento quelle coordinate non hanno un riferimento; fuori dall'area
+     percorribile il carrello va in battuta, e senza finecorsa non c'è nulla
+     che lo fermi. */
+  function vai(el, ist) {
+    var x = valore(el, '.pm-goto-x'), y = valore(el, '.pm-goto-y');
+    if (x === null || y === null) {
+      dice(el, 'Servono tutt\'e due le coordinate.');
+      return;
+    }
+    if (!State.data.azzerata) {
+      dice(el, 'La macchina non è azzerata: quelle coordinate non avrebbero ' +
+               'un riferimento. Fai prima l\'homing.');
+      return;
+    }
+    var d = Profile.stanoDentro({ x0: x, y0: y, x1: x, y1: y });
+    if (!d.ok) {
+      dice(el, 'Fuori dall\'area percorribile, ' + d.fuori.join(' e ') + '.');
+      return;
+    }
+    ist.meta = { x: x, y: y };
+    dice(el, 'In movimento verso X ' + x + ' Y ' + y + '…');
+    Api.vaiA(x, y).catch(function (e) {
+      ist.meta = null;
+      dice(el, 'Non ci è andata: ' + e.message);
+    });
+  }
+
   function uno(el, sel, fn) { var x = el.querySelector(sel); if (x) fn(x); }
   function ognuno(el, sel, fn) {
     var xs = el.querySelectorAll(sel);
@@ -179,6 +377,36 @@ var Panel = (function () {
        al primo comando, buttando via l'appoggio appena fatto. */
     ognuno(el, '[data-pm-jog]', function (b) { b.disabled = !collegata || liberi; });
     ognuno(el, '[data-pm-step]', function (b) { b.disabled = !collegata; });
+    uno(el, '.pm-step-free', function (b) { b.disabled = !collegata; });
+
+    /* Lo STOP resta premibile anche a motori liberi: è l'unico comando che non
+       fa muovere niente, e volerlo spento proprio quando si sta armeggiando
+       sulla macchina sarebbe esattamente il contrario di quello che serve. */
+    uno(el, '.pm-stop', function (b) { b.disabled = !collegata; });
+
+    /* Scrivere un punto chiede una cosa in più delle frecce: l'azzeramento.
+       Una freccia dice «di qui spostati un po'» e vale sempre; una coordinata
+       dice «vai in quel posto», e senza origine quel posto non esiste. */
+    var puoAndare = collegata && !liberi && State.data.azzerata;
+    ognuno(el, '.pm-goto-x, .pm-goto-y, .pm-goto-go', function (b) {
+      b.disabled = !puoAndare;
+    });
+
+    /* Arrivata? I campi si svuotano qui e non alla partenza: `ok` da FluidNC
+       vuol dire «riga accettata», non «carrelli fermi a destinazione». La
+       tolleranza è mezzo decimo: un passo di motore vale 0,029 mm e il punto
+       chiesto quasi mai ci cade sopra esatto. */
+    if (ist.meta && nota) {
+      var p = State.data.pos, m = State.data.machine;
+      if (Math.abs(p.x - ist.meta.x) < 0.05 && Math.abs(p.y - ist.meta.y) < 0.05 &&
+          m !== 'Run' && m !== 'Jog') {
+        ist.meta = null;
+        uno(el, '.pm-goto-x', function (i) { i.value = ''; });
+        uno(el, '.pm-goto-y', function (i) { i.value = ''; });
+        etichettaVai(el);
+        dice(el, 'Arrivata.');
+      }
+    }
     uno(el, '.pm-free', function (b) {
       b.disabled = !collegata || liberi;
       b.classList.toggle('is-warn', liberi);
@@ -213,12 +441,14 @@ var Panel = (function () {
         : 'Le quote sono negative: <b>Z0</b> è in alto, dove ci sta il tappo, ' +
           '<b>Z' + zSu.toFixed(2) + '</b> è la penna alzata e <b>Z' +
           zGiu.toFixed(2) + '</b> il foglio, cioè ' + alzata.toFixed(2) +
-          ' mm sotto. Un decimo di millimetro è sotto la banda morta del ' +
-          'servo: muoversi a passi di 0,2 è già il limite utile.';
+          ' mm sotto. <b>La banda morta del servo vale 0,9&deg;, cioè 0,29 mm</b>: ' +
+          'questi due passi da 0,2 le stanno sotto, quindi a volte non muovono ' +
+          'niente. Per spostamenti fini usa le frecce <b>1&deg;</b> del ' +
+          'tastierino, che valgono 0,33 mm e sono il primo passo che la penna ' +
+          'sente davvero.';
     });
-    ognuno(el, '.pm-pen-up, .pm-pen-down, [data-pm-pen]', function (b) {
-      b.disabled = !collegata || liberi || !pennaNota;
-    });
+    ognuno(el, '.pm-pen-up, .pm-pen-down, [data-pm-pen], [data-pm-h], [data-pm-deg]',
+      function (b) { b.disabled = !collegata || liberi || !pennaNota; });
   }
 
   function aggiornaTutti() {

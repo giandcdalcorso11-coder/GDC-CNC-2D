@@ -351,6 +351,18 @@ var Api = (function () {
     return send('$J=G91 ' + axis + delta + ' F' + (feed || 1000));
   }
 
+  /* Jog su due assi insieme, per le diagonali del tastierino. Un solo `$J`
+     e non due: due comandi separati fanno una L, prima tutto X e poi tutto Y,
+     e si vede. Le componenti nulle si omettono invece di scrivere X0, perché
+     una riga più corta è una riga che si legge nel registro. */
+  function jogXY(dx, dy, feed) {
+    var m = '';
+    if (dx) m += ' X' + Number(dx).toFixed(3);
+    if (dy) m += ' Y' + Number(dy).toFixed(3);
+    if (!m) return Promise.resolve('');
+    return send('$J=G91' + m + ' F' + (feed || 1000));
+  }
+
   function setOrigin() {
     return send('G92 X0 Y0');
   }
@@ -462,7 +474,7 @@ var Api = (function () {
     send: send, sendMuto: sendMuto, realtime: realtime,
     inCoda: inCoda, svuota: svuota,
     connect: connect, disconnect: disconnect,
-    jog: jog, setOrigin: setOrigin, led: led,
+    jog: jog, jogXY: jogXY, setOrigin: setOrigin, led: led,
     motoriLiberi: motoriLiberi, homingFatto: homingFatto,
     penna: penna, vaiA: vaiA,
     feedHold: feedHold, cycleStart: cycleStart, reset: reset,

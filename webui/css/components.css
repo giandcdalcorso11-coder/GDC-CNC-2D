@@ -140,25 +140,144 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 
 /* ------------------------ movimento manuale ----------------------- */
 
+/* IL TASTIERINO E' QUADRATO, e lo e' per costruzione invece che per fortuna:
+   `aspect-ratio: 1` lega l'altezza alla larghezza, qualunque sia lo spazio in
+   cui e' montato. Prima le righe erano `1fr` di un'altezza non dichiarata,
+   quindi si stringevano sul contenuto dei pulsanti e il risultato era
+   schiacciato.
+   La riga e la colonna di mezzo sono piu' larghe delle altre: in quella cella
+   ci stanno i comandi della penna, e tre nomi leggibili non entrano in un
+   terzo di pannello. Il blocco resta quadrato nel suo insieme. */
 .jog-pad {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-columns: 1fr 1.7fr 1fr;
+  grid-template-rows: 1fr 1.7fr 1fr;
   gap: 5px;
+  aspect-ratio: 1;
+  /* Nella tab dedicata lo spazio e' largo il doppio della barra laterale, e un
+     tastierino da mezzo schermo non si usa meglio: si usa peggio, perche' per
+     premere due frecce di seguito bisogna attraversarlo. Si ferma qui. */
+  max-width: 330px;
 }
-.btn-jog { font-size: 15px; padding: 9px 0; }
-/* Le frecce stanno nella croce a prescindere dall'ordine nel markup: il
-   pannello manuale le emette in sequenza di lettura, la griglia le mette al
-   loro posto. */
-.jog-pad [data-pm-jog="Y+"]   { grid-area: 1 / 2; }
-.jog-pad [data-pm-jog="X-"]   { grid-area: 2 / 1; }
-.jog-pad [data-pm-jog="stop"] { grid-area: 2 / 2; font-size: 10px; font-weight: 700; }
-.jog-pad [data-pm-jog="X+"]   { grid-area: 2 / 3; }
-.jog-pad [data-pm-jog="Y-"]   { grid-area: 3 / 2; }
-.btn-stop { border-color: #5b2b2b; color: #f0a0a0; }
+.btn-jog { font-size: 16px; padding: 0; }
 
-.step-row { display: flex; align-items: center; gap: 5px; }
+/* Le otto direzioni stanno al loro posto a prescindere dall'ordine nel
+   markup: il pannello le emette in sequenza di lettura, la griglia le dispone
+   come la rosa dei venti. */
+.jog-pad [data-pm-jog="NO"] { grid-area: 1 / 1; }
+.jog-pad [data-pm-jog="N"]  { grid-area: 1 / 2; }
+.jog-pad [data-pm-jog="NE"] { grid-area: 1 / 3; }
+.jog-pad [data-pm-jog="O"]  { grid-area: 2 / 1; }
+.jog-pad [data-pm-jog="E"]  { grid-area: 2 / 3; }
+.jog-pad [data-pm-jog="SO"] { grid-area: 3 / 1; }
+.jog-pad [data-pm-jog="S"]  { grid-area: 3 / 2; }
+.jog-pad [data-pm-jog="SE"] { grid-area: 3 / 3; }
+
+/* Il centro: le tre quote in colonna, e accanto le due frecce da un grado con
+   lo STOP sotto. Tre righe da una parte e tre dall'altra, cosi' si allineano. */
+.jog-mid {
+  grid-area: 2 / 2;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px;
+  min-width: 0;
+}
+.jog-h, .jog-deg { display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
+.jog-h .btn, .jog-deg .btn {
+  padding: 0 4px;
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+.jog-deg .btn { font-size: 11px; padding: 0 6px; }
+
+/* Il segno delle tre quote: una guida verticale con una tacca all'altezza
+   giusta. Disegnata, non scritta: un carattere speciale su un browser c'e' e
+   su un altro diventa un rettangolo vuoto, e qui il disegno E' l'informazione. */
+.h-ind {
+  position: relative;
+  flex: 0 0 auto;
+  width: 9px;
+  height: 13px;
+  border-left: 1px solid currentColor;
+  opacity: .7;
+}
+.h-ind::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 9px;
+  height: 2px;
+  background: currentColor;
+}
+.h-top::after { top: 0; }
+.h-mid::after { top: 50%; margin-top: -1px; }
+.h-low::after { bottom: 0; }
+
+.btn-stop { border-color: #5b2b2b; color: #f0a0a0; font-weight: 700; }
+
+.pm-lab { margin: 10px 0 5px; }
+
+.step-row { display: flex; align-items: stretch; gap: 5px; }
 .step-row .btn { flex: 1; }
+
+/* QUALE PASSO E' ATTIVO si deve vedere da lontano. Senza finecorsa, premere
+   una freccia credendo di muovere un millimetro e muoverne cinquanta e' il
+   modo in cui si manda un carrello in battuta. */
+.pm-step.is-active, .pm-step-free.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+  color: #fff;
+}
+/* Il quinto posto: un campo che si comporta da pulsante. */
+/* Le frecciette del campo numerico si mangiano quindici pixel, che in una
+   barra laterale da 268 sono la differenza fra leggere "altro" e leggere
+   "al". Via loro: qui si scrive, non si clicca. */
+.pm-step-free::-webkit-outer-spin-button,
+.pm-step-free::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.pm-step-free {
+  flex: 1.2;
+  min-width: 0;
+  -moz-appearance: textfield;
+  width: 100%;
+  padding: 0 4px;
+  text-align: center;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.pm-step-free::placeholder { color: var(--text-mute); }
+
+/* Vai al punto: due campi e un pulsante che dice dove sta per andare. */
+.pm-goto { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.pm-goto-f {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.pm-goto-f input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 5px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.pm-goto-go { flex: 0 0 auto; white-space: nowrap; }
+.pm-goto-nota { margin: 5px 0 0; min-height: 1em; }
 
 /* ------------------------- piano e foglio ------------------------- */
 
