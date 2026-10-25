@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 55
-**Ultimo aggiornamento:** 2026-10-25 10:16
+**Versione:** 56
+**Ultimo aggiornamento:** 2026-10-25 22:56
 
 ## Regole di co-editing
 
@@ -244,7 +244,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
 
-**Stato:** in corso — **l'applicazione stampa.** Il 2026-10-25 un programma intero è partito dal SLICER ed è arrivato in fondo: intreccio all'80 % su un foglio 270 × 255, cornice misurata **191,7 × 187,7 mm, esattamente la previsione**. Movimento continuo, quindi le 16 righe in volo sono il numero giusto. Provate sulla macchina anche l'**interruzione** (penna alzata, ritorno a casa, `G92` sopravvissuto) e la **pausa** (immediata, penna appoggiata). Resta una cosa sola delle due di ieri: **installare la pagina** come `index.html.gz` al posto della WebUI di FluidNC — e si sa perché deve essere quel nome (il gestore generico serve ogni altro file con `Content-Disposition: attachment`, cioè il browser lo scarica invece di aprirlo). Attenzione al peso: la pagina compressa è passata a 97,1 kB contro ~113 kB liberi, e l'editor SVG è ancora da scrivere
+**Stato:** in corso — **l'applicazione stampa, compone e disegna.** Oltre a mandare il programma (2026-10-25 mattina), adesso regge **più SVG sullo stesso foglio** come livelli ordinati, con i **cambi penna** fra l'uno e l'altro, e ha un **editor** con cui modificare e creare tracciati — nodi, maniglie, linee, rettangoli, cerchi, testi, taglio, magneti e annulla. **Deciso il 2026-10-25: la pagina NON va sull'ESP32**, resta sul PC; cade con questo il tetto dei 113 kB che vincolava ogni aggiunta, e la WebUI di FluidNC resta come rete di sicurezza. Quello che manca all'editor è scritto nelle note: annulla multiplo c'è, selezione multipla e agganci alla griglia no
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
 
@@ -329,6 +329,14 @@ mano a mano che le misure arrivano):
 - [2026-10-25] **L'anteprima cambia dopo «prepara», ed è voluto.** Prima mostra i tracciati nell'ordine del file; `prepare()` fa girare l'ottimizzatore (scarta i doppioni, salda i tratti contigui, riordina) e **riscrive `State.data.art` col percorso ottimizzato**. Da quel momento piano e cursore mostrano quello che la macchina farà davvero: l'inchiostro è identico, l'ordine e gli spostamenti a vuoto no. Un'anteprima che restasse quella di prima sarebbe una bugia proprio nel momento in cui si guarda per decidere se partire.
 - [2026-10-25] **RICHIESTA UTENTE — pausa programmata per il cambio penna**, per disegni a più colori. Progetto abbozzato, non costruito: i punti di pausa si segnano **sull'anteprima dopo la preparazione**, e devono poter cadere solo **al confine fra due tracciati**, mai a metà di un tratto. Il motivo è che lì il programma ha già la sequenza giusta — alza, pausa, sposta, abbassa — quindi non c'è nessuno stato da ripristinare alla ripresa: senza quel vincolo bisognerebbe ricordare e rifare posizione e quota prima di riprendere, e un cambio penna a punta abbassata lascia comunque una macchia. Il marcatore va onorato dal **Sender**, non da un `M0` del firmware: così la pausa può alzare la penna e portarla in un punto comodo, e la ripresa è un pulsante dell'interfaccia.
 - [2026-10-25] **Il peso della pagina è diventato un vincolo da sorvegliare:** 97.126 byte compressi contro ~113 kB liberi sull'ESP32. Sedici kilobyte di margine, e l'editor SVG è la cosa più grossa che resta da scrivere. La decisione su **dove vive la pagina** va presa prima dell'editor, non dopo: o si divide il bundle e si carica l'editor a richiesta, o sull'ESP32 va solo la parte che comanda la macchina e l'editor resta sul PC.
+- [2026-10-25] **La pausa per il cambio penna.** Si segna col cursore dell'anteprima, dopo la preparazione, e si ferma **solo al confine fra due tratti**, mai a metà di uno: lì il programma ha già fatto alza → sposta → abbassa, quindi alla ripresa non c'è nessuno stato da ricostruire — e cambiare penna con la punta appoggiata lascerebbe comunque una macchia. Il segno è un commento `;PAUSA` che **la macchina non vede**: lo riconosce il Sender, quindi lo stesso file resta eseguibile da chi di queste pause non sa niente. Il generatore, dopo ogni segno, **azzera lo stato modale**: senza, una riga come «X120» — che in G-code vuol dire «Y resta dov'è» — avrebbe ripreso da una Y cambiata nel frattempo, e il disegno sarebbe proseguito a qualche centimetro di distanza.
+- [2026-10-25] **Otto maniglie e il taglio col tasto destro.** Ai quattro angoli si aggiungono i punti di mezzo dei lati, per deformare lungo un asse solo. Il **ritaglio è un rettangolo a parte** dentro a quello del disegno: `box` dice quanto è grande, il ritaglio quanto se ne vede, e tenendoli separati ritirando la maniglia il disegno torna fuori — non è mai stato cancellato, solo nascosto. Il taglio vero lo fa Liang-Barsky segmento per segmento, e un tratto che esce e rientra si spezza in due, che è giusto: sono alzate di penna vere.
+- [2026-10-25] **Lo zero e il punto home segnati sul piano**, perché a cinque millimetri si confondono e il foglio si posiziona rispetto a tutti e due. Scoperto nel farlo che **il pallino rosso che sembrava lo zero era la penna dell'anteprima**, parcheggiata a 0,0 quando non c'è percorso: due cose diverse nello stesso posto e dello stesso colore. Verificato col collaudo, non a occhio, che lo zero dei righelli e lo zero macchina cadono sullo **stesso pixel**, adattati e ingranditi.
+- [2026-10-25] **I LIVELLI.** Non c'è più un disegno: c'è un elenco di livelli, ognuno col suo rettangolo, rotazione e ritaglio. **L'ordine è la sequenza della stampa**, e l'unità con cui si ragiona di penne: un livello si disegna tutto di fila, e fra uno e l'altro ci si ferma. L'ottimizzazione ha tre ambiti — tutto / per livello / niente — con «per livello» predefinito; con «tutto» i cambi penna vengono tolti e il registro lo dice, invece di stampare in silenzio qualcosa di diverso da quello che si vede.
+- [2026-10-25] **Le curve restano curve.** `svgpath.js` legge l'attributo `d` comando per comando e ne escono nodi con le maniglie; `tracciato.js` è il modello, e `SvgImport.parse` è diventato `appiattisciTutte(parseForme())`. L'appiattimento è l'ultimo passo invece del primo, ed è quello che rende possibile modificare una curva importata. **Chiude la precondizione segnata il 2026-10-24.**
+- [2026-10-25] **L'editor esiste.** Sei strumenti, nodi e maniglie trascinabili, doppio clic per passare da spigolo a curva, taglio, testi che restano testi. **La y va in giù** come in un file SVG, perché è quel file che si sta modificando; il ribaltamento resta uno solo, in `toRect`. **La tela non ha formato né dimensioni**: quanto diventa grande il disegno lo decidono le maniglie sul foglio. E modificare una forma **non sposta il disegno sul foglio**: si tiene fermo il legame fra le due coordinate e il rettangolo si adegua, se no spostare un nodo rimpicciolirebbe tutto il resto.
+- [2026-10-25] **Magneti e annulla.** Tre aiuti in ordine di forza — nodo vicino, angolo entro sei gradi da un multiplo di 45, allineamento in x o y — con Alt per spegnerli un gesto e Shift per forzare l'angolo. L'annulla è una **pila di istantanee**, con una fotografia per gesto e il rettangolo del livello dentro all'istantanea.
+- [2026-10-25] **Quello che all'editor manca ancora**, per quando ci si torna: selezione multipla, agganci a una griglia, e la conversione di un segmento dritto in curva senza passare dal nodo. Un tratto importato dai nostri file **non ha curve** perché i file sono fatti di polilinee: le maniglie si mettono col doppio clic. Su un SVG preso dal web le curve ci sono già.
 
 ### Step 5 — Struttura meccanica
 
@@ -572,6 +580,115 @@ mano a mano che le misure arrivano):
 - [2026-10-23] **Il modulo disegna, e la procedura di montaggio della penna è quella definitiva.** Non si cerca la quota giusta muovendo il servo: si porta il servo alla quota **già decisa** e si stringe la penna lì — i 25° non sono una misura, sono un'imposizione, e il profilo lo dice da sempre. Il foglio deve essere sotto durante la stretta, perché la quota è definita *punta sul foglio* e non *punta sulla tavola*. Verificata su più stampe: il tratto resta costante su 4,4 m (vortice) e su 21 m di spirografo per quanto ne ha fatto. **Resta aperto il gioco**, l'ultimo parametro del profilo mai misurato: la rosa mistica dei medaglioni è stata disegnata apposta per leggerlo — nove vertici su cui convergono otto corde ciascuno, e se il punto d'arrivo dipende dalla direzione d'arrivo i vertici chiudono in una rosellina larga quanto il gioco
 
 ## Storico sessioni
+
+### [2026-10-25 22:56] (software) I livelli, l'editor, e la decisione di lasciare la pagina sul PC
+
+**Riepilogo:** In una giornata il SLICER è passato da «manda un disegno» a «compone più disegni e li fa»: pausa per il cambio penna, otto maniglie col taglio, livelli ordinati, un modello di tracciato che tiene le curve e un editor per modificarle, con magneti e annulla — e la decisione di non installare la pagina sull'ESP32, che toglie di mezzo il tetto dei 113 kB.
+
+**Cosa è stato fatto:**
+
+- **Il disegno dei due figli, dai modelli 3D alle linee.** `figli-sagome.py` proietta i due modelli di fronte tenendo la profondità minima — la superficie rivolta a chi guarda — e ne traccia le **isoipse**, come le curve di livello di una carta. Il rilievo si racconta con le linee invece che con l'ombra, che è l'unica cosa che un plotter sa fare. Marching squares con interpolazione, cucitura dei segmenti in polilinee, Douglas-Peucker. `figli.js` compone il foglio coi nomi e il logo preso dal file originale. **Stampato, riuscito perfettamente.**
+- **La pausa per il cambio penna**, segnata sull'anteprima e onorata dal Sender.
+- **Otto maniglie** nel riquadro di modifica, e il **taglio col tasto destro**, non distruttivo.
+- **Lo zero e il punto home** segnati sul piano.
+- **I livelli**: più SVG sullo stesso foglio, riordinabili, con i cambi penna fra l'uno e l'altro e tre ambiti di ottimizzazione.
+- **Il modello di tracciato** che tiene le curve (`svgpath.js`, `tracciato.js`), e l'importatore riscritto sopra.
+- **L'editor**: sei strumenti, nodi e maniglie, taglio, testi.
+- **Magneti e annulla** con Ctrl+Z.
+- **Prove da 433 a 604 asserzioni**, tutte verdi. Nuovi collaudi: `pausa`, `taglio`, `segni`, `livelli`, `forme`, `editor`, `magneti`.
+
+**Bug: il suggerimento che spostava il piano sotto il cursore**
+
+**Sintomo:** con due livelli sovrapposti, il secondo doppio clic non passava mai al livello sotto. Il punto letto dal programma cadeva **cinquanta millimetri** più in là di dove si era cliccato.
+**Causa:** aprendo il riquadro di modifica compariva una riga di suggerimento **dentro la didascalia sotto al piano**. La didascalia si allungava, il piano si rimpiccioliva, e la stessa posizione sullo schermo corrispondeva a un altro punto della macchina. Con un livello solo non se ne accorgeva nessuno.
+**Fix applicato:** il suggerimento è passato **sopra** al piano, in posizione assoluta, e non cambia più il layout. Verificato.
+
+**Bug: il doppio clic nell'editor non arrivava mai**
+
+**Sintomo:** nell'editor, il doppio clic su un nodo non lo trasformava da spigolo a curva. Mai.
+**Causa:** il browser emette `dblclick` **solo se i due clic hanno lo stesso bersaglio**, e la tela si ridisegna a ogni selezione: fra il primo clic e il secondo il quadratino sotto al dito è già un altro elemento.
+**Fix applicato:** il doppio clic viene contato dall'editor, e **si decide al rilascio, non alla pressione** — deciderlo alla pressione faceva sparire il trascinamento, perché premere su un nodo appena scelto e tirarlo assomiglia all'inizio di un doppio clic. Chi si muove sta trascinando. Stesso motivo, stesso rimedio, per la ricerca dei nodi: si cercano per posizione e non chiedendo al bersaglio del clic chi sia.
+
+**Bug: l'asse che non si tocca scivolava lo stesso**
+
+**Sintomo:** nessuno visibile. Trascinando il lato destro di un disegno, l'altezza cambiava di qualche centesimo e il lato opposto si spostava.
+**Causa:** il ridimensionamento arrotondava al decimo **tutti e quattro** i valori del rettangolo, compresi quelli che la maniglia non tocca.
+**Fix applicato:** si arrotonda solo quello che si è mosso. Non è estetica: è deriva, e a forza di trascinamenti il disegno non torna più alle misure che dice di avere — lo stesso errore che la struttura a rettangolo era nata per evitare.
+
+**Bug: con Shift il disegno si poteva solo ingrandire**
+
+**Sintomo:** tenendo Shift e trascinando una maniglia verso l'interno, non succedeva niente.
+**Causa:** il fattore di scala era il **massimo** fra i due rapporti; muovendo lungo un asse solo, il rapporto dell'altro resta pari a uno, e il massimo di qualcosa-meno-di-uno e uno è uno.
+**Fix applicato:** il puntatore si proietta sulla diagonale del rettangolo di partenza.
+
+**Bug: un `d` sgangherato produceva nodi a NaN**
+
+**Sintomo:** un attributo `d` malformato — o del testo che per caso contiene una lettera di comando, «garbage» ha una «a» dentro, che in SVG è l'arco — produceva un tracciato che non si vede e non si può correggere.
+**Causa:** ogni comando leggeva i suoi numeri senza controllare che ci fossero.
+**Fix applicato:** ogni comando verifica di avere i suoi argomenti, e dove non capisce si ferma invece di inventare.
+
+**Bug: il Sender aveva cominciato a dipendere dal generatore**
+
+**Sintomo:** il collaudo di `api.js`, che carica `sender.js` da solo, moriva con un `ReferenceError: Gcode is not defined`.
+**Causa:** per sapere com'è scritto il commento del cambio penna, `Sender.prepara` importava la costante da `Gcode`.
+**Fix applicato:** riconosce la **forma** del commento con un'espressione regolare. Resta collaudabile da solo e accetta anche un «; PAUSA» scritto a mano.
+
+**Misure e numeri nuovi:**
+
+- **Latenza dell'interruzione, misurata sui segmenti veri** dell'intreccio: media 8,17 mm, mediana 2,71 su 902 segmenti, quindi sedici righe in volo valgono **2÷6 secondi** di inchiostro. (Correzione di una stima data a voce: era ottimistica di due o tre volte.)
+- **Il disegno dei figli:** 314 tracciati letti, 217 dopo l'ottimizzazione, 8 min 30 s stimati su A5.
+- **La pagina compressa** era arrivata a 101 kB contro ~113 liberi; con la decisione di non installarla il numero smette di essere un vincolo.
+
+**Decisioni prese:**
+
+- *Contesto:* restava aperto se installare la pagina sull'ESP32 al posto della WebUI di FluidNC, e il peso cresceva a ogni aggiunta.
+  *Decisione:* **la pagina resta sul PC.** Non si installa.
+  *Alternative scartate:* installarla per poterla aprire da qualsiasi apparecchio della rete — l'unico guadagno vero, giudicato non abbastanza; e comunque le impostazioni non viaggiano con la pagina, stanno nel browser, quindi un telefono partirebbe vuoto.
+  *Conseguenze accettate:* per stampare serve il computer. In cambio cade il tetto dei 113 kB, resta la WebUI di FluidNC come rete di sicurezza, e ogni modifica è un salvataggio di file invece di un caricamento in flash.
+  *Da rivedere se:* servirà comandare la macchina dal telefono stando lì davanti, o l'interfaccia smetterà di cambiare ogni giorno.
+  *Nota:* **installare la pagina non renderebbe comunque la stampa indipendente dal computer** — il trasporto resta lo stesso WebSocket. L'unico modo sarebbe far eseguire il file dalla memoria, che è la strada che ha fatto cadere la scheda.
+
+- *Contesto:* l'operatore ha chiesto più SVG sullo stesso foglio per comporre, e separatamente come dire al programma quali tratti sono di un colore.
+  *Decisione:* **un concetto solo, il livello** — un gruppo di tratti che si disegnano con una penna sola. Da dove viene è un dettaglio: un file intero oggi, un colore dentro a un file domani.
+  *Alternative scartate:* due meccanismi separati per i file e per i colori — due elenchi, due ordinamenti e due modi di mettere una pausa.
+
+- *Contesto:* l'operatore proponeva due modalità, «stampa ottimizzata» e «stampa in ordine».
+  *Decisione:* **tre ambiti** — tutto / per livello / niente — con «per livello» predefinito.
+  *Alternative scartate:* le due modalità come proposte: «in ordine» avrebbe buttato via l'ottimizzazione **anche dentro al singolo livello**, dove riordinare non cambia una virgola del risultato e fa risparmiare parecchio (sul disegno dei figli, cento alzate in meno).
+  *Accettata dall'operatore*, che ha indicato «per livello» come quello che userà di più.
+
+- *Contesto:* la spunta «cambia penna prima di questo livello» non si applica al primo livello, che non ha un prima.
+  *Decisione:* **la spunta non si tocca riordinando.** È una proprietà del livello, resta scritta anche quando non vale, e rimettendo il livello più in giù torna ad applicarsi.
+  *Alternative scartate:* azzerarla quando un livello finisce primo — era la prima stesura, e perde un'informazione a ogni spostamento: riordinare due volte non riporterebbe allo stato di partenza.
+
+- *Contesto:* tagliare un disegno è un'operazione che si sbaglia facilmente.
+  *Decisione:* **il ritaglio è un rettangolo a parte**, non una modifica del disegno. Le forme non vengono mai cancellate, solo nascoste, e ritirando la maniglia tornano.
+  *Alternative scartate:* tagliare davvero le polilinee — irreversibile, e per rimediare servirebbe ricaricare il file e rifare tutto il resto.
+
+- *Contesto:* un editor deve poter curvare un tratto, e l'importatore appiattiva tutto al caricamento.
+  *Decisione:* **leggere il `d` per davvero** e tenere le forme accanto alle polilinee, appiattendo in uscita.
+  *Alternative scartate:* restare sul campionamento del browser con `getPointAtLength` — comodo ed esatto, ma produce un dato definitivo da cui non si risale alla curva; tenere tre tipi di curva invece di convertire tutto in cubiche — vorrebbe dire scrivere tre volte ogni cosa che le tocca.
+
+- *Contesto:* serviva un annulla.
+  *Decisione:* **una pila di istantanee**, con una fotografia per gesto, e il rettangolo del livello dentro all'istantanea.
+  *Alternative scartate:* un elenco di comandi da rifare al contrario — più elegante e più fragile: un comando inverso può sbagliare, una fotografia no. Qui le operazioni sono poche e i disegni piccoli, quindi la memoria non è un problema.
+
+**File consegnati/modificati:**
+
+- `webui/tools/figli-sagome.py`, `webui/tools/figli.js` — **nuovi**; `gcode/figli.svg`
+- `webui/js/svgpath.js`, `webui/js/tracciato.js`, `webui/js/editor.js` — **nuovi**
+- `webui/js/font-tratto.js` — spostato da `webui/tools/`, serve anche alla pagina
+- `webui/js/artwork.js` — riscritto sui livelli, più istantanea/ripristino e il livello vuoto
+- `webui/js/svgimport.js` — `parseForme`, `ritaglia`, `toRect`/`fitRect`/`percentuali`
+- `webui/js/gcode.js`, `webui/js/sender.js` — il segno `;PAUSA` e lo stato modale azzerato
+- `webui/js/selezione.js`, `webui/js/paper.js`, `webui/js/preview.js`, `webui/js/profile.js`, `webui/js/app.js`, `webui/js/jog.js`, `webui/js/sorgenti.js`
+- `webui/index.html`, `webui/css/components.css`
+- `webui/dist/cnc2d-ui.html` — consegnato all'operatore sette volte in sessione
+- Collaudi nello scratchpad: `pausa-test.js` (27), `taglio-test.js` (28), `segni-test.js` (11), `livelli-test.js` (37), `forme-test.js` (22), `editor-test.js` (27), `magneti-test.js` (17)
+
+**Impatto su Vision/Pipeline:** **Step 4** — lo Stato passa a «l'applicazione stampa, compone e disegna», e registra la decisione di **non installare la pagina sull'ESP32**: cade il tetto dei 113 kB che vincolava ogni aggiunta, e resta per sempre la dipendenza dal computer durante la stampa. Aggiunte otto note allo Step 4, fra cui quello che all'editor manca ancora.
+
+---
 
 ### [2026-10-25 10:16] (software) La prima stampa lanciata dall'app, l'importatore che disegnava lo sfondo, e il disegno che diventa un rettangolo da trascinare
 
