@@ -17,17 +17,24 @@ var FontTratto = require('./font-tratto.js');
 
 var W = 240, H = 235;          // il foglio: la stessa misura degli altri file
 
-var FIG_ALT = 130;             // altezza delle figure
-var FIG_Y = 12;
+var FIG_ALT = 146;             // altezza delle figure
+var FIG_Y = 9;
 var CENTRI = [70, 170];        // dove stanno i due assi verticali
 
 var NOME_ALT = 9;              // altezza delle maiuscole
-var NOME_BASE = 161;           // la riga su cui poggiano i nomi
+var NOME_BASE = 171;           // la riga su cui poggiano i nomi
 
-var LOGO_LARG = 95;
-var LOGO_Y = 172;
+var LOGO_LARG = 72;
+var LOGO_Y = 180;
 
-var NOMI = ['FRANCESCO', 'RICCARDO'];
+/* La riga sotto al logo si allarga fino a misurare quanto il logo: l'altezza
+   delle lettere viene dalla larghezza voluta, non il contrario. Allinearli a
+   occhio vorrebbe dire rifare il conto ogni volta che una delle due misure
+   cambia. */
+var SOTTO = 'GDC CNC 2D';
+var SOTTO_BASE = 226.5;
+
+var NOMI = ['RICCARDO', 'FRANCESCO'];
 
 /* ----------------------------------------------------------- le figure */
 
@@ -51,6 +58,13 @@ function scritta(s, cx, base, alt) {
   return FontTratto.testo(s, cx - larg / 2, 0, alt).map(function (p) {
     return p.map(function (q) { return { x: q.x, y: base - q.y }; });
   });
+}
+
+/* L'altezza delle maiuscole che fa venire una scritta larga esattamente
+   `larg`. È l'inversa di FontTratto.larghezza(), scritta qui perché serve a
+   una cosa sola: appaiare una riga di testo a un blocco già dimensionato. */
+function altezzaPerLarghezza(s, larg) {
+  return larg / (s.length * 4.4 - 1.4) * 5;
 }
 
 /* ------------------------------------------------------------- il logo */
@@ -97,6 +111,7 @@ pezzi.push(figura(dati.uno, CENTRI[0], FIG_Y, FIG_ALT));
 pezzi.push(figura(dati.due, CENTRI[1], FIG_Y, FIG_ALT));
 pezzi.push(scritta(NOMI[0], CENTRI[0], NOME_BASE, NOME_ALT));
 pezzi.push(scritta(NOMI[1], CENTRI[1], NOME_BASE, NOME_ALT));
+pezzi.push(scritta(SOTTO, W / 2, SOTTO_BASE, altezzaPerLarghezza(SOTTO, LOGO_LARG)));
 
 var tutte = [].concat.apply([], pezzi);
 var n = tutte.length, punti = tutte.reduce(function (a, p) { return a + p.length; }, 0);
@@ -122,3 +137,7 @@ console.error('figure e nomi: ' + n + ' tracciati, ' + punti + ' punti, ' +
               Math.round(lunghezza(tutte)) + ' mm di linea');
 console.error('logo: largo ' + LOGO_LARG + ' alto ' + L.alt.toFixed(1) +
               ', da ' + LOGO_Y + ' a ' + (LOGO_Y + L.alt).toFixed(1));
+console.error('riga sotto: «' + SOTTO + '» alta ' +
+              altezzaPerLarghezza(SOTTO, LOGO_LARG).toFixed(2) +
+              ', larga ' + FontTratto.larghezza(SOTTO,
+                altezzaPerLarghezza(SOTTO, LOGO_LARG)).toFixed(2));
