@@ -1015,3 +1015,69 @@ code {
   pointer-events: all;
 }
 .sel-hint { color: var(--accent); }
+
+/* ------------------- cambi penna ------------------- */
+
+/* Dove la penna si fermerà ad aspettare. Il segno sta sul primo punto del
+   tratto che viene dopo, cioè dove il disegno riprendera'. */
+.stop-mark {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.lista-pause {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+}
+.pause-tit {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: 10px;
+  margin-top: 2px;
+}
+.pause-riga { display: flex; gap: 4px; align-items: stretch; }
+.pause-vai {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  padding: 2px 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pause-vai:hover { border-color: var(--accent); }
+.pause-tog {
+  flex: 0 0 auto;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  padding: 0 7px;
+  cursor: pointer;
+  line-height: 1;
+}
+.pause-tog:hover { color: var(--danger); border-color: var(--danger); }
+
+/* L'etichetta del cambio penna dice il numero del tratto, quindi è lunga e
+   cambia lunghezza. La colonna invece si può stringere fino a 90 px: il
+   testo va a capo invece di uscire dal pulsante. */
+#btn-pausa {
+  white-space: normal;
+  line-height: 1.25;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  height: auto;
+}

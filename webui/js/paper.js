@@ -14,7 +14,7 @@
  * verso l'alto. Senza quel ribaltamento ogni disegno uscirebbe specchiato.
  */
 var Paper = (function () {
-  var svg, flip, caption, layerBed, layerSheet, layerTrace;
+  var svg, flip, caption, layerBed, layerSheet, layerTrace, layerStop;
 
   /* LA FINESTRA SUL PIANO, quando l'operatore l'ha mossa lui.
      `null` vuol dire «adattata», cioè ricalcolata da vista() a ogni cambio di
@@ -383,20 +383,25 @@ var Paper = (function () {
     }
     var seg = [], cur = { x: -o.x, y: -o.y };   // lo zero macchina, visto dal foglio
 
+    /* Ogni segmento si porta dietro il TRATTO a cui appartiene. Serve al
+       cursore dell'anteprima per sapere a quale confine fra due tratti
+       corrisponde la posizione in cui sta, che è l'unico posto in cui una
+       pausa si può mettere. */
     for (var i = 0; i < art.length; i++) {
       var poly = art[i];
       if (poly.length < 2) continue;
       seg.push({ x1: cur.x + o.x, y1: cur.y + o.y,
-                 x2: poly[0].x + o.x, y2: poly[0].y + o.y, draw: false });
+                 x2: poly[0].x + o.x, y2: poly[0].y + o.y, draw: false, poly: i });
       for (var j = 1; j < poly.length; j++) {
         seg.push({ x1: poly[j - 1].x + o.x, y1: poly[j - 1].y + o.y,
-                   x2: poly[j].x + o.x, y2: poly[j].y + o.y, draw: true });
+                   x2: poly[j].x + o.x, y2: poly[j].y + o.y, draw: true, poly: i });
       }
       cur = poly[poly.length - 1];
     }
 
     State.data.path = seg;
     renderPath();
+    renderPause();
     State.emit('path');
   }
 
@@ -409,6 +414,28 @@ var Paper = (function () {
              '" x2="' + s.x2 + '" y2="' + s.y2 + '"></line>';
     }
     layerTrace.innerHTML = out;
+  }
+
+  /* I cambi penna segnati sul piano, dove la penna si fermerà. Il segno sta
+     sul PRIMO punto del tratto che viene dopo, cioè dove il disegno
+     riprenderà: è quello che si vuole guardare per decidere se la pausa cade
+     dove serve. */
+  function renderPause() {
+    if (!layerStop) return;
+    if (!window.Artwork || !Artwork.pause) { layerStop.innerHTML = ''; return; }
+    var p = Artwork.pause(), art = State.data.art, o = State.data.sheetOrigin;
+    if (!p.length || !art) { layerStop.innerHTML = ''; return; }
+
+    var out = '';
+    for (var i = 0; i < p.length; i++) {
+      var q = art[p[i]];
+      if (!q || !q.length) continue;
+      var x = q[0].x + o.x, y = q[0].y + o.y;
+      out += '<circle class="stop-mark" cx="' + x + '" cy="' + y + '" r="2.2"></circle>' +
+             '<line class="stop-mark" x1="' + x + '" y1="' + (y - 4) +
+             '" x2="' + x + '" y2="' + (y + 4) + '"></line>';
+    }
+    layerStop.innerHTML = out;
   }
 
   /* ---------------------- trascinare il foglio --------------------- */
@@ -696,6 +723,7 @@ var Paper = (function () {
     layerBed = document.getElementById('layer-bed');
     layerSheet = document.getElementById('layer-sheet');
     layerTrace = document.getElementById('layer-trace');
+    layerStop = document.getElementById('layer-stop');
 
     /* Un ascoltatore sulla riga invece di uno per pulsante: i fogli
        dell'operatore nascono e muoiono mentre la pagina è aperta, e agganciare
@@ -797,6 +825,6 @@ var Paper = (function () {
     renderFormati: renderFormati, raggiungibile: raggiungibile,
     adatta: adatta,
     setSheetOrigin: setSheetOrigin, centerSheet: centerSheet,
-    rebuildPath: rebuildPath, fissa: fissa
+    rebuildPath: rebuildPath, renderPause: renderPause, fissa: fissa
   };
 })();

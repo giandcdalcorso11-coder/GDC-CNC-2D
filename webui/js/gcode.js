@@ -13,6 +13,15 @@
  */
 var Gcode = (function () {
 
+  /* La riga che segna un cambio penna. È un commento, quindi la macchina non
+     la vedrebbe nemmeno: a riconoscerla è il Sender, che a quel punto smette
+     di alimentare e porta la testina dove si può cambiare la penna. Tenerla
+     come commento vuol dire che il file resta eseguibile anche da chi di
+     queste pause non sa niente — lo esegue tutto di fila, senza fermarsi.
+     Chi la riconosce è sender.js, con RE_PAUSA: là si accetta anche «; PAUSA»
+     scritto a mano, qui si emette sempre nella forma stretta. */
+  var SEGNO_PAUSA = ';PAUSA';
+
   /* Zeri in coda tolti: "93.000" diventa "93". Non si perde niente — un passo
      del motore vale 0,0295 mm, quindi il millesimo è già tre volte più fine di
      quanto la macchina sappia fare. */
@@ -27,6 +36,14 @@ var Gcode = (function () {
   function build(polys, opt) {
     var L = [];
     var zUp = opt.penUp, zDown = opt.penDown;
+
+    /* Prima di quali tratti fermarsi a cambiare penna. Si ferma SEMPRE al
+       confine fra due tratti, mai a metà di uno: lì il programma ha già
+       fatto alza → sposta → abbassa, quindi alla ripresa non c'è nessuno
+       stato da ricostruire, e cambiare penna con la punta appoggiata
+       lascerebbe comunque una macchia. */
+    var pausaA = {};
+    (opt.pause || []).forEach(function (k) { pausaA[k] = true; });
 
     /* Il programma deve stare nella flash dell'ESP32, e dopo FluidNC e la
        WebUI restano ~64 kB. Si recupera sfruttando la modalità del G-code,
@@ -76,6 +93,10 @@ var Gcode = (function () {
 
     L.push('; GDC CNC 2D SLICER');
     L.push('; ' + polys.length + ' tratti, generato dall\'interfaccia');
+    if (opt.pause && opt.pause.length) {
+      L.push('; ' + opt.pause.length + ' cambi penna, segnati con «' +
+             SEGNO_PAUSA + '»: li riconosce il Sender, la macchina no');
+    }
     L.push('; penna alzata Z' + n(zUp) + ', abbassata Z' + n(zDown) +
            (opt.pennaTarata ? '' : ' - DA TARARE'));
     if (zTappo > zUp) L.push('; a fine programma la penna sale a Z' + n(zTappo) + ' (tappo)');
@@ -87,6 +108,19 @@ var Gcode = (function () {
 
     for (var i = 0; i < polys.length; i++) {
       var p = polys[i];
+
+      if (pausaA[i]) {
+        L.push(SEGNO_PAUSA);
+        /* DOPO UNA PAUSA LA TESTINA NON È PIÙ DOVE IL PROGRAMMA CREDE: il
+           Sender la porta al punto home perché la penna si possa cambiare.
+           Quindi lo stato modale va azzerato, e il movimento che segue
+           ridichiara tutto — G, X, Y, Z e F.
+           Senza questo una riga come «X120», che in G-code significa «Y
+           resta dov'è», riprenderebbe da una Y che nel frattempo è cambiata,
+           e il disegno proseguirebbe a qualche centimetro di distanza. */
+        modo = null; ux = null; uy = null; uz = null; uf = null;
+      }
+
       muovi('G0', p[0].x, p[0].y, null, opt.feedTravel);
       muovi('G1', null, null, zDown, opt.feedPen);
       if (attesa) L.push(attesa);
@@ -118,5 +152,5 @@ var Gcode = (function () {
     return Math.floor(m / 60) + ' h ' + ('0' + (m % 60)).slice(-2) + ' min';
   }
 
-  return { build: build, durata: durata };
+  return { build: build, durata: durata, SEGNO_PAUSA: SEGNO_PAUSA };
 })();

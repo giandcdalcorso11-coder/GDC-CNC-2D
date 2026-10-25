@@ -89,13 +89,13 @@
      legge meglio scritto che disegnato. */
   function refreshStampa() {
     var s = State.data.stampa;
-    var inCorso = s.stato === 'invio' || s.stato === 'pausa';
+    var inCorso = s.stato === 'invio' || s.stato === 'pausa' || s.stato === 'cambio';
     var box = document.getElementById('prog');
 
     document.getElementById('btn-pause').disabled = !inCorso;
     document.getElementById('btn-abort').disabled = !inCorso;
     document.getElementById('btn-pause').textContent =
-      s.stato === 'pausa' ? 'Riprendi' : 'Pausa';
+      (s.stato === 'pausa' || s.stato === 'cambio') ? 'Riprendi' : 'Pausa';
 
     /* Mentre una stampa è in corso «Invia» non deve essere premibile: una
        seconda stampa sulla stessa macchina non ha nessun significato buono. */
@@ -108,6 +108,8 @@
     var t = s.fatte + ' di ' + s.totale + ' righe — ' + s.percento + '%';
     if (s.stato === 'pausa')  t = 'In pausa a ' + s.percento + '% (' + s.fatte +
                                   ' di ' + s.totale + ' righe)';
+    if (s.stato === 'cambio') t = 'Cambio penna a ' + s.percento + '%: la testina ' +
+                                  'va al punto home. Cambia la penna, poi Riprendi.';
     if (s.stato === 'fine')   t = 'Consegnato per intero: ' + s.totale + ' righe. ' +
                                   'La macchina sta finendo il buffer.';
     if (s.stato === 'errore') t = 'Interrotta da un errore alla riga ' + (s.fatte + 1) +

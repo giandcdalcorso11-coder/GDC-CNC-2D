@@ -8,7 +8,7 @@
  * segmenti: un arco è fatto di tanti segmenti corti e uno spostamento lungo
  * di uno solo, quindi contare i segmenti darebbe un avanzamento bugiardo. */
 var Preview = (function () {
-  var slider, pct, posOut, dot, playBtn;
+  var slider, pct, posOut, dot, playBtn, pausaBtn, lista;
   var lengths = [], total = 0, playing = false, raf = null;
 
   function measure() {
@@ -69,6 +69,70 @@ var Preview = (function () {
     State.data.scrub = Math.max(0, Math.min(1, t));
     slider.value = Math.round(State.data.scrub * 1000);
     update();
+    aggiornaPausa();
+  }
+
+  /* ---------------------- i cambi penna ---------------------- */
+
+  /* A quale TRATTO corrisponde la posizione del cursore. È l'unica cosa che
+     serve sapere: una pausa si mette al confine fra due tratti, mai a metà
+     di uno, quindi la posizione esatta dentro al tratto non conta. */
+  function trattoCorrente() {
+    var seg = State.data.path;
+    if (!seg.length) return -1;
+    var p = pointAt(State.data.scrub);
+    if (p.i < 0 || !seg[p.i]) return -1;
+    return seg[p.i].poly;
+  }
+
+  /* Porta il cursore all'inizio di un tratto: serve ai bottoni dell'elenco,
+     per andare a vedere dove cade una pausa già messa. */
+  function vaiAlTratto(k) {
+    var seg = State.data.path;
+    if (!seg.length || total === 0) return;
+    var acc = 0;
+    for (var i = 0; i < seg.length; i++) {
+      if (seg[i].poly === k) { setScrub(acc / total); return; }
+      acc += lengths[i];
+    }
+  }
+
+  function aggiornaPausa() {
+    if (!pausaBtn || !window.Artwork || !Artwork.pausaPossibile) return;
+    var k = trattoCorrente();
+
+    if (Artwork.pausaPossibile(k)) {
+      pausaBtn.disabled = false;
+      var gia = Artwork.pause().indexOf(k) >= 0;
+      pausaBtn.textContent =
+        (gia ? 'Togli il cambio penna al tratto ' : 'Cambio penna al tratto ') + k;
+      return;
+    }
+
+    /* Spento, ma mai muto: il motivo sta scritto nel pulsante stesso. Un
+       pulsante grigio senza spiegazione fa cercare il guasto dove non c'è —
+       e qui i motivi sono tre e si confondono facilmente. */
+    pausaBtn.disabled = true;
+    pausaBtn.textContent =
+      !State.data.art ? 'Carica un disegno'
+      : !Artwork.programmaPronto() ? 'Prepara il programma'
+      : 'Porta il cursore oltre il primo tratto';
+  }
+
+  function renderLista() {
+    if (!lista) return;
+    var p = (window.Artwork && Artwork.pause) ? Artwork.pause() : [];
+    if (!p.length) { lista.innerHTML = ''; lista.hidden = true; return; }
+    lista.hidden = false;
+    var out = '<div class="pause-tit">Cambi penna</div>';
+    for (var i = 0; i < p.length; i++) {
+      out += '<div class="pause-riga">' +
+             '<button type="button" class="pause-vai" data-vai="' + p[i] + '">' +
+             (i + 1) + ' — tratto ' + p[i] + '</button>' +
+             '<button type="button" class="pause-tog" data-tog="' + p[i] +
+             '" title="Togli questo cambio penna">&times;</button></div>';
+    }
+    lista.innerHTML = out;
   }
 
   function play() {
@@ -99,6 +163,8 @@ var Preview = (function () {
     posOut = document.getElementById('scrub-pos');
     dot = document.getElementById('pen-dot');
     playBtn = document.getElementById('btn-play');
+    pausaBtn = document.getElementById('btn-pausa');
+    lista = document.getElementById('lista-pause');
 
     slider.addEventListener('input', function () {
       stop();
@@ -106,9 +172,28 @@ var Preview = (function () {
     });
     playBtn.addEventListener('click', play);
 
-    State.on('path', measure);
+    if (pausaBtn) {
+      pausaBtn.addEventListener('click', function () {
+        if (Artwork.commutaPausa(trattoCorrente())) { aggiornaPausa(); renderLista(); }
+      });
+    }
+
+    if (lista) {
+      lista.addEventListener('click', function (e) {
+        var vai = e.target.closest('[data-vai]');
+        if (vai) { stop(); vaiAlTratto(+vai.dataset.vai); return; }
+        var tog = e.target.closest('[data-tog]');
+        if (tog && Artwork.commutaPausa(+tog.dataset.tog)) { aggiornaPausa(); renderLista(); }
+      });
+    }
+
+    State.on('path', function () { measure(); aggiornaPausa(); renderLista(); });
+    State.on('stampa', aggiornaPausa);
     measure();
+    aggiornaPausa();
+    renderLista();
   }
 
-  return { init: init, measure: measure };
+  return { init: init, measure: measure,
+           aggiornaPause: function () { aggiornaPausa(); renderLista(); } };
 })();

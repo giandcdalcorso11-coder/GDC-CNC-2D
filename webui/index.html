@@ -175,6 +175,7 @@
               <g id="layer-sheet"></g>
               <g id="layer-art"></g>
               <g id="layer-trace"></g>
+              <g id="layer-stop"></g>
               <g id="layer-sel"></g>
               <g id="layer-pen">
                 <circle id="pen-dot" cx="0" cy="0" r="2.6" class="pen-dot"></circle>
@@ -215,7 +216,9 @@
         <span class="muted small" id="scrub-pos">X 0,0 · Y 0,0</span>
       </div>
       <button class="btn btn-ghost btn-small full" id="btn-play">Riproduci</button>
-      <p class="placeholder-note">Trascina il pallino per seguire il percorso della penna, dopo aver caricato un disegno.</p>
+      <button class="btn btn-ghost btn-small full" id="btn-pausa" disabled>Cambio penna qui</button>
+      <div class="lista-pause" id="lista-pause" hidden></div>
+      <p class="placeholder-note">Trascina il pallino per seguire il percorso della penna, dopo aver caricato un disegno. Con il programma preparato, il pulsante mette un cambio penna al confine del tratto in cui ti trovi.</p>
     </aside>
 
   </div>

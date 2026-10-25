@@ -19,7 +19,8 @@ var Jog = (function () {
     });
 
     document.getElementById('btn-pause').addEventListener('click', function () {
-      if (Sender.stato() === 'pausa') Sender.riprendi();
+      var st = Sender.stato();
+      if (st === 'pausa' || st === 'cambio') Sender.riprendi();
       else Sender.pausa();
     });
   }

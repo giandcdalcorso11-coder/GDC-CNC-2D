@@ -26,10 +26,23 @@ var Sender = (function () {
      partito non si richiama più. */
   var SCORTA = 32;
 
+  /* La sentinella con cui un cambio penna viaggia dentro `righe`. Non è una
+     riga di G-code e non parte mai: la riconosce alimenta(), che a quel
+     punto si ferma. Un carattere nullo in testa perché nessun comando vero
+     possa mai assomigliarle. */
+  var PAUSA = '\u0000cambio-penna';
+
+  /* Come si riconosce un cambio penna: un commento il cui testo è «PAUSA».
+     Qui si riconosce la FORMA invece di importare la costante di gcode.js —
+     che è chi la scrive, vedi SEGNO_PAUSA là — per due motivi: il Sender
+     resta collaudabile da solo, senza tirarsi dietro il generatore, e un
+     file scritto a mano con «; PAUSA» funziona lo stesso. */
+  var RE_PAUSA = /^\s*;\s*PAUSA\s*$/i;
+
   var righe = [];      // il programma, ripulito
   var i = 0;           // prossima riga da affidare ad Api
   var fatte = 0;       // righe confermate dalla macchina
-  var stato = 'fermo'; // fermo | invio | pausa | fine | errore
+  var stato = 'fermo'; // fermo | invio | pausa | cambio | fine | errore
   var t0 = 0;
   var nome = '';
 
@@ -42,6 +55,13 @@ var Sender = (function () {
     var src = String(testo).split('\n');
     for (var k = 0; k < src.length; k++) {
       var l = src[k];
+      /* Il segno del cambio penna si riconosce PRIMA di togliere i commenti,
+         perché è un commento: toglierlo e poi cercarlo sarebbe cercarlo dopo
+         averlo buttato via. */
+      if (RE_PAUSA.test(l)) {
+        out.push(PAUSA);
+        continue;
+      }
       var p = l.indexOf(';');
       if (p >= 0) l = l.slice(0, p);
       l = l.trim();
@@ -74,6 +94,13 @@ var Sender = (function () {
   function alimenta() {
     while (stato === 'invio' && i < righe.length && Api.inCoda() < SCORTA) {
       var riga = righe[i++];
+      if (riga === PAUSA) {
+        /* Il segno conta come riga fatta: se no l'avanzamento non arriverebbe
+           mai a cento, e la percentuale mentirebbe di poco ma per sempre. */
+        fatte++;
+        cambioPenna();
+        return;
+      }
       Api.sendMuto(riga).then(fatta, fallita);
     }
     /* Niente più da mandare e niente più in volo: la macchina ha accettato
@@ -107,6 +134,23 @@ var Sender = (function () {
     finisci();
   }
 
+  /* IL CAMBIO PENNA. Non c'è niente da fermare: il segno sta al confine fra
+     due tratti, quindi la penna è già alzata e nessun comando è a metà. Si
+     smette di alimentare e si accoda il parcheggio — tappo e punto home —
+     che, essendo in coda, si esegue dopo le righe già dentro la macchina.
+
+     Alla ripresa non serve ricostruire niente: il generatore, dopo il segno,
+     ridichiara G, X, Y, Z e F, quindi il primo movimento riporta la testina
+     dove deve stare senza che il Sender debba ricordarselo. */
+  function cambioPenna() {
+    stato = 'cambio';
+    Log.add('msg', 'Cambio penna: la testina finisce il poco che ha in coda, ' +
+                   'poi sale al tappo e va al punto home. Cambia la penna e ' +
+                   'premi Riprendi — il disegno ricomincia da dove si è fermato.');
+    aggiorna();
+    parcheggia();
+  }
+
   function pausa() {
     if (stato !== 'invio') return;
     stato = 'pausa';
@@ -117,6 +161,13 @@ var Sender = (function () {
   }
 
   function riprendi() {
+    if (stato === 'cambio') {
+      stato = 'invio';
+      Log.add('msg', 'Riprendo dopo il cambio penna.');
+      aggiorna();
+      alimenta();
+      return;
+    }
     if (stato !== 'pausa') return;
     stato = 'invio';
     Api.cycleStart();
@@ -137,7 +188,7 @@ var Sender = (function () {
      Il prezzo, che è giusto dire: le righe già in volo vengono disegnate lo
      stesso. Al più la finestra di Api, cioè qualche millimetro. */
   function interrompi() {
-    if (stato !== 'invio' && stato !== 'pausa') {
+    if (stato !== 'invio' && stato !== 'pausa' && stato !== 'cambio') {
       Log.add('msg', 'Nessuna stampa in corso.');
       return;
     }
@@ -153,21 +204,28 @@ var Sender = (function () {
     finisci();
   }
 
-  /* Alzata e ritorno a casa, ACCODATI come righe normali e non mandati
-     d'imperio. Il pianificatore della macchina è una fila: accodandoli, si
-     eseguono dopo le righe che la macchina ha già dentro, che è l'unico modo
-     di alzare la penna quando il disegno è davvero finito invece che mentre
-     sta ancora tracciando.
+  /* Fine del lavoro: la stessa manovra del cambio penna, con un messaggio
+     diverso se la macchina non c'è più. */
+  function finisci() {
+    parcheggia('Niente alzata né ritorno a casa: la macchina non è ' +
+               'collegata. La penna è rimasta dov\'era.');
+  }
+
+  /* Penna in alto e testina al punto home, ACCODATI come righe normali e non
+     mandati d'imperio. Il pianificatore della macchina è una fila:
+     accodandoli, si eseguono dopo le righe che la macchina ha già dentro, che
+     è l'unico modo di alzare la penna quando il disegno è davvero finito
+     invece che mentre sta ancora tracciando.
 
      Il `catch` non è di cortesia. Se si arriva qui perché il collegamento è
      caduto — ed è uno dei modi di arrivarci — queste due righe non possono
      partire, e una promessa rifiutata che nessuno raccoglie diventa un errore
      non gestito che sporca la console proprio mentre si sta cercando di
      capire cosa è successo. */
-  function finisci() {
+  function parcheggia(seScollegata) {
     if (!State.data.connected) {
-      Log.add('err', 'Niente alzata né ritorno a casa: la macchina non è ' +
-                     'collegata. La penna è rimasta dov\'era.');
+      Log.add('err', seScollegata || 'La macchina non è collegata: la testina ' +
+                                     'è rimasta dov\'era.');
       return;
     }
     var tappo = Profile.zTappo();
@@ -212,7 +270,9 @@ var Sender = (function () {
     });
   }
 
-  function inCorso() { return stato === 'invio' || stato === 'pausa'; }
+  function inCorso() {
+    return stato === 'invio' || stato === 'pausa' || stato === 'cambio';
+  }
 
   return {
     avvia: avvia, pausa: pausa, riprendi: riprendi, interrompi: interrompi,

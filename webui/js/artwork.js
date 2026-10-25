@@ -18,6 +18,22 @@ var Artwork = (function () {
      alla percentuale scritta nel campo. */
   var box = null;
 
+  /* I CAMBI PENNA: indici dei tratti PRIMA dei quali fermarsi, in ordine.
+     Si tengono come indici e non come coordinate perché il punto di una
+     pausa è un confine fra due tratti, non un posto sul foglio: spostando o
+     riscalando il disegno la pausa resta fra gli stessi due tratti.
+
+     Vivono qui e non nel G-code perché il G-code si rigenera; e si azzerano
+     quando il disegno cambia, perché dopo un riadattamento l'ottimizzatore
+     riordina i tratti e l'indice 37 non è più lo stesso tratto. */
+  var pause = [];
+
+  /* Quello che serve per ricomporre il programma senza rifare
+     l'ottimizzazione: aggiungere o togliere una pausa cambia il file, non il
+     percorso, e rifare l'ottimizzazione darebbe lo stesso risultato
+     spendendoci sopra del tempo. */
+  var ultima = null;
+
   function load(text, name) {
     raw = SvgImport.parse(text);
     box = null;                 // disegno nuovo, collocazione da rifare
@@ -37,6 +53,8 @@ var Artwork = (function () {
     raw = null;
     prep = null;
     box = null;
+    ultima = null;
+    svuotaPause();
     if (window.Selezione) Selezione.chiudi();
     State.data.art = null;
     State.data.artName = null;
@@ -68,6 +86,8 @@ var Artwork = (function () {
        che possono valere un millimetro come un metro. */
     State.data.art = SvgImport.simplify(SvgImport.toRect(polys, box), 0.06);
     prep = null;
+    ultima = null;
+    svuotaPause();
     document.getElementById('prep').hidden = true;
     Paper.rebuildPath();
     mostraPercentuali();
@@ -204,19 +224,70 @@ var Artwork = (function () {
        corsa di quel tanto. */
     var tappo = Profile.zTappo();
 
-    prep = Gcode.build(machine, {
-      penUp: contatto + alzata,
-      penDown: contatto,
-      penTappo: tappo,
-      ritorno: Profile.puntoHome(),
-      pennaTarata: tarata,
-      pausaMs: st.pausaPennaMs,
-      feedDraw: feedDraw,
-      feedTravel: feedTravel,
-      feedPen: 600
-    });
+    ultima = {
+      machine: machine,
+      opt: {
+        penUp: contatto + alzata,
+        penDown: contatto,
+        penTappo: tappo,
+        ritorno: Profile.puntoHome(),
+        pennaTarata: tarata,
+        pausaMs: st.pausaPennaMs,
+        feedDraw: feedDraw,
+        feedTravel: feedTravel,
+        feedPen: 600
+      },
+      r: r,
+      ms: ms
+    };
+    componi();
+  }
 
-    showStats(r, ms);
+  /* Ricompone il file dal percorso già ottimizzato. La chiamano prepare() e
+     ogni modifica all'elenco delle pause. */
+  function componi() {
+    if (!ultima) return;
+    var opt = {};
+    for (var k in ultima.opt) opt[k] = ultima.opt[k];
+    opt.pause = pause;
+    prep = Gcode.build(ultima.machine, opt);
+    showStats(ultima.r, ultima.ms);
+    /* Il pulsante del cambio penna si accende solo quando un programma c'è:
+       prima di questa riga nasceva spento e ci restava, perche' l'evento del
+       percorso parte prima che il file esista. */
+    if (window.Preview && Preview.aggiornaPause) Preview.aggiornaPause();
+  }
+
+  /* ------------------------ i cambi penna ------------------------- */
+
+  function elencoPause() { return pause.slice(); }
+
+  function programmaPronto() { return !!prep; }
+
+  function svuotaPause() {
+    if (!pause.length) return;
+    pause = [];
+    if (window.Paper && Paper.renderPause) Paper.renderPause();
+  }
+
+  /* Una pausa prima del primo tratto non vuol dire niente: la penna giusta la
+     si mette nel morsetto prima di partire. */
+  function pausaPossibile(k) {
+    var art = State.data.art;
+    return !!prep && !!art && k >= 1 && k < art.length;
+  }
+
+  function commutaPausa(k) {
+    if (!pausaPossibile(k)) return false;
+    var i = pause.indexOf(k);
+    if (i >= 0) pause.splice(i, 1);
+    else { pause.push(k); pause.sort(function (a, b) { return a - b; }); }
+    componi();
+    if (window.Paper && Paper.renderPause) Paper.renderPause();
+    Log.add('msg', i >= 0
+      ? 'Tolto il cambio penna prima del tratto ' + k + '.'
+      : 'Cambio penna prima del tratto ' + k + ': in tutto ' + pause.length + '.');
+    return true;
   }
 
   function showStats(r, ms) {
@@ -302,5 +373,8 @@ var Artwork = (function () {
 
   return { init: init, load: load, clear: clear, refit: refit,
            prepare: prepare, invia: invia,
-           riquadro: riquadro, collocaA: collocaA, percentuali: percentuali };
+           riquadro: riquadro, collocaA: collocaA, percentuali: percentuali,
+           pause: elencoPause, commutaPausa: commutaPausa,
+           programmaPronto: programmaPronto,
+           svuotaPause: svuotaPause, pausaPossibile: pausaPossibile };
 })();
