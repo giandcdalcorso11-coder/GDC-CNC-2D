@@ -41,6 +41,24 @@ var Editor = (function () {
 
   var TOL = 0.05;
 
+  /* I MAGNETI. Accesi, perché a mano libera una linea «quasi orizzontale»
+     resta quasi orizzontale per sempre, e a stampa finita si vede.
+     Alt li spegne finché resta premuto, Shift forza l'angolo anche quando
+     sarebbe lontano: tenere la scorciatoia opposta a portata di dito è
+     quello che li rende usabili invece che invadenti. */
+  var magneti = true;
+  var guide = [];
+
+  var SOGLIA_ANG = 6 * Math.PI / 180;   // quanto «quasi» vale come «esatto»
+  var PASSO_ANG = Math.PI / 4;          // orizzontale, verticale, le due diagonali
+
+  /* L'ANNULLA. Una pila di istantanee del livello, non un elenco di comandi
+     da rifare al contrario: le operazioni qui sono poche e i disegni piccoli,
+     e una fotografia non può sbagliare a tornare indietro mentre un comando
+     inverso sì. */
+  var storia = [], rifare = [];
+  var MAX_STORIA = 50;
+
   /* --------------------------- il livello --------------------------- */
 
   function forme() {
@@ -51,6 +69,46 @@ var Editor = (function () {
     Artwork.rigenera();
     disegna();
     scriviPiede();
+  }
+
+  /* Si fotografa PRIMA di toccare, e una volta sola per gesto: un
+     trascinamento è un passo solo, non cinquanta. */
+  function segna() {
+    var s = Artwork.istantanea();
+    if (!s) return;
+    storia.push(s);
+    if (storia.length > MAX_STORIA) storia.shift();
+    rifare = [];
+    aggiornaStorici();
+  }
+
+  function annulla() {
+    if (!storia.length) return;
+    var ora = Artwork.istantanea();
+    Artwork.ripristina(storia.pop());
+    if (ora) rifare.push(ora);
+    sel = { forma: -1, sub: -1, nodo: -1, maniglia: null };
+    aggiornaStorici();
+    disegna();
+    scriviPiede();
+  }
+
+  function rifai() {
+    if (!rifare.length) return;
+    var ora = Artwork.istantanea();
+    Artwork.ripristina(rifare.pop());
+    if (ora) storia.push(ora);
+    sel = { forma: -1, sub: -1, nodo: -1, maniglia: null };
+    aggiornaStorici();
+    disegna();
+    scriviPiede();
+  }
+
+  function aggiornaStorici() {
+    var a = document.getElementById('ed-annulla');
+    var r = document.getElementById('ed-rifai');
+    if (a) a.disabled = !storia.length;
+    if (r) r.disabled = !rifare.length;
   }
 
   /* ----------------------------- la vista ----------------------------- */
@@ -154,6 +212,31 @@ var Editor = (function () {
       });
     }
 
+    /* Le guide per ultime, sopra a tutto: servono mentre si guarda il
+       puntatore, e sotto al disegno non si vedrebbero. */
+    guide.forEach(function (g) {
+      if (g.tipo === 'nodo') {
+        out += '<circle class="ed-guida-nodo" cx="' + g.x + '" cy="' + g.y +
+               '" r="' + (6 * u) + '"></circle>';
+      } else if (g.tipo === 'raggio') {
+        var L = (vista ? Math.max(vista.w, vista.h) : 100) * 2;
+        out += '<line class="ed-guida" x1="' + (g.x - Math.cos(g.a) * L) +
+               '" y1="' + (g.y - Math.sin(g.a) * L) +
+               '" x2="' + (g.x + Math.cos(g.a) * L) +
+               '" y2="' + (g.y + Math.sin(g.a) * L) + '"></line>';
+      } else if (g.tipo === 'vert') {
+        out += '<line class="ed-guida" x1="' + g.x + '" y1="' + vista.y0 +
+               '" x2="' + g.x + '" y2="' + (vista.y0 + vista.h) + '"></line>' +
+               '<circle class="ed-guida-nodo" cx="' + g.x + '" cy="' + g.y +
+               '" r="' + (4 * u) + '"></circle>';
+      } else if (g.tipo === 'oriz') {
+        out += '<line class="ed-guida" x1="' + vista.x0 + '" y1="' + g.y +
+               '" x2="' + (vista.x0 + vista.w) + '" y2="' + g.y + '"></line>' +
+               '<circle class="ed-guida-nodo" cx="' + g.x + '" cy="' + g.y +
+               '" r="' + (4 * u) + '"></circle>';
+      }
+    });
+
     svg.innerHTML = out;
   }
 
@@ -219,6 +302,92 @@ var Editor = (function () {
     return meglio;
   }
 
+  /* ------------------------------ i magneti ------------------------------ */
+
+  /* Tutti i nodi del disegno, meno quello che si sta spostando: agganciarsi a
+     se stessi vorrebbe dire non muoversi mai. */
+  function nodiTutti(escludi) {
+    var f = forme() || [], out = [];
+    f.forEach(function (forma, fi) {
+      if (forma.tipo !== 'tracciato') return;
+      forma.sub.forEach(function (sub, si) {
+        sub.nodi.forEach(function (n, ni) {
+          if (escludi && escludi.forma === fi && escludi.sub === si && escludi.nodo === ni) return;
+          out.push(n);
+        });
+      });
+    });
+    return out;
+  }
+
+  /* IL PUNTO CORRETTO, e le guide che spiegano perché.
+   *
+   * Tre aiuti, in quest'ordine di forza:
+   *   1. un NODO vicino: ci si va sopra esatto, perché due punti che devono
+   *      coincidere o coincidono o no, e «quasi» non serve a niente;
+   *   2. l'ANGOLO rispetto al punto da cui si sta tirando: entro sei gradi da
+   *      un multiplo di 45 si raddrizza. È il caso che chiedeva l'operatore —
+   *      una linea quasi orizzontale resta storta per sempre, e sul foglio si
+   *      vede;
+   *   3. l'ALLINEAMENTO a un altro nodo, in x o in y, che è il modo per
+   *      mettere due cose sulla stessa retta senza misurare.
+   *
+   * L'angolo e l'allineamento non si sommano: l'angolo fissa già il punto
+   * lungo una retta, e stringerlo anche sull'altro asse lo porterebbe dove
+   * nessuno dei due aiuti lo voleva. Chi vince lo dice la guida che compare.
+   */
+  function aggancia(p, ancora, e, escludi) {
+    guide = [];
+    if (!magneti || (e && e.altKey)) return p;
+
+    var u = perPixel();
+    var tolN = 9 * u, tolA = 7 * u;
+    var ns = nodiTutti(escludi);
+    var i, d;
+
+    var vicino = null;
+    for (i = 0; i < ns.length; i++) {
+      d = Math.hypot(p.x - ns[i].x, p.y - ns[i].y);
+      if (d < tolN && (!vicino || d < vicino.d)) vicino = { n: ns[i], d: d };
+    }
+    if (vicino) {
+      guide.push({ tipo: 'nodo', x: vicino.n.x, y: vicino.n.y });
+      return { x: vicino.n.x, y: vicino.n.y };
+    }
+
+    var q = { x: p.x, y: p.y };
+
+    if (ancora) {
+      var dx = q.x - ancora.x, dy = q.y - ancora.y;
+      var L = Math.hypot(dx, dy);
+      if (L > tolA) {
+        var a = Math.atan2(dy, dx);
+        var dritto = Math.round(a / PASSO_ANG) * PASSO_ANG;
+        var scarto = Math.abs(Math.atan2(Math.sin(a - dritto), Math.cos(a - dritto)));
+        if ((e && e.shiftKey) || scarto < SOGLIA_ANG) {
+          /* Proiezione sulla retta, non rotazione: il punto scivola sul
+             raggio invece di saltarci sopra, e il gesto resta quello che si
+             stava facendo. */
+          var proj = dx * Math.cos(dritto) + dy * Math.sin(dritto);
+          q = { x: ancora.x + proj * Math.cos(dritto), y: ancora.y + proj * Math.sin(dritto) };
+          guide.push({ tipo: 'raggio', x: ancora.x, y: ancora.y, a: dritto });
+          return q;
+        }
+      }
+    }
+
+    var ax = null, ay = null;
+    for (i = 0; i < ns.length; i++) {
+      d = Math.abs(ns[i].x - q.x);
+      if (d < tolA && (!ax || d < ax.d)) ax = { n: ns[i], d: d };
+      d = Math.abs(ns[i].y - q.y);
+      if (d < tolA && (!ay || d < ay.d)) ay = { n: ns[i], d: d };
+    }
+    if (ax) { q.x = ax.n.x; guide.push({ tipo: 'vert', x: ax.n.x, y: ax.n.y }); }
+    if (ay) { q.y = ay.n.y; guide.push({ tipo: 'oriz', x: ay.n.x, y: ay.n.y }); }
+    return q;
+  }
+
   function segmento(p, a, b) {
     var dx = b.x - a.x, dy = b.y - a.y;
     var L2 = dx * dx + dy * dy;
@@ -256,7 +425,10 @@ var Editor = (function () {
   };
 
   function scriviAiuto() {
-    if (aiuto) aiuto.textContent = AIUTO[strumento] || '';
+    if (!aiuto) return;
+    aiuto.textContent = (AIUTO[strumento] || '') +
+      (magneti ? '  ·  Magneti accesi: Alt per spegnerli un momento, Shift per ' +
+                 'forzare l\'angolo.' : '  ·  Magneti spenti.');
   }
 
   function scriviPiede() {
@@ -271,6 +443,7 @@ var Editor = (function () {
   function chiudiCostruzione(annulla) {
     if (!costruendo) return;
     if (!annulla && costruendo.sub && costruendo.sub[0].nodi.length > 1) {
+      segna();
       forme().push(costruendo);
       costruendo = null;
       cambiato();
@@ -311,7 +484,7 @@ var Editor = (function () {
 
     if (strumento === 'scegli') return giuScegli(e, p, u);
     if (strumento === 'taglia') return taglia(p, u);
-    if (strumento === 'spezzata') return giuSpezzata(p);
+    if (strumento === 'spezzata') return giuSpezzata(p, e);
     if (strumento === 'testo') return metteTesto(p);
     if (strumento === 'rettangolo' || strumento === 'cerchio') {
       presa = { tipo: strumento, inizio: p };
@@ -323,7 +496,14 @@ var Editor = (function () {
     var h = nodoSotto(p, u);
     if (h) {
       sel.sub = h.sub; sel.nodo = h.nodo; sel.maniglia = h.maniglia;
-      presa = { tipo: h.maniglia ? 'maniglia' : 'nodo', da: p };
+      var n = forme()[sel.forma].sub[sel.sub].nodi[sel.nodo];
+      var rif = h.maniglia ? n[h.maniglia] : n;
+      /* Lo scostamento fra il punto afferrato e il puntatore si tiene da
+         parte: così il nodo segue il dito senza saltarci sotto, e i magneti
+         ragionano su dove finirebbe il NODO, non su dov'è il mouse. */
+      presa = { tipo: h.maniglia ? 'maniglia' : 'nodo', da: p,
+                dx: rif.x - p.x, dy: rif.y - p.y };
+      segna();
       svg.setPointerCapture(e.pointerId);
       disegna();
       return;
@@ -334,6 +514,7 @@ var Editor = (function () {
 
     sel.forma = t.forma; sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
     presa = { tipo: 'forma', da: p };
+    segna();
     svg.setPointerCapture(e.pointerId);
     disegna();
   }
@@ -358,9 +539,12 @@ var Editor = (function () {
        differenze: la forma dipende da dove si è cominciato, non da quanto ci
        si è mossi dall'ultimo evento. */
     if (presa.tipo === 'rettangolo') {
+      var w = Math.abs(p.x - presa.inizio.x), h = Math.abs(p.y - presa.inizio.y);
+      /* Shift fa il quadrato, come dappertutto. */
+      if (e.shiftKey) { w = h = Math.max(w, h); }
       costruendo = Tracciato.rettangolo(
-        Math.min(presa.inizio.x, p.x), Math.min(presa.inizio.y, p.y),
-        Math.abs(p.x - presa.inizio.x), Math.abs(p.y - presa.inizio.y));
+        p.x < presa.inizio.x ? presa.inizio.x - w : presa.inizio.x,
+        p.y < presa.inizio.y ? presa.inizio.y - h : presa.inizio.y, w, h);
       disegna();
       return;
     }
@@ -376,21 +560,33 @@ var Editor = (function () {
     presa.da = p;
 
     if (presa.tipo === 'nodo') {
-      var n = f[sel.forma].sub[sel.sub].nodi[sel.nodo];
+      var sub = f[sel.forma].sub[sel.sub];
+      var n = sub.nodi[sel.nodo];
+      /* L'ancora dell'angolo è il nodo accanto: è con quello che si forma il
+         tratto che si vuole dritto o a quarantacinque gradi. */
+      var m = sub.nodi.length;
+      var anc = m > 1 ? (sel.nodo > 0 ? sub.nodi[sel.nodo - 1] : sub.nodi[1]) : null;
+      var t = aggancia({ x: p.x + presa.dx, y: p.y + presa.dy }, anc, e,
+                       { forma: sel.forma, sub: sel.sub, nodo: sel.nodo });
+      var ddx = t.x - n.x, ddy = t.y - n.y;
       /* Spostando il nodo si portano dietro le sue maniglie: sono attaccate
          a lui, e lasciarle ferme spezzerebbe la curva in due punti invece
          che muoverla. */
-      n.x += dx; n.y += dy;
-      if (n.hi) { n.hi.x += dx; n.hi.y += dy; }
-      if (n.ho) { n.ho.x += dx; n.ho.y += dy; }
+      n.x = t.x; n.y = t.y;
+      if (n.hi) { n.hi.x += ddx; n.hi.y += ddy; }
+      if (n.ho) { n.ho.x += ddx; n.ho.y += ddy; }
       cambiato();
       return;
     }
 
     if (presa.tipo === 'maniglia') {
       var q = f[sel.forma].sub[sel.sub].nodi[sel.nodo];
-      q[sel.maniglia].x += dx;
-      q[sel.maniglia].y += dy;
+      /* Per una maniglia l'ancora è il suo nodo: l'aiuto che serve è tenerla
+         dritta o a quarantacinque rispetto a lui. */
+      var g = aggancia({ x: p.x + presa.dx, y: p.y + presa.dy }, q, e,
+                       { forma: sel.forma, sub: sel.sub, nodo: sel.nodo });
+      q[sel.maniglia].x = g.x;
+      q[sel.maniglia].y = g.y;
       cambiato();
       return;
     }
@@ -429,13 +625,15 @@ var Editor = (function () {
       return;
     }
     forseDoppio = false;
-    if (!tipo) return;
+    guide = [];
+    if (!tipo) { disegna(); return; }
 
     if ((tipo === 'rettangolo' || tipo === 'cerchio') && costruendo) {
       var b = Tracciato.bbox([costruendo], TOL);
       /* Un clic senza trascinamento non è una forma: sarebbe un rettangolo
          di lato zero, invisibile e impossibile da riprendere. */
       if (b.w > perPixel() * 3 || b.h > perPixel() * 3) {
+        segna();
         forme().push(costruendo);
         costruendo = null;
         cambiato();
@@ -448,22 +646,29 @@ var Editor = (function () {
 
   /* ---------------------------- la spezzata ---------------------------- */
 
-  function giuSpezzata(p) {
+  function ancoraSpezzata() {
+    if (!costruendo) return null;
+    var n = costruendo.sub[0].nodi;
+    return n.length >= 2 ? n[n.length - 2] : null;
+  }
+
+  function giuSpezzata(p, e) {
+    var q = aggancia(p, ancoraSpezzata(), e);
     if (!costruendo) {
-      costruendo = Tracciato.daPunti([p, p], false);
+      costruendo = Tracciato.daPunti([q, q], false);
       return;
     }
     var n = costruendo.sub[0].nodi;
-    n[n.length - 1] = Tracciato.nodo(p.x, p.y);
-    n.push(Tracciato.nodo(p.x, p.y));
+    n[n.length - 1] = Tracciato.nodo(q.x, q.y);
+    n.push(Tracciato.nodo(q.x, q.y));
     disegna();
   }
 
   function seguiSpezzata(e) {
     if (strumento !== 'spezzata' || !costruendo) return;
-    var p = punto(e);
+    var q = aggancia(punto(e), ancoraSpezzata(), e);
     var n = costruendo.sub[0].nodi;
-    n[n.length - 1] = Tracciato.nodo(p.x, p.y);
+    n[n.length - 1] = Tracciato.nodo(q.x, q.y);
     disegna();
   }
 
@@ -481,7 +686,7 @@ var Editor = (function () {
            Math.abs(n[n.length - 1].y - n[n.length - 2].y) < 1e-6) {
       n.pop();
     }
-    if (n.length > 1) { forme().push(costruendo); costruendo = null; cambiato(); }
+    if (n.length > 1) { segna(); forme().push(costruendo); costruendo = null; cambiato(); }
     else { costruendo = null; disegna(); }
   }
 
@@ -493,6 +698,7 @@ var Editor = (function () {
     if (!s.trim()) { Log.add('err', 'Scrivi prima il testo, poi clicca dove va.'); return; }
     /* FontTratto cresce verso l'alto e qui la y va in giù: il punto cliccato
        è la riga su cui le lettere poggiano, e il testo sta sopra. */
+    segna();
     forme().push(Tracciato.testo(s, p.x, p.y, alt));
     cambiato();
   }
@@ -509,6 +715,7 @@ var Editor = (function () {
 
     var f = forme(), forma = f[t.forma], sub = forma.sub[t.sub];
     var n = sub.nodi;
+    segna();
     var k = Math.max(1, Math.min(n.length - 1, Math.round(t.k - 1 + t.t)));
 
     if (sub.chiuso) {
@@ -539,6 +746,7 @@ var Editor = (function () {
     var f = forme();
     if (!f || sel.forma < 0 || sel.nodo < 0) return;
     var sub = f[sel.forma].sub[sel.sub], n = sub.nodi[sel.nodo];
+    segna();
 
     if (n.hi || n.ho) { n.hi = null; n.ho = null; }
     else {
@@ -560,6 +768,7 @@ var Editor = (function () {
   function elimina() {
     var f = forme();
     if (!f || sel.forma < 0) return;
+    segna();
 
     if (sel.nodo >= 0) {
       var sub = f[sel.forma].sub[sel.sub];
@@ -602,6 +811,7 @@ var Editor = (function () {
     var t = sotto(p, u);
     if (!t || t.sub < 0) return;
     var f = forme(), sub = f[t.forma].sub[t.sub];
+    segna();
     var dove = Math.max(1, Math.min(sub.nodi.length - 1, Math.round(t.k - 1 + t.t) + 1));
     sub.nodi.splice(dove, 0, Tracciato.nodo(t.punto.x, t.punto.y));
     sel.forma = t.forma; sel.sub = t.sub; sel.nodo = dove;
@@ -616,6 +826,11 @@ var Editor = (function () {
     if (!Artwork.forme()) Artwork.nuovo('nuovo disegno');
     sel = { forma: -1, sub: -1, nodo: -1, maniglia: null };
     costruendo = null;
+    guide = [];
+    /* La storia è di QUESTO disegno: entrando su un altro livello, un annulla
+       rimetterebbe le forme di un disegno dentro a un altro. */
+    storia = []; rifare = [];
+    aggiornaStorici();
     var l = (Artwork.livelli() || []).filter(function (x) { return x.scelto; })[0];
     if (titolo) titolo.textContent = l ? l.nome : '';
     adatta();
@@ -638,6 +853,15 @@ var Editor = (function () {
       else if (b.id === 'ed-adatta') adatta();
       else if (b.id === 'ed-curvo') commutaNodo();
       else if (b.id === 'ed-elimina') elimina();
+      else if (b.id === 'ed-annulla') annulla();
+      else if (b.id === 'ed-rifai') rifai();
+      else if (b.id === 'ed-magneti') {
+        magneti = !magneti;
+        b.classList.toggle('attivo', magneti);
+        guide = [];
+        disegna();
+        scriviAiuto();
+      }
     });
 
     svg.addEventListener('pointerdown', giu);
@@ -660,6 +884,17 @@ var Editor = (function () {
     document.addEventListener('keydown', function (e) {
       if (!document.getElementById('tab-editor').classList.contains('is-active')) return;
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      /* Ctrl+Z e Ctrl+Shift+Z, con Cmd al posto di Ctrl sul Mac. */
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) rifai(); else annulla();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        rifai();
+        return;
+      }
       if (e.key === 'Escape') { chiudiCostruzione(true); scegliStrumento('scegli'); }
       else if (e.key === 'Enter') finisciSpezzata();
       else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); elimina(); }
@@ -673,5 +908,14 @@ var Editor = (function () {
   return { init: init, apri: apri, adatta: adatta, disegna: disegna,
            strumento: function () { return strumento; },
            scegliStrumento: scegliStrumento,
-           selezione: function () { return { forma: sel.forma, sub: sel.sub, nodo: sel.nodo }; } };
+           selezione: function () { return { forma: sel.forma, sub: sel.sub, nodo: sel.nodo }; },
+           annulla: annulla, rifai: rifai,
+           magneti: function (v) {
+             if (v !== undefined) {
+               magneti = !!v;
+               var b = document.getElementById('ed-magneti');
+               if (b) b.classList.toggle('attivo', magneti);
+             }
+             return magneti;
+           } };
 })();

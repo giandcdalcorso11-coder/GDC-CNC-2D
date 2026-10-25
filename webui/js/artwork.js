@@ -217,6 +217,33 @@ var Artwork = (function () {
     refit();
   }
 
+  /* ISTANTANEA E RIPRISTINO, per l'annulla dell'editor.
+     Si fotografano le forme E il rettangolo: rigenera() sposta il rettangolo
+     per tenere fermo il disegno sul foglio, quindi rimettere solo le forme
+     riporterebbe il disegno giusto nel posto sbagliato.
+     La copia è profonda, con un giro da JSON: i nodi sono oggetti semplici e
+     una copia di superficie lascerebbe l'istantanea attaccata a quello che
+     si sta per cambiare, cioè non sarebbe un'istantanea. */
+  function istantanea() {
+    var l = corrente();
+    if (!l || !l.forme) return null;
+    return {
+      id: l.id,
+      forme: JSON.parse(JSON.stringify(l.forme)),
+      box: l.box ? { x: l.box.x, y: l.box.y, w: l.box.w, h: l.box.h } : null
+    };
+  }
+
+  function ripristina(s) {
+    if (!s) return;
+    var l = trova(s.id);
+    if (!l) return;
+    l.forme = JSON.parse(JSON.stringify(s.forme));
+    l.box = s.box ? { x: s.box.x, y: s.box.y, w: s.box.w, h: s.box.h } : null;
+    l.raw = Tracciato.appiattisciTutte(l.forme, l.tol);
+    refit();
+  }
+
   /* Un livello che nasce vuoto: è il «Crea» dell'editor. Senza forme non ha
      un ingombro, quindi non ha nemmeno un rettangolo; li prende tutti e due
      appena dentro ci finisce il primo tratto. */
@@ -831,6 +858,7 @@ var Artwork = (function () {
     livelli: elenco, seleziona: seleziona, sceltoId: sceltoId, quale: quale,
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
     forme: formeScelte, rigenera: rigenera, nuovo: nuovo,
+    istantanea: istantanea, ripristina: ripristina,
     commutaCambioPenna: commutaCambioPenna,
 
     pause: elencoPause, pauseAutomatiche: pauseAutomatiche,

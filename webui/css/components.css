@@ -1273,7 +1273,10 @@ code {
   stroke-linejoin: round;
 }
 .ed-tratto.ed-scelto { stroke: var(--accent); }
-.ed-tratto.ed-nuovo { stroke: var(--accent); stroke-dasharray: 4 3; }
+/* Il tratto che si sta disegnando e' PIENO, non tratteggiato: le guide dei
+   magneti sono tratteggiate, e due tratteggi sovrapposti sullo stesso punto
+   non si distinguono piu'. */
+.ed-tratto.ed-nuovo { stroke: var(--accent); }
 
 .ed-asta { stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .6; }
 .ed-maniglia {
@@ -1296,3 +1299,21 @@ code {
    `display: none` di partenza: senza questa riga i campi del testo restavano
    visibili anche con un altro strumento attivo. */
 .ed-campi[hidden] { display: none; }
+
+/* Le guide dei magneti: si vedono mentre si trascina e spariscono dopo, come
+   un righello che si toglie di mezzo appena hai finito di tracciare. */
+.ed-guida {
+  stroke: var(--warn);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  opacity: .8;
+}
+.ed-guida-nodo {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
