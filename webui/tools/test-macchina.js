@@ -38,7 +38,7 @@
  * foglio. La variazione del singolo foglio la assorbe il popup dell'altezza
  * di contatto nell'interfaccia; qui si usa il nominale.
  */
-var FontTratto = require('./font-tratto.js');
+var FontTratto = require('../js/font-tratto.js');
 
 /* Il campo sta dentro la corsa percorribile rimisurata il 2026-10-22
    (251,23 × 236,06), con 5,2 mm di margine su X e 3,1 su Y. Se una prossima

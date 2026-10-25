@@ -62,10 +62,17 @@ var Artwork = (function () {
   }
 
   function load(text, nome) {
-    var raw = SvgImport.parse(text);
+    /* Si leggono le FORME, con le curve ancora curve, e da quelle si
+       ricavano le polilinee. L'ordine conta: appiattire per primo e tenere
+       solo il risultato è quello che rendeva impossibile modificare una
+       curva importata. */
+    var forme = SvgImport.parseForme(text);
+    var raw = Tracciato.appiattisciTutte(forme, forme.tolleranza);
     var l = {
       id: 'liv' + (++seq),
       nome: nome,
+      forme: forme,
+      tol: forme.tolleranza,
       raw: raw,
       box: null,           // null = «non ancora collocato»: nasce centrato
       ritaglio: null,      // null = «tutto»
@@ -82,7 +89,9 @@ var Artwork = (function () {
     /* Lo sfondo scartato va detto, non taciuto: chi guarda l'anteprima deve
        capire perché una forma che nel file c'era non viene disegnata. */
     var sc = SvgImport.scartate(), n = sc.sfondi + sc.piene;
-    Log.add('msg', 'Importato ' + nome + ': ' + raw.length + ' tracciati.' +
+    var c = Tracciato.conta(forme);
+    Log.add('msg', 'Importato ' + nome + ': ' + raw.length + ' tracciati' +
+            (c.curve ? ', ' + c.curve + ' nodi con una curva' : ', tutti dritti') + '.' +
             (n ? ' Saltate ' + n + ' forme senza bordo: in un file di linee ' +
                  'sono lo sfondo e i riferimenti, e una penna non riempie.' : '') +
             (livelli.length > 1 ? ' È il livello ' + livelli.length +
@@ -169,6 +178,20 @@ var Artwork = (function () {
       if (r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) return l.id;
     }
     return null;
+  }
+
+  /* LE FORME DEL LIVELLO SCELTO, per chi le modifica. Chi le cambia poi
+     chiama rigenera(): le polilinee sono un prodotto, e vanno rifatte. */
+  function formeScelte() {
+    var l = corrente();
+    return l ? l.forme : null;
+  }
+
+  function rigenera(id) {
+    var l = id ? trova(id) : corrente();
+    if (!l || !l.forme) return;
+    l.raw = Tracciato.appiattisciTutte(l.forme, l.tol);
+    refit();
   }
 
   function elenco() {
@@ -756,6 +779,7 @@ var Artwork = (function () {
 
     livelli: elenco, seleziona: seleziona, sceltoId: sceltoId, quale: quale,
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
+    forme: formeScelte, rigenera: rigenera,
     commutaCambioPenna: commutaCambioPenna,
 
     pause: elencoPause, pauseAutomatiche: pauseAutomatiche,

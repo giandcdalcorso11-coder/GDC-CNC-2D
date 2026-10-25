@@ -17,7 +17,19 @@ var SvgImport = (function () {
   var SELECTOR = 'path,line,polyline,polygon,circle,ellipse,rect';
   var scarti = { sfondi: 0, piene: 0 };   // forme saltate all'ultima lettura
 
-  function parse(text) {
+  /* LE FORME DEL FILE, con le curve ancora curve.
+   *
+   * Questa è la lettura vera: l'attributo `d` si legge comando per comando
+   * (vedi svgpath.js), e le altre forme — rettangoli, cerchi, polilinee —
+   * diventano nodi con le loro maniglie. Quello che ne esce si può
+   * modificare: un nodo si sposta, una maniglia si tira.
+   *
+   * Prima si campionava tutto con getPointAtLength e si ottenevano polilinee.
+   * Esatte e comode, ma definitive: da una polilinea non si risale alla
+   * curva, e un editor non avrebbe avuto niente da afferrare. Adesso le
+   * polilinee si ricavano da qui, non viceversa.
+   */
+  function parseForme(text) {
     var holder = document.createElement('div');
     /* Fuori schermo ma non display:none: un elemento non disegnato non ha
        matrice di trasformazione, e i conti sulle coordinate fallirebbero. */
@@ -33,11 +45,14 @@ var SvgImport = (function () {
       if (!rootInv) throw new Error('L’SVG non ha una geometria leggibile.');
       rootInv = rootInv.inverse();
 
-      /* La tela: serve a riconoscere lo sfondo, vedi sfondo() qui sotto. */
+      /* La tela: serve a riconoscere lo sfondo, vedi saltare() qui sotto, e a
+         scegliere una tolleranza di appiattimento proporzionata al disegno —
+         le unità di un SVG possono valere un millimetro come un metro. */
       var vb = svg.viewBox ? svg.viewBox.baseVal : null;
+      var diag = vb && vb.width ? Math.sqrt(vb.width * vb.width + vb.height * vb.height) : 300;
 
       var els = svg.querySelectorAll(SELECTOR);
-      var polys = [];
+      var forme = [];
       scarti = { sfondi: 0, piene: 0 };
 
       /* Un file di linee o un file di forme? La risposta cambia il significato
@@ -49,43 +64,81 @@ var SvgImport = (function () {
 
       for (var i = 0; i < els.length; i++) {
         var el = els[i];
-        if (typeof el.getTotalLength !== 'function') continue;
-
-        var len = 0;
-        try { len = el.getTotalLength(); } catch (e) { continue; }
-        if (!isFinite(len) || len <= 0) continue;
-
-        /* Il passo: fitto abbastanza da non tagliare le curve, non cosi' fitto
-           da produrre centomila punti su una forma sola. Il diradamento
-           successivo toglie comunque i punti inutili sui tratti dritti. */
-        var step = Math.max(len / 3000, 0.35);
-        var m = rootInv.multiply(el.getScreenCTM());
+        var ctm = el.getScreenCTM && el.getScreenCTM();
+        if (!ctm) continue;
+        var m = rootInv.multiply(ctm);
         if (saltare(el, m, vb, aLinee)) continue;
 
-        var pt = svg.createSVGPoint();
-
-        var cur = [], prev = null, s;
-        for (s = 0; s <= len + 1e-6; s += step) {
-          var raw = el.getPointAtLength(Math.min(s, len));
-          pt.x = raw.x; pt.y = raw.y;
-          var p = pt.matrixTransform(m);
-
-          if (prev && dist(prev, p) > step * 1.8 * scaleOf(m)) {
-            if (cur.length > 1) polys.push(cur);
-            cur = [];
-          }
-          cur.push({ x: p.x, y: p.y });
-          prev = p;
-        }
-        if (cur.length > 1) polys.push(cur);
+        var f = daElemento(el);
+        if (!f) continue;
+        forme.push(Tracciato.trasforma(f, m));
       }
 
-      if (!polys.length) throw new Error('Nessun tracciato trovato nel file.');
-      return polys;
+      if (!forme.length) throw new Error('Nessun tracciato trovato nel file.');
+      forme.tolleranza = diag / 20000;
+      return forme;
 
     } finally {
       holder.remove();
     }
+  }
+
+  function num(el, nome, dif) {
+    var v = parseFloat(el.getAttribute(nome));
+    return isNaN(v) ? (dif || 0) : v;
+  }
+
+  function punti(el) {
+    var s = (el.getAttribute('points') || '').trim();
+    if (!s) return [];
+    var n = s.split(/[\s,]+/).map(parseFloat);
+    var out = [];
+    for (var i = 0; i + 1 < n.length; i += 2) out.push({ x: n[i], y: n[i + 1] });
+    return out;
+  }
+
+  function daElemento(el) {
+    var t = el.tagName.toLowerCase();
+
+    if (t === 'path') {
+      var sub = SvgPath.parse(el.getAttribute('d') || '');
+      return sub.length ? Tracciato.tracciato(sub) : null;
+    }
+    if (t === 'line') {
+      return Tracciato.linea(num(el, 'x1'), num(el, 'y1'), num(el, 'x2'), num(el, 'y2'));
+    }
+    if (t === 'polyline' || t === 'polygon') {
+      var p = punti(el);
+      return p.length > 1 ? Tracciato.daPunti(p, t === 'polygon') : null;
+    }
+    if (t === 'rect') {
+      var w = num(el, 'width'), h = num(el, 'height');
+      if (!(w > 0) || !(h > 0)) return null;
+      /* Gli angoli arrotondati non sono ancora gestiti: si prende il
+         rettangolo vivo. È una differenza che si vede, quindi è meglio
+         saperlo scritto qui che scoprirlo sul foglio. */
+      return Tracciato.rettangolo(num(el, 'x'), num(el, 'y'), w, h);
+    }
+    if (t === 'circle') {
+      var r = num(el, 'r');
+      return r > 0 ? Tracciato.cerchio(num(el, 'cx'), num(el, 'cy'), r) : null;
+    }
+    if (t === 'ellipse') {
+      var rx = num(el, 'rx'), ry = num(el, 'ry');
+      return (rx > 0 && ry > 0)
+        ? Tracciato.ellisse(num(el, 'cx'), num(el, 'cy'), rx, ry) : null;
+    }
+    return null;
+  }
+
+  /* Le polilinee, che è quello che si disegna. Si ricavano dalle forme, e non
+     il contrario: un solo posto in cui il file viene letto, e l'appiattimento
+     che resta l'ultimo passo invece del primo. */
+  function parse(text) {
+    var forme = parseForme(text);
+    var polys = Tracciato.appiattisciTutte(forme, forme.tolleranza);
+    if (!polys.length) throw new Error('Nessun tracciato trovato nel file.');
+    return polys;
   }
 
   function haBordo(el) {
@@ -343,7 +396,7 @@ var SvgImport = (function () {
     return dist(p, { x: a.x + t * dx, y: a.y + t * dy });
   }
 
-  return { parse: parse, toSheet: toSheet, toRect: toRect, fitRect: fitRect,
+  return { parse: parse, parseForme: parseForme, toSheet: toSheet, toRect: toRect, fitRect: fitRect,
            ritaglia: ritaglia,
            percentuali: percentuali, simplify: simplify, bbox: bbox,
            dist: dist, scartate: function () { return scarti; } };

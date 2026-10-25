@@ -26,7 +26,7 @@
  *       ... --lobi 9 --raggio 90 --profondita 60 --cornice no
  */
 var path = require('path');
-var FontTratto = require(path.join(__dirname, 'font-tratto.js'));
+var FontTratto = require(path.join(__dirname, '..', 'js', 'font-tratto.js'));
 var Riemp = require(path.join(__dirname, 'riempimenti.js'));
 
 /* Circuito euleriano su un MULTIGRAFO: gli archi sono oggetti con i loro

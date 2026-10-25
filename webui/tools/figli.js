@@ -13,7 +13,7 @@
  */
 var fs = require('fs');
 var path = require('path');
-var FontTratto = require('./font-tratto.js');
+var FontTratto = require('../js/font-tratto.js');
 
 var W = 240, H = 235;          // il foglio: la stessa misura degli altri file
 

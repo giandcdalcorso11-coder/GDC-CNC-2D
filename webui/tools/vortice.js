@@ -30,7 +30,7 @@
  *       ... --lato 150 --f 0.16 --minimo 10 --testo "GDC CNC 2D"
  */
 var path = require('path');
-var FontTratto = require(path.join(__dirname, 'font-tratto.js'));
+var FontTratto = require(path.join(__dirname, '..', 'js', 'font-tratto.js'));
 /* Il numero di lati della spezzata che approssima il cerchio esce da una
    tolleranza, e la formula sta scritta una volta sola: è quella di
    prova-geometrica.js, che la usa per il suo cerchio inscritto. */

@@ -21,7 +21,7 @@
  *       ... --raggio 95 --giri 3 --stretta 0.55
  */
 var path = require('path');
-var FontTratto = require(path.join(__dirname, 'font-tratto.js'));
+var FontTratto = require(path.join(__dirname, '..', 'js', 'font-tratto.js'));
 
 /* Spirale esagonale logaritmica: l'angolo avanza di 60 gradi per lato e il
    raggio si stringe di un fattore costante a ogni giro. Costante e non
