@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 54
-**Ultimo aggiornamento:** 2026-10-24 18:50
+**Versione:** 55
+**Ultimo aggiornamento:** 2026-10-25 10:16
 
 ## Regole di co-editing
 
@@ -244,7 +244,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
 
-**Stato:** in corso — **l'applicazione comanda la macchina.** Il 2026-10-24 l'invio del programma è stato costruito (WebSocket, una riga per volta, freno sugli `ok`) e il trasporto è stato provato sull'ESP32 vero: collegamento, jog, homing, «vai al punto». Restano due cose, e sono diverse da prima. **Una:** mandare un programma INTERO, mai fatto. **Due:** installare la pagina come `index.html.gz` al posto della WebUI di FluidNC — e si sa perché deve essere quel nome, non un altro (il gestore generico serve ogni altro file con `Content-Disposition: attachment`, cioè il browser lo scarica invece di aprirlo). Scoperta che ha sbloccato lo sviluppo: i WebSocket non passano per il CORS, quindi la pagina parla con la macchina anche aperta dal disco, e l'installazione non è più un prerequisito per provare
+**Stato:** in corso — **l'applicazione stampa.** Il 2026-10-25 un programma intero è partito dal SLICER ed è arrivato in fondo: intreccio all'80 % su un foglio 270 × 255, cornice misurata **191,7 × 187,7 mm, esattamente la previsione**. Movimento continuo, quindi le 16 righe in volo sono il numero giusto. Provate sulla macchina anche l'**interruzione** (penna alzata, ritorno a casa, `G92` sopravvissuto) e la **pausa** (immediata, penna appoggiata). Resta una cosa sola delle due di ieri: **installare la pagina** come `index.html.gz` al posto della WebUI di FluidNC — e si sa perché deve essere quel nome (il gestore generico serve ogni altro file con `Content-Disposition: attachment`, cioè il browser lo scarica invece di aprirlo). Attenzione al peso: la pagina compressa è passata a 97,1 kB contro ~113 kB liberi, e l'editor SVG è ancora da scrivere
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
 
@@ -324,6 +324,11 @@ mano a mano che le misure arrivano):
 - [2026-10-24] **L'invio del programma non è più solo una comodità: è la cura di un guasto.** Confermato sulla macchina che il blocco delle stampe lunghe nasce dal canale HTTP che `$LocalFS/Run` si tiene aperto per l'intera durata del job (vedi Step 3). Mandando il G-code **riga per riga** quel canale non esiste: non c'è niente che debba restare appeso per venti minuti. Conseguenza sul progetto dell'invio: lo stato della stampa va ricostruito dal nostro lato contando le righe accettate, non chiedendolo a un comando che blocca, e serve una coda con controllo di flusso sugli `ok` invece di un'unica richiesta lunga.
 - [2026-10-24] **L'invio esiste, e il programma è diventato l'interfaccia della macchina.** `sender.js` manda il G-code riga per riga su un WebSocket solo, con al più 16 righe non confermate in volo: il freno è l'`ok`, che FluidNC manda quando la riga è entrata nel pianificatore. Non send-and-wait, che lascerebbe il pianificatore vuoto e la macchina a scatti; non tutto insieme, che riempirebbe la memoria della scheda — il lato in ingresso di quel socket non ha né limite né contropressione. L'interruzione **non è un reset**: accoda alzata e ritorno a casa, così il `G92` sopravvive. Attorno all'invio, la giornata di interfaccia: tastierino a otto direzioni con le quote della penna al centro, fogli personalizzati, fogli più grandi della corsa, rotella sul piano, la tavola di legno disegnata e misurata, colonne ridimensionabili. **Provato sulla macchina:** collegamento, jog, homing, vai al punto. **Non ancora provato:** un programma intero. Prove da 230 a 389 asserzioni.
 - [2026-10-24] **L'editor SVG è in pipeline ma non costruito, e c'è una precondizione da sapere prima di cominciarlo:** `SvgImport.parse` appiattisce le curve in polilinee al caricamento, quindi su un disegno importato non esiste più nessuna Bézier a cui attaccare una maniglia. Il primo pezzo di lavoro è un modello di tracciato che TIENE le curve e le appiattisce solo in uscita verso il G-code. Direzione scelta: **modificare prima di creare**.
+- [2026-10-25] **Il SLICER ha stampato.** Intreccio all'80 % su foglio 270 × 255, cornice **191,7 × 187,7 mm misurata contro 191,7 × 187,7 previsti**: la catena scala → riadattamento al foglio → G-code non distorce niente, e il criterio del millimetro regge anche passando dall'app. Movimento **continuo**, nessuna esitazione fra un segmento e l'altro: la finestra da 16 righe non lascia a secco il pianificatore e non si tocca. Stima del tempo accettata dall'utente senza cronometro, quindi resta com'è.
+- [2026-10-25] **Interruzione e pausa provate sulla macchina, e sono due strumenti diversi.** Lo stop alza la penna, torna a casa e **non perde l'origine** — verificato subito dopo con «vai al punto», che è la prova vera che il `G92` è sopravvissuto. Ha però una latenza: fino a 16 righe sono già nella scheda quando si preme, e il pianificatore si consuma, non si svuota. Nell'intreccio il segmento medio è **8,17 mm** e il mediano **2,71**, quindi fra 4 e 13 cm di inchiostro, **2÷6 secondi** a 1200 mm/min. Accorciarla vorrebbe dire un soft reset, che cancella il `G92`: non si fa. La **pausa** invece è immediata e lascia la penna appoggiata, ed è esattamente quello che serve per il cambio penna.
+- [2026-10-25] **L'anteprima cambia dopo «prepara», ed è voluto.** Prima mostra i tracciati nell'ordine del file; `prepare()` fa girare l'ottimizzatore (scarta i doppioni, salda i tratti contigui, riordina) e **riscrive `State.data.art` col percorso ottimizzato**. Da quel momento piano e cursore mostrano quello che la macchina farà davvero: l'inchiostro è identico, l'ordine e gli spostamenti a vuoto no. Un'anteprima che restasse quella di prima sarebbe una bugia proprio nel momento in cui si guarda per decidere se partire.
+- [2026-10-25] **RICHIESTA UTENTE — pausa programmata per il cambio penna**, per disegni a più colori. Progetto abbozzato, non costruito: i punti di pausa si segnano **sull'anteprima dopo la preparazione**, e devono poter cadere solo **al confine fra due tracciati**, mai a metà di un tratto. Il motivo è che lì il programma ha già la sequenza giusta — alza, pausa, sposta, abbassa — quindi non c'è nessuno stato da ripristinare alla ripresa: senza quel vincolo bisognerebbe ricordare e rifare posizione e quota prima di riprendere, e un cambio penna a punta abbassata lascia comunque una macchia. Il marcatore va onorato dal **Sender**, non da un `M0` del firmware: così la pausa può alzare la penna e portarla in un punto comodo, e la ripresa è un pulsante dell'interfaccia.
+- [2026-10-25] **Il peso della pagina è diventato un vincolo da sorvegliare:** 97.126 byte compressi contro ~113 kB liberi sull'ESP32. Sedici kilobyte di margine, e l'editor SVG è la cosa più grossa che resta da scrivere. La decisione su **dove vive la pagina** va presa prima dell'editor, non dopo: o si divide il bundle e si carica l'editor a richiesta, o sull'ESP32 va solo la parte che comanda la macchina e l'editor resta sul PC.
 
 ### Step 5 — Struttura meccanica
 
@@ -567,6 +572,75 @@ mano a mano che le misure arrivano):
 - [2026-10-23] **Il modulo disegna, e la procedura di montaggio della penna è quella definitiva.** Non si cerca la quota giusta muovendo il servo: si porta il servo alla quota **già decisa** e si stringe la penna lì — i 25° non sono una misura, sono un'imposizione, e il profilo lo dice da sempre. Il foglio deve essere sotto durante la stretta, perché la quota è definita *punta sul foglio* e non *punta sulla tavola*. Verificata su più stampe: il tratto resta costante su 4,4 m (vortice) e su 21 m di spirografo per quanto ne ha fatto. **Resta aperto il gioco**, l'ultimo parametro del profilo mai misurato: la rosa mistica dei medaglioni è stata disegnata apposta per leggerlo — nove vertici su cui convergono otto corde ciascuno, e se il punto d'arrivo dipende dalla direzione d'arrivo i vertici chiudono in una rosellina larga quanto il gioco
 
 ## Storico sessioni
+
+### [2026-10-25 10:16] (software) La prima stampa lanciata dall'app, l'importatore che disegnava lo sfondo, e il disegno che diventa un rettangolo da trascinare
+
+**Riepilogo:** Un programma intero è partito dal SLICER ed è uscito con la cornice esatta al decimo (191,7 × 187,7), il movimento continuo ha confermato la finestra da 16 righe, l'interruzione ha alzato la penna senza perdere l'origine — e per arrivarci sono stati corretti due bug che non avevano ancora un sintomo visibile e riscritto il modo in cui il disegno sta sul foglio.
+
+**Cosa è stato fatto:**
+
+- **Prima stampa intera lanciata dall'applicazione.** Intreccio all'80 % su foglio 270 × 255 con l'angolo a −14 / −9. Cornice misurata col calibro: **191,7 × 187,7 mm contro 191,7 × 187,7 previsti**. Movimento continuo, nessuna esitazione fra segmenti. Stima del tempo accettata senza cronometro.
+- **Interruzione provata sulla macchina.** Penna alzata, ritorno al punto home, e **origine intatta** — verificato subito dopo con «vai al punto», che è l'unica prova che il `G92` sia sopravvissuto. Latenza misurata e spiegata: fino a 16 righe sono già dentro la scheda quando si preme.
+- **Pausa provata.** Immediata, penna appoggiata. L'utente l'ha riconosciuta come il meccanismo giusto per il cambio penna nei disegni a più colori, e ha chiesto che si possa **programmare** su un punto dell'anteprima.
+- **Righelli attorno al piano** (`webui/js/righelli.js`, nuovo): due bande in basso e a sinistra con lo zero sullo **zero macchina**, passo che si dirada da solo fra 1, 2, 5, 10, 20, 50 mm, e un contatore sempre visibile della posizione del mouse in millimetri macchina, con due trattini che lo seguono sui righelli.
+- **Riquadro di modifica del disegno** (`webui/js/selezione.js`, nuovo): doppio clic sul disegno, trascinamento che sposta **il disegno e non il foglio**, quattro maniglie che deformano, Shift che tiene le proporzioni, `Esc` per uscire.
+- **Il disegno ha smesso di essere «centrato all'N %»** ed è diventato un rettangolo esplicito in millimetri del foglio (`Artwork.box`, `SvgImport.toRect/fitRect/percentuali`). Scala, rotazione, trascinamento e deformazione cambiano quel rettangolo e le polilinee grezze ci vengono rimappate dentro da capo.
+- `applicaVista()` annuncia ora l'evento `vista` invece di chiamare uno per uno chi disegna in pixel sopra al piano.
+- **Prove da 389 a 433 asserzioni**, tutte verdi (`sfondo-test.js` 16, `riga-test.js` 28).
+
+**Bug: l'importatore disegnava lo sfondo del file e i riferimenti**
+
+**Sintomo:** caricando `intreccio.svg` l'anteprima mostrava **due cornici quasi sovrapposte** invece di una, a circa un millimetro l'una dall'altra, più un cerchietto in basso a sinistra. Notato dall'utente guardando l'anteprima, non da un collaudo.
+**Causa:** il selettore dell'importatore comprende `rect` e `circle`, e niente distingueva un segno da tracciare da una decorazione del file. Tutti i nostri SVG si portano dietro un rettangolo bianco di fondo (242 × 237) — che a schermo evita la trasparenza — e un pallino rosso che segna il punto home. **Secondo danno, invisibile:** il rettangolo di fondo è più grande della cornice vera (240 × 235) e allargava il rettangolo di ingombro, che è il numero con cui si decide la scala. Il disegno usciva circa l'1 % più piccolo del dovuto, e non c'era modo di accorgersene col calibro in mano.
+**Fix applicato:** il discriminante è **il bordo, non il riempimento**. Se nel file c'è almeno una forma col bordo il disegno è fatto di linee e le forme senza bordo sono decorazione: si saltano. Se non c'è un solo bordo il disegno è fatto di forme piene — una clipart — e quelle vanno tracciate come contorni: lì si salta solo chi copre l'intera tela. Il log dice quante forme sono state saltate. **Verificato** dal collaudo e poi dalla stampa, uscita con una cornice sola.
+
+**Bug: con Shift il disegno si poteva solo ingrandire**
+
+**Sintomo:** tenendo Shift e trascinando una maniglia in orizzontale verso l'interno, il disegno non si muoveva affatto.
+**Causa:** il fattore di scala era `max(w / w0, h / h0)`. Muovendo lungo un asse solo, il rapporto dell'altro resta pari a uno, e il massimo di qualcosa-meno-di-uno e uno è uno.
+**Fix applicato:** il puntatore si proietta sulla diagonale del rettangolo di partenza, e la proiezione è il fattore di scala. Un movimento lungo la diagonale scala esatto, uno perpendicolare non fa niente, uno obliquo fa la sua parte. **Trovato dal collaudo, non leggendo il codice.**
+
+**Misure e numeri nuovi:**
+
+- **Cornice stampata dall'app: 191,7 × 187,7 mm, misurata uguale alla previsione.** Chiude la catena scala → riadattamento → G-code → macchina.
+- **Latenza dell'interruzione.** Nell'intreccio il segmento con movimento è in media **8,17 mm**, mediano **2,71 mm** su 902 segmenti. Sedici righe in volo valgono quindi fra 4 e 13 cm di inchiostro, cioè **2÷6 secondi** a 1200 mm/min. *Correzione di una stima data a voce prima della prova* («da una frazione di secondo a un paio di secondi»): era ottimistica, il conto sui segmenti veri dice il doppio o il triplo.
+- **Peso della pagina: 97.126 byte compressi**, da 87.826. Lo spazio libero sull'ESP32, tolta la WebUI di FluidNC, è ~113 kB.
+
+**Decisioni prese:**
+
+- *Contesto:* bisognava stabilire che cosa, dentro un file SVG, è un segno da tracciare.
+  *Decisione:* **il discriminante è il bordo.** File con almeno un bordo = disegno di linee, le forme senza bordo sono decorazione e si saltano; file senza nemmeno un bordo = disegno di forme piene, si tracciano come contorni e si salta solo chi copre l'intera tela.
+  *Alternative scartate:* saltare tutte le forme piene — romperebbe la regola dichiarata nell'interfaccia, cioè le clipart non si potrebbero più disegnare; togliere il rettangolo dai nostri file — cura il sintomo nei nostri e lascia il problema in ogni file preso dal mondo, che è poi il caso normale.
+  *Da rivedere se:* arriva un file misto in cui una forma piena fa parte davvero di un disegno di linee. Lì quella forma si perde, e servirebbe una scelta per elemento. Si è preferito perché si vede subito nell'anteprima e il log lo dice, mentre lo sfondo disegnato si scopre a stampa finita.
+
+- *Contesto:* per spostare e deformare il disegno col mouse serviva un posto in cui scrivere dove sta.
+  *Decisione:* **il disegno è un rettangolo esplicito in millimetri del foglio**, e scala, rotazione, trascinamento e deformazione cambiano lui. Le polilinee grezze si rimappano dentro da capo a ogni modifica.
+  *Alternative scartate:* comporre le trasformazioni una sull'altra — accumula errore a ogni giro, e dopo dieci trascinamenti il disegno non torna più alle misure che dice di avere.
+  *Conseguenze accettate:* ruotando la collocazione riparte centrata (un rettangolo pensato per l'altro verso schiaccerebbe il disegno); scrivere una percentuale rimette in proporzione **senza ricentrare**; tirando una maniglia oltre l'angolo opposto il disegno si ferma invece di specchiarsi.
+
+- *Contesto:* l'interruzione ha una latenza di qualche secondo, e l'utente ha chiesto se è normale.
+  *Decisione:* **si tiene così.** Lo stop smette di alimentare, butta via la coda nostra e accoda alzata e ritorno a casa.
+  *Alternative scartate:* un soft reset per svuotare il pianificatore della scheda — cancella il `G92`, cioè l'origine presa a mano, che è il contrario di quello che serve dopo un'interruzione; stringere la finestra sotto le 16 righe — il movimento continuo è stato verificato a 16 sulla macchina, e non si rompe una cosa che funziona per accorciare uno stop che l'utente ha già accettato.
+  *Da rivedere se:* servisse fermarsi davvero all'istante, per esempio per un sensore di sicurezza. Lì la strada è la pausa, che è immediata, seguita dall'alzata.
+
+- *Contesto:* i righelli dovevano restare leggibili a qualsiasi ingrandimento.
+  *Decisione:* **un SVG a parte, sovrapposto al piano e misurato in pixel**, con lo zero sullo **zero macchina**.
+  *Alternative scartate:* disegnarli dentro al piano, dove le unità sono millimetri — tacche e numeri si ingrandirebbero con la rotella, illeggibili da vicino e invisibili da lontano; mettere lo zero sull'angolo del foglio — il foglio si trascina, i blocchi no, e un righello che misura da un riferimento che si muove dà numeri che non si possono ripetere sulla macchina.
+
+**File consegnati/modificati:**
+
+- `webui/js/svgimport.js` — riconoscimento di sfondo e decorazioni; `toRect`, `fitRect`, `percentuali`
+- `webui/js/artwork.js` — il rettangolo di collocazione e le due percentuali
+- `webui/js/righelli.js` — **nuovo**
+- `webui/js/selezione.js` — **nuovo**
+- `webui/js/paper.js` — evento `vista`, triplo significato del doppio clic, riquadro che segue il foglio
+- `webui/js/app.js`, `webui/index.html`, `webui/css/components.css`
+- `webui/dist/cnc2d-ui.html` — ricostruito e consegnato all'utente due volte in sessione
+- Collaudi nello scratchpad: `sfondo-test.js` (16), `riga-test.js` (28)
+
+**Impatto su Vision/Pipeline:** **Step 4** — lo Stato passa da «l'applicazione comanda la macchina, resta mandare un programma intero e installare la pagina» a **«l'applicazione stampa»**: delle due cose aperte ne resta una, installare la pagina. Aggiunte cinque note allo Step 4, fra cui la richiesta della **pausa programmata per il cambio penna** col vincolo di progetto (si può interrompere solo al confine fra due tracciati) e il **peso della pagina** come vincolo da sorvegliare prima dell'editor.
+
+---
 
 ### [2026-10-24 18:50] (software) Il SLICER manda il programma, e diventa l'interfaccia della macchina
 
