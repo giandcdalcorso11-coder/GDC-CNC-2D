@@ -15,6 +15,7 @@
 var SvgImport = (function () {
 
   var SELECTOR = 'path,line,polyline,polygon,circle,ellipse,rect';
+  var scarti = { sfondi: 0, piene: 0 };   // forme saltate all'ultima lettura
 
   function parse(text) {
     var holder = document.createElement('div');
@@ -32,8 +33,19 @@ var SvgImport = (function () {
       if (!rootInv) throw new Error('L’SVG non ha una geometria leggibile.');
       rootInv = rootInv.inverse();
 
+      /* La tela: serve a riconoscere lo sfondo, vedi sfondo() qui sotto. */
+      var vb = svg.viewBox ? svg.viewBox.baseVal : null;
+
       var els = svg.querySelectorAll(SELECTOR);
       var polys = [];
+      scarti = { sfondi: 0, piene: 0 };
+
+      /* Un file di linee o un file di forme? La risposta cambia il significato
+         di una forma piena, vedi saltare() qui sotto. */
+      var aLinee = false;
+      for (var k = 0; k < els.length && !aLinee; k++) {
+        if (haBordo(els[k])) aLinee = true;
+      }
 
       for (var i = 0; i < els.length; i++) {
         var el = els[i];
@@ -48,6 +60,8 @@ var SvgImport = (function () {
            successivo toglie comunque i punti inutili sui tratti dritti. */
         var step = Math.max(len / 3000, 0.35);
         var m = rootInv.multiply(el.getScreenCTM());
+        if (saltare(el, m, vb, aLinee)) continue;
+
         var pt = svg.createSVGPoint();
 
         var cur = [], prev = null, s;
@@ -72,6 +86,73 @@ var SvgImport = (function () {
     } finally {
       holder.remove();
     }
+  }
+
+  function haBordo(el) {
+    var cs = window.getComputedStyle(el);
+    return !!(cs.stroke && cs.stroke !== 'none' && parseFloat(cs.strokeWidth) > 0);
+  }
+
+  /* Non tutto quello che c'e' in un file va tracciato.
+   *
+   * Un SVG prodotto da un programma — i nostri compresi — porta con se' roba
+   * che serve solo a guardarlo a schermo: il rettangolo bianco di fondo, che
+   * altrimenti si vedrebbe trasparente, e i riferimenti colorati, come il
+   * pallino rosso che segna il punto home. Una penna non ha ne' il bianco ne'
+   * il rosso: disegnarli vuol dire una cornice e un cerchietto di troppo sul
+   * foglio, e nel caso dello sfondo anche un ingombro piu' largo del disegno
+   * vero, che e' il numero con cui si decide la scala.
+   *
+   * Il discrimine e' il BORDO, non il riempimento:
+   *
+   * - se nel file c'e' almeno una forma col bordo, allora il disegno e' fatto
+   *   di linee e le forme senza bordo sono decorazione: si saltano;
+   * - se invece nel file NON c'e' un solo bordo, il disegno e' fatto di forme
+   *   piene — una clipart, un logo — e quelle forme sono tutto quello che c'e':
+   *   si tracciano come contorni, che e' la regola scritta nell'interfaccia.
+   *   Li' si salta solo chi copre l'intera tela, perche' quello e' per forza
+   *   lo sfondo.
+   *
+   * Il caso che questa regola sbaglia e' il file misto, con una forma piena
+   * che fa parte per davvero di un disegno di linee: quella si perde. Si
+   * preferisce comunque, perche' si vede subito nell'anteprima e il log dice
+   * quante forme sono state saltate, mentre lo sfondo disegnato si scopre a
+   * stampa finita.
+   *
+   * Senza viewBox non si sa quanto e' grande la tela: li' il secondo caso non
+   * salta niente, e si disegna un rettangolo di troppo invece di rischiare di
+   * perdere il disegno. */
+  function saltare(el, m, vb, aLinee) {
+    if (haBordo(el)) return false;
+
+    if (aLinee) { scarti.piene++; return true; }
+
+    if (!vb || !(vb.width > 0) || !(vb.height > 0)) return false;
+
+    var b;
+    try { b = el.getBBox(); } catch (e) { return false; }
+    if (!b || !(b.width > 0) || !(b.height > 0)) return false;
+
+    /* L'ingombro va portato nelle coordinate della radice: una forma dentro a
+       un <g> trasformato e' grande quanto dice la sua matrice, non quanto dice
+       il suo getBBox. */
+    var xs = [b.x, b.x + b.width], ys = [b.y, b.y + b.height];
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (var i = 0; i < 2; i++) {
+      for (var j = 0; j < 2; j++) {
+        var x = m.a * xs[i] + m.c * ys[j] + m.e;
+        var y = m.b * xs[i] + m.d * ys[j] + m.f;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    if ((x1 - x0) >= vb.width * 0.98 && (y1 - y0) >= vb.height * 0.98) {
+      scarti.sfondi++;
+      return true;
+    }
+    return false;
   }
 
   function scaleOf(m) {
@@ -159,5 +240,6 @@ var SvgImport = (function () {
     return dist(p, { x: a.x + t * dx, y: a.y + t * dy });
   }
 
-  return { parse: parse, toSheet: toSheet, simplify: simplify, bbox: bbox, dist: dist };
+  return { parse: parse, toSheet: toSheet, simplify: simplify, bbox: bbox,
+           dist: dist, scartate: function () { return scarti; } };
 })();

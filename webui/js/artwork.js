@@ -15,7 +15,12 @@ var Artwork = (function () {
     State.data.artName = name;
     document.getElementById('file-name').textContent = name;
     document.getElementById('file-info').hidden = false;
-    Log.add('msg', 'Importato ' + name + ': ' + raw.length + ' tracciati.');
+    /* Lo sfondo scartato va detto, non taciuto: chi guarda l'anteprima deve
+       capire perche' una forma che nel file c'era non viene disegnata. */
+    var sc = SvgImport.scartate(), n = sc.sfondi + sc.piene;
+    Log.add('msg', 'Importato ' + name + ': ' + raw.length + ' tracciati.' +
+            (n ? ' Saltate ' + n + ' forme senza bordo: in un file di linee ' +
+                 'sono lo sfondo e i riferimenti, e una penna non riempie.' : ''));
     refit();
   }
 
