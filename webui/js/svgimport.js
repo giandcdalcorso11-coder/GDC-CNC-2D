@@ -235,6 +235,75 @@ var SvgImport = (function () {
              y: b.h * k > 0 ? rect.h / (b.h * k) * 100 : 100 };
   }
 
+  /* RITAGLIO: tiene solo quello che sta dentro al rettangolo.
+   *
+   * Non e' una maschera da disegnare sopra — una penna non ha un bianco con
+   * cui coprire — e non e' una cancellazione: le polilinee grezze restano
+   * intatte, e il ritaglio si riapplica ogni volta a partire da quelle. Per
+   * questo si puo' allargare di nuovo e il disegno ricompare.
+   *
+   * Un tratto che entra ed esce piu' volte dal rettangolo si spezza in piu'
+   * pezzi, che e' giusto: sono alzate di penna vere, e devono comparire
+   * nell'anteprima e nel tempo stimato come tutte le altre.
+   */
+  function ritaglia(polys, r) {
+    var x0 = r.x, x1 = r.x + r.w, y0 = r.y, y1 = r.y + r.h;
+    var out = [];
+
+    for (var i = 0; i < polys.length; i++) {
+      var src = polys[i], cur = null;
+      for (var j = 1; j < src.length; j++) {
+        var c = taglia(src[j - 1], src[j], x0, y0, x1, y1);
+        if (!c) {                       // segmento tutto fuori: il tratto si chiude
+          if (cur && cur.length > 1) out.push(cur);
+          cur = null;
+          continue;
+        }
+        /* Si prosegue il tratto in corso solo se questo segmento comincia
+           esattamente dove quello prima era finito: se è entrato più in là,
+           in mezzo c'è un pezzo fuori, e unirli disegnerebbe una riga che
+           attraversa la parte tagliata. */
+        if (cur && c.t0 === 0) cur.push(c.b);
+        else {
+          if (cur && cur.length > 1) out.push(cur);
+          cur = [c.a, c.b];
+        }
+        if (c.t1 < 1) {                 // esce di qui: il tratto finisce
+          if (cur.length > 1) out.push(cur);
+          cur = null;
+        }
+      }
+      if (cur && cur.length > 1) out.push(cur);
+    }
+    return out;
+  }
+
+  /* Liang-Barsky: il segmento si guarda come un parametro da 0 a 1 e ogni
+     lato del rettangolo stringe l'intervallo. Se l'intervallo si svuota il
+     segmento è tutto fuori. Più corto e più robusto del tagliare lato per
+     lato, che su un segmento obliquo sbaglia l'ordine dei tagli. */
+  function taglia(a, b, x0, y0, x1, y1) {
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var t0 = 0, t1 = 1;
+    var p = [-dx, dx, -dy, dy];
+    var q = [a.x - x0, x1 - a.x, a.y - y0, y1 - a.y];
+
+    for (var k = 0; k < 4; k++) {
+      if (p[k] === 0) {
+        if (q[k] < 0) return null;      // parallelo e fuori
+        continue;
+      }
+      var t = q[k] / p[k];
+      if (p[k] < 0) { if (t > t1) return null; if (t > t0) t0 = t; }
+      else          { if (t < t0) return null; if (t < t1) t1 = t; }
+    }
+    return {
+      a: { x: a.x + t0 * dx, y: a.y + t0 * dy },
+      b: { x: a.x + t1 * dx, y: a.y + t1 * dy },
+      t0: t0, t1: t1
+    };
+  }
+
   function toSheet(polys, sheet, percent) {
     return toRect(polys, fitRect(polys, sheet, percent));
   }
@@ -275,6 +344,7 @@ var SvgImport = (function () {
   }
 
   return { parse: parse, toSheet: toSheet, toRect: toRect, fitRect: fitRect,
+           ritaglia: ritaglia,
            percentuali: percentuali, simplify: simplify, bbox: bbox,
            dist: dist, scartate: function () { return scarti; } };
 })();

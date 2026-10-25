@@ -1016,6 +1016,18 @@ code {
 }
 .sel-hint { color: var(--accent); }
 
+/* Il disegno intero, quando una parte e' tagliata via: non e' una cosa da
+   disegnare, e' il promemoria che tirando indietro la stessa maniglia torna
+   fuori. Per questo e' smorzato e tratteggiato largo. */
+.sel-pieno {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-dasharray: 2 4;
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
 /* ------------------- cambi penna ------------------- */
 
 /* Dove la penna si fermerà ad aspettare. Il segno sta sul primo punto del

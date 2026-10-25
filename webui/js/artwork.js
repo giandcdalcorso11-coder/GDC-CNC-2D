@@ -18,6 +18,15 @@ var Artwork = (function () {
      alla percentuale scritta nel campo. */
   var box = null;
 
+  /* IL RITAGLIO: la finestra su quello che si vede, dentro a `box`.
+     È un rettangolo a parte e non una modifica di `box` perché le due cose
+     sono diverse: `box` dice quanto è GRANDE il disegno, il ritaglio dice
+     quanto se ne VEDE. Tenendoli separati, allargare di nuovo il ritaglio fa
+     ricomparire quello che era stato tolto — il disegno non è mai stato
+     cancellato, solo nascosto.
+     `null` vuol dire «tutto», cioè coincide con box. */
+  var ritaglio = null;
+
   /* I CAMBI PENNA: indici dei tratti PRIMA dei quali fermarsi, in ordine.
      Si tengono come indici e non come coordinate perché il punto di una
      pausa è un confine fra due tratti, non un posto sul foglio: spostando o
@@ -37,6 +46,7 @@ var Artwork = (function () {
   function load(text, name) {
     raw = SvgImport.parse(text);
     box = null;                 // disegno nuovo, collocazione da rifare
+    ritaglio = null;
     State.data.artName = name;
     document.getElementById('file-name').textContent = name;
     document.getElementById('file-info').hidden = false;
@@ -53,6 +63,7 @@ var Artwork = (function () {
     raw = null;
     prep = null;
     box = null;
+    ritaglio = null;
     ultima = null;
     svuotaPause();
     if (window.Selezione) Selezione.chiudi();
@@ -79,12 +90,17 @@ var Artwork = (function () {
     if (!box) {
       box = SvgImport.fitRect(polys, sheet, +document.getElementById('art-scale').value || 100);
     }
+    if (ritaglio) ritaglio = dentroA(ritaglio, box);
     State.data.artBox = box;
+    State.data.artRitaglio = ritaglio;
 
     /* Il diradamento va fatto DOPO la scalatura: una tolleranza di un decimo
        di millimetro ha senso sul foglio, non nelle unità arbitrarie del file,
        che possono valere un millimetro come un metro. */
-    State.data.art = SvgImport.simplify(SvgImport.toRect(polys, box), 0.06);
+    /* Il diradamento prima del ritaglio: su meno punti costa meno, e il
+       taglio resta comunque esatto sul bordo perché lavora sui segmenti. */
+    var mm = SvgImport.simplify(SvgImport.toRect(polys, box), 0.06);
+    State.data.art = ritaglio ? SvgImport.ritaglia(mm, ritaglio) : mm;
     prep = null;
     ultima = null;
     svuotaPause();
@@ -96,11 +112,49 @@ var Artwork = (function () {
 
   /* --------------- la collocazione, letta e scritta ---------------- */
 
-  function riquadro() { return raw ? box : null; }
+  /* Il rettangolo che si manipola è quello che si VEDE: senza ritaglio è il
+     disegno intero, con ritaglio è la parte rimasta. */
+  function riquadro() { return raw ? (ritaglio || box) : null; }
 
+  /* Il disegno intero, anche la parte nascosta: serve al riquadro di
+     selezione per mostrare, in chiaro, quanto si sta tenendo fuori. */
+  function riquadroPieno() { return raw ? box : null; }
+
+  function ritagliato() { return !!ritaglio; }
+
+  function dentroA(r, c) {
+    var x0 = Math.max(r.x, c.x), y0 = Math.max(r.y, c.y);
+    var x1 = Math.min(r.x + r.w, c.x + c.w), y1 = Math.min(r.y + r.h, c.y + c.h);
+    return { x: x0, y: y0, w: Math.max(0.5, x1 - x0), h: Math.max(0.5, y1 - y0) };
+  }
+
+  /* Sposta o ridimensiona QUELLO CHE SI VEDE. Il disegno intero subisce la
+     stessa trasformazione, se no il ritaglio scivolerebbe sopra un disegno
+     fermo e si vedrebbe un'altra parte invece della stessa più grande. */
   function collocaA(r) {
     if (!raw) return;
-    box = { x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) };
+    var nuovo = { x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) };
+    if (!ritaglio) { box = nuovo; refit(); return; }
+
+    var kx = nuovo.w / ritaglio.w, ky = nuovo.h / ritaglio.h;
+    box = {
+      x: nuovo.x + (box.x - ritaglio.x) * kx,
+      y: nuovo.y + (box.y - ritaglio.y) * ky,
+      w: box.w * kx,
+      h: box.h * ky
+    };
+    ritaglio = nuovo;
+    refit();
+  }
+
+  /* IL TAGLIO: cambia solo la finestra, non la taglia del disegno. Per
+     questo si può allargare fino a riavere tutto, e non oltre. */
+  function ritagliaA(r) {
+    if (!raw || !box) return;
+    var nuovo = dentroA({ x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) }, box);
+    var tutto = Math.abs(nuovo.x - box.x) < 0.05 && Math.abs(nuovo.y - box.y) < 0.05 &&
+                Math.abs(nuovo.w - box.w) < 0.05 && Math.abs(nuovo.h - box.h) < 0.05;
+    ritaglio = tutto ? null : nuovo;
     refit();
   }
 
@@ -141,6 +195,18 @@ var Artwork = (function () {
     if (box) {
       nuovo.x = box.x + box.w / 2 - nuovo.w / 2;
       nuovo.y = box.y + box.h / 2 - nuovo.h / 2;
+      /* Il ritaglio è una finestra sul disegno, quindi va col disegno: si
+         riscala con lui attorno allo stesso centro. Lasciandolo fermo
+         scoprirebbe un'altra parte invece della stessa, più grande. */
+      if (ritaglio) {
+        var kx = nuovo.w / box.w, ky = nuovo.h / box.h;
+        ritaglio = {
+          x: nuovo.x + (ritaglio.x - box.x) * kx,
+          y: nuovo.y + (ritaglio.y - box.y) * ky,
+          w: ritaglio.w * kx,
+          h: ritaglio.h * ky
+        };
+      }
     }
     box = nuovo;
     refit();
@@ -151,6 +217,7 @@ var Artwork = (function () {
      la collocazione riparte da capo, centrata. */
   function ruotaDalCampo() {
     box = null;
+    ritaglio = null;
     refit();
   }
 
@@ -373,7 +440,9 @@ var Artwork = (function () {
 
   return { init: init, load: load, clear: clear, refit: refit,
            prepare: prepare, invia: invia,
-           riquadro: riquadro, collocaA: collocaA, percentuali: percentuali,
+           riquadro: riquadro, riquadroPieno: riquadroPieno,
+           collocaA: collocaA, ritagliaA: ritagliaA, ritagliato: ritagliato,
+           percentuali: percentuali,
            pause: elencoPause, commutaPausa: commutaPausa,
            programmaPronto: programmaPronto,
            svuotaPause: svuotaPause, pausaPossibile: pausaPossibile };
