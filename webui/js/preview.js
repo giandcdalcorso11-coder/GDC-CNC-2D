@@ -50,6 +50,11 @@ var Preview = (function () {
     var t = State.data.scrub;
     var p = pointAt(t);
 
+    /* Senza percorso il pallino si parcheggiava sullo zero macchina, e lì
+       sembrava il segno dello zero invece della penna: due cose diverse nello
+       stesso posto e dello stesso colore. Quando non c'è niente da seguire,
+       non c'è niente da mostrare. */
+    dot.setAttribute('visibility', State.data.path.length ? 'visible' : 'hidden');
     dot.setAttribute('cx', p.x.toFixed(2));
     dot.setAttribute('cy', p.y.toFixed(2));
 

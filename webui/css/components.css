@@ -1093,3 +1093,23 @@ code {
   padding-bottom: 4px;
   height: auto;
 }
+
+/* ------------------- zero e punto home ------------------- */
+
+/* Due indicazioni, non disegno: lo spessore e' in pixel, cosi' restano
+   leggibili sia da lontano sia ingrandendo fino al millimetro. */
+.segno-zero {
+  fill: none;
+  stroke: #d8664f;
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+.segno-home polyline,
+.segno-home rect {
+  fill: none;
+  stroke: #5fa85f;
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

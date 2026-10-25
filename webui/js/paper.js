@@ -14,7 +14,7 @@
  * verso l'alto. Senza quel ribaltamento ogni disegno uscirebbe specchiato.
  */
 var Paper = (function () {
-  var svg, flip, caption, layerBed, layerSheet, layerTrace, layerStop;
+  var svg, flip, caption, layerBed, layerSheet, layerTrace, layerStop, layerSegni;
 
   /* LA FINESTRA SUL PIANO, quando l'operatore l'ha mossa lui.
      `null` vuol dire «adattata», cioè ricalcolata da vista() a ogni cambio di
@@ -98,6 +98,11 @@ var Paper = (function () {
     var b = document.getElementById('btn-fit');
     if (b) b.hidden = !finestra;
 
+    /* I segni dello zero e del punto home sono disegnati in millimetri ma
+       devono valere sempre gli stessi pixel: cambiata la vista, vanno
+       rifatti. */
+    renderSegni();
+
     /* Chi disegna in pixel sopra al piano — i righelli, le maniglie della
        selezione — deve rifare i conti adesso: la stessa distanza sullo
        schermo adesso vale un altro numero di millimetri. Lo si annuncia
@@ -159,6 +164,52 @@ var Paper = (function () {
     out += '<line class="axis axis-y" x1="0" y1="0" x2="0" y2="' + Math.min(30, a.h) + '"></line>';
 
     layerBed.innerHTML = out;
+    renderSegni();
+  }
+
+  /* Quanti millimetri vale un pixel adesso: serve ai segni, che sono
+     indicazioni e non disegno, e devono restare della stessa taglia sullo
+     schermo a qualsiasi ingrandimento. */
+  function mmPerPixel() {
+    var m = flip.getScreenCTM();
+    return m && m.a ? 1 / Math.abs(m.a) : 0.1;
+  }
+
+  /* I DUE PUNTI CHE NON VANNO CONFUSI.
+   *
+   * Lo ZERO è l'angolo ai blocchi: è da lì che si misura tutto, ed è dove si
+   * azzera a mano con il `G92`. Il PUNTO HOME sta cinque millimetri dentro,
+   * ed è dove la macchina va a riposo — a fine programma, dopo
+   * un'interruzione, dopo un cambio penna. Non finirci sopra con lo zero è
+   * voluto: un carrello lasciato appoggiato al riferimento prima o poi lo
+   * sposta.
+   *
+   * Averli tutti e due sul piano serve a capire di quanto il foglio è
+   * spostato rispetto all'uno e all'altro, che a occhio sono cinque
+   * millimetri e si confondono.
+   *
+   * La casetta è disegnata con la y che cresce verso l'alto, come tutto
+   * dentro al gruppo ribaltato: lì «in su» è già +y, e non serve
+   * contro-ribaltare niente. */
+  function renderSegni() {
+    if (!layerSegni) return;
+    var u = mmPerPixel();
+    var h = Profile.puntoHome();
+    var out = '';
+
+    /* Lo zero: un cerchietto sull'incrocio dei due assi, che già ci sono. */
+    out += '<circle class="segno-zero" cx="0" cy="0" r="' + (4 * u) + '"></circle>';
+
+    if (h) {
+      var k = 15 * u / 12;     // la casetta è alta 12 unità e deve valere 15 px
+      out += '<g class="segno-home" transform="translate(' + h.x + ',' + h.y +
+             ') scale(' + k + ')">' +
+             '<polyline points="-7,5 0,12 7,5"></polyline>' +
+             '<rect x="-5" y="0" width="10" height="6"></rect>' +
+             '<rect x="-1.6" y="0" width="3.2" height="3.4"></rect>' +
+             '</g>';
+    }
+    layerSegni.innerHTML = out;
   }
 
   /* --------------------------- il foglio -------------------------- */
@@ -724,6 +775,7 @@ var Paper = (function () {
     layerSheet = document.getElementById('layer-sheet');
     layerTrace = document.getElementById('layer-trace');
     layerStop = document.getElementById('layer-stop');
+    layerSegni = document.getElementById('layer-segni');
 
     /* Un ascoltatore sulla riga invece di uno per pulsante: i fogli
        dell'operatore nascono e muoiono mentre la pagina è aperta, e agganciare
@@ -825,6 +877,7 @@ var Paper = (function () {
     renderFormati: renderFormati, raggiungibile: raggiungibile,
     adatta: adatta,
     setSheetOrigin: setSheetOrigin, centerSheet: centerSheet,
-    rebuildPath: rebuildPath, renderPause: renderPause, fissa: fissa
+    rebuildPath: rebuildPath, renderPause: renderPause,
+    renderSegni: renderSegni, fissa: fissa
   };
 })();
