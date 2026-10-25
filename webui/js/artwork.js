@@ -187,11 +187,57 @@ var Artwork = (function () {
     return l ? l.forme : null;
   }
 
+  /* MODIFICARE UNA FORMA NON DEVE SPOSTARE IL DISEGNO.
+     Il rettangolo del livello mappa l'ingombro delle forme sul foglio: se
+     cambiando un nodo l'ingombro cresce, riusare lo stesso rettangolo
+     rimpicciolirebbe TUTTO il resto per farci stare la parte nuova. Qui si
+     tiene fermo il legame fra le due coordinate — la stessa scala, la stessa
+     origine — e il rettangolo si adegua. Così spostando un nodo si muove
+     quel nodo, e basta. */
   function rigenera(id) {
     var l = id ? trova(id) : corrente();
     if (!l || !l.forme) return;
+
+    var vecchio = l.bb;
     l.raw = Tracciato.appiattisciTutte(l.forme, l.tol);
+
+    if (vecchio && l.box && vecchio.w > 0 && vecchio.h > 0 && l.raw.length) {
+      var nuovo = SvgImport.bbox(ruotate(l));
+      var kx = l.box.w / vecchio.w, ky = l.box.h / vecchio.h;
+      /* La y è ribaltata da toRect, che misura da b.y1 verso il basso: per
+         questo l'ancora in y è l'estremo ALTO dell'ingombro, non quello
+         basso. */
+      l.box = {
+        x: l.box.x + (nuovo.x0 - vecchio.x0) * kx,
+        y: l.box.y + (vecchio.y1 - nuovo.y1) * ky,
+        w: nuovo.w * kx,
+        h: nuovo.h * ky
+      };
+    }
     refit();
+  }
+
+  /* Un livello che nasce vuoto: è il «Crea» dell'editor. Senza forme non ha
+     un ingombro, quindi non ha nemmeno un rettangolo; li prende tutti e due
+     appena dentro ci finisce il primo tratto. */
+  function nuovo(nome) {
+    var l = {
+      id: 'liv' + (++seq),
+      nome: nome || 'nuovo disegno',
+      forme: [],
+      tol: 0.05,
+      raw: [],
+      box: null,
+      ritaglio: null,
+      rot: 0,
+      visibile: true,
+      cambioPenna: livelli.length > 0,
+      art: []
+    };
+    livelli.push(l);
+    scelto = l.id;
+    refit();
+    return l.id;
   }
 
   function elenco() {
@@ -345,6 +391,11 @@ var Artwork = (function () {
          del file, che possono valere un millimetro come un metro. E prima del
          ritaglio: su meno punti costa meno, e il taglio resta comunque esatto
          sul bordo perché lavora sui segmenti. */
+      /* L'ingombro con cui si sta adattando, tenuto da parte: serve a
+         rigenera(), che dopo una modifica deve poter rifare lo STESSO
+         adattamento invece di uno nuovo. */
+      l.bb = SvgImport.bbox(polys);
+
       var mm = SvgImport.simplify(SvgImport.toRect(polys, l.box), 0.06);
       l.art = l.ritaglio ? SvgImport.ritaglia(mm, l.ritaglio) : mm;
 
@@ -779,7 +830,7 @@ var Artwork = (function () {
 
     livelli: elenco, seleziona: seleziona, sceltoId: sceltoId, quale: quale,
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
-    forme: formeScelte, rigenera: rigenera,
+    forme: formeScelte, rigenera: rigenera, nuovo: nuovo,
     commutaCambioPenna: commutaCambioPenna,
 
     pause: elencoPause, pauseAutomatiche: pauseAutomatiche,

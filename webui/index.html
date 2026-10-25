@@ -244,16 +244,35 @@
      popup di inizio stampa: un solo componente, montato in più posti. Qui ha
      più spazio, perché è la tab delle sessioni di misura. -->
 <section class="panel" id="tab-editor">
-  <div class="editor-vuoto">
-    <h2 id="editor-titolo">Editor di disegni</h2>
-    <p class="muted" id="editor-stato"></p>
-    <p>Non c'è ancora niente qui, e preferisco dirlo invece di mostrare una tela
-      che non disegna. Quello che serve per costruirlo c'è già nel programma —
-      l'SVG si legge, le polilinee si trasformano, il percorso si vede sul piano
-      e si misura — quindi la parte nuova è la tela e i comandi.</p>
-    <p class="muted small">Il pulsante «Crea / Edit» da cui sei arrivato è già
-      quello definitivo: cambia scritta a seconda che un disegno ci sia o no.
-      Quando la tela esisterà, si aprirà qui dentro.</p>
+  <div class="ed">
+    <!-- Gli strumenti. La tela non ha un formato e non ha dimensioni: e' lo
+         spazio del disegno, e quanto diventa grande lo si decide dopo, con le
+         maniglie sul foglio. -->
+    <div class="ed-barra" id="ed-barra">
+      <button type="button" class="ed-str" data-str="scegli">Scegli</button>
+      <button type="button" class="ed-str" data-str="spezzata">Linea</button>
+      <button type="button" class="ed-str" data-str="rettangolo">Rettangolo</button>
+      <button type="button" class="ed-str" data-str="cerchio">Cerchio</button>
+      <button type="button" class="ed-str" data-str="testo">Testo</button>
+      <button type="button" class="ed-str" data-str="taglia">Taglia</button>
+      <span class="ed-sep"></span>
+      <span class="ed-campi" id="ed-testo-campi" hidden>
+        <input type="text" id="ed-testo" placeholder="testo da scrivere" spellcheck="false">
+        <label>alt. <input type="number" id="ed-testo-alt" value="10" min="1" step="1"></label>
+      </span>
+      <button type="button" class="btn btn-ghost btn-small" id="ed-curvo">Spigolo / curva</button>
+      <button type="button" class="btn btn-ghost btn-small" id="ed-elimina">Elimina</button>
+      <span class="ed-sep"></span>
+      <button type="button" class="btn btn-ghost btn-small" id="ed-adatta">Adatta</button>
+      <span class="ed-titolo" id="ed-titolo"></span>
+    </div>
+
+    <div class="ed-tela" id="ed-tela">
+      <svg id="ed-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="ed-aiuto" id="ed-aiuto"></div>
+    </div>
+
+    <div class="ed-piede" id="ed-piede"></div>
   </div>
 </section>
 
@@ -688,6 +707,7 @@
 <script src="js/righelli.js"></script>
 <script src="js/artwork.js"></script>
 <script src="js/selezione.js"></script>
+<script src="js/editor.js"></script>
 <script src="js/preview.js"></script>
 <script src="js/panel.js"></script>
 <script src="js/popup.js"></script>

@@ -33,6 +33,10 @@
         var panels = document.querySelectorAll('.panel');
         for (var k = 0; k < panels.length; k++) panels[k].classList.remove('is-active');
         document.getElementById('tab-' + this.dataset.tab).classList.add('is-active');
+
+        /* L'editor si prepara entrando, non all'avvio: la tela va adattata
+           al disegno che c'è adesso, e all'avvio non c'è niente. */
+        if (this.dataset.tab === 'editor' && window.Editor) Editor.apri();
       });
     }
   }
@@ -221,6 +225,7 @@
     Righelli.init();
     Selezione.init();
     Sorgenti.init();
+    Editor.init();
 
     /* «Stampa» non manda niente: apre la procedura dei tre popup, che prende le
        misure del momento e solo alla fine rigenera e consegna il programma. */

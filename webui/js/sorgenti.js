@@ -115,21 +115,14 @@ var Sorgenti = (function () {
   function aggiornaPulsante() {
     var b = document.getElementById('btn-editor');
     if (!b) return;
-    var c = !!(State.data.art && State.data.art.length);
-    b.textContent = c ? 'Edit' : 'Crea';
-    b.title = c
-      ? 'Apri «' + (State.data.artName || 'il disegno') + '» nell\'editor'
+    /* «Edit» quando c'è un LIVELLO scelto, non quando c'è un disegno
+       qualsiasi: l'editor lavora su uno per volta, ed è quello che si apre. */
+    var l = (window.Artwork && Artwork.livelli)
+      ? Artwork.livelli().filter(function (x) { return x.scelto; })[0] : null;
+    b.textContent = l ? 'Edit' : 'Crea';
+    b.title = l
+      ? 'Apri «' + l.nome + '» nell\'editor'
       : 'Comincia un disegno nuovo';
-
-    var t = document.getElementById('editor-titolo');
-    var st = document.getElementById('editor-stato');
-    if (t) t.textContent = c ? 'Modifica del disegno' : 'Disegno nuovo';
-    if (st) {
-      st.textContent = c
-        ? 'Arrivi con «' + (State.data.artName || 'un disegno') + '» caricato: ' +
-          State.data.art.length + ' tracciati.'
-        : 'Arrivi senza nessun disegno caricato.';
-    }
   }
 
   function init() {
