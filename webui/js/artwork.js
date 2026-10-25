@@ -1,126 +1,204 @@
-/* Il disegno importato: dal file SVG alle polilinee sul foglio, e da lì al
- * G-code ottimizzato.
+/* I disegni caricati sul foglio: dai file SVG alle polilinee, e da lì al
+ * G-code.
  *
- * Le polilinee grezze restano in memoria nelle coordinate del file: scala,
- * rotazione e formato del foglio si riapplicano ogni volta a partire da
- * quelle, invece di trasformare il risultato precedente. Trasformare più
- * volte lo stesso dato accumula errori e perde precisione a ogni giro.
+ * NON C'È UN DISEGNO, C'È UN ELENCO DI LIVELLI. Un livello è un file caricato,
+ * con la sua collocazione sul foglio, la sua rotazione e il suo ritaglio; e
+ * soprattutto è l'unità con cui si ragiona di penne: un livello si disegna
+ * tutto di fila, e fra un livello e l'altro ci si può fermare a cambiare
+ * penna. Mescolarli sarebbe comodo per il tempo e disastroso per i colori.
+ *
+ * Le polilinee grezze di ogni livello restano in memoria nelle coordinate del
+ * file: scala, rotazione, ritaglio e formato del foglio si riapplicano ogni
+ * volta a partire da quelle, invece di trasformare il risultato precedente.
+ * Trasformare più volte lo stesso dato accumula errori e perde precisione a
+ * ogni giro.
  */
 var Artwork = (function () {
-  var raw = null;      // polilinee nelle coordinate del file
-  var prep = null;     // ultimo G-code preparato
 
-  /* DOVE STA IL DISEGNO SUL FOGLIO: {x, y, w, h} in millimetri del foglio,
-     angolo in basso a sinistra. E' l'unico posto in cui la collocazione e'
-     scritta, e tutto il resto la legge: la scala, il trascinamento e le
-     maniglie cambiano questo rettangolo e basta.
-     `null` vuol dire «non ancora collocato»: al primo refit nasce centrato
-     alla percentuale scritta nel campo. */
-  var box = null;
+  /* L'elenco, in ordine di disegno: il primo si stampa per primo, e l'ultimo
+     resta sopra agli altri sul piano. */
+  var livelli = [];
+  var scelto = null;     // id del livello selezionato, o null
+  var seq = 0;
 
-  /* IL RITAGLIO: la finestra su quello che si vede, dentro a `box`.
-     È un rettangolo a parte e non una modifica di `box` perché le due cose
-     sono diverse: `box` dice quanto è GRANDE il disegno, il ritaglio dice
-     quanto se ne VEDE. Tenendoli separati, allargare di nuovo il ritaglio fa
-     ricomparire quello che era stato tolto — il disegno non è mai stato
-     cancellato, solo nascosto.
-     `null` vuol dire «tutto», cioè coincide con box. */
-  var ritaglio = null;
+  var prep = null;       // ultimo G-code composto
 
-  /* I CAMBI PENNA: indici dei tratti PRIMA dei quali fermarsi, in ordine.
-     Si tengono come indici e non come coordinate perché il punto di una
-     pausa è un confine fra due tratti, non un posto sul foglio: spostando o
-     riscalando il disegno la pausa resta fra gli stessi due tratti.
+  /* I CAMBI PENNA MESSI A MANO: indici dei tratti PRIMA dei quali fermarsi.
+     Quelli automatici fra un livello e l'altro non stanno qui — si ricavano
+     dai livelli a ogni composizione, vedi prepare().
 
-     Vivono qui e non nel G-code perché il G-code si rigenera; e si azzerano
+     Si tengono come indici e non come coordinate perché il punto di una pausa
+     è un confine fra due tratti, non un posto sul foglio. E si azzerano
      quando il disegno cambia, perché dopo un riadattamento l'ottimizzatore
      riordina i tratti e l'indice 37 non è più lo stesso tratto. */
   var pause = [];
 
-  /* Quello che serve per ricomporre il programma senza rifare
-     l'ottimizzazione: aggiungere o togliere una pausa cambia il file, non il
-     percorso, e rifare l'ottimizzazione darebbe lo stesso risultato
-     spendendoci sopra del tempo. */
+  /* Quello che serve per ricomporre il file senza rifare l'ottimizzazione:
+     aggiungere o togliere una pausa cambia il programma, non il percorso. */
   var ultima = null;
 
-  function load(text, name) {
-    raw = SvgImport.parse(text);
-    box = null;                 // disegno nuovo, collocazione da rifare
-    ritaglio = null;
-    State.data.artName = name;
-    document.getElementById('file-name').textContent = name;
-    document.getElementById('file-info').hidden = false;
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
+    });
+  }
+
+  /* ------------------------- l'elenco ------------------------- */
+
+  function trova(id) {
+    for (var i = 0; i < livelli.length; i++) if (livelli[i].id === id) return livelli[i];
+    return null;
+  }
+
+  function indice(id) {
+    for (var i = 0; i < livelli.length; i++) if (livelli[i].id === id) return i;
+    return -1;
+  }
+
+  function corrente() { return trova(scelto); }
+
+  function visibili() {
+    return livelli.filter(function (l) { return l.visibile && l.raw.length; });
+  }
+
+  function load(text, nome) {
+    var raw = SvgImport.parse(text);
+    var l = {
+      id: 'liv' + (++seq),
+      nome: nome,
+      raw: raw,
+      box: null,           // null = «non ancora collocato»: nasce centrato
+      ritaglio: null,      // null = «tutto»
+      rot: 0,
+      visibile: true,
+      /* Il primo livello non ha un «prima» in cui fermarsi; gli altri sì, e
+         di solito è proprio quello che si vuole caricando un secondo file. */
+      cambioPenna: livelli.length > 0,
+      art: []
+    };
+    livelli.push(l);
+    scelto = l.id;
+
     /* Lo sfondo scartato va detto, non taciuto: chi guarda l'anteprima deve
-       capire perche' una forma che nel file c'era non viene disegnata. */
+       capire perché una forma che nel file c'era non viene disegnata. */
     var sc = SvgImport.scartate(), n = sc.sfondi + sc.piene;
-    Log.add('msg', 'Importato ' + name + ': ' + raw.length + ' tracciati.' +
+    Log.add('msg', 'Importato ' + nome + ': ' + raw.length + ' tracciati.' +
             (n ? ' Saltate ' + n + ' forme senza bordo: in un file di linee ' +
-                 'sono lo sfondo e i riferimenti, e una penna non riempie.' : ''));
+                 'sono lo sfondo e i riferimenti, e una penna non riempie.' : '') +
+            (livelli.length > 1 ? ' È il livello ' + livelli.length +
+                                  ': si disegna dopo gli altri.' : ''));
+    refit();
+  }
+
+  function rimuovi(id) {
+    var i = indice(id);
+    if (i < 0) return;
+    var nome = livelli[i].nome;
+    livelli.splice(i, 1);
+    if (scelto === id) scelto = livelli.length ? livelli[Math.min(i, livelli.length - 1)].id : null;
+    if (!livelli.length && window.Selezione) Selezione.chiudi();
+    Log.add('msg', 'Tolto il livello «' + nome + '».');
     refit();
   }
 
   function clear() {
-    raw = null;
-    prep = null;
-    box = null;
-    ritaglio = null;
-    ultima = null;
-    svuotaPause();
+    if (!livelli.length) return;
+    livelli = [];
+    scelto = null;
     if (window.Selezione) Selezione.chiudi();
-    State.data.art = null;
-    State.data.artName = null;
-    document.getElementById('file-info').hidden = true;
-    document.getElementById('prep').hidden = true;
-    Paper.rebuildPath();
-    Log.add('msg', 'Disegno rimosso: il piano resta con le sole aree.');
+    Log.add('msg', 'Tolti tutti i livelli: il piano resta con le sole aree.');
+    refit();
   }
 
-  function ruotate() {
-    var rot = +document.getElementById('art-rot').value || 0;
-    return rot ? rotateAll(raw, rot) : raw;
+  /* Spostare un livello nell'elenco vuol dire cambiare QUANDO si disegna, non
+     dove: l'ordine è la sequenza della stampa, ed è per questo che conta. */
+  function muovi(id, verso) {
+    var i = indice(id);
+    var j = i + verso;
+    if (i < 0 || j < 0 || j >= livelli.length) return;
+    var t = livelli[i];
+    livelli[i] = livelli[j];
+    livelli[j] = t;
+    /* La spunta del cambio penna NON si tocca riordinando. È una proprietà
+       del livello — «questo lo disegno con un'altra penna» — e sul primo non
+       si applica perché non c'è un prima in cui fermarsi, ma resta scritta:
+       rimettendolo più in giù torna a valere. Azzerarla vorrebbe dire
+       perdere un'informazione a ogni spostamento, e riordinare due volte non
+       riporterebbe allo stato di partenza. */
+    refit();
   }
 
-  /* Rimappa le polilinee grezze dentro al rettangolo corrente. Va richiamata
-     quando cambia il rettangolo, la rotazione o il formato del foglio. */
-  function refit() {
-    if (!raw) return;
-
-    var polys = ruotate();
-    var sheet = State.data.paper;
-    if (!box) {
-      box = SvgImport.fitRect(polys, sheet, +document.getElementById('art-scale').value || 100);
-    }
-    if (ritaglio) ritaglio = dentroA(ritaglio, box);
-    State.data.artBox = box;
-    State.data.artRitaglio = ritaglio;
-
-    /* Il diradamento va fatto DOPO la scalatura: una tolleranza di un decimo
-       di millimetro ha senso sul foglio, non nelle unità arbitrarie del file,
-       che possono valere un millimetro come un metro. */
-    /* Il diradamento prima del ritaglio: su meno punti costa meno, e il
-       taglio resta comunque esatto sul bordo perché lavora sui segmenti. */
-    var mm = SvgImport.simplify(SvgImport.toRect(polys, box), 0.06);
-    State.data.art = ritaglio ? SvgImport.ritaglia(mm, ritaglio) : mm;
-    prep = null;
-    ultima = null;
-    svuotaPause();
-    document.getElementById('prep').hidden = true;
-    Paper.rebuildPath();
-    mostraPercentuali();
+  function seleziona(id) {
+    if (!trova(id)) return;
+    scelto = id;
+    renderElenco();
+    mostraCampi();
     if (window.Selezione) Selezione.ridisegna();
   }
 
-  /* --------------- la collocazione, letta e scritta ---------------- */
+  function commutaVisibile(id) {
+    var l = trova(id);
+    if (!l) return;
+    l.visibile = !l.visibile;
+    refit();
+  }
 
-  /* Il rettangolo che si manipola è quello che si VEDE: senza ritaglio è il
-     disegno intero, con ritaglio è la parte rimasta. */
-  function riquadro() { return raw ? (ritaglio || box) : null; }
+  function commutaCambioPenna(id) {
+    var l = trova(id);
+    if (!l) return;
+    l.cambioPenna = !l.cambioPenna;
+    refit();
+  }
 
-  /* Il disegno intero, anche la parte nascosta: serve al riquadro di
-     selezione per mostrare, in chiaro, quanto si sta tenendo fuori. */
-  function riquadroPieno() { return raw ? box : null; }
+  /* Quale livello sta sotto a un punto del foglio: l'ULTIMO che lo contiene,
+     cioè quello disegnato sopra agli altri. `dopo` fa ripartire la ricerca
+     dal livello seguente, così un doppio clic ripetuto nello stesso posto
+     gira fra quelli sovrapposti invece di ripescare sempre lo stesso. */
+  function quale(p, dopo) {
+    var vis = visibili();
+    if (!vis.length) return null;
+    var da = vis.length - 1;
+    if (dopo) {
+      var k = -1;
+      for (var i = 0; i < vis.length; i++) if (vis[i].id === dopo) k = i;
+      if (k >= 0) da = k - 1 + vis.length;
+    }
+    for (var n = 0; n < vis.length; n++) {
+      var l = vis[(da - n + vis.length * 2) % vis.length];
+      var r = vista(l);
+      if (r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) return l.id;
+    }
+    return null;
+  }
 
-  function ritagliato() { return !!ritaglio; }
+  function elenco() {
+    return livelli.map(function (l, i) {
+      return { id: l.id, nome: l.nome, visibile: l.visibile,
+               cambioPenna: l.cambioPenna, attivo: l.cambioPenna && i > 0,
+               primo: i === 0,
+               tratti: l.art.length, scelto: l.id === scelto };
+    });
+  }
+
+  function sceltoId() { return scelto; }
+
+  /* ------------------- collocazione di un livello ------------------- */
+
+  function ruotate(l) {
+    return l.rot ? rotateAll(l.raw, l.rot) : l.raw;
+  }
+
+  /* Il rettangolo che si VEDE di un livello: senza ritaglio è il disegno
+     intero, con ritaglio è la parte rimasta. */
+  function vista(l) { return l ? (l.ritaglio || l.box) : null; }
+
+  function riquadro() { return vista(corrente()); }
+
+  /* Il disegno intero di un livello, anche la parte nascosta: serve al
+     riquadro di selezione per mostrare in chiaro quanto si tiene fuori. */
+  function riquadroPieno() { var l = corrente(); return l ? l.box : null; }
+
+  function ritagliato() { var l = corrente(); return !!(l && l.ritaglio); }
 
   function dentroA(r, c) {
     var x0 = Math.max(r.x, c.x), y0 = Math.max(r.y, c.y);
@@ -128,96 +206,85 @@ var Artwork = (function () {
     return { x: x0, y: y0, w: Math.max(0.5, x1 - x0), h: Math.max(0.5, y1 - y0) };
   }
 
-  /* Sposta o ridimensiona QUELLO CHE SI VEDE. Il disegno intero subisce la
-     stessa trasformazione, se no il ritaglio scivolerebbe sopra un disegno
-     fermo e si vedrebbe un'altra parte invece della stessa più grande. */
+  /* Sposta o ridimensiona QUELLO CHE SI VEDE del livello scelto. Il disegno
+     intero subisce la stessa trasformazione, se no il ritaglio scivolerebbe
+     sopra un disegno fermo e si vedrebbe un'altra parte invece della stessa
+     più grande. */
   function collocaA(r) {
-    if (!raw) return;
+    var l = corrente();
+    if (!l || !l.box) return;
     var nuovo = { x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) };
-    if (!ritaglio) { box = nuovo; refit(); return; }
 
-    var kx = nuovo.w / ritaglio.w, ky = nuovo.h / ritaglio.h;
-    box = {
-      x: nuovo.x + (box.x - ritaglio.x) * kx,
-      y: nuovo.y + (box.y - ritaglio.y) * ky,
-      w: box.w * kx,
-      h: box.h * ky
+    if (!l.ritaglio) { l.box = nuovo; refit(); return; }
+
+    var kx = nuovo.w / l.ritaglio.w, ky = nuovo.h / l.ritaglio.h;
+    l.box = {
+      x: nuovo.x + (l.box.x - l.ritaglio.x) * kx,
+      y: nuovo.y + (l.box.y - l.ritaglio.y) * ky,
+      w: l.box.w * kx,
+      h: l.box.h * ky
     };
-    ritaglio = nuovo;
+    l.ritaglio = nuovo;
     refit();
   }
 
-  /* IL TAGLIO: cambia solo la finestra, non la taglia del disegno. Per
-     questo si può allargare fino a riavere tutto, e non oltre. */
+  /* IL TAGLIO: cambia solo la finestra, non la taglia del disegno. Per questo
+     si può allargare fino a riavere tutto, e non oltre. */
   function ritagliaA(r) {
-    if (!raw || !box) return;
-    var nuovo = dentroA({ x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) }, box);
-    var tutto = Math.abs(nuovo.x - box.x) < 0.05 && Math.abs(nuovo.y - box.y) < 0.05 &&
-                Math.abs(nuovo.w - box.w) < 0.05 && Math.abs(nuovo.h - box.h) < 0.05;
-    ritaglio = tutto ? null : nuovo;
+    var l = corrente();
+    if (!l || !l.box) return;
+    var nuovo = dentroA({ x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) }, l.box);
+    var tutto = Math.abs(nuovo.x - l.box.x) < 0.05 && Math.abs(nuovo.y - l.box.y) < 0.05 &&
+                Math.abs(nuovo.w - l.box.w) < 0.05 && Math.abs(nuovo.h - l.box.h) < 0.05;
+    l.ritaglio = tutto ? null : nuovo;
     refit();
   }
 
-  /* Le due percentuali sono il rettangolo detto in un altro modo, non un
-     dato a parte: si ricavano ogni volta, così non possono sfasarsi da lui. */
+  /* Le due percentuali sono il rettangolo detto in un altro modo, non un dato
+     a parte: si ricavano ogni volta, così non possono sfasarsi da lui. */
   function percentuali() {
-    if (!raw || !box) return null;
-    return SvgImport.percentuali(ruotate(), State.data.paper, box);
-  }
-
-  function mostraPercentuali() {
-    var pc = percentuali();
-    var campo = document.getElementById('art-scale');
-    var nota = document.getElementById('art-deform');
-    if (!pc) { if (nota) nota.hidden = true; return; }
-
-    /* Il campo dice la percentuale in larghezza. Quando l'altezza non
-       coincide il disegno è schiacciato, e il campo da solo mentirebbe:
-       la differenza va scritta, non nascosta dietro a un numero solo. */
-    campo.value = Math.round(pc.x * 10) / 10;
-    if (!nota) return;
-    var storto = Math.abs(pc.x - pc.y) > 0.2;
-    nota.hidden = !storto;
-    if (storto) {
-      nota.textContent = 'Deformato: larghezza ' + (Math.round(pc.x * 10) / 10) +
-                         ' %, altezza ' + (Math.round(pc.y * 10) / 10) +
-                         ' %. Scrivi una percentuale qui sopra per tornare in proporzione.';
-    }
+    var l = corrente();
+    if (!l || !l.box) return null;
+    return SvgImport.percentuali(ruotate(l), State.data.paper, l.box);
   }
 
   /* Scrivere nel campo vuol dire «questa percentuale, in proporzione»: il
      disegno torna regolare ma NON torna al centro. Ricentrarlo butterebbe via
      un trascinamento fatto apposta, e per rimetterlo in mezzo c'è il foglio. */
   function scalaDalCampo() {
-    if (!raw) return;
+    var l = corrente();
+    if (!l) return;
     var pc = +document.getElementById('art-scale').value || 100;
-    var nuovo = SvgImport.fitRect(ruotate(), State.data.paper, pc);
-    if (box) {
-      nuovo.x = box.x + box.w / 2 - nuovo.w / 2;
-      nuovo.y = box.y + box.h / 2 - nuovo.h / 2;
+    var nuovo = SvgImport.fitRect(ruotate(l), State.data.paper, pc);
+    if (l.box) {
+      nuovo.x = l.box.x + l.box.w / 2 - nuovo.w / 2;
+      nuovo.y = l.box.y + l.box.h / 2 - nuovo.h / 2;
       /* Il ritaglio è una finestra sul disegno, quindi va col disegno: si
          riscala con lui attorno allo stesso centro. Lasciandolo fermo
          scoprirebbe un'altra parte invece della stessa, più grande. */
-      if (ritaglio) {
-        var kx = nuovo.w / box.w, ky = nuovo.h / box.h;
-        ritaglio = {
-          x: nuovo.x + (ritaglio.x - box.x) * kx,
-          y: nuovo.y + (ritaglio.y - box.y) * ky,
-          w: ritaglio.w * kx,
-          h: ritaglio.h * ky
+      if (l.ritaglio) {
+        var kx = nuovo.w / l.box.w, ky = nuovo.h / l.box.h;
+        l.ritaglio = {
+          x: nuovo.x + (l.ritaglio.x - l.box.x) * kx,
+          y: nuovo.y + (l.ritaglio.y - l.box.y) * ky,
+          w: l.ritaglio.w * kx,
+          h: l.ritaglio.h * ky
         };
       }
     }
-    box = nuovo;
+    l.box = nuovo;
     refit();
   }
 
   /* Ruotando cambia la forma dell'ingombro, e un rettangolo pensato per
      l'altro verso schiaccerebbe il disegno senza che nessuno l'abbia chiesto:
-     la collocazione riparte da capo, centrata. */
+     la collocazione di quel livello riparte da capo, centrata. */
   function ruotaDalCampo() {
-    box = null;
-    ritaglio = null;
+    var l = corrente();
+    if (!l) return;
+    l.rot = +document.getElementById('art-rot').value || 0;
+    l.box = null;
+    l.ritaglio = null;
     refit();
   }
 
@@ -230,29 +297,216 @@ var Artwork = (function () {
     });
   }
 
+  /* --------------------------- il ricalcolo --------------------------- */
+
+  /* Rimappa tutti i livelli dentro ai loro rettangoli e ricompone il
+     percorso. Va richiamata quando cambia un rettangolo, una rotazione, un
+     ritaglio, l'ordine, la visibilità o il formato del foglio. */
+  function refit() {
+    var art = [], di = [];
+
+    for (var i = 0; i < livelli.length; i++) {
+      var l = livelli[i];
+      if (!l.raw.length) { l.art = []; continue; }
+
+      var polys = ruotate(l);
+      if (!l.box) {
+        var pc = (l.id === scelto)
+          ? (+document.getElementById('art-scale').value || 100) : 100;
+        l.box = SvgImport.fitRect(polys, State.data.paper, pc);
+      }
+      if (l.ritaglio) l.ritaglio = dentroA(l.ritaglio, l.box);
+
+      /* Il diradamento va fatto DOPO la scalatura: una tolleranza di un
+         decimo di millimetro ha senso sul foglio, non nelle unità arbitrarie
+         del file, che possono valere un millimetro come un metro. E prima del
+         ritaglio: su meno punti costa meno, e il taglio resta comunque esatto
+         sul bordo perché lavora sui segmenti. */
+      var mm = SvgImport.simplify(SvgImport.toRect(polys, l.box), 0.06);
+      l.art = l.ritaglio ? SvgImport.ritaglia(mm, l.ritaglio) : mm;
+
+      if (!l.visibile) continue;
+      for (var j = 0; j < l.art.length; j++) { art.push(l.art[j]); di.push(l.id); }
+    }
+
+    State.data.art = art.length ? art : null;
+    State.data.artDi = di;
+    State.data.artName = nomeComplessivo();
+
+    /* Ogni cambio invalida il programma: le coordinate non sono più quelle,
+       e gli indici delle pause nemmeno. */
+    prep = null;
+    ultima = null;
+    svuotaPause();
+    document.getElementById('prep').hidden = true;
+
+    Paper.rebuildPath();
+    renderElenco();
+    mostraCampi();
+    if (window.Selezione) Selezione.ridisegna();
+  }
+
+  function nomeComplessivo() {
+    var v = livelli.filter(function (l) { return l.visibile; });
+    if (!v.length) return null;
+    return v.length === 1 ? v[0].nome : 'composizione';
+  }
+
+  /* ------------------------- i campi e l'elenco ------------------------- */
+
+  var ICONA_OCCHIO = '&#9679;', ICONA_CHIUSO = '&#9675;';
+
+  function renderElenco() {
+    var box = document.getElementById('livelli');
+    var testa = document.getElementById('liv-testa');
+    if (!box) return;
+    box.hidden = !livelli.length;
+    if (testa) testa.hidden = !livelli.length;
+    if (!livelli.length) { box.innerHTML = ''; return; }
+
+    var out = '';
+    for (var i = 0; i < livelli.length; i++) {
+      var l = livelli[i];
+      out += '<div class="liv-riga' + (l.id === scelto ? ' scelto' : '') +
+             (l.visibile ? '' : ' spento') + '" data-liv="' + l.id + '">' +
+             '<span class="liv-n">' + (i + 1) + '</span>' +
+             '<button type="button" class="liv-nome" data-sel="' + l.id +
+             '" title="' + esc(l.nome) + ' — ' + l.art.length + ' tratti">' +
+             esc(l.nome) + '</button>' +
+             (l.cambioPenna && i > 0
+                ? '<span class="liv-penna" title="cambio penna prima di questo ' +
+                  'livello">&#9998;</span>' : '') +
+             '<button type="button" class="liv-ic" data-su="' + l.id +
+             '" title="prima"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>' +
+             '<button type="button" class="liv-ic" data-giu="' + l.id +
+             '" title="dopo"' + (i === livelli.length - 1 ? ' disabled' : '') +
+             '>&#9660;</button>' +
+             '<button type="button" class="liv-ic" data-occhio="' + l.id +
+             '" title="mostra o nascondi">' +
+             (l.visibile ? ICONA_OCCHIO : ICONA_CHIUSO) + '</button>' +
+             '<button type="button" class="liv-ic liv-del" data-del="' + l.id +
+             '" title="togli">&times;</button>' +
+             '</div>';
+    }
+    box.innerHTML = out;
+  }
+
+  /* I campi in fondo alla colonna parlano del livello SCELTO, non di tutti:
+     scala, rotazione e cambio penna sono proprietà sue. Senza un livello
+     scelto non hanno niente da dire e si spengono. */
+  function mostraCampi() {
+    var l = corrente();
+    var scala = document.getElementById('art-scale');
+    var rot = document.getElementById('art-rot');
+    var cam = document.getElementById('art-cambio');
+    var nota = document.getElementById('art-deform');
+    var riga = document.getElementById('art-campi');
+
+    if (riga) riga.hidden = !l;
+    if (!l) { if (nota) nota.hidden = true; return; }
+
+    rot.value = l.rot;
+    if (cam) {
+      cam.checked = l.cambioPenna;
+      cam.disabled = indice(l.id) === 0;
+      var et = document.getElementById('art-cambio-et');
+      if (et) {
+        et.hidden = false;
+        et.title = cam.disabled
+          ? 'Il primo livello non ha un prima in cui fermarsi'
+          : 'La stampa si ferma prima di questo livello per far cambiare la penna';
+      }
+    }
+
+    var pc = percentuali();
+    if (!pc) { if (nota) nota.hidden = true; return; }
+
+    /* Il campo dice la percentuale in larghezza. Quando l'altezza non
+       coincide il disegno è schiacciato, e il campo da solo mentirebbe: la
+       differenza va scritta, non nascosta dietro a un numero solo. */
+    scala.value = Math.round(pc.x * 10) / 10;
+    if (!nota) return;
+    var storto = Math.abs(pc.x - pc.y) > 0.2;
+    nota.hidden = !storto;
+    if (storto) {
+      nota.textContent = 'Deformato: larghezza ' + (Math.round(pc.x * 10) / 10) +
+                         ' %, altezza ' + (Math.round(pc.y * 10) / 10) +
+                         ' %. Scrivi una percentuale qui sopra per tornare in proporzione.';
+    }
+  }
+
   /* ----------------------- preparazione stampa ---------------------- */
 
+  function sommaStat(a, b) {
+    return {
+      tratti: a.tratti + b.tratti,
+      punti: a.punti + b.punti,
+      disegno: a.disegno + b.disegno,
+      spostamento: a.spostamento + b.spostamento,
+      alzate: a.alzate + b.alzate,
+      secondi: a.secondi + b.secondi
+    };
+  }
+
   function prepare() {
-    var art = State.data.art;
-    if (!art || !art.length) { Log.add('err', 'Nessun disegno da preparare.'); return; }
+    var vis = visibili();
+    if (!vis.length) { Log.add('err', 'Nessun disegno da preparare.'); return; }
 
     /* Le velocità e la pausa della penna vengono dal profilo di stampa: sono
        del lavoro, non della macchina, e si cambiano nella tab Impostazioni. */
     var st = Profile.stampa();
     var feedDraw = st.velocitaDisegno, feedTravel = st.velocitaSpostamento;
+    var ambito = st.ottimizza || 'livello';
 
     var t0 = performance.now();
-    var r = Optimize.run(art, feedDraw, feedTravel);
+    var gruppi = [];
+
+    if (ambito === 'tutto') {
+      /* Un gruppo solo: l'ottimizzatore può spostare un tratto del primo
+         livello in mezzo al terzo. È il più veloce e l'unico che rompe i
+         cambi penna, per questo qui sotto vengono tolti. */
+      var insieme = [];
+      vis.forEach(function (l) { insieme = insieme.concat(l.art); });
+      var r = Optimize.run(insieme, feedDraw, feedTravel);
+      gruppi.push({ id: null, polys: r.polys, prima: r.prima, dopo: r.dopo });
+    } else {
+      vis.forEach(function (l) {
+        if (ambito === 'niente') {
+          var s = Optimize.stats(l.art, feedDraw, feedTravel);
+          gruppi.push({ id: l.id, polys: l.art, prima: s, dopo: s });
+        } else {
+          var o = Optimize.run(l.art, feedDraw, feedTravel);
+          gruppi.push({ id: l.id, polys: o.polys, prima: o.prima, dopo: o.dopo });
+        }
+      });
+    }
     var ms = Math.round(performance.now() - t0);
 
-    /* Il percorso ottimizzato diventa quello mostrato: l'anteprima deve far
+    /* Il percorso riordinato diventa quello mostrato: l'anteprima deve far
        vedere quello che la macchina farà davvero, non quello che avrebbe
        fatto prima del riordino. */
-    State.data.art = r.polys;
+    var art = [], di = [], auto = [];
+    gruppi.forEach(function (g, i) {
+      var l = g.id ? trova(g.id) : null;
+      if (i > 0 && l && l.cambioPenna) auto.push(art.length);
+      g.polys.forEach(function (p) { art.push(p); di.push(g.id); });
+    });
+
+    if (ambito === 'tutto' && vis.some(function (l) { return l.cambioPenna; })) {
+      Log.add('err', 'Ottimizzazione su TUTTO: i cambi penna fra livelli sono ' +
+                     'stati ignorati, perché i tratti dei livelli finiscono ' +
+                     'mescolati. Per tenerli, metti l\'ottimizzazione «per livello».');
+    }
+
+    State.data.art = art;
+    State.data.artDi = di;
     Paper.rebuildPath();
 
+    var prima = gruppi.reduce(function (a, g) { return a ? sommaStat(a, g.prima) : g.prima; }, null);
+    var dopo = gruppi.reduce(function (a, g) { return a ? sommaStat(a, g.dopo) : g.dopo; }, null);
+
     var o = State.data.sheetOrigin;
-    var machine = r.polys.map(function (p) {
+    var machine = art.map(function (p) {
       return p.map(function (q) { return { x: q.x + o.x, y: q.y + o.y }; });
     });
 
@@ -293,6 +547,7 @@ var Artwork = (function () {
 
     ultima = {
       machine: machine,
+      auto: auto,
       opt: {
         penUp: contatto + alzata,
         penDown: contatto,
@@ -304,30 +559,48 @@ var Artwork = (function () {
         feedTravel: feedTravel,
         feedPen: 600
       },
-      r: r,
+      r: { prima: prima, dopo: dopo },
       ms: ms
     };
     componi();
   }
 
-  /* Ricompone il file dal percorso già ottimizzato. La chiamano prepare() e
+  /* Ricompone il file dal percorso già riordinato. La chiamano prepare() e
      ogni modifica all'elenco delle pause. */
   function componi() {
     if (!ultima) return;
     var opt = {};
     for (var k in ultima.opt) opt[k] = ultima.opt[k];
-    opt.pause = pause;
+
+    /* I cambi penna automatici fra livelli e quelli messi a mano finiscono
+       nello stesso elenco: per il generatore sono la stessa cosa, e averne
+       due a lui non servirebbe a niente. */
+    var tutte = ultima.auto.concat(pause).filter(function (v, i, a) {
+      return a.indexOf(v) === i;
+    }).sort(function (a, b) { return a - b; });
+
+    opt.pause = tutte;
     prep = Gcode.build(ultima.machine, opt);
-    showStats(ultima.r, ultima.ms);
+    showStats(ultima.r, ultima.ms, tutte.length);
     /* Il pulsante del cambio penna si accende solo quando un programma c'è:
-       prima di questa riga nasceva spento e ci restava, perche' l'evento del
-       percorso parte prima che il file esista. */
+       senza questa chiamata nascerebbe spento e ci resterebbe, perché
+       l'evento del percorso parte prima che il file esista. */
     if (window.Preview && Preview.aggiornaPause) Preview.aggiornaPause();
+    if (window.Paper && Paper.renderPause) Paper.renderPause();
   }
 
   /* ------------------------ i cambi penna ------------------------- */
 
-  function elencoPause() { return pause.slice(); }
+  /* L'elenco completo, automatici compresi: lo usano il piano per disegnare i
+     segni e l'anteprima per sapere se un tratto è già un punto di fermata. */
+  function elencoPause() {
+    if (!ultima) return pause.slice();
+    return ultima.auto.concat(pause).filter(function (v, i, a) {
+      return a.indexOf(v) === i;
+    }).sort(function (a, b) { return a - b; });
+  }
+
+  function pauseAutomatiche() { return ultima ? ultima.auto.slice() : []; }
 
   function programmaPronto() { return !!prep; }
 
@@ -338,10 +611,12 @@ var Artwork = (function () {
   }
 
   /* Una pausa prima del primo tratto non vuol dire niente: la penna giusta la
-     si mette nel morsetto prima di partire. */
+     si mette nel morsetto prima di partire. E su un confine che è già una
+     fermata automatica non c'è niente da aggiungere. */
   function pausaPossibile(k) {
     var art = State.data.art;
-    return !!prep && !!art && k >= 1 && k < art.length;
+    if (!prep || !art || k < 1 || k >= art.length) return false;
+    return pauseAutomatiche().indexOf(k) < 0;
   }
 
   function commutaPausa(k) {
@@ -350,21 +625,21 @@ var Artwork = (function () {
     if (i >= 0) pause.splice(i, 1);
     else { pause.push(k); pause.sort(function (a, b) { return a - b; }); }
     componi();
-    if (window.Paper && Paper.renderPause) Paper.renderPause();
     Log.add('msg', i >= 0
       ? 'Tolto il cambio penna prima del tratto ' + k + '.'
-      : 'Cambio penna prima del tratto ' + k + ': in tutto ' + pause.length + '.');
+      : 'Cambio penna prima del tratto ' + k + '.');
     return true;
   }
 
-  function showStats(r, ms) {
+  function showStats(r, ms, nPause) {
     var d = r.dopo, p = r.prima;
     document.getElementById('prep').hidden = false;
     document.getElementById('st-time').textContent = Gcode.durata(d.secondi);
     document.getElementById('st-paths').textContent = d.tratti + ' (' + d.punti + ' punti)';
     document.getElementById('st-draw').textContent = Math.round(d.disegno) + ' mm';
     document.getElementById('st-travel').textContent = Math.round(d.spostamento) + ' mm';
-    document.getElementById('st-lifts').textContent = d.alzate;
+    document.getElementById('st-lifts').textContent = d.alzate +
+      (nPause ? ' · ' + nPause + ' cambi penna' : '');
 
     var risp = p.secondi - d.secondi;
     document.getElementById('st-gain').textContent = risp > 1
@@ -375,7 +650,8 @@ var Artwork = (function () {
 
     document.getElementById('gcode-out').value = prep;
     Log.add('msg', 'G-code pronto: ' + prep.split('\n').length + ' righe, ' +
-                   Gcode.durata(d.secondi) + ' stimati.');
+                   Gcode.durata(d.secondi) + ' stimati' +
+                   (nPause ? ', ' + nPause + ' cambi penna' : '') + '.');
   }
 
   /* L'invio passa dal Sender, che manda le righe una per una sul WebSocket.
@@ -424,6 +700,31 @@ var Artwork = (function () {
     document.getElementById('btn-download').addEventListener('click', download);
     document.getElementById('btn-clear-file').addEventListener('click', clear);
 
+    var cam = document.getElementById('art-cambio');
+    if (cam) {
+      cam.addEventListener('change', function () {
+        if (scelto) commutaCambioPenna(scelto);
+      });
+    }
+
+    /* Un ascoltatore sulla lista invece di uno per pulsante: i livelli
+       nascono e muoiono mentre la pagina è aperta, e agganciare i listener ai
+       nodi vuol dire ricordarsi di riagganciarli ogni volta — cioè
+       dimenticarsene una volta. */
+    var box = document.getElementById('livelli');
+    if (box) {
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        var d = b.dataset;
+        if (d.sel) seleziona(d.sel);
+        else if (d.su) muovi(d.su, -1);
+        else if (d.giu) muovi(d.giu, 1);
+        else if (d.occhio) commutaVisibile(d.occhio);
+        else if (d.del) rimuovi(d.del);
+      });
+    }
+
     var sample = document.getElementById('btn-sample');
     if (window.SAMPLE_SVG) {
       sample.addEventListener('click', function () {
@@ -433,17 +734,32 @@ var Artwork = (function () {
       sample.hidden = true;
     }
 
-    /* Foglio nuovo, collocazione nuova: il rettangolo di prima era misurato
+    /* Foglio nuovo, collocazioni nuove: i rettangoli di prima erano misurati
        su un foglio che non c'è più. */
-    State.on('paper', function () { if (raw) { box = null; refit(); } });
+    State.on('paper', function () {
+      if (!livelli.length) return;
+      livelli.forEach(function (l) { l.box = null; l.ritaglio = null; });
+      refit();
+    });
+
+    renderElenco();
+    mostraCampi();
   }
 
-  return { init: init, load: load, clear: clear, refit: refit,
-           prepare: prepare, invia: invia,
-           riquadro: riquadro, riquadroPieno: riquadroPieno,
-           collocaA: collocaA, ritagliaA: ritagliaA, ritagliato: ritagliato,
-           percentuali: percentuali,
-           pause: elencoPause, commutaPausa: commutaPausa,
-           programmaPronto: programmaPronto,
-           svuotaPause: svuotaPause, pausaPossibile: pausaPossibile };
+  return {
+    init: init, load: load, clear: clear, refit: refit,
+    prepare: prepare, invia: invia,
+
+    riquadro: riquadro, riquadroPieno: riquadroPieno,
+    collocaA: collocaA, ritagliaA: ritagliaA, ritagliato: ritagliato,
+    percentuali: percentuali,
+
+    livelli: elenco, seleziona: seleziona, sceltoId: sceltoId, quale: quale,
+    rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
+    commutaCambioPenna: commutaCambioPenna,
+
+    pause: elencoPause, pauseAutomatiche: pauseAutomatiche,
+    commutaPausa: commutaPausa, programmaPronto: programmaPronto,
+    svuotaPause: svuotaPause, pausaPossibile: pausaPossibile
+  };
 })();

@@ -549,8 +549,25 @@ var Paper = (function () {
        Altrimenti, e solo sul fondo, si torna a vedere tutto: sul foglio no,
        perché lì il doppio clic sono due clic e il foglio si trascina. */
     svg.addEventListener('dblclick', function (e) {
-      var p = toMm(e);
-      if (window.Selezione && Selezione.dentro(p)) { Selezione.apri(); return; }
+      var m = toMm(e), o = State.data.sheetOrigin;
+      var p = { x: m.x - o.x, y: m.y - o.y };     // in millimetri del FOGLIO
+
+      if (window.Artwork && Artwork.quale) {
+        /* Con più livelli sovrapposti il punto non basta a dire quale si
+           vuole. Si prende quello disegnato più in alto; e se è già lui il
+           scelto, si passa a quello sotto — così clic ripetuti nello stesso
+           posto girano fra i sovrapposti invece di ripescare sempre lo
+           stesso. L'elenco a sinistra resta la via sicura. */
+        var sopra = Artwork.quale(p);
+        var giro = (window.Selezione && Selezione.attiva() && sopra === Artwork.sceltoId())
+          ? Artwork.quale(p, sopra) : sopra;
+        if (giro) {
+          Artwork.seleziona(giro);
+          Selezione.apri();
+          return;
+        }
+      }
+
       if (window.Selezione && Selezione.attiva()) { Selezione.chiudi(); return; }
       if (e.target.closest('.sheet')) return;
       adatta();

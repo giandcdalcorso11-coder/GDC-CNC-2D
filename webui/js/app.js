@@ -154,12 +154,20 @@
       });
     });
 
+    /* Piu' file in una volta sola diventano piu' livelli, nell'ordine in cui
+       arrivano: adesso che i livelli esistono, prenderne uno e buttare gli
+       altri sarebbe una perdita gratuita. */
     dz.addEventListener('drop', function (e) {
-      if (e.dataTransfer.files.length) accept(e.dataTransfer.files[0]);
+      tutti(e.dataTransfer.files);
     });
     input.addEventListener('change', function () {
-      if (this.files.length) accept(this.files[0]);
+      tutti(this.files);
+      this.value = '';     // così lo stesso file si può ricaricare
     });
+
+    function tutti(files) {
+      for (var i = 0; i < files.length; i++) accept(files[i]);
+    }
 
     function accept(file) {
       if (!/\.svg$/i.test(file.name)) {

@@ -302,7 +302,19 @@ var Profile = (function () {
       /* `null` vuol dire "usa tutta l'alzata disponibile". Un valore minore
          serve solo se l'alzata piena fa perdere tempo su disegni con molti
          stacchi. */
-      alzataLavoro: null
+      alzataLavoro: null,
+
+      /* FIN DOVE PUÒ RIORDINARE L'OTTIMIZZATORE.
+         «livello» è il predefinito e il caso giusto quasi sempre: dentro a un
+         livello riordinare non cambia una virgola del risultato e fa
+         risparmiare parecchio, mentre mescolare due livelli rompe i cambi
+         penna, perché i tratti di una penna finirebbero in mezzo a quelli
+         dell'altra.
+         «tutto» ignora i livelli: è il più veloce, e ha senso solo quando si
+         stampa tutto con la stessa penna.
+         «niente» rispetta l'ordine dei file e dei tracciati dentro ai file:
+         serve quando l'ordine è una scelta, non un caso. */
+      ottimizza: 'livello'
     };
   }
 

@@ -1014,7 +1014,21 @@ code {
   stroke-width: 1.2;
   pointer-events: all;
 }
-.sel-hint { color: var(--accent); }
+.sel-hint {
+  position: absolute;
+  left: 38px;
+  top: 6px;
+  max-width: min(520px, calc(100% - 120px));
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  background: rgba(13, 16, 21, .86);
+  border: 1px solid var(--line-soft);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.sel-hint b { color: var(--accent); }
 
 /* Il disegno intero, quando una parte e' tagliata via: non e' una cosa da
    disegnare, e' il promemoria che tirando indietro la stessa maniglia torna
@@ -1112,4 +1126,82 @@ code {
   vector-effect: non-scaling-stroke;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* ------------------- elenco dei livelli ------------------- */
+
+.liv-testa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-dim);
+}
+.liv-testa > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.livelli { display: flex; flex-direction: column; gap: 3px; }
+
+.liv-riga {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+}
+/* Il livello scelto e' quello su cui agiscono i campi e le maniglie: va
+   riconosciuto senza leggerlo. */
+.liv-riga.scelto { border-color: var(--accent); }
+.liv-riga.spento .liv-nome { color: var(--text-dim); text-decoration: line-through; }
+
+.liv-n {
+  flex: 0 0 auto;
+  width: 14px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.liv-nome {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  border: 0;
+  color: var(--text);
+  text-align: left;
+  font-size: 11px;
+  padding: 2px 4px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.liv-penna { flex: 0 0 auto; color: var(--warn); font-size: 11px; }
+.liv-ic {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 3px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.liv-ic:hover:not(:disabled) { color: var(--text); background: var(--bg-raised); }
+.liv-ic:disabled { opacity: .25; cursor: default; }
+.liv-del:hover { color: var(--danger); }
+
+/* L'avviso del disegno schiacciato. Non aveva uno stile: era rimasto un
+   paragrafo nudo, grande quanto il testo normale, che gridava piu' del
+   dovuto per una cosa che e' un'informazione, non un errore. */
+.hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--warn);
 }

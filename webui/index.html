@@ -75,17 +75,26 @@
         <div class="dropzone" id="dropzone">
           <p><strong>Trascina qui un file SVG</strong></p>
           <p class="muted">oppure clicca per sceglierlo</p>
-          <input type="file" id="file-input" accept=".svg,image/svg+xml" hidden>
+          <input type="file" id="file-input" accept=".svg,image/svg+xml" multiple hidden>
         </div>
-        <div class="file-info" id="file-info" hidden>
-          <span id="file-name">—</span>
-          <button class="btn btn-ghost btn-small" id="btn-clear-file">Rimuovi</button>
+        <!-- L'elenco dei livelli: l'ordine e' la sequenza della stampa, e il
+             livello scelto e' quello su cui agiscono i campi qui sotto e le
+             maniglie sul piano. -->
+        <div class="liv-testa" id="liv-testa" hidden>
+          <span>Livelli — si stampano in quest'ordine</span>
+          <button class="btn btn-ghost btn-small" id="btn-clear-file">Svuota</button>
         </div>
-        <div class="field-row">
-          <label>Scala (%) <input type="number" id="art-scale" value="100" min="1" max="400" step="0.1"></label>
-          <label>Rotazione (°) <input type="number" id="art-rot" value="0" min="0" max="270" step="90"></label>
+        <div class="livelli" id="livelli" hidden></div>
+
+        <div id="art-campi" hidden>
+          <div class="field-row">
+            <label>Scala (%) <input type="number" id="art-scale" value="100" min="1" max="400" step="0.1"></label>
+            <label>Rotazione (°) <input type="number" id="art-rot" value="0" min="0" max="270" step="90"></label>
+          </div>
+          <p class="hint" id="art-deform" hidden></p>
+          <label class="chk" id="art-cambio-et"><input type="checkbox" id="art-cambio">
+            Cambia penna prima di questo livello</label>
         </div>
-        <p class="hint" id="art-deform" hidden></p>
         <button class="btn btn-ghost full" id="btn-sample">Carica il disegno di esempio</button>
 
         <!-- Un pulsante solo con due mestieri: con un disegno caricato lo
@@ -192,10 +201,13 @@
             <g id="rig-cursore"></g>
           </svg>
           <div class="cursor-mm fuori" id="cursor-mm">X —  Y —</div>
+          <!-- Il suggerimento sta SOPRA al piano e non nella didascalia: li'
+               sotto allungava la riga, il piano si rimpiccioliva e tutto
+               scivolava sotto il cursore proprio mentre si stava mirando. -->
+          <div class="sel-hint" id="sel-hint" hidden>Trascina per spostare, le maniglie per deformare (<b>Shift</b> tiene le proporzioni). Col <b>tasto destro</b> le stesse maniglie tagliano, e ritirandole indietro il disegno torna. <b>Esc</b> per uscire.</div>
           </div>
           <div class="stage-caption">
             <span id="stage-caption">—</span>
-            <span class="sel-hint" id="sel-hint" hidden>Modifica disegno: trascina per spostarlo, le maniglie per deformarlo (<b>Shift</b> tiene le proporzioni), col <b>tasto destro</b> le stesse maniglie tagliano — e ritirandole indietro il disegno torna. <b>Esc</b> per uscire.</span>
             <button class="btn btn-ghost btn-small" id="btn-fit" hidden
                     title="Torna a vedere tutto (o doppio clic sul piano)">Adatta</button>
             <button class="btn btn-ghost btn-small lucchetto" id="btn-lucchetto"></button>
@@ -617,6 +629,18 @@
         <label><span class="flab">Alzata di lavoro (mm)</span>
           <input type="number" step="0.1" data-bind="stampa.alzataLavoro" data-null="1" placeholder="tutta"></label>
       </div>
+      <div class="field-row">
+        <label><span class="flab">Ottimizzazione del percorso</span>
+          <select data-bind="stampa.ottimizza">
+            <option value="livello">per livello — riordina dentro, non mescola</option>
+            <option value="tutto">tutto — piu veloce, ignora i livelli</option>
+            <option value="niente">niente — l'ordine dei file, tale e quale</option>
+          </select></label>
+      </div>
+      <p class="muted small">Dentro a un livello riordinare non cambia una virgola
+        del risultato e fa risparmiare parecchio. Mescolare due livelli invece
+        rompe i cambi penna, perché i tratti di una penna finirebbero in mezzo a
+        quelli dell'altra: «tutto» ha senso solo stampando con una penna sola.</p>
       <div class="readout">
         <div class="ro"><span>Formato riconosciuto</span><b data-calc="formato">—</b></div>
       </div>
