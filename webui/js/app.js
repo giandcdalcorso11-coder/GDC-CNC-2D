@@ -208,6 +208,8 @@
     Popup.init();
     Settings.init();
     Artwork.init();
+    Righelli.init();
+    Selezione.init();
     Sorgenti.init();
 
     /* «Stampa» non manda niente: apre la procedura dei tre popup, che prende le

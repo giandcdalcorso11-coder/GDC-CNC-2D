@@ -179,30 +179,64 @@ var SvgImport = (function () {
     return b;
   }
 
-  /* Porta le polilinee nelle coordinate del foglio, in millimetri, centrate.
+  /* IL DISEGNO STA DENTRO A UN RETTANGOLO, e tutto il resto discende da li'.
+     Scala, rotazione, trascinamento e deformazione non si compongono uno
+     sull'altro: cambiano il rettangolo, e le polilinee grezze ci vengono
+     rimappate dentro da capo. Trasformare ogni volta il risultato precedente
+     accumula errore a ogni giro, e dopo dieci trascinamenti il disegno non
+     tornerebbe piu' alle misure che dice di avere.
+
      Qui avviene anche il ribaltamento dell'asse Y: in SVG cresce verso il
      basso, sul foglio verso l'alto. */
-  function toSheet(polys, sheet, percent) {
+  function toRect(polys, rect) {
     var b = bbox(polys);
-    var margin = 0.92;
-    var base = Math.min(sheet.w * margin / b.w, sheet.h * margin / b.h);
-    var k = base * (percent / 100);
-
-    var w = b.w * k, h = b.h * k;
-    var ox = (sheet.w - w) / 2, oy = (sheet.h - h) / 2;
+    var kx = b.w > 0 ? rect.w / b.w : 1;
+    var ky = b.h > 0 ? rect.h / b.h : 1;
 
     var out = [];
     for (var i = 0; i < polys.length; i++) {
       var src = polys[i], dst = [];
       for (var j = 0; j < src.length; j++) {
         dst.push({
-          x: ox + (src[j].x - b.x0) * k,
-          y: oy + (b.y1 - src[j].y) * k
+          x: rect.x + (src[j].x - b.x0) * kx,
+          y: rect.y + (b.y1 - src[j].y) * ky
         });
       }
       out.push(dst);
     }
     return out;
+  }
+
+  /* Il rettangolo di partenza: il disegno piu' grande che entra nel foglio
+     lasciando un margine, centrato, poi ridotto dalla percentuale.
+     Il margine dell'8% non e' estetica: un disegno a filo del foglio finisce
+     sotto le dita di chi lo appoggia, e sulla macchina a filo della corsa. */
+  var MARGINE = 0.92;
+
+  function baseK(polys, sheet) {
+    var b = bbox(polys);
+    if (!(b.w > 0) || !(b.h > 0)) return 1;
+    return Math.min(sheet.w * MARGINE / b.w, sheet.h * MARGINE / b.h);
+  }
+
+  function fitRect(polys, sheet, percent) {
+    var b = bbox(polys);
+    var k = baseK(polys, sheet) * (percent / 100);
+    var w = b.w * k, h = b.h * k;
+    return { x: (sheet.w - w) / 2, y: (sheet.h - h) / 2, w: w, h: h };
+  }
+
+  /* La strada inversa: da un rettangolo qualsiasi alle due percentuali che lo
+     descrivono. Sono due e non una perche' un angolo trascinato senza Shift
+     schiaccia il disegno, e dirlo con un numero solo vorrebbe dire nasconderlo. */
+  function percentuali(polys, sheet, rect) {
+    var b = bbox(polys), k = baseK(polys, sheet);
+    return { x: b.w * k > 0 ? rect.w / (b.w * k) * 100 : 100,
+             y: b.h * k > 0 ? rect.h / (b.h * k) * 100 : 100 };
+  }
+
+  function toSheet(polys, sheet, percent) {
+    return toRect(polys, fitRect(polys, sheet, percent));
   }
 
   /* Diradamento di Douglas-Peucker: toglie i punti che non spostano la linea
@@ -240,6 +274,7 @@ var SvgImport = (function () {
     return dist(p, { x: a.x + t * dx, y: a.y + t * dy });
   }
 
-  return { parse: parse, toSheet: toSheet, simplify: simplify, bbox: bbox,
+  return { parse: parse, toSheet: toSheet, toRect: toRect, fitRect: fitRect,
+           percentuali: percentuali, simplify: simplify, bbox: bbox,
            dist: dist, scartate: function () { return scarti; } };
 })();

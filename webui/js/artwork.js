@@ -10,8 +10,17 @@ var Artwork = (function () {
   var raw = null;      // polilinee nelle coordinate del file
   var prep = null;     // ultimo G-code preparato
 
+  /* DOVE STA IL DISEGNO SUL FOGLIO: {x, y, w, h} in millimetri del foglio,
+     angolo in basso a sinistra. E' l'unico posto in cui la collocazione e'
+     scritta, e tutto il resto la legge: la scala, il trascinamento e le
+     maniglie cambiano questo rettangolo e basta.
+     `null` vuol dire «non ancora collocato»: al primo refit nasce centrato
+     alla percentuale scritta nel campo. */
+  var box = null;
+
   function load(text, name) {
     raw = SvgImport.parse(text);
+    box = null;                 // disegno nuovo, collocazione da rifare
     State.data.artName = name;
     document.getElementById('file-name').textContent = name;
     document.getElementById('file-info').hidden = false;
@@ -27,6 +36,8 @@ var Artwork = (function () {
   function clear() {
     raw = null;
     prep = null;
+    box = null;
+    if (window.Selezione) Selezione.chiudi();
     State.data.art = null;
     State.data.artName = null;
     document.getElementById('file-info').hidden = true;
@@ -35,25 +46,92 @@ var Artwork = (function () {
     Log.add('msg', 'Disegno rimosso: il piano resta con le sole aree.');
   }
 
-  /* Ricalcola posizione e dimensione sul foglio. Va richiamata quando cambia
-     il formato del foglio, la scala o la rotazione. */
+  function ruotate() {
+    var rot = +document.getElementById('art-rot').value || 0;
+    return rot ? rotateAll(raw, rot) : raw;
+  }
+
+  /* Rimappa le polilinee grezze dentro al rettangolo corrente. Va richiamata
+     quando cambia il rettangolo, la rotazione o il formato del foglio. */
   function refit() {
     if (!raw) return;
 
-    var rot = +document.getElementById('art-rot').value || 0;
-    var scale = +document.getElementById('art-scale').value || 100;
-    var polys = rot ? rotateAll(raw, rot) : raw;
-
+    var polys = ruotate();
     var sheet = State.data.paper;
-    var mm = SvgImport.toSheet(polys, sheet, scale);
+    if (!box) {
+      box = SvgImport.fitRect(polys, sheet, +document.getElementById('art-scale').value || 100);
+    }
+    State.data.artBox = box;
 
     /* Il diradamento va fatto DOPO la scalatura: una tolleranza di un decimo
        di millimetro ha senso sul foglio, non nelle unità arbitrarie del file,
        che possono valere un millimetro come un metro. */
-    State.data.art = SvgImport.simplify(mm, 0.06);
+    State.data.art = SvgImport.simplify(SvgImport.toRect(polys, box), 0.06);
     prep = null;
     document.getElementById('prep').hidden = true;
     Paper.rebuildPath();
+    mostraPercentuali();
+    if (window.Selezione) Selezione.ridisegna();
+  }
+
+  /* --------------- la collocazione, letta e scritta ---------------- */
+
+  function riquadro() { return raw ? box : null; }
+
+  function collocaA(r) {
+    if (!raw) return;
+    box = { x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) };
+    refit();
+  }
+
+  /* Le due percentuali sono il rettangolo detto in un altro modo, non un
+     dato a parte: si ricavano ogni volta, così non possono sfasarsi da lui. */
+  function percentuali() {
+    if (!raw || !box) return null;
+    return SvgImport.percentuali(ruotate(), State.data.paper, box);
+  }
+
+  function mostraPercentuali() {
+    var pc = percentuali();
+    var campo = document.getElementById('art-scale');
+    var nota = document.getElementById('art-deform');
+    if (!pc) { if (nota) nota.hidden = true; return; }
+
+    /* Il campo dice la percentuale in larghezza. Quando l'altezza non
+       coincide il disegno è schiacciato, e il campo da solo mentirebbe:
+       la differenza va scritta, non nascosta dietro a un numero solo. */
+    campo.value = Math.round(pc.x * 10) / 10;
+    if (!nota) return;
+    var storto = Math.abs(pc.x - pc.y) > 0.2;
+    nota.hidden = !storto;
+    if (storto) {
+      nota.textContent = 'Deformato: larghezza ' + (Math.round(pc.x * 10) / 10) +
+                         ' %, altezza ' + (Math.round(pc.y * 10) / 10) +
+                         ' %. Scrivi una percentuale qui sopra per tornare in proporzione.';
+    }
+  }
+
+  /* Scrivere nel campo vuol dire «questa percentuale, in proporzione»: il
+     disegno torna regolare ma NON torna al centro. Ricentrarlo butterebbe via
+     un trascinamento fatto apposta, e per rimetterlo in mezzo c'è il foglio. */
+  function scalaDalCampo() {
+    if (!raw) return;
+    var pc = +document.getElementById('art-scale').value || 100;
+    var nuovo = SvgImport.fitRect(ruotate(), State.data.paper, pc);
+    if (box) {
+      nuovo.x = box.x + box.w / 2 - nuovo.w / 2;
+      nuovo.y = box.y + box.h / 2 - nuovo.h / 2;
+    }
+    box = nuovo;
+    refit();
+  }
+
+  /* Ruotando cambia la forma dell'ingombro, e un rettangolo pensato per
+     l'altro verso schiaccerebbe il disegno senza che nessuno l'abbia chiesto:
+     la collocazione riparte da capo, centrata. */
+  function ruotaDalCampo() {
+    box = null;
+    refit();
   }
 
   function rotateAll(polys, deg) {
@@ -202,9 +280,8 @@ var Artwork = (function () {
   }
 
   function init() {
-    ['art-scale', 'art-rot'].forEach(function (id) {
-      document.getElementById(id).addEventListener('change', refit);
-    });
+    document.getElementById('art-scale').addEventListener('change', scalaDalCampo);
+    document.getElementById('art-rot').addEventListener('change', ruotaDalCampo);
     document.getElementById('btn-generate').addEventListener('click', prepare);
     document.getElementById('btn-download').addEventListener('click', download);
     document.getElementById('btn-clear-file').addEventListener('click', clear);
@@ -218,9 +295,12 @@ var Artwork = (function () {
       sample.hidden = true;
     }
 
-    State.on('paper', function () { if (raw) refit(); });
+    /* Foglio nuovo, collocazione nuova: il rettangolo di prima era misurato
+       su un foglio che non c'è più. */
+    State.on('paper', function () { if (raw) { box = null; refit(); } });
   }
 
   return { init: init, load: load, clear: clear, refit: refit,
-           prepare: prepare, invia: invia };
+           prepare: prepare, invia: invia,
+           riquadro: riquadro, collocaA: collocaA, percentuali: percentuali };
 })();

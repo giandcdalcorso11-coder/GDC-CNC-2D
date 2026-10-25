@@ -367,6 +367,8 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
   width: 100%;
 }
 
+
+
 .stage-caption {
   font-size: 12px;
   color: var(--text-dim);
@@ -926,3 +928,90 @@ code {
 .editor-vuoto { max-width: 620px; margin: 40px auto; padding: 0 20px; }
 .editor-vuoto h2 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--text); }
 .editor-vuoto p { margin: 10px 0; line-height: 1.55; }
+
+/* ------------------- righelli e lettura del mouse ------------------ */
+
+/* Il piano e i righelli sono sovrapposti: il piano misura in millimetri e si
+   ingrandisce con la rotella, i righelli misurano in pixel e restano sempre
+   della stessa taglia. Da qui il contenitore con posizione relativa. */
+.bed-plane {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  /* Lo spazio delle due bande. Sta qui e non sull'SVG perché il piano deve
+     restringersi davvero: altrimenti il disegno finirebbe sotto al righello
+     proprio dove si va a leggere la misura. I righelli invece sono in
+     posizione assoluta, quindi si stendono anche su questo bordo. */
+  padding: 0 0 17px 30px;
+  box-sizing: border-box;
+}
+
+.righelli {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* I righelli stanno davanti ma non prendono il mouse: sotto di loro il
+     piano si trascina come se non ci fossero. */
+  pointer-events: none;
+}
+
+.rig-banda { fill: rgba(13, 16, 21, .82); }
+.rig-tacca { stroke: #4a5667; stroke-width: 1; }
+.rig-bordo { stroke: var(--line-soft); stroke-width: 1; }
+.rig-num {
+  fill: var(--text-dim);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lo zero dei righelli è lo zero della macchina, e prende i colori dei due
+   assi che già si vedono sul piano: così si riconosce senza leggerlo. */
+.rig-zero-x { stroke: #d8664f; stroke-width: 1.4; }
+.rig-zero-y { stroke: #5fa85f; stroke-width: 1.4; }
+.rig-cur { stroke: var(--accent); stroke-width: 1.2; }
+
+.cursor-mm {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  background: rgba(13, 16, 21, .82);
+  border: 1px solid var(--line-soft);
+  color: var(--text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  pointer-events: none;
+}
+/* Fuori dal piano il numero resta leggibile ma smorzato: dice «questo è
+   l'ultimo punto letto», non «il mouse è qui». */
+.cursor-mm.fuori { color: var(--text-dim); }
+
+/* ------------------- riquadro di selezione ------------------- */
+
+/* Il riquadro prende il mouse su tutta la sua area, bordo e interno: senza
+   `pointer-events: all` un rettangolo senza riempimento si lascerebbe
+   attraversare, e il disegno si potrebbe afferrare solo per il filo. */
+.sel-box {
+  fill: none;
+  stroke: var(--accent);
+  stroke-dasharray: 4 3;
+  /* Lo spessore in pixel, non in millimetri: il riquadro è uno strumento,
+     non un disegno, e da vicino non deve diventare una fascia. */
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.2;
+  pointer-events: all;
+  cursor: move;
+}
+.sel-grip {
+  fill: var(--bg-raised);
+  stroke: var(--accent);
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.2;
+  pointer-events: all;
+}
+.sel-hint { color: var(--accent); }

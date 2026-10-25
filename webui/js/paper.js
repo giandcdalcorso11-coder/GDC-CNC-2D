@@ -97,6 +97,13 @@ var Paper = (function () {
     svg.setAttribute('viewBox', v.x0 + ' ' + v.y0 + ' ' + v.w + ' ' + v.h);
     var b = document.getElementById('btn-fit');
     if (b) b.hidden = !finestra;
+
+    /* Chi disegna in pixel sopra al piano — i righelli, le maniglie della
+       selezione — deve rifare i conti adesso: la stessa distanza sullo
+       schermo adesso vale un altro numero di millimetri. Lo si annuncia
+       invece di chiamarli uno per uno, così aggiungerne un terzo non vuol
+       dire tornare qui. */
+    State.emit('vista');
   }
 
   function adatta() {
@@ -454,9 +461,19 @@ var Paper = (function () {
       applicaVista();
     }, { passive: false });
 
-    /* Doppio clic sul fondo: si torna a vedere tutto. Sul foglio no — lì il
-       doppio clic è due clic, e il foglio si trascina. */
+    /* IL DOPPIO CLIC HA TRE SIGNIFICATI, e si scelgono in quest'ordine.
+       Sul disegno apre il riquadro di selezione: è il gesto con cui si entra
+       in modifica, e deve vincere su tutto perché il disegno sta sopra al
+       foglio e dentro al piano, quindi qualsiasi altra regola gliela
+       porterebbe via.
+       Fuori dal riquadro, mentre la selezione è aperta, la chiude: si esce
+       dalla modifica dove si è entrati.
+       Altrimenti, e solo sul fondo, si torna a vedere tutto: sul foglio no,
+       perché lì il doppio clic sono due clic e il foglio si trascina. */
     svg.addEventListener('dblclick', function (e) {
+      var p = toMm(e);
+      if (window.Selezione && Selezione.dentro(p)) { Selezione.apri(); return; }
+      if (window.Selezione && Selezione.attiva()) { Selezione.chiudi(); return; }
       if (e.target.closest('.sheet')) return;
       adatta();
     });
@@ -553,6 +570,10 @@ var Paper = (function () {
     document.getElementById('sheet-y').value = y;
     renderSheet();
     rebuildPath();
+    /* Il disegno sta sulla carta: se la carta si sposta, il riquadro che lo
+       circonda si sposta con lei. Il rettangolo in Artwork non cambia — è in
+       millimetri del foglio — ma dove cade sullo schermo sì. */
+    if (window.Selezione) Selezione.ridisegna();
   }
 
   /* Il pulsante dice due cose diverse a seconda di chi contiene chi, e sono

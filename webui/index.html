@@ -82,9 +82,10 @@
           <button class="btn btn-ghost btn-small" id="btn-clear-file">Rimuovi</button>
         </div>
         <div class="field-row">
-          <label>Scala (%) <input type="number" id="art-scale" value="100" min="1" max="400" step="1"></label>
+          <label>Scala (%) <input type="number" id="art-scale" value="100" min="1" max="400" step="0.1"></label>
           <label>Rotazione (°) <input type="number" id="art-rot" value="0" min="0" max="270" step="90"></label>
         </div>
+        <p class="hint" id="art-deform" hidden></p>
         <button class="btn btn-ghost full" id="btn-sample">Carica il disegno di esempio</button>
 
         <!-- Un pulsante solo con due mestieri: con un disegno caricato lo
@@ -159,6 +160,11 @@
     <section class="stage">
       <div class="stage-inner">
         <div class="bed-wrap">
+          <!-- Il piano e i suoi righelli stanno uno sopra l'altro: il piano
+               misura in millimetri e si ingrandisce, i righelli misurano in
+               pixel e restano della stessa taglia. Per questo sono due SVG
+               e non due gruppi dello stesso. -->
+          <div class="bed-plane" id="bed-plane">
           <!-- Il piano della macchina. L'SVG riempie tutto lo spazio e la
                viewBox lo scala: con preserveAspectRatio il piano ci sta
                sempre dentro, centrato, senza calcoli di dimensioni. -->
@@ -169,13 +175,23 @@
               <g id="layer-sheet"></g>
               <g id="layer-art"></g>
               <g id="layer-trace"></g>
+              <g id="layer-sel"></g>
               <g id="layer-pen">
                 <circle id="pen-dot" cx="0" cy="0" r="2.6" class="pen-dot"></circle>
               </g>
             </g>
           </svg>
+          <!-- I righelli non intercettano il mouse: sotto di loro si deve
+               poter trascinare il piano come se non ci fossero. -->
+          <svg class="righelli" id="righelli" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <g id="rig-fissi"></g>
+            <g id="rig-cursore"></g>
+          </svg>
+          <div class="cursor-mm fuori" id="cursor-mm">X —  Y —</div>
+          </div>
           <div class="stage-caption">
             <span id="stage-caption">—</span>
+            <span class="sel-hint" id="sel-hint" hidden>Modifica disegno: trascina per spostarlo, gli angoli per deformarlo, <b>Shift</b> per tenere le proporzioni, <b>Esc</b> per uscire.</span>
             <button class="btn btn-ghost btn-small" id="btn-fit" hidden
                     title="Torna a vedere tutto (o doppio clic sul piano)">Adatta</button>
             <button class="btn btn-ghost btn-small lucchetto" id="btn-lucchetto"></button>
@@ -636,7 +652,9 @@
 <script src="js/gcode.js"></script>
 <script src="js/sample.js"></script>
 <script src="js/paper.js"></script>
+<script src="js/righelli.js"></script>
 <script src="js/artwork.js"></script>
+<script src="js/selezione.js"></script>
 <script src="js/preview.js"></script>
 <script src="js/panel.js"></script>
 <script src="js/popup.js"></script>
