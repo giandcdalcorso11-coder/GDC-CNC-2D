@@ -28,7 +28,13 @@ var Editor = (function () {
      agisce Canc» vale per tutto il gruppo, «di chi si disegnano i nodi» vale
      per uno solo. Con un gruppo i nodi non si mostrano affatto: venti
      tracciati di quadratini sono un tappeto in cui il disegno sparisce. */
-  var sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null };
+  /* `seg` è il TRATTO scelto: {sub, k}, cioè il pezzo fra il nodo k e il
+     successivo del sotto-tracciato sub. Si arriva a lui cliccando una
+     seconda volta una forma già scelta — prima la forma, poi il suo pezzo,
+     come si entra in un gruppo — e Canc toglie quello e basta.
+     Prima non c'era: il clic prendeva la polilinea intera, e per levare uno
+     spigolo bisognava infilargli dei nodi e cancellarli uno a uno. */
+  var sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null, seg: null };
 
   var presa = null;        // trascinamento in corso
   var banda = null;        // il rettangolo di selezione, mentre lo si tira
@@ -72,6 +78,11 @@ var Editor = (function () {
      inverso sì. */
   var storia = [], rifare = [];
   var MAX_STORIA = 50;
+
+  /* Una pila per livello, non una sola: passando da un livello all'altro un
+     passo indietro deve riportare indietro QUEL disegno, non quello di
+     prima. `attivo` è l'id di quello che si sta modificando. */
+  var storie = {}, rifari = {}, attivo = null;
 
   /* --------------------------- il livello --------------------------- */
 
@@ -124,7 +135,7 @@ var Editor = (function () {
   }
 
   function nessunaForma() {
-    sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null };
+    sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null, seg: null };
     banda = null;
   }
 
@@ -208,6 +219,18 @@ var Editor = (function () {
     var u = perPixel();
     var out = reticolo(u);
 
+    /* GLI ALTRI LIVELLI SCELTI, dietro e smorzati. Non si possono toccare:
+       l'editor modifica un livello per volta, e un tratto che si vede ma non
+       si prende è meno fastidioso di uno che si prende per sbaglio e
+       finisce in un livello che non era quello. Servono a vedere il disegno
+       INTERO mentre se ne corregge un pezzo — che è esattamente quello che
+       serve togliendo le linee nascoste di un isometrico. */
+    if (window.Artwork && Artwork.sfondoPer && Artwork.sceltoId) {
+      Artwork.sfondoPer(Artwork.sceltoId()).forEach(function (q) {
+        out += '<polyline class="ed-altro" points="' + via(q) + '"></polyline>';
+      });
+    }
+
     /* I tratti, tutti dello stesso colore: qui non si guarda il risultato, si
        guarda la struttura, e colori diversi direbbero cose che non ci sono. */
     for (var i = 0; i < f.length; i++) {
@@ -247,6 +270,20 @@ var Editor = (function () {
                  '" width="' + lato + '" height="' + lato + '"></rect>';
         });
       });
+    }
+
+    /* Il tratto scelto, sopra al suo tracciato: si vede che cosa toglierebbe
+       Canc, che è l'unica domanda che conta quando si ripulisce un disegno. */
+    if (sel.seg && f[sel.forma] && f[sel.forma].tipo === 'tracciato') {
+      var sg = f[sel.forma].sub[sel.seg.sub];
+      if (sg) {
+        var nn = sg.nodi, a0 = nn[sel.seg.k], b0 = nn[(sel.seg.k + 1) % nn.length];
+        if (a0 && b0) {
+          var cc = cubicaDi(a0, b0), pz = [];
+          for (var zz = 0; zz <= 24; zz++) pz.push(valuta(cc, zz / 24));
+          out += '<polyline class="ed-seg" points="' + via(pz) + '"></polyline>';
+        }
+      }
     }
 
     /* Le guide per ultime, sopra a tutto: servono mentre si guarda il
@@ -511,11 +548,12 @@ var Editor = (function () {
   }
 
   var AIUTO = {
-    scegli: 'Clicca un tratto per sceglierlo, trascina nel vuoto per sceglierne ' +
-            'più d\'uno, Shift+clic per aggiungerne e toglierne. Trascina i nodi ' +
-            'e le maniglie. Doppio clic su un nodo: da spigolo a curva e ' +
-            'viceversa. Doppio clic su un tratto: aggiunge un nodo lì. Canc: ' +
-            'toglie il nodo, o tutte le forme scelte se non c\'è un nodo scelto.',
+    scegli: 'Clicca una forma per sceglierla; cliccala UNA SECONDA VOLTA e ' +
+            'scendi al singolo tratto, che si evidenzia. Trascina nel vuoto ' +
+            'per scegliere più forme, Shift+clic per aggiungerne e toglierne. ' +
+            'Trascina i nodi e le maniglie. Doppio clic su un nodo: da spigolo ' +
+            'a curva e viceversa; su un tratto: aggiunge un nodo lì. Canc toglie ' +
+            'quello che è scelto — il tratto, o il nodo, o le forme.',
     togli:  'Clicca un tratto: sparisce quello e basta. Un tracciato chiuso ' +
             'si apre li, uno aperto si spezza in due.',
     curva:  'Trascina un tratto per incurvarlo. Se era dritto diventa una curva ' +
@@ -654,7 +692,7 @@ var Editor = (function () {
         sel.forme.push(t.forma);
         sel.forma = t.forma;
       }
-      sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
+      sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.seg = null;
       disegna();
       return;
     }
@@ -663,9 +701,14 @@ var Editor = (function () {
        È il gesto con cui si sposta quello che si è appena scelto, e
        ricominciare da capo a ogni pressione renderebbe la selezione multipla
        una cosa che si può fare ma non serve a niente. */
-    if (sel.forme.indexOf(t.forma) < 0) sel.forme = [t.forma];
+    /* Era già scelta e sola? Allora il clic scende di un gradino, al TRATTO.
+       Si decide al rilascio, in su(): qui si registra soltanto da dove si
+       parte, perché premere su una forma scelta e tirarla è un gesto
+       normale e assomiglia all'inizio di questo. */
+    var giaSola = sel.forme.length === 1 && sel.forme[0] === t.forma;
+    if (sel.forme.indexOf(t.forma) < 0) { sel.forme = [t.forma]; sel.seg = null; }
     sel.forma = t.forma; sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
-    presa = { tipo: 'forma', da: p };
+    presa = { tipo: 'forma', da: p, giaSola: giaSola, p0: p };
     segna();
     svg.setPointerCapture(e.pointerId);
     disegna();
@@ -790,9 +833,12 @@ var Editor = (function () {
     });
   }
 
+  var presaGiaSola = false;
+
   function su(e) {
     var mosso = presa && presa.mosso;
     var tipo = presa ? presa.tipo : null;
+    presaGiaSola = !!(presa && presa.giaSola);
     if (presa) {
       presa = null;
       try { svg.releasePointerCapture(e.pointerId); } catch (x) { /* già rilasciato */ }
@@ -804,6 +850,20 @@ var Editor = (function () {
       doppio(e);
       return;
     }
+    /* Clic secco su una forma già scelta: si entra nel suo tratto. Il doppio
+       clic resta quello che era — aggiunge un nodo — perché è un gesto
+       diverso e lo decide il ramo qui sopra, che viene prima. */
+    if (tipo === 'forma' && !mosso && e.button === 0 && presaGiaSola) {
+      var pp = punto(e), uu = perPixel();
+      var tt = trattoSotto(pp, uu);
+      sel.seg = (tt && tt.forma === sel.forma) ? { sub: tt.sub, k: tt.k } : null;
+      presaGiaSola = false;
+      guide = [];
+      disegna();
+      return;
+    }
+    presaGiaSola = false;
+
     forseDoppio = false;
     guide = [];
 
@@ -1013,25 +1073,38 @@ var Editor = (function () {
   function togliTratto(p, u) {
     var t = trattoSotto(p, u);
     if (!t) { Log.add('err', 'Li sotto non c\'e nessun tratto.'); return; }
-
-    var f = forme(), forma = f[t.forma], sub = forma.sub[t.sub], n = sub.nodi;
     segna();
+    levaTratto(t.forma, t.sub, t.k);
+  }
+
+  /* Il taglio vero e proprio, senza scegliere il bersaglio: lo chiamano lo
+     strumento «Togli tratto», che il bersaglio lo prende col puntatore, e
+     Canc, che lo prende dalla selezione. La fotografia per l'annulla la
+     prende chi chiama, perché solo lui sa se è un gesto o parte di uno. */
+  function levaTratto(fi, si, k) {
+    var f = forme(), forma = f[fi];
+    if (!forma || forma.tipo !== 'tracciato') return;
+    var sub = forma.sub[si];
+    if (!sub) return;
+    var n = sub.nodi;
 
     if (sub.chiuso) {
-      sub.nodi = n.slice(t.k + 1).concat(n.slice(0, t.k + 1));
+      sub.nodi = n.slice(k + 1).concat(n.slice(0, k + 1));
       sub.chiuso = false;
+      sel.seg = null;
       cambiato();
       Log.add('msg', 'Tolto un lato: il tracciato chiuso si e aperto li.');
       return;
     }
 
-    var pezzi = [n.slice(0, t.k + 1), n.slice(t.k + 1)].filter(function (z) {
+    var pezzi = [n.slice(0, k + 1), n.slice(k + 1)].filter(function (z) {
       return z.length > 1;
     }).map(function (z) { return { nodi: z, chiuso: false }; });
 
-    forma.sub.splice.apply(forma.sub, [t.sub, 1].concat(pezzi));
+    forma.sub.splice.apply(forma.sub, [si, 1].concat(pezzi));
+    sel.seg = null;
     if (!forma.sub.length) {
-      f.splice(t.forma, 1);
+      f.splice(fi, 1);
       nessunaForma();
     }
     cambiato();
@@ -1120,6 +1193,14 @@ var Editor = (function () {
     if (!f || sel.forma < 0) return;
     segna();
 
+    /* UN TRATTO SCELTO SI TOGLIE DA SOLO. È il gradino più fine della
+       selezione, e Canc agisce sempre su quello che si vede scelto: se c'è
+       un tratto evidenziato, è lui. */
+    if (sel.seg) {
+      levaTratto(sel.forma, sel.seg.sub, sel.seg.k);
+      return;
+    }
+
     if (sel.nodo >= 0) {
       var sub = f[sel.forma].sub[sel.sub];
       if (sub.nodi.length <= 2) {
@@ -1181,6 +1262,76 @@ var Editor = (function () {
     return v > 0 ? v : 5;
   }
 
+  /* --------------------------- i livelli qui --------------------------- */
+
+  /* L'ELENCO DEI LIVELLI ANCHE NELL'EDITOR, perché è qui che si decide su
+     quale si sta lavorando e quali si vogliono vedere. Porta tre cose e
+     basta: il nome, il segno di quale si modifica, l'occhio. Riordinare,
+     cancellare e chiedere il cambio penna restano gesti della tab Disegno —
+     averli in due posti vorrebbe dire tenerli d'accordo.
+
+     L'OCCHIO E' LO STESSO della tab Disegno, non un secondo interruttore
+     «solo per l'editor»: un livello spento non si disegna e non si stampa,
+     ed è una cosa sola. L'unica eccezione è quello che si sta modificando,
+     che si vede comunque — nasconderlo mentre ci si lavora sopra non vuol
+     dire niente. */
+  function renderLivelli() {
+    var box = document.getElementById('ed-livelli');
+    if (!box || !window.Artwork) return;
+    var ls = Artwork.livelli();
+    if (ls.length < 2) { box.innerHTML = ''; return; }
+
+    var out = '';
+    for (var i = 0; i < ls.length; i++) {
+      var l = ls[i];
+      out += '<div class="ed-liv' + (l.principale ? ' attivo' : '') +
+             (l.visibile ? '' : ' spento') + '">' +
+             '<button type="button" class="ed-liv-nome" data-ed-liv="' + l.id +
+             '" title="' + esc(l.nome) + ' — ' +
+             (l.principale ? 'è questo che stai modificando'
+                           : 'clicca per modificare questo') + '">' +
+             esc(l.nome) + '</button>' +
+             '<button type="button" class="liv-ic" data-ed-occhio="' + l.id +
+             '" title="' + (l.visibile ? 'Nascondi' : 'Mostra') + '">' +
+             (l.visibile ? SEGNI_OCCHIO : SEGNI_CHIUSO) + '</button>' +
+             '</div>';
+    }
+    box.innerHTML = out;
+  }
+
+  /* Gli stessi due segni della tab Disegno. Ripetuti e non importati: sono
+     due stringhe, e un modulo che per disegnare un occhio deve chiamarne un
+     altro è un legame che costa più di quello che risparmia. */
+  var SEGNI_OCCHIO =
+    '<svg viewBox="0 0 18 14"><path d="M1 7c2.6-4 5.3-6 8-6s5.4 2 8 6c-2.6 4-5.3 6-8 6S3.6 11 1 7z"/>' +
+    '<circle cx="9" cy="7" r="2.4"/></svg>';
+  var SEGNI_CHIUSO =
+    '<svg viewBox="0 0 18 14"><path d="M1 7c2.6-4 5.3-6 8-6s5.4 2 8 6c-2.6 4-5.3 6-8 6S3.6 11 1 7z"/>' +
+    '<circle cx="9" cy="7" r="2.4"/><path class="sbarra" d="M2 13L16 1"/></svg>';
+
+  /* Passare a un altro livello: diventa il principale, e se non era fra gli
+     scelti ci entra. La storia dell'annulla è PER LIVELLO, perché un passo
+     indietro deve riportare indietro il disegno su cui si stava lavorando e
+     non un altro. */
+  function cambiaLivello(id) {
+    if (!window.Artwork || id === Artwork.sceltoId()) return;
+    var scelti = Artwork.livelli().filter(function (x) { return x.scelto; });
+    var dentro = scelti.some(function (x) { return x.id === id; });
+    if (!dentro) Artwork.seleziona(id, 'aggiungi');
+    Artwork.principale(id);
+    attivo = id;
+    storia = storie[id] || (storie[id] = []);
+    rifare = rifari[id] || (rifari[id] = []);
+    nessunaForma();
+    costruendo = null;
+    aggiornaStorici();
+    var l = Artwork.livelli().filter(function (x) { return x.principale; })[0];
+    if (titolo) titolo.textContent = l ? l.nome : '';
+    renderLivelli();
+    disegna();
+    scriviPiede();
+  }
+
   /* ------------------------------- avvio ------------------------------- */
 
   /* Si entra dal pulsante «Crea / Edit»: con un livello scelto si modifica
@@ -1192,9 +1343,12 @@ var Editor = (function () {
     guide = [];
     /* La storia è di QUESTO disegno: entrando su un altro livello, un annulla
        rimetterebbe le forme di un disegno dentro a un altro. */
-    storia = []; rifare = [];
+    attivo = Artwork.sceltoId();
+    storia = storie[attivo] || (storie[attivo] = []);
+    rifare = rifari[attivo] || (rifari[attivo] = []);
     aggiornaStorici();
-    var l = (Artwork.livelli() || []).filter(function (x) { return x.scelto; })[0];
+    renderLivelli();
+    var l = (Artwork.livelli() || []).filter(function (x) { return x.principale; })[0];
     if (titolo) titolo.textContent = l ? l.nome : '';
     adatta();
     scriviPiede();
@@ -1279,6 +1433,20 @@ var Editor = (function () {
       else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); elimina(); }
     });
 
+    var elenco = document.getElementById('ed-livelli');
+    if (elenco) {
+      elenco.addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.edLiv) cambiaLivello(b.dataset.edLiv);
+        else if (b.dataset.edOcchio) {
+          Artwork.commutaVisibile(b.dataset.edOcchio);
+          renderLivelli();
+          disegna();
+        }
+      });
+    }
+
     if (window.ResizeObserver && tela) new ResizeObserver(function () { disegna(); }).observe(tela);
 
     scegliStrumento('scegli');
@@ -1289,6 +1457,7 @@ var Editor = (function () {
            scegliStrumento: scegliStrumento,
            selezione: function () { return { forma: sel.forma, sub: sel.sub, nodo: sel.nodo }; },
            scelte: function () { return sel.forme.slice(); },
+           tratto: function () { return sel.seg ? { sub: sel.seg.sub, k: sel.seg.k } : null; },
            griglia: function (v) { if (v !== undefined) griglia = +v || 0; return griglia; },
            annulla: annulla, rifai: rifai,
            magneti: function (v) {

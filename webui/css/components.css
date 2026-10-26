@@ -1341,7 +1341,7 @@ code {
 /* I segni sono disegnati, non scritti: un occhio dice "visibile" a chi non lo
    sa gia', un pallino no. Tutti con lo stesso tratto, perche' sono una
    famiglia: filo di un pixel e mezzo, niente riempimento. */
-.liv-riga svg {
+.liv-riga svg, .ed-liv svg {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;
@@ -1356,7 +1356,8 @@ code {
 /* L'occhio chiuso: la sbarra lo attraversa, e per staccarsi dalla palpebra ha
    il suo contorno del colore del fondo. */
 .liv-ic .sbarra { stroke-width: 1.6; paint-order: stroke; }
-.liv-riga.spento .liv-ic .sbarra { stroke: var(--danger); }
+.liv-riga.spento .liv-ic .sbarra,
+.ed-liv.spento .liv-ic .sbarra { stroke: var(--danger); }
 
 /* La penna accesa vuol dire: qui la stampa si ferma. E' un'informazione che si
    legge in mezzo a un elenco, quindi ha il colore degli avvisi. */
@@ -1404,6 +1405,48 @@ code {
 .ed-campi input[type="text"] { width: 160px; }
 .ed-campi input[type="number"] { width: 56px; }
 
+/* La tela e l'elenco dei livelli, affiancati. L'elenco e' stretto: porta un
+   nome, un occhio e il segno di quale si sta modificando, e niente altro -
+   riordinare, cancellare e cambiare penna sono gesti della tab Disegno, e
+   averli in due posti vorrebbe dire tenerli d'accordo. */
+.ed-centro { display: flex; gap: 8px; flex: 1 1 auto; min-height: 0; }
+.ed-livelli {
+  flex: 0 0 auto;
+  width: 190px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ed-livelli:empty { display: none; }
+.ed-liv {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+}
+/* Quello che si sta modificando: il filo acceso, come nella tab Disegno. */
+.ed-liv.attivo { border-color: var(--accent); }
+.ed-liv-nome {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  border: 0;
+  color: var(--text);
+  text-align: left;
+  font-size: 11px;
+  padding: 2px 3px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-liv.spento .ed-liv-nome { color: var(--text-dim); text-decoration: line-through; }
+.ed-liv .liv-ic svg { width: 13px; height: 13px; }
+
 .ed-tela {
   position: relative;
   flex: 1 1 auto;
@@ -1439,6 +1482,30 @@ code {
   stroke-linejoin: round;
 }
 .ed-tratto.ed-scelto { stroke: var(--accent); }
+
+/* GLI ALTRI LIVELLI, dietro. Smorzati e non toccabili: l'editor modifica un
+   livello per volta, e un tratto che si vede ma non si prende e' meno
+   fastidioso di uno che si prende per sbaglio e finisce nel livello
+   sbagliato. */
+.ed-altro {
+  fill: none;
+  stroke: var(--text-mute);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: .45;
+  pointer-events: none;
+}
+
+/* IL TRATTO SCELTO: il gradino piu' fine della selezione. Si vede che cosa
+   toglierebbe Canc, che e' l'unica domanda che conta ripulendo un disegno. */
+.ed-seg {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 3.5;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  pointer-events: none;
+}
 /* Il tratto che si sta disegnando e' PIENO, non tratteggiato: le guide dei
    magneti sono tratteggiate, e due tratteggi sovrapposti sullo stesso punto
    non si distinguono piu'. */

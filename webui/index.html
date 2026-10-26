@@ -284,9 +284,16 @@
       <span class="ed-titolo" id="ed-titolo"></span>
     </div>
 
-    <div class="ed-tela" id="ed-tela">
-      <svg id="ed-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="ed-aiuto" id="ed-aiuto"></div>
+    <!-- I livelli anche qui. L'editor ne modifica UNO per volta - quello
+         acceso - e gli altri visibili li disegna dietro, smorzati e non
+         toccabili: serve a vedere il disegno intero mentre se ne corregge un
+         pezzo, che e' esattamente il caso di un isometrico da ripulire. -->
+    <div class="ed-centro">
+      <div class="ed-livelli" id="ed-livelli"></div>
+      <div class="ed-tela" id="ed-tela">
+        <svg id="ed-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="ed-aiuto" id="ed-aiuto"></div>
+      </div>
     </div>
 
     <div class="ed-piede" id="ed-piede"></div>

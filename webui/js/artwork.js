@@ -272,6 +272,15 @@ var Artwork = (function () {
     dopoSelezione();
   }
 
+  /* Cambiare il PRINCIPALE senza toccare il gruppo. Serve all'editor, che
+     mostra tutti i livelli scelti ma ne modifica uno per volta: passare da
+     uno all'altro non deve voler dire rifare la selezione. */
+  function principale(id) {
+    if (selezionati.indexOf(id) < 0) return;
+    scelto = id;
+    dopoSelezione();
+  }
+
   function deseleziona() {
     selezionati = [];
     scelto = null;
@@ -450,6 +459,46 @@ var Artwork = (function () {
   }
 
   function sceltoId() { return scelto; }
+
+  /* DAL FOGLIO ALLE COORDINATE DI UN LIVELLO.
+   *
+   * Ogni livello ha le sue coordinate, che sono quelle del file da cui
+   * viene: due livelli dello stesso disegno stanno nello stesso posto sul
+   * foglio ma con numeri diversi. L'editor lavora nelle coordinate di UNO —
+   * quello che si sta modificando — e per fargli vedere gli altri bisogna
+   * portarceli dentro.
+   *
+   * È l'inversa esatta di toRect, ribaltamento della y compreso. Per i
+   * livelli nati dallo stesso file i due adattamenti coincidono, quindi la
+   * trasformazione è una pura traslazione e le cose si sovrappongono al
+   * millesimo: è il motivo per cui l'adattamento comune, deciso il 26
+   * ottobre, non era solo un'eleganza. */
+  function daFoglio(polys, id) {
+    var l = id ? trova(id) : corrente();
+    if (!l || !l.box || !l.bb || !(l.box.w > 0) || !(l.box.h > 0)) return [];
+    var kx = l.box.w / l.bb.w, ky = l.box.h / l.bb.h;
+    if (!(kx > 0) || !(ky > 0)) return [];
+    return polys.map(function (q) {
+      return q.map(function (p) {
+        return { x: l.bb.x0 + (p.x - l.box.x) / kx,
+                 y: l.bb.y1 - (p.y - l.box.y) / ky };
+      });
+    });
+  }
+
+  /* I tratti degli ALTRI livelli VISIBILI, già portati nelle coordinate di
+     quello che si sta modificando: è quello che l'editor disegna dietro.
+     Tutti i visibili e non solo quelli scelti, perché nell'editor è l'occhio
+     a dire che cosa si vuole vedere — ed è lo stesso occhio della tab
+     Disegno, non un secondo interruttore da tenere d'accordo col primo. */
+  function sfondoPer(id) {
+    var out = [];
+    livelli.forEach(function (l) {
+      if (l.id === id || !l.visibile || !l.art.length) return;
+      daFoglio(l.art, id).forEach(function (q) { out.push(q); });
+    });
+    return out;
+  }
 
   /* ------------------- collocazione di un livello ------------------- */
 
@@ -1312,6 +1361,7 @@ var Artwork = (function () {
     scalaMm: scalaMm,
     livelli: elenco, seleziona: seleziona, sceltoId: sceltoId, quale: quale,
     deseleziona: deseleziona, scelti: scelti, segnaOrigine: segnaOrigine,
+    principale: principale, daFoglio: daFoglio, sfondoPer: sfondoPer,
     commutaOrigine: commutaOrigine,
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
     forme: formeScelte, rigenera: rigenera, nuovo: nuovo,
