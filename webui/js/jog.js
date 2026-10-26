@@ -20,7 +20,12 @@ var Jog = (function () {
 
     document.getElementById('btn-pause').addEventListener('click', function () {
       var st = Sender.stato();
-      if (st === 'pausa' || st === 'cambio') Sender.riprendi();
+      /* Riprendere da un CAMBIO PENNA non è riprendere da una pausa: in
+         mezzo c'è una penna diversa, che non sporge dai morsetti quanto
+         quella di prima, e le quote del G-code che resta sono quelle di
+         prima. Si passa dal popup che rimisura. */
+      if (st === 'cambio') Popup.cambioPenna();
+      else if (st === 'pausa') Sender.riprendi();
       else Sender.pausa();
     });
   }
