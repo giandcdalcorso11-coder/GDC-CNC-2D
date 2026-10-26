@@ -44,6 +44,22 @@ var Selezione = (function () {
     { id: 'l',  fx: 0,   fy: 0.5, cur: 'ew-resize' }
   ];
 
+  /* I quattro angoli, per le maniglie di rotazione. */
+  var ANGOLI = [
+    { id: 'bl', fx: 0, fy: 0 }, { id: 'br', fx: 1, fy: 0 },
+    { id: 'tr', fx: 1, fy: 1 }, { id: 'tl', fx: 0, fy: 1 }
+  ];
+
+  /* La rotazione vale per un livello solo: vedi ridisegna(). */
+  function unSolo() {
+    return !!(window.Artwork && Artwork.scelti && Artwork.scelti().length === 1);
+  }
+
+  /* Quanto si avvicina a un angolo tondo prima di scattarci sopra. Cinque
+     gradi: abbastanza da prendere l'orizzontale senza mirare, poco da poter
+     comunque fermarsi a dodici se è dodici che si vuole. */
+  var SCATTO = 5, PASSO = 15;
+
   function maniglia(id) {
     for (var i = 0; i < MANIGLIE.length; i++) {
       if (MANIGLIE[i].id === id) return MANIGLIE[i];
@@ -121,6 +137,28 @@ var Selezione = (function () {
              ' x="' + (cx - lato / 2) + '" y="' + (cy - lato / 2) +
              '" width="' + lato + '" height="' + lato + '"></rect>';
     }
+
+    /* LE MANIGLIE DI ROTAZIONE, appena fuori dai quattro angoli. Stanno
+       FUORI e sono tonde perché la presa e il gesto sono diversi da quelli
+       della scala: lì si tira un lato, qui si gira attorno al centro, e due
+       cose diverse nello stesso posto con la stessa forma si sbagliano.
+
+       Ci sono solo con UN livello scelto. Con più d'uno non è che sarebbe
+       difficile: sarebbe ambiguo, perché ogni livello ha la sua rotazione e
+       il suo rettangolo, e girarli tutti attorno a un centro comune vorrebbe
+       dire spostarli, non ruotarli — un'altra operazione, che nessuno ha
+       chiesto. */
+    if (unSolo()) {
+      var fuori = 13 * mmPerPixel(), raggio = 5 * mmPerPixel();
+      for (var k = 0; k < ANGOLI.length; k++) {
+        var g = ANGOLI[k];
+        var gx = r.x + g.fx * r.w + (g.fx === 1 ? fuori : -fuori);
+        var gy = r.y + g.fy * r.h + (g.fy === 1 ? fuori : -fuori);
+        out += '<circle class="sel-ruota" data-ruota="' + g.id +
+               '" cx="' + gx + '" cy="' + gy + '" r="' + raggio + '"></circle>';
+      }
+    }
+
     layer.innerHTML = out;
   }
 
@@ -159,6 +197,27 @@ var Selezione = (function () {
       if (!r) return;
       var m = toMm(e);
 
+      var ruo = e.target.closest('[data-ruota]');
+      if (ruo) {
+        /* Lo stato di partenza, fotografato una volta: ogni movimento ruota
+           a partire da QUI, non da dove si era arrivati all'evento prima.
+           Ruotare il già ruotato accumula. */
+        var base = Artwork.statoRot();
+        if (!base) return;
+        presa = {
+          tipo: 'ruota',
+          c: { x: r.x + r.w / 2, y: r.y + r.h / 2 },
+          base: base,
+          rot0: base.rot,
+          a0: 0
+        };
+        presa.a0 = Math.atan2(m.y - presa.c.y, m.x - presa.c.x);
+        layer.setPointerCapture(e.pointerId);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       var g = e.target.closest('[data-grip]');
       if (g) {
         var a = maniglia(g.dataset.grip);
@@ -192,6 +251,26 @@ var Selezione = (function () {
     layer.addEventListener('pointermove', function (e) {
       if (!presa) return;
       var m = toMm(e), o = State.data.sheetOrigin;
+
+      if (presa.tipo === 'ruota') {
+        var ang = Math.atan2(m.y - presa.c.y, m.x - presa.c.x);
+        /* Sul piano la y cresce verso l'alto, quindi un angolo matematico che
+           cresce è un giro antiorario sullo schermo; la rotazione del disegno
+           invece conta in senso orario. Da qui il segno. */
+        var d = (presa.a0 - ang) * 180 / Math.PI;
+        var gradi = presa.rot0 + d;
+        /* Shift libera lo scatto: di solito si vuole cadere su un angolo
+           tondo, ogni tanto no. */
+        if (!e.shiftKey) {
+          var vicino = Math.round(gradi / PASSO) * PASSO;
+          if (Math.abs(gradi - vicino) < SCATTO) gradi = vicino;
+        }
+        gradi = ((Math.round(gradi * 10) / 10) % 360 + 360) % 360;
+        Artwork.ruotaA(gradi, presa.base);
+        Artwork.refit();
+        if (Artwork.aggiornaCampi) Artwork.aggiornaCampi();
+        return;
+      }
 
       if (presa.tipo === 'sposta') {
         Artwork.collocaA({ x: dec(m.x - presa.dx - o.x), y: dec(m.y - presa.dy - o.y),

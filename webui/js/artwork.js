@@ -18,7 +18,15 @@ var Artwork = (function () {
   /* L'elenco, in ordine di disegno: il primo si stampa per primo, e l'ultimo
      resta sopra agli altri sul piano. */
   var livelli = [];
-  var scelto = null;     // id del livello selezionato, o null
+  /* CHI E' SCELTO. `selezionati` sono tutti, `scelto` è il PRINCIPALE fra
+     loro — quello che aprono l'editor e i campi laterali. Due cose diverse:
+     «su che cosa agisce il riquadro sul foglio» vale per il gruppo, «di chi
+     parla il campo Scala» vale per uno solo.
+     Selezione vuota vuol dire modalità crea: il pulsante dice «Crea» e un
+     doppio clic sul foglio sceglie da sé chi sta sotto. Prima non c'era un
+     modo di arrivarci — scelto un livello, scelto restava. */
+  var scelto = null;
+  var selezionati = [];
   var seq = 0;
 
   var prep = null;       // ultimo G-code composto
@@ -152,6 +160,7 @@ var Artwork = (function () {
 
     if (!nati.length) throw new Error('Nessun tracciato trovato nel file.');
     scelto = nati[0].id;
+    selezionati = [scelto];
 
     var sc = SvgImport.scartate();
     var c = Tracciato.conta(nati[0].forme);
@@ -204,7 +213,13 @@ var Artwork = (function () {
     if (i < 0) return;
     var nome = livelli[i].nome;
     livelli.splice(i, 1);
-    if (scelto === id) scelto = livelli.length ? livelli[Math.min(i, livelli.length - 1)].id : null;
+    var k = selezionati.indexOf(id);
+    if (k >= 0) selezionati.splice(k, 1);
+    if (scelto === id) {
+      scelto = selezionati.length ? selezionati[0]
+             : (livelli.length ? livelli[Math.min(i, livelli.length - 1)].id : null);
+      if (scelto && selezionati.indexOf(scelto) < 0) selezionati = [scelto];
+    }
     if (!livelli.length && window.Selezione) Selezione.chiudi();
     Log.add('msg', 'Tolto il livello «' + nome + '».');
     refit();
@@ -214,6 +229,7 @@ var Artwork = (function () {
     if (!livelli.length) return;
     livelli = [];
     scelto = null;
+    selezionati = [];
     if (window.Selezione) Selezione.chiudi();
     Log.add('msg', 'Tolti tutti i livelli: il piano resta con le sole aree.');
     refit();
@@ -237,14 +253,47 @@ var Artwork = (function () {
     refit();
   }
 
-  function seleziona(id) {
+  /* `modo`: 'solo' (il predefinito) sceglie quello e basta; 'aggiungi'
+     commuta, cioè aggiunge se non c'era e toglie se c'era. È la spunta della
+     riga: cliccandola due volte si torna a non aver scelto niente. */
+  function seleziona(id, modo) {
     if (!trova(id)) return;
-    scelto = id;
+    if (modo === 'aggiungi') {
+      var i = selezionati.indexOf(id);
+      if (i >= 0) selezionati.splice(i, 1);
+      else selezionati.push(id);
+    } else {
+      selezionati = [id];
+    }
+    /* Il principale è l'ultimo toccato, se è ancora dentro; se no il primo
+       rimasto. Senza selezione non c'è principale, e i campi si spengono. */
+    scelto = selezionati.indexOf(id) >= 0 ? id
+           : (selezionati.length ? selezionati[0] : null);
+    dopoSelezione();
+  }
+
+  function deseleziona() {
+    selezionati = [];
+    scelto = null;
+    dopoSelezione();
+  }
+
+  function dopoSelezione() {
+    /* Un riquadro aperto su un livello che non è più scelto non ha più un
+       soggetto: si chiude invece di restare appeso a quello di prima. */
+    if (!selezionati.length && window.Selezione && Selezione.attiva()) Selezione.chiudi();
     renderElenco();
     mostraCampi();
     if (window.Selezione) Selezione.ridisegna();
+    State.emit('path');
   }
 
+  function scelti() {
+    return selezionati.map(trova).filter(function (l) { return !!l; });
+  }
+
+  /* Il nome parla del livello, non della sua posizione nell'elenco: muovendo
+     un livello la selezione lo segue senza che nessuno la rifaccia. */
   function commutaVisibile(id) {
     var l = trova(id);
     if (!l) return;
@@ -383,6 +432,7 @@ var Artwork = (function () {
     };
     livelli.push(l);
     scelto = l.id;
+    selezionati = [l.id];
     refit();
     return l.id;
   }
@@ -392,7 +442,10 @@ var Artwork = (function () {
       return { id: l.id, nome: l.nome, visibile: l.visibile,
                cambioPenna: l.cambioPenna, attivo: l.cambioPenna && i > 0,
                primo: i === 0,
-               tratti: l.art.length, scelto: l.id === scelto };
+               tratti: l.art.length,
+               scelto: selezionati.indexOf(l.id) >= 0,
+               principale: l.id === scelto,
+               modificato: !!l.origine, mostraOrigine: !!l.mostraOrigine };
     });
   }
 
@@ -408,13 +461,35 @@ var Artwork = (function () {
      intero, con ritaglio è la parte rimasta. */
   function vista(l) { return l ? (l.ritaglio || l.box) : null; }
 
-  function riquadro() { return vista(corrente()); }
+  /* IL RIQUADRO E' L'UNIONE DI QUELLI SCELTI.
+     Con un livello solo è il suo rettangolo, come sempre. Con più d'uno è il
+     rettangolo che li contiene tutti, e le modifiche si distribuiscono in
+     proporzione: due disegni grandi uno il doppio dell'altro restano uno il
+     doppio dell'altro, perché quello che si scala è il contenitore e ognuno
+     ci sta dentro nella stessa frazione di prima. */
+  function unione(fn) {
+    var ls = scelti(), u = null;
+    for (var i = 0; i < ls.length; i++) {
+      var b = fn(ls[i]);
+      if (!b) continue;
+      if (!u) u = { x: b.x, y: b.y, x1: b.x + b.w, y1: b.y + b.h };
+      else {
+        u.x = Math.min(u.x, b.x); u.y = Math.min(u.y, b.y);
+        u.x1 = Math.max(u.x1, b.x + b.w); u.y1 = Math.max(u.y1, b.y + b.h);
+      }
+    }
+    return u ? { x: u.x, y: u.y, w: u.x1 - u.x, h: u.y1 - u.y } : null;
+  }
 
-  /* Il disegno intero di un livello, anche la parte nascosta: serve al
+  function riquadro() { return unione(vista); }
+
+  /* Il disegno intero dei livelli scelti, anche la parte nascosta: serve al
      riquadro di selezione per mostrare in chiaro quanto si tiene fuori. */
-  function riquadroPieno() { var l = corrente(); return l ? l.box : null; }
+  function riquadroPieno() { return unione(function (l) { return l.box; }); }
 
-  function ritagliato() { var l = corrente(); return !!(l && l.ritaglio); }
+  function ritagliato() {
+    return scelti().some(function (l) { return !!l.ritaglio; });
+  }
 
   function dentroA(r, c) {
     var x0 = Math.max(r.x, c.x), y0 = Math.max(r.y, c.y);
@@ -422,37 +497,46 @@ var Artwork = (function () {
     return { x: x0, y: y0, w: Math.max(0.5, x1 - x0), h: Math.max(0.5, y1 - y0) };
   }
 
-  /* Sposta o ridimensiona QUELLO CHE SI VEDE del livello scelto. Il disegno
+  /* Sposta o ridimensiona QUELLO CHE SI VEDE dei livelli scelti. Il disegno
      intero subisce la stessa trasformazione, se no il ritaglio scivolerebbe
      sopra un disegno fermo e si vedrebbe un'altra parte invece della stessa
      più grande. */
   function collocaA(r) {
-    var l = corrente();
-    if (!l || !l.box) return;
-    var nuovo = { x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) };
+    var ls = scelti().filter(function (l) { return !!l.box; });
+    if (!ls.length) return;
+    var u0 = unione(vista);
+    if (!u0 || !(u0.w > 0) || !(u0.h > 0)) return;
 
-    if (!l.ritaglio) { l.box = nuovo; refit(); return; }
+    var fin = { x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) };
+    var kx = fin.w / u0.w, ky = fin.h / u0.h;
 
-    var kx = nuovo.w / l.ritaglio.w, ky = nuovo.h / l.ritaglio.h;
-    l.box = {
-      x: nuovo.x + (l.box.x - l.ritaglio.x) * kx,
-      y: nuovo.y + (l.box.y - l.ritaglio.y) * ky,
-      w: l.box.w * kx,
-      h: l.box.h * ky
-    };
-    l.ritaglio = nuovo;
+    ls.forEach(function (l) {
+      var v = vista(l);
+      var nv = { x: fin.x + (v.x - u0.x) * kx, y: fin.y + (v.y - u0.y) * ky,
+                 w: v.w * kx, h: v.h * ky };
+      if (!l.ritaglio) { l.box = nv; return; }
+      l.box = { x: fin.x + (l.box.x - u0.x) * kx,
+                y: fin.y + (l.box.y - u0.y) * ky,
+                w: l.box.w * kx, h: l.box.h * ky };
+      l.ritaglio = nv;
+    });
     refit();
   }
 
   /* IL TAGLIO: cambia solo la finestra, non la taglia del disegno. Per questo
-     si può allargare fino a riavere tutto, e non oltre. */
+     si può allargare fino a riavere tutto, e non oltre. Con più livelli
+     scelti ognuno si taglia sulla propria parte della finestra comune: a chi
+     ci sta tutto dentro non succede niente. */
   function ritagliaA(r) {
-    var l = corrente();
-    if (!l || !l.box) return;
-    var nuovo = dentroA({ x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) }, l.box);
-    var tutto = Math.abs(nuovo.x - l.box.x) < 0.05 && Math.abs(nuovo.y - l.box.y) < 0.05 &&
-                Math.abs(nuovo.w - l.box.w) < 0.05 && Math.abs(nuovo.h - l.box.h) < 0.05;
-    l.ritaglio = tutto ? null : nuovo;
+    var ls = scelti().filter(function (l) { return !!l.box; });
+    if (!ls.length) return;
+    var fin = { x: r.x, y: r.y, w: Math.max(2, r.w), h: Math.max(2, r.h) };
+    ls.forEach(function (l) {
+      var nuovo = dentroA(fin, l.box);
+      var tutto = Math.abs(nuovo.x - l.box.x) < 0.05 && Math.abs(nuovo.y - l.box.y) < 0.05 &&
+                  Math.abs(nuovo.w - l.box.w) < 0.05 && Math.abs(nuovo.h - l.box.h) < 0.05;
+      l.ritaglio = tutto ? null : nuovo;
+    });
     refit();
   }
 
@@ -492,16 +576,102 @@ var Artwork = (function () {
     refit();
   }
 
-  /* Ruotando cambia la forma dell'ingombro, e un rettangolo pensato per
-     l'altro verso schiaccerebbe il disegno senza che nessuno l'abbia chiesto:
-     la collocazione di quel livello riparte da capo, centrata. */
   function ruotaDalCampo() {
     var l = corrente();
     if (!l) return;
-    l.rot = +document.getElementById('art-rot').value || 0;
-    l.box = null;
-    l.ritaglio = null;
+    ruotaA(+document.getElementById('art-rot').value || 0);
     refit();
+  }
+
+  /* RUOTARE SENZA BUTTARE VIA QUELLO CHE SI E' FATTO.
+   *
+   * Prima la rotazione azzerava rettangolo e ritaglio, e il disegno ripartiva
+   * centrato e grande come all'apertura: bastava girare di novanta gradi per
+   * perdere un posizionamento costruito a mano. Era scritto come una scelta —
+   * «un rettangolo pensato per l'altro verso schiaccerebbe il disegno» — ma
+   * la conseguenza vera era: ruota e ricomincia.
+   *
+   * Adesso restano fermi il CENTRO e la SCALA, e cambia solo la forma del
+   * rettangolo, che deve contenere un ingombro girato. A un quarto di giro i
+   * due fattori di scala si scambiano, così un disegno schiacciato in
+   * larghezza, girato, resta schiacciato nello stesso verso DEL DISEGNO.
+   *
+   * `base` è lo stato da cui partire, e serve al trascinamento della maniglia
+   * di rotazione: a ogni movimento deve ripartire da com'era PRIMA del gesto,
+   * perché ruotare quello che si è appena ruotato accumula e dopo venti
+   * eventi il disegno è di un'altra misura. È la stessa regola del rettangolo
+   * sul foglio e dell'incurvare un tratto nell'editor.
+   */
+  function ruotaA(gradi, base, id) {
+    var l = id ? trova(id) : corrente();
+    if (!l) return;
+    base = base || { rot: l.rot, box: l.box, bb: l.bb, ritaglio: l.ritaglio };
+    l.rot = gradi;
+
+    if (!base.box || !base.bb || !(base.bb.w > 0) || !(base.bb.h > 0)) {
+      l.box = null; l.ritaglio = null;
+      return;
+    }
+
+    var kx = base.box.w / base.bb.w, ky = base.box.h / base.bb.h;
+    var giro = ((gradi - base.rot) % 360 + 360) % 360;
+
+    /* A un quarto o a tre quarti di giro gli assi si scambiano. Agli angoli
+       liberi non si scambia niente, perché «largo» e «alto» del disegno non
+       stanno più su nessuno dei due assi: lì si usa un fattore solo, la media
+       geometrica, che è quella che conserva l'area. */
+    var sx, sy;
+    if (Math.abs(giro % 90) > 0.001) {
+      sx = sy = Math.sqrt(kx * ky);
+    } else if (Math.round(giro / 90) % 2 === 1) {
+      sx = ky; sy = kx;
+    } else {
+      sx = kx; sy = ky;
+    }
+
+    var cx = base.box.x + base.box.w / 2, cy = base.box.y + base.box.h / 2;
+    var bb = SvgImport.bbox(ruotate(l));
+    var w = Math.max(2, bb.w * sx), h = Math.max(2, bb.h * sy);
+
+    /* Il ritaglio è una finestra sul disegno e gira con lui: si dice in
+       frazioni del rettangolo, si girano quelle, e si torna ai millimetri. */
+    var f = base.ritaglio ? {
+      x: (base.ritaglio.x - base.box.x) / base.box.w,
+      y: (base.ritaglio.y - base.box.y) / base.box.h,
+      w: base.ritaglio.w / base.box.w,
+      h: base.ritaglio.h / base.box.h
+    } : null;
+
+    l.box = { x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+    if (!f) { l.ritaglio = null; return; }
+
+    var q = ((Math.round(giro / 90) % 4) + 4) % 4;
+    for (var i = 0; i < q; i++) f = quartoDiGiro(f);
+    l.ritaglio = {
+      x: l.box.x + f.x * l.box.w, y: l.box.y + f.y * l.box.h,
+      w: f.w * l.box.w, h: f.h * l.box.h
+    };
+  }
+
+  /* La fotografia dello stato da cui una rotazione deve ripartire. */
+  function statoRot() {
+    var l = corrente();
+    if (!l || !l.box || !l.bb) return null;
+    return {
+      rot: l.rot,
+      box: { x: l.box.x, y: l.box.y, w: l.box.w, h: l.box.h },
+      bb: { x0: l.bb.x0, y0: l.bb.y0, x1: l.bb.x1, y1: l.bb.y1, w: l.bb.w, h: l.bb.h },
+      ritaglio: l.ritaglio ? { x: l.ritaglio.x, y: l.ritaglio.y,
+                               w: l.ritaglio.w, h: l.ritaglio.h } : null
+    };
+  }
+
+  /* Un quarto di giro di un rettangolo dentro al quadrato unitario, nel verso
+     in cui gira il disegno: aumentando l'angolo, quello che stava in alto a
+     sinistra finisce in alto a destra. In frazioni con la y che cresce verso
+     l'alto — come sul foglio — il punto (u,v) va in (v, 1−u). */
+  function quartoDiGiro(f) {
+    return { x: f.y, y: 1 - (f.x + f.w), w: f.h, h: f.w };
   }
 
   function rotateAll(polys, deg) {
@@ -575,7 +745,34 @@ var Artwork = (function () {
 
   /* ------------------------- i campi e l'elenco ------------------------- */
 
-  var ICONA_OCCHIO = '&#9679;', ICONA_CHIUSO = '&#9675;';
+  /* I SEGNI DELLA RIGA, disegnati e non scritti.
+   *
+   * Prima erano caratteri: un pallino pieno e uno vuoto per la visibilità,
+   * due triangolini per l'ordine, una matita per il cambio penna. Un pallino
+   * non dice «visibile»: lo dice solo a chi lo sa già. Un occhio sì, e un
+   * occhio sbarrato dice il contrario senza che nessuno glielo spieghi.
+   *
+   * Le tre lineette sono la presa: si prendono e si trascina la riga, che è
+   * il gesto con cui si riordina un elenco dappertutto. Due frecce facevano
+   * la stessa cosa in due click e senza far vedere dove si andava a finire.
+   */
+  var SEGNI = {
+    presa: '<svg viewBox="0 0 16 16"><path d="M3 5h10M3 8h10M3 11h10"/></svg>',
+    occhio: '<svg viewBox="0 0 18 14">' +
+            '<path d="M1 7c2.6-4 5.3-6 8-6s5.4 2 8 6c-2.6 4-5.3 6-8 6S3.6 11 1 7z"/>' +
+            '<circle cx="9" cy="7" r="2.4"/></svg>',
+    chiuso: '<svg viewBox="0 0 18 14">' +
+            '<path d="M1 7c2.6-4 5.3-6 8-6s5.4 2 8 6c-2.6 4-5.3 6-8 6S3.6 11 1 7z"/>' +
+            '<circle cx="9" cy="7" r="2.4"/>' +
+            '<path class="sbarra" d="M2 13L16 1"/></svg>',
+    penna: '<svg viewBox="0 0 16 16">' +
+           '<path d="M11.2 1.8l3 3-8 8-4 1 1-4z"/><path d="M10 3l3 3"/></svg>',
+    quadro: '<svg viewBox="0 0 14 14"><rect x="1.5" y="1.5" width="11" height="11" rx="2"/></svg>',
+    spunta: '<svg viewBox="0 0 14 14"><rect x="1.5" y="1.5" width="11" height="11" rx="2"/>' +
+            '<path class="segno" d="M4 7.3l2 2 4-4.6"/></svg>',
+    cestino: '<svg viewBox="0 0 14 14"><path d="M2.5 3.5h9M5.5 3.5V2h3v1.5' +
+             'M3.5 3.5l.7 9h5.6l.7-9M6 6v4M8 6v4"/></svg>'
+  };
 
   function renderElenco() {
     var box = document.getElementById('livelli');
@@ -588,28 +785,153 @@ var Artwork = (function () {
     var out = '';
     for (var i = 0; i < livelli.length; i++) {
       var l = livelli[i];
-      out += '<div class="liv-riga' + (l.id === scelto ? ' scelto' : '') +
+      var preso = selezionati.indexOf(l.id) >= 0;
+      out += '<div class="liv-riga' + (preso ? ' scelto' : '') +
+             (l.id === scelto && selezionati.length > 1 ? ' primario' : '') +
              (l.visibile ? '' : ' spento') + '" data-liv="' + l.id + '">' +
+
+             '<span class="liv-presa" data-presa="' + l.id +
+             '" title="Trascina per cambiare l\'ordine di stampa">' +
+             SEGNI.presa + '</span>' +
+
              '<span class="liv-n">' + (i + 1) + '</span>' +
-             '<button type="button" class="liv-nome" data-sel="' + l.id +
-             '" title="' + esc(l.nome) + ' — ' + l.art.length + ' tratti">' +
+
+             '<button type="button" class="liv-ic liv-chk" data-sel="' + l.id +
+             '" title="' + (preso ? 'Toglilo dalla selezione' : 'Scegli questo livello') +
+             '">' + (preso ? SEGNI.spunta : SEGNI.quadro) + '</button>' +
+
+             '<button type="button" class="liv-nome" data-nome="' + l.id +
+             '" title="' + esc(l.nome) + ' — ' + l.art.length +
+             ' tratti. Doppio clic: riquadro di selezione sul foglio">' +
              esc(l.nome) + '</button>' +
-             (l.cambioPenna && i > 0
-                ? '<span class="liv-penna" title="cambio penna prima di questo ' +
-                  'livello">&#9998;</span>' : '') +
-             '<button type="button" class="liv-ic" data-su="' + l.id +
-             '" title="prima"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>' +
-             '<button type="button" class="liv-ic" data-giu="' + l.id +
-             '" title="dopo"' + (i === livelli.length - 1 ? ' disabled' : '') +
-             '>&#9660;</button>' +
+
+             (l.origine
+                ? '<button type="button" class="liv-edit' +
+                  (l.mostraOrigine ? '' : ' attivo') + '" data-edit="' + l.id +
+                  '" title="' + (l.mostraOrigine
+                     ? 'Modifiche nascoste: clicca per rimetterle'
+                     : 'Modificato nell\'editor: clicca per nascondere le modifiche') +
+                  '">edit</button>'
+                : '') +
+
+             '<button type="button" class="liv-ic liv-penna' +
+             (l.cambioPenna && i > 0 ? ' attivo' : '') + '" data-penna="' + l.id +
+             '"' + (i === 0 ? ' disabled' : '') +
+             ' title="' + (i === 0
+                ? 'Il primo livello non ha un prima in cui fermarsi'
+                : (l.cambioPenna ? 'La stampa si ferma prima di questo livello: ' +
+                                   'clicca per non fermarla'
+                                 : 'Clicca per fermare la stampa prima di questo ' +
+                                   'livello e cambiare penna')) + '">' +
+             SEGNI.penna + '</button>' +
+
              '<button type="button" class="liv-ic" data-occhio="' + l.id +
-             '" title="mostra o nascondi">' +
-             (l.visibile ? ICONA_OCCHIO : ICONA_CHIUSO) + '</button>' +
+             '" title="' + (l.visibile ? 'Nascondi' : 'Mostra') + '">' +
+             (l.visibile ? SEGNI.occhio : SEGNI.chiuso) + '</button>' +
+
              '<button type="button" class="liv-ic liv-del" data-del="' + l.id +
-             '" title="togli">&times;</button>' +
+             '" title="togli">' + SEGNI.cestino + '</button>' +
              '</div>';
     }
     box.innerHTML = out;
+  }
+
+  /* RIORDINARE TRASCINANDO.
+   *
+   * Si prende la riga dalle tre lineette e la si porta su o giù. Mentre si
+   * trascina l'ordine CAMBIA DAVVERO: le altre righe si spostano sotto il
+   * dito, e quando si lascia si lascia dove si vede. Un'anteprima finta —
+   * una riga fantasma, una linea fra due righe — direbbe la stessa cosa in
+   * modo meno diretto, e poi bisognerebbe tenerla d'accordo con la realtà.
+   *
+   * Il costo da evitare è il ricalcolo: muovere un livello rimappa tutti i
+   * disegni dentro ai loro rettangoli, e farlo a ogni pixel del mouse
+   * impasterebbe la pagina. Durante il trascinamento si muove solo l'elenco;
+   * i disegni si rifanno una volta, al rilascio. Tanto l'ordine cambia solo
+   * QUANDO si stampa, non dove sta il disegno sul foglio.
+   */
+  function riordinabile(box) {
+    var preso = null;
+
+    box.addEventListener('pointerdown', function (e) {
+      var man = e.target.closest('[data-presa]');
+      if (!man || e.button !== 0) return;
+      preso = { id: man.dataset.presa, mosso: false };
+      box.setPointerCapture(e.pointerId);
+      box.classList.add('riordino');
+      e.preventDefault();
+    });
+
+    box.addEventListener('pointermove', function (e) {
+      if (!preso) return;
+      var righe = box.querySelectorAll('[data-liv]');
+      if (!righe.length) return;
+
+      /* Dove cadrebbe adesso: la riga il cui centro sta sotto al puntatore.
+         Si guarda il centro e non il bordo perché così lo scambio avviene a
+         metà strada, cioè quando a occhio il sorpasso è avvenuto. */
+      var dove = righe.length - 1;
+      for (var i = 0; i < righe.length; i++) {
+        var r = righe[i].getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { dove = i; break; }
+      }
+
+      var ora = indice(preso.id);
+      if (ora < 0 || dove === ora) return;
+      var l = livelli.splice(ora, 1)[0];
+      livelli.splice(dove, 0, l);
+      preso.mosso = true;
+      renderElenco();
+      box.classList.add('riordino');
+    });
+
+    ['pointerup', 'pointercancel'].forEach(function (ev) {
+      box.addEventListener(ev, function (e) {
+        if (!preso) return;
+        var mosso = preso.mosso;
+        preso = null;
+        box.classList.remove('riordino');
+        try { box.releasePointerCapture(e.pointerId); } catch (x) { /* già rilasciato */ }
+        /* Il ricalcolo UNA VOLTA, alla fine: durante il trascinamento
+           l'elenco è già quello giusto, i disegni no, e nessuno li guardava. */
+        if (mosso) refit();
+      });
+    });
+  }
+
+  /* L'ETICHETTA «EDIT»: mostra l'originale al posto delle modifiche, e
+     viceversa. Non è un annulla — le modifiche non si perdono, si mettono da
+     parte — ed è la domanda che uno si fa guardando un disegno ritoccato:
+     «com'era prima?». Due clic e si è visto. */
+  function commutaOrigine(id) {
+    var l = trova(id);
+    if (!l || !l.origine) return;
+    var ora = { forme: l.forme, box: l.box, ritaglio: l.ritaglio };
+    l.forme = l.origine.forme;
+    l.box = l.origine.box;
+    l.ritaglio = l.origine.ritaglio;
+    l.origine = ora;
+    l.mostraOrigine = !l.mostraOrigine;
+    l.raw = Tracciato.appiattisciTutte(l.forme, l.tol);
+    refit();
+    renderElenco();
+  }
+
+  /* La fotografia di prima delle modifiche. La prende l'editor appena tocca
+     qualcosa, una volta sola: la seconda modifica non deve spostare il
+     «prima», se no l'etichetta mostrerebbe il penultimo stato invece di
+     quello con cui il file è arrivato. */
+  function segnaOrigine(id) {
+    var l = id ? trova(id) : corrente();
+    if (!l || l.origine) return;
+    l.origine = {
+      forme: JSON.parse(JSON.stringify(l.forme)),
+      box: l.box ? { x: l.box.x, y: l.box.y, w: l.box.w, h: l.box.h } : null,
+      ritaglio: l.ritaglio ? { x: l.ritaglio.x, y: l.ritaglio.y,
+                               w: l.ritaglio.w, h: l.ritaglio.h } : null
+    };
+    l.mostraOrigine = false;
+    renderElenco();
   }
 
   /* I campi in fondo alla colonna parlano del livello SCELTO, non di tutti:
@@ -619,23 +941,24 @@ var Artwork = (function () {
     var l = corrente();
     var scala = document.getElementById('art-scale');
     var rot = document.getElementById('art-rot');
-    var cam = document.getElementById('art-cambio');
     var nota = document.getElementById('art-deform');
     var riga = document.getElementById('art-campi');
+    var gruppo = document.getElementById('art-gruppo');
 
     if (riga) riga.hidden = !l;
-    if (!l) { if (nota) nota.hidden = true; return; }
+    if (!l) { if (nota) nota.hidden = true; if (gruppo) gruppo.hidden = true; return; }
 
     rot.value = l.rot;
-    if (cam) {
-      cam.checked = l.cambioPenna;
-      cam.disabled = indice(l.id) === 0;
-      var et = document.getElementById('art-cambio-et');
-      if (et) {
-        et.hidden = false;
-        et.title = cam.disabled
-          ? 'Il primo livello non ha un prima in cui fermarsi'
-          : 'La stampa si ferma prima di questo livello per far cambiare la penna';
+
+    /* CON PIU' LIVELLI SCELTI i campi non parlano di tutti: scala e rotazione
+       sono proprietà di un livello solo, e applicarle al gruppo vorrebbe dire
+       ruotare ogni disegno attorno a un centro che non è il suo. Il riquadro
+       sul foglio invece vale per tutti. Detto, non lasciato indovinare. */
+    if (gruppo) {
+      gruppo.hidden = selezionati.length < 2;
+      if (!gruppo.hidden) {
+        gruppo.innerHTML = selezionati.length + ' livelli scelti: questi due campi ' +
+          'valgono per <b>' + esc(l.nome) + '</b>, il riquadro sul foglio per tutti.';
       }
     }
 
@@ -921,13 +1244,6 @@ var Artwork = (function () {
     document.getElementById('btn-download').addEventListener('click', download);
     document.getElementById('btn-clear-file').addEventListener('click', clear);
 
-    var cam = document.getElementById('art-cambio');
-    if (cam) {
-      cam.addEventListener('change', function () {
-        if (scelto) commutaCambioPenna(scelto);
-      });
-    }
-
     /* Un ascoltatore sulla lista invece di uno per pulsante: i livelli
        nascono e muoiono mentre la pagina è aperta, e agganciare i listener ai
        nodi vuol dire ricordarsi di riagganciarli ogni volta — cioè
@@ -938,12 +1254,29 @@ var Artwork = (function () {
         var b = e.target.closest('button');
         if (!b) return;
         var d = b.dataset;
-        if (d.sel) seleziona(d.sel);
-        else if (d.su) muovi(d.su, -1);
-        else if (d.giu) muovi(d.giu, 1);
+        /* La spunta COMMUTA, il nome sceglie quello e basta: due gesti per
+           due intenzioni diverse, e la spunta è l'unico modo di arrivare a
+           non aver scelto niente. */
+        if (d.sel) seleziona(d.sel, 'aggiungi');
+        else if (d.nome) seleziona(d.nome);
+        else if (d.penna) commutaCambioPenna(d.penna);
+        else if (d.edit) commutaOrigine(d.edit);
         else if (d.occhio) commutaVisibile(d.occhio);
         else if (d.del) rimuovi(d.del);
       });
+
+      /* Doppio clic sulla riga: il riquadro di selezione si apre sul foglio
+         per quel livello. È la strada corta per lo stesso gesto che si fa
+         col doppio clic sul disegno, e serve quando i disegni sono
+         sovrapposti e mirarli col mouse è un terno al lotto. */
+      box.addEventListener('dblclick', function (e) {
+        var r = e.target.closest('[data-liv]');
+        if (!r || e.target.closest('[data-del]') || e.target.closest('[data-occhio]')) return;
+        seleziona(r.dataset.liv);
+        if (window.Selezione) Selezione.apri();
+      });
+
+      riordinabile(box);
     }
 
     var sample = document.getElementById('btn-sample');
@@ -973,10 +1306,13 @@ var Artwork = (function () {
 
     riquadro: riquadro, riquadroPieno: riquadroPieno,
     collocaA: collocaA, ritagliaA: ritagliaA, ritagliato: ritagliato,
+    ruotaA: ruotaA, statoRot: statoRot, aggiornaCampi: mostraCampi,
     percentuali: percentuali,
 
     scalaMm: scalaMm,
     livelli: elenco, seleziona: seleziona, sceltoId: sceltoId, quale: quale,
+    deseleziona: deseleziona, scelti: scelti, segnaOrigine: segnaOrigine,
+    commutaOrigine: commutaOrigine,
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
     forme: formeScelte, rigenera: rigenera, nuovo: nuovo,
     istantanea: istantanea, ripristina: ripristina,

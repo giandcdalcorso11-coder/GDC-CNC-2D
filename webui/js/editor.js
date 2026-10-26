@@ -88,6 +88,11 @@ var Editor = (function () {
   /* Si fotografa PRIMA di toccare, e una volta sola per gesto: un
      trascinamento è un passo solo, non cinquanta. */
   function segna() {
+    /* La prima modifica di una sessione mette da parte com'era il livello
+       prima: è quella fotografia che l'etichetta «edit» sulla riga rimette
+       in mostra. Artwork la prende una volta sola, quindi chiamarla a ogni
+       gesto non costa e non sposta il «prima». */
+    if (Artwork.segnaOrigine) Artwork.segnaOrigine();
     var s = Artwork.istantanea();
     if (!s) return;
     storia.push(s);

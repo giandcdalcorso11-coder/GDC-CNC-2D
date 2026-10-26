@@ -553,11 +553,24 @@ var Paper = (function () {
       var p = { x: m.x - o.x, y: m.y - o.y };     // in millimetri del FOGLIO
 
       if (window.Artwork && Artwork.quale) {
-        /* Con più livelli sovrapposti il punto non basta a dire quale si
-           vuole. Si prende quello disegnato più in alto; e se è già lui il
-           scelto, si passa a quello sotto — così clic ripetuti nello stesso
-           posto girano fra i sovrapposti invece di ripescare sempre lo
-           stesso. L'elenco a sinistra resta la via sicura. */
+        /* CON PIU' LIVELLI GIA' SCELTI il doppio clic non ne sceglie un
+           altro: apre il riquadro su tutti. Chi ha spuntato tre righe
+           nell'elenco ha già detto su che cosa vuole lavorare, e ripescare
+           quello sotto al puntatore disferebbe la selezione proprio nel
+           momento in cui la si vuole usare. */
+        var dentro = Artwork.riquadro();
+        if (Artwork.scelti && Artwork.scelti().length > 1 && dentro &&
+            p.x >= dentro.x && p.x <= dentro.x + dentro.w &&
+            p.y >= dentro.y && p.y <= dentro.y + dentro.h) {
+          Selezione.apri();
+          return;
+        }
+
+        /* Con un livello solo il punto non basta a dire quale si vuole. Si
+           prende quello disegnato più in alto; e se è già lui lo scelto, si
+           passa a quello sotto — così clic ripetuti nello stesso posto girano
+           fra i sovrapposti invece di ripescare sempre lo stesso. L'elenco a
+           sinistra resta la via sicura. */
         var sopra = Artwork.quale(p);
         var giro = (window.Selezione && Selezione.attiva() && sopra === Artwork.sceltoId())
           ? Artwork.quale(p, sopra) : sopra;
