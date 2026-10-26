@@ -8,9 +8,17 @@ dentro la pagina, nell'ordine in cui compaiono in index.html.
 
   python3 tools/build.py            -> dist/cnc2d-ui.html (documento completo)
   python3 tools/build.py --bare     -> dist/cnc2d-ui.bare.html (senza involucro)
+  python3 tools/build.py --leggero  -> senza il disegno di esempio
 
 La variante "bare" serve dove la pagina viene inserita dentro un involucro
 gia' pronto, come nelle anteprime.
+
+IL DISEGNO DI ESEMPIO ADESSO C'E'. Prima lo si toglieva sempre, perche' sulla
+memoria dell'ESP32 erano kilobyte spesi per un logo. Il 26 ottobre si e'
+deciso che la pagina resta sul PC - installarla sulla scheda non renderebbe
+comunque la stampa indipendente dal computer, visto che il trasporto e' lo
+stesso WebSocket - e con quella decisione e' caduto il tetto dei kilobyte.
+Chi dovesse rimetterla sulla scheda usi --leggero.
 """
 import re
 import sys
@@ -18,6 +26,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 bare = '--bare' in sys.argv
+leggero = '--leggero' in sys.argv
 
 html = (ROOT / 'index.html').read_text(encoding='utf-8')
 
@@ -27,9 +36,7 @@ body = re.search(r'<body>(.*)</body>', html, re.S).group(1)
 css_files = re.findall(r'<link rel="stylesheet" href="([^"]+)"', html)
 js_files = re.findall(r'<script src="([^"]+)"></script>', html)
 
-# Il disegno di esempio serve solo all'anteprima e allo sviluppo: sulla
-# memoria dell'ESP32 sarebbero kilobyte spesi per un logo.
-if not bare:
+if leggero:
     js_files = [f for f in js_files if not f.endswith('sample.js')]
 
 def read(rel):
