@@ -217,81 +217,75 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 
 /* ------------------------ movimento manuale ----------------------- */
 
-/* IL TASTIERINO E' UNA GRIGLIA DI CASELLE QUADRATE: cinque colonne per sei
-   righe, tutte della stessa misura. Le otto frecce stanno sul giro e il
-   blocco di mezzo - tre colonne per quattro righe - si incastra dentro
-   riusando lo stesso passo e lo stesso vuoto, per questo i suoi pulsanti
-   vengono quadrati anche loro senza che nessuno glielo dica.
+/* IL TASTIERINO E' FATTO DI QUADRATI CONCENTRICI.
+   Cinque colonne per cinque righe di caselle quadrate, e dentro, al centro
+   esatto, un quadrato di tre per tre con lo stesso passo e lo stesso vuoto:
+   le righe e le colonne del blocco di mezzo cadono su quelle del giro, quindi
+   le due cornici sono concentriche per costruzione e non per aggiustamento.
 
-   `aspect-ratio: 5/6` lega l'altezza alla larghezza, e con lo stesso vuoto su
-   tutt'e due i versi le caselle escono quadrate a meno di un quinto di pixel.
-   Prima le quattro frecce di lato erano rettangoli lunghi: occupavano una
-   colonna stretta per tutta l'altezza del centro, e il tastierino sembrava
-   una croce invece di un tastierino.
+   Prima era cinque per sei. Il blocco di mezzo aveva quattro righe perche' ci
+   stavano dentro anche i quattro angoli del foglio, e tutto l'insieme veniva
+   piu' alto che largo: le cornici non erano ne' quadrate ne' concentriche, e
+   si vedeva. Spostando i quattro angoli sul giro - dove per di piu' stanno
+   dalla parte giusta - al centro restano tre righe e la geometria si chiude.
 
-   La larghezza si ferma: nella tab dedicata lo spazio e' largo il doppio
-   della barra laterale, e un tastierino da mezzo schermo non si usa meglio -
-   si usa peggio, perche' per premere due frecce di seguito bisogna
-   attraversarlo. */
+   `minmax(0, 1fr)` e non `1fr`: il minimo automatico di una traccia e' il
+   min-content di quello che ci sta dentro, e basta un pulsante che non si
+   comprime per gonfiare una colonna e schiacciare le altre. */
 .jog-pad {
   display: grid;
-  /* `minmax(0, 1fr)` e non `1fr`: il minimo automatico di una traccia e' il
-     min-content di quello che ci sta dentro, e un pulsante quadrato alto due
-     righe lo trasferisce in larghezza - la colonna delle frecce di lato si
-     gonfiava a centodieci pixel e schiacciava tutto il resto a tredici.
-     Trovato misurando le tracce, non guardando il codice. */
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-template-rows: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
   gap: 5px;
-  aspect-ratio: 5 / 6;
-  max-width: 290px;
-  /* La cornice di fuori chiude il gruppo degli spostamenti: le otto frecce e,
-     dentro alla sua cornice, la colonna dei quattro angoli del foglio. */
+  aspect-ratio: 1;
+  /* Nella tab dedicata lo spazio e' largo il doppio della barra laterale, e
+     un tastierino da mezzo schermo non si usa meglio: si usa peggio, perche'
+     per premere due frecce di seguito bisogna attraversarlo. */
+  max-width: 300px;
+  /* La cornice di fuori e' il primo dei quadrati concentrici, e chiude il
+     gruppo del movimento: le otto frecce e i quattro angoli del foglio. */
   border: 1px solid var(--line-soft);
   border-radius: var(--r-md);
   padding: 5px;
 }
 .btn-jog { font-size: 16px; padding: 0; }
 
-/* Le otto direzioni stanno al loro posto a prescindere dall'ordine nel
-   markup: il pannello le emette in sequenza di lettura, la griglia le dispone
-   come la rosa dei venti. Quelle di lato e quelle di sopra e sotto coprono
-   piu' caselle e ci stanno in mezzo: la casella e' quadrata, e il pulsante
-   resta quadrato dentro a una fascia piu' lunga invece di allungarsi. */
+/* Il giro: otto frecce e quattro angoli del foglio. Le frecce stanno sugli
+   assi e sulle diagonali, come la rosa dei venti; i quattro angoli stanno
+   nelle caselle di mezzo delle fasce di sinistra e di destra, ognuno dalla
+   parte sua - quello dell'angolo in alto a destra in alto a destra. La
+   posizione E' l'informazione.
+   Le quattro caselle fuori asse delle fasce di sopra e di sotto restano vuote
+   per davvero: sono il respiro della croce. */
 .jog-pad [data-pm-jog="NO"] { grid-area: 1 / 1; }
-.jog-pad [data-pm-jog="N"]  { grid-area: 1 / 2 / 2 / 5; }
+.jog-pad [data-pm-jog="N"]  { grid-area: 1 / 3; }
 .jog-pad [data-pm-jog="NE"] { grid-area: 1 / 5; }
-.jog-pad [data-pm-jog="O"]  { grid-area: 3 / 1 / 5 / 2; }
-.jog-pad [data-pm-jog="E"]  { grid-area: 3 / 5 / 5 / 6; }
-.jog-pad [data-pm-jog="SO"] { grid-area: 6 / 1; }
-.jog-pad [data-pm-jog="S"]  { grid-area: 6 / 2 / 7 / 5; }
-.jog-pad [data-pm-jog="SE"] { grid-area: 6 / 5; }
-/* Quadrati, e il lato lo detta la dimensione CORTA della fascia che occupano:
-   le frecce di sopra e sotto coprono tre colonne e una riga, quindi comanda
-   l'altezza; quelle di lato coprono una colonna e due righe, quindi comanda
-   la larghezza. Prenderla sempre dall'altezza farebbe un quadrato alto due
-   righe dentro a una colonna sola. Il `>` tiene fuori i pulsanti del centro,
-   che la loro casella la riempiono tutta. */
-.jog-pad > .btn-jog { place-self: center; aspect-ratio: 1; min-width: 0; }
-.jog-pad > [data-pm-jog="NO"], .jog-pad > [data-pm-jog="NE"],
-.jog-pad > [data-pm-jog="SO"], .jog-pad > [data-pm-jog="SE"] { width: 100%; height: 100%; }
-.jog-pad > [data-pm-jog="N"], .jog-pad > [data-pm-jog="S"] { height: 100%; width: auto; }
-.jog-pad > [data-pm-jog="O"], .jog-pad > [data-pm-jog="E"] { width: 100%; height: auto; }
+.jog-pad [data-pm-vai="as"] { grid-area: 2 / 1; }
+.jog-pad [data-pm-vai="ad"] { grid-area: 2 / 5; }
+.jog-pad [data-pm-jog="O"]  { grid-area: 3 / 1; }
+.jog-pad [data-pm-jog="E"]  { grid-area: 3 / 5; }
+.jog-pad [data-pm-vai="bs"] { grid-area: 4 / 1; }
+.jog-pad [data-pm-vai="bd"] { grid-area: 4 / 5; }
+.jog-pad [data-pm-jog="SO"] { grid-area: 5 / 1; }
+.jog-pad [data-pm-jog="S"]  { grid-area: 5 / 3; }
+.jog-pad [data-pm-jog="SE"] { grid-area: 5 / 5; }
 
-/* IL CENTRO: tre colonne per quattro righe, con lo stesso passo del giro.
-   A sinistra i quattro angoli del foglio, in cima alla colonna di mezzo il
-   punto home e a quella di destra lo STOP, sotto a tutt'e due la penna.
+/* IL QUADRATO DI DENTRO: tre per tre, stesso passo e stesso vuoto del giro.
+   In cima il punto home e lo STOP, i due comandi che non sono ne' una
+   direzione ne' una quota; sotto, la penna. Le due frecce da un grado stanno
+   sotto alla quota a cui somigliano: "su" sotto al tappo, "giu'" sotto al
+   contatto.
 
-   LE DUE CORNICI non sono decorazione: dicono quali pulsanti fanno la stessa
-   cosa. Sono due `<i>` vuoti messi nella griglia sotto ai pulsanti, perche'
-   un bordo intorno a celle che non sono un rettangolo nel flusso non si
-   disegna altrimenti. Il margine negativo le porta a meta' del vuoto fra le
-   celle, cosi' il bordo passa in mezzo e non addosso a un pulsante. */
+   LE DUE CORNICI DI DENTRO non sono decorazione: dicono quali pulsanti fanno
+   la stessa cosa. Sono due `<i>` vuoti messi nella griglia sotto ai pulsanti,
+   perche' un bordo intorno a celle che non sono un rettangolo nel flusso non
+   si disegna altrimenti. Il margine negativo le porta a meta' del vuoto fra
+   le celle, cosi' il bordo passa in mezzo e non addosso a un pulsante. */
 .jog-mid {
-  grid-area: 2 / 2 / 6 / 5;
+  grid-area: 2 / 2 / 5 / 5;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 5px;
   min-width: 0;
 }
@@ -301,10 +295,8 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
   margin: -3px;
   pointer-events: none;
 }
-.jog-c-vai { grid-area: 1 / 1 / 5 / 2; }
-/* La cornice della penna segue i suoi pulsanti nello spostamento in
-   diagonale: se restasse ferma li taglierebbe invece di contenerli. */
-.jog-c-pen { grid-area: 2 / 2 / 5 / 4; transform: translate(4px, 4px); }
+.jog-c-cima { grid-area: 1 / 1 / 2 / 4; }
+.jog-c-pen  { grid-area: 2 / 1 / 4 / 4; }
 
 .jog-mid .btn {
   padding: 0 2px;
@@ -318,30 +310,20 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
   min-width: 0;
 }
 .jog-mid .pm-deg { font-size: 12px; }
-.jog-mid .pm-vai { padding: 2px; }
+.jog-pad .pm-vai { padding: 2px; }
 
-.jog-mid [data-pm-vai="bs"]     { grid-area: 1 / 1; }
-.jog-mid [data-pm-vai="bd"]     { grid-area: 2 / 1; }
-.jog-mid [data-pm-vai="ad"]     { grid-area: 3 / 1; }
-.jog-mid [data-pm-vai="as"]     { grid-area: 4 / 1; }
-.jog-mid [data-pm-vai="home"]   { grid-area: 1 / 2; }
+.jog-mid [data-pm-vai="home"]   { grid-area: 1 / 1; }
+.jog-mid [data-jog-vuoto="1"]   { grid-area: 1 / 2; }
 .jog-mid .pm-stop               { grid-area: 1 / 3; }
-.jog-mid [data-pm-h="tappo"]    { grid-area: 2 / 2; }
-.jog-mid [data-pm-h="alzata"]   { grid-area: 3 / 2; }
-.jog-mid [data-pm-h="contatto"] { grid-area: 4 / 2; }
-.jog-mid [data-pm-deg="1"]      { grid-area: 2 / 3; }
+.jog-mid [data-pm-h="tappo"]    { grid-area: 2 / 1; }
+.jog-mid [data-pm-h="alzata"]   { grid-area: 2 / 2; }
+.jog-mid [data-pm-h="contatto"] { grid-area: 2 / 3; }
+.jog-mid [data-pm-deg="1"]      { grid-area: 3 / 1; }
+.jog-mid [data-jog-vuoto="2"]   { grid-area: 3 / 2; }
 .jog-mid [data-pm-deg="-1"]     { grid-area: 3 / 3; }
-.jog-mid [data-jog-vuoto="1"]   { grid-area: 4 / 3; }
 
-/* LO SPOSTAMENTO IN DIAGONALE dei comandi della penna. Qualche pixel in giu'
-   e a destra: basta a farli leggere come un gruppo solo, e non abbastanza da
-   sembrare un errore di allineamento. */
-.jog-mid [data-pm-h],
-.jog-mid [data-pm-deg],
-.jog-mid [data-jog-vuoto] { transform: translate(4px, 4px); }
-
-/* Il posto libero. Si vede appena: c'e' per tenere ferma la griglia, non per
-   essere guardato. */
+/* I due posti liberi. Si vedono appena: ci sono per tenere ferma la griglia,
+   non per essere guardati. */
 .jog-vuoto { opacity: .25; }
 
 /* I SEGNI DEI QUATTRO ANGOLI: il rettangolo del foglio, il pallino

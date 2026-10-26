@@ -103,25 +103,22 @@ var Panel = (function () {
   }
 
   /* I CINQUE PUNTI CHE SI RAGGIUNGONO CON UN CLICK.
-     Quattro sono gli ANGOLI DEL FOGLIO, in colonna e in giro: basso a
-     sinistra, basso a destra, alto a destra, alto a sinistra. Sono i punti
-     LIMITE, e per questo ci stanno tutti e quattro: su una macchina senza
-     finecorsa girare il perimetro è l'unico modo di sapere se il foglio sta
-     davvero dove la pagina lo disegna.
-     Il quinto è il punto home, che limite non è — è dove i carrelli si
-     parcheggiano — e infatti sta da un'altra parte, in cima alla colonna di
-     mezzo, con il suo segno e non un rettangolino.
+     Quattro sono gli ANGOLI DEL FOGLIO. Stanno sul giro esterno, ognuno
+     dalla parte sua: quello dell'angolo in alto a destra sta in alto a
+     destra del tastierino. La posizione È l'informazione — come il pallino
+     nel rettangolino e come le tacche delle quote — e un pulsante messo dove
+     uno lo cercherebbe non ha bisogno di essere letto.
+     Il quinto è il punto home, che limite non è: sta dentro, in cima al
+     quadrato di mezzo, con la sua casetta e non un rettangolino.
 
-     Dentro ai rettangolini ci sono le coordinate. Un disegno dice DOVE si va,
-     un numero dice A QUANTI MILLIMETRI, e prima di mandare un carrello da
-     qualche parte servono tutt'e due: il pallino nell'angolo giusto si legge
-     con la coda dell'occhio, i due numeri si leggono quando si vuole essere
-     sicuri. */
+     Dentro ai rettangolini ci sono le coordinate. Un disegno dice DOVE si
+     va, un numero dice A QUANTI MILLIMETRI, e prima di mandare un carrello
+     da qualche parte servono tutt'e due. */
   var VAI = [
+    ['as',   'Angolo del foglio in alto a sinistra',  [ 2.5,  2.5]],
+    ['ad',   'Angolo del foglio in alto a destra',    [37.5,  2.5]],
     ['bs',   'Angolo del foglio in basso a sinistra', [ 2.5, 29.5]],
     ['bd',   'Angolo del foglio in basso a destra',   [37.5, 29.5]],
-    ['ad',   'Angolo del foglio in alto a destra',    [37.5,  2.5]],
-    ['as',   'Angolo del foglio in alto a sinistra',  [ 2.5,  2.5]],
     ['home', 'Punto home',                            null]
   ];
 
@@ -164,8 +161,7 @@ var Panel = (function () {
   /* IL SEGNO DELLE TRE QUOTE: una penna stilizzata e la riga del piano.
      Prima era una tacca su una guida verticale, che diceva l'altezza ma non
      diceva di CHE COSA: si capiva solo sapendolo già. Una punta che scende
-     verso una riga lo dice da sé, ed è il disegno che l'operatore stesso ha
-     fatto quando ha spiegato cosa voleva.
+     verso una riga lo dice da sé.
      Il numero è lo scostamento in verticale: a contatto la punta tocca la
      riga, alzata le sta sopra di cinque, al tappo di dieci. Le proporzioni
      non sono quelle vere — tre millimetri di alzata su venti di corsa non si
@@ -179,24 +175,25 @@ var Panel = (function () {
            '<line class="piano" x1="1.5" y1="23" x2="22.5" y2="23"></line></svg>';
   }
 
-  /* IL TASTIERINO. Cinque colonne per sei righe di caselle quadrate: le otto
-     frecce stanno sul giro, e al centro un blocco di tre per quattro.
-
-     TUTTI I PULSANTI SONO QUADRATI, e lo sono per costruzione: la griglia è
-     fatta di caselle quadrate e il blocco di mezzo ci si incastra dentro
-     riusando lo stesso passo e lo stesso vuoto. Prima le frecce di lato erano
-     rettangoli lunghi, perché occupavano una colonna stretta per tutta
-     l'altezza del centro.
-
-     Chi sta dove: a sinistra i quattro angoli del foglio; in cima alla
-     colonna di mezzo il punto home, in cima a quella di destra lo STOP; sotto
-     a tutt'e due, la penna. Lo STOP se n'è andato dal mezzo della penna
-     perché non è un comando della penna, ed è il solo pulsante che si vuole
-     trovare senza cercarlo.
-
-     I pulsanti della penna sono spostati di qualche pixel in diagonale: non è
-     un vezzo, è il modo di farli leggere come un gruppo solo senza mettergli
-     intorno una terza cornice in un pannello che ne ha già due. */
+  /* IL TASTIERINO: QUADRATI CONCENTRICI.
+   *
+   * Cinque colonne per cinque righe di caselle quadrate, e dentro, al centro
+   * esatto, un quadrato di tre per tre. Il giro di fuori porta il movimento —
+   * le otto frecce e i quattro angoli del foglio —, il quadrato di dentro
+   * porta la penna, con il punto home e lo STOP sopra di lei.
+   *
+   * Prima era cinque per sei: il blocco di mezzo aveva quattro righe perché
+   * ci stavano dentro anche i quattro angoli, e tutto l'insieme veniva più
+   * alto che largo, con le cornici che non erano né concentriche né quadrate.
+   * Spostando i quattro angoli sul giro — dove per di più stanno dalla parte
+   * giusta, l'angolo in alto a destra in alto a destra — al centro restano
+   * tre righe, e la geometria si chiude: un quadrato dentro un quadrato,
+   * stesso centro, stesso passo, stesso vuoto.
+   *
+   * Le quattro caselle libere del giro (sopra e sotto, fuori asse) restano
+   * vuote per davvero: sono il respiro della croce, ed è così che si guarda
+   * un tastierino senza contare i pulsanti.
+   */
   function tastierino() {
     var h = '<div class="jog-pad">';
     for (var i = 0; i < DIR.length; i++) {
@@ -205,14 +202,21 @@ var Panel = (function () {
            DIR[i][3] + '</button>';
     }
 
-    h += '<div class="jog-mid">' +
-         '<i class="jog-cornice jog-c-vai"></i>' +
-         '<i class="jog-cornice jog-c-pen"></i>';
-
+    /* I quattro angoli del foglio, sul giro. Il punto home no: non è un
+       punto limite, e sta dentro. */
     for (var v = 0; v < VAI.length; v++) {
+      if (VAI[v][0] === 'home') continue;
       h += '<button class="btn btn-jog pm-vai" data-pm-vai="' + VAI[v][0] +
            '" title="' + VAI[v][1] + '">' + segnoVai(VAI[v]) + '</button>';
     }
+
+    h += '<div class="jog-mid">' +
+         '<i class="jog-cornice jog-c-cima"></i>' +
+         '<i class="jog-cornice jog-c-pen"></i>' +
+         '<button class="btn btn-jog pm-vai" data-pm-vai="home" title="Punto home">' +
+         segnoVai(VAI[4]) + '</button>' +
+         '<button class="btn btn-ghost btn-stop pm-stop" ' +
+         'title="Ferma il movimento in corso">STOP</button>';
 
     for (var q = 0; q < QUOTE.length; q++) {
       /* Il nome sta in uno span suo perché in una casella stretta va tolto:
@@ -224,13 +228,16 @@ var Panel = (function () {
            '<span class="pm-h-nome">' + QUOTE[q][1] + '</span></button>';
     }
 
+    /* Le due frecce da un grado stanno sotto alla quota che somigliano: «su»
+       sotto al tappo, che è la quota in alto, «giù» sotto al contatto, che è
+       quella in basso. */
     h += '<button class="btn btn-ghost pm-deg" data-pm-deg="1" ' +
          'title="Alza la penna di un grado di servo">&uarr;1&deg;</button>' +
          '<button class="btn btn-ghost pm-deg" data-pm-deg="-1" ' +
          'title="Abbassa la penna di un grado di servo">&darr;1&deg;</button>' +
-         '<button class="btn btn-ghost btn-stop pm-stop" ' +
-         'title="Ferma il movimento in corso">STOP</button>' +
          '<button class="btn btn-ghost jog-vuoto" data-jog-vuoto="1" disabled ' +
+         'tabindex="-1" aria-hidden="true"></button>' +
+         '<button class="btn btn-ghost jog-vuoto" data-jog-vuoto="2" disabled ' +
          'tabindex="-1" aria-hidden="true"></button>';
 
     return h + '</div></div>';
