@@ -98,6 +98,20 @@ var Editor = (function () {
     return (window.Artwork && Artwork.forme) ? Artwork.forme() : null;
   }
 
+  /* L'OCCHIO VALE ANCHE PER IL LIVELLO CHE SI STA MODIFICANDO.
+     Prima no: lo si disegnava comunque, col ragionamento che nasconderlo
+     mentre ci si lavora sopra non vuol dire niente. Ma spegnendoli tutti e
+     passando da uno all'altro se ne vedeva sempre uno acceso, e un
+     interruttore che a volte non spegne è peggio di uno che manca. Adesso
+     spegne: il livello sparisce e non si può nemmeno prendere, perché
+     cancellare per sbaglio qualcosa che non si vede è il guaio peggiore che
+     un editor possa fare. */
+  function attivoVisibile() {
+    if (!window.Artwork || !Artwork.livelli) return true;
+    var l = Artwork.livelli().filter(function (x) { return x.principale; })[0];
+    return !l || l.visibile;
+  }
+
   function cambiato() {
     Artwork.rigenera();
     disegna();
@@ -223,7 +237,7 @@ var Editor = (function () {
 
   function disegna() {
     if (!svg) return;
-    var f = forme() || [];
+    var f = attivoVisibile() ? (forme() || []) : [];
     var u = perPixel();
     var out = reticolo(u);
 
@@ -559,13 +573,14 @@ var Editor = (function () {
   }
 
   var AIUTO = {
-    scegli: 'Clicca una forma per sceglierla; cliccala UNA SECONDA VOLTA e ' +
-            'scendi al singolo tratto. <b>Ctrl+clic prende i tratti</b> e li ' +
-            'somma — dieci linee e un Canc solo —, <b>Shift+clic</b> fa lo ' +
-            'stesso con le forme intere; trascinando nel vuoto si prende ' +
-            'quello che il rettangolo tocca. Trascina i nodi e le maniglie. ' +
-            'Doppio clic su un nodo: da spigolo a curva e viceversa; su un ' +
-            'tratto: aggiunge un nodo lì. Canc toglie quello che è scelto.',
+    scegli: '<b>Clicca un tratto</b> e prendi quello, non la linea intera. ' +
+            '<b>Ctrl+clic</b> ne somma altri — dieci linee e un Canc solo —, ' +
+            '<b>Shift+clic</b> prende le forme intere, e trascinando nel vuoto ' +
+            'si prende quello che il rettangolo tocca. Trascina per spostare, ' +
+            'o prendi nodi e maniglie. <b>Doppio clic</b> su un tratto scelto: ' +
+            'ci infila un nodo, dove hai cliccato e su quello e non su un ' +
+            'altro; su un nodo: da spigolo a curva e viceversa. Canc toglie ' +
+            'quello che è scelto.',
     togli:  'Clicca un tratto: sparisce quello e basta. Un tracciato chiuso ' +
             'si apre li, uno aperto si spezza in due.',
     curva:  'Trascina un tratto per incurvarlo. Se era dritto diventa una curva ' +
@@ -596,6 +611,11 @@ var Editor = (function () {
     if (!piede) return;
     var f = forme();
     if (!f) { piede.textContent = ''; return; }
+    if (!attivoVisibile()) {
+      piede.textContent = 'Livello nascosto: accendi il suo occhio nell\'elenco ' +
+                          'qui a sinistra per vederlo e modificarlo.';
+      return;
+    }
     var c = Tracciato.conta(f);
     piede.textContent = c.forme + ' forme · ' + c.nodi + ' nodi · ' +
                         c.curve + ' con una curva' +
@@ -621,6 +641,13 @@ var Editor = (function () {
   function giu(e) {
     var f = forme();
     if (!f) return;
+    /* Il tasto centrale sposta lo sguardo anche su un livello spento: quello
+       non tocca niente. Tutto il resto no. */
+    if (!attivoVisibile() && e.button !== 1) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio per ' +
+                     'poterlo modificare.');
+      return;
+    }
     var p = punto(e), u = perPixel();
 
     if (e.button === 0) {
@@ -715,7 +742,8 @@ var Editor = (function () {
         sel.forme.push(t.forma);
         sel.forma = t.forma;
       }
-      sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];
+      sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
+      sel.segmenti = [];
       disegna();
       return;
     }
@@ -724,14 +752,54 @@ var Editor = (function () {
        È il gesto con cui si sposta quello che si è appena scelto, e
        ricominciare da capo a ogni pressione renderebbe la selezione multipla
        una cosa che si può fare ma non serve a niente. */
-    /* Era già scelta e sola? Allora il clic scende di un gradino, al TRATTO.
-       Si decide al rilascio, in su(): qui si registra soltanto da dove si
-       parte, perché premere su una forma scelta e tirarla è un gesto
-       normale e assomiglia all'inizio di questo. */
-    var giaSola = sel.forme.length === 1 && sel.forme[0] === t.forma;
-    if (sel.forme.indexOf(t.forma) < 0) { sel.forme = [t.forma]; sel.segmenti = []; }
-    sel.forma = t.forma; sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
-    presa = { tipo: 'forma', da: p, giaSola: giaSola, p0: p };
+    /* IL CLIC PRENDE IL TRATTO, non la polilinea.
+       Prima prendeva la forma intera e per scendere al tratto ci voleva un
+       secondo clic. Su un disegno importato una forma è spesso il contorno
+       di una faccia — quattro spigoli in un elemento solo — quindi il primo
+       clic accendeva quattro linee quando se ne voleva una, e il gradino in
+       più era un gesto da fare centinaia di volte. Adesso il gradino fine è
+       il PREDEFINITO: Shift prende le forme intere, il rettangolo pure.
+       Il trascinamento continua a spostare la forma: è un altro gesto, e si
+       distingue da sé. */
+    /* UN GRUPPO NON SI SFALDA PREMENDOCI SOPRA. Se la forma sotto al dito fa
+       già parte di una scelta di più forme — col rettangolo o con Shift — la
+       pressione serve a trascinare tutto il gruppo, non a ricominciare da
+       capo da un tratto. Scendere al tratto vale quando di scelto c'è una
+       forma sola, che è il caso di tutti i giorni. */
+    if (sel.forme.length > 1 && sel.forme.indexOf(t.forma) >= 0) {
+      presa = { tipo: 'forma', da: p };
+      segna();
+      svg.setPointerCapture(e.pointerId);
+      return;
+    }
+
+    var tr = trattoSotto(p, u);
+
+    /* LA SCELTA E' APPICCICOSA. Se il clic cade ancora sul tratto già
+       scelto, resta quello — anche se un altro gli passa accanto a un pelo
+       di distanza. Dove due linee si incrociano il «più vicino» cambia a
+       ogni pixel, e il doppio clic per infilare un nodo finiva sulla linea
+       SOTTO invece che su quella su cui si stava lavorando: il nodo nasceva
+       nel posto giusto ma nel tracciato sbagliato. Segnalato usandolo. */
+    if (sel.segmenti.length === 1) {
+      var vecchio = sel.segmenti[0];
+      var dv = distTratto(p, vecchio);
+      if (dv !== null && dv < 8 * u) tr = { forma: vecchio.forma, sub: vecchio.sub, k: vecchio.k };
+    }
+
+    if (tr) {
+      sel.forme = [tr.forma];
+      sel.forma = tr.forma;
+      sel.segmenti = [{ forma: tr.forma, sub: tr.sub, k: tr.k }];
+    } else {
+      /* Un testo non ha tratti: lì si prende la forma, che è tutto quello
+         che c'è da prendere. */
+      if (sel.forme.indexOf(t.forma) < 0) sel.forme = [t.forma];
+      sel.forma = t.forma;
+      sel.segmenti = [];
+    }
+    sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
+    presa = { tipo: 'forma', da: p };
     segna();
     svg.setPointerCapture(e.pointerId);
     disegna();
@@ -771,6 +839,7 @@ var Editor = (function () {
     sel.forme = out;
     sel.forma = out.length ? out[0] : -1;
     sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
+    sel.segmenti = [];
   }
 
   function muovi(e) {
@@ -876,12 +945,9 @@ var Editor = (function () {
     });
   }
 
-  var presaGiaSola = false;
-
   function su(e) {
     var mosso = presa && presa.mosso;
     var tipo = presa ? presa.tipo : null;
-    presaGiaSola = !!(presa && presa.giaSola);
     if (presa) {
       presa = null;
       try { svg.releasePointerCapture(e.pointerId); } catch (x) { /* già rilasciato */ }
@@ -893,21 +959,6 @@ var Editor = (function () {
       doppio(e);
       return;
     }
-    /* Clic secco su una forma già scelta: si entra nel suo tratto. Il doppio
-       clic resta quello che era — aggiunge un nodo — perché è un gesto
-       diverso e lo decide il ramo qui sopra, che viene prima. */
-    if (tipo === 'forma' && !mosso && e.button === 0 && presaGiaSola) {
-      var pp = punto(e), uu = perPixel();
-      var tt = trattoSotto(pp, uu);
-      sel.segmenti = (tt && tt.forma === sel.forma)
-        ? [{ forma: tt.forma, sub: tt.sub, k: tt.k }] : [];
-      presaGiaSola = false;
-      guide = [];
-      disegna();
-      return;
-    }
-    presaGiaSola = false;
-
     forseDoppio = false;
     guide = [];
 
@@ -1046,6 +1097,25 @@ var Editor = (function () {
       }
     }
     return meglio;
+  }
+
+  /* Quanto dista il puntatore da un tratto preciso. Serve alla scelta
+     appiccicosa: vedi giuScegli(). */
+  function distTratto(p, t) {
+    var f = forme();
+    var fm = f && f[t.forma];
+    if (!fm || fm.tipo !== 'tracciato') return null;
+    var sub = fm.sub[t.sub];
+    if (!sub) return null;
+    var n = sub.nodi, a = n[t.k], b = n[(t.k + 1) % n.length];
+    if (!a || !b) return null;
+    var c = cubicaDi(a, b), d = Infinity;
+    for (var j = 0; j <= 32; j++) {
+      var q = valuta(c, j / 32);
+      var z = Math.hypot(p.x - q.x, p.y - q.y);
+      if (z < d) d = z;
+    }
+    return d;
   }
 
   function giuCurva(e, p, u) {
@@ -1280,7 +1350,7 @@ var Editor = (function () {
 
   function commutaNodo() {
     var f = forme();
-    if (!f || sel.forma < 0 || sel.nodo < 0) return;
+    if (!f || sel.forma < 0 || sel.nodo < 0 || !attivoVisibile()) return;
     var sub = f[sel.forma].sub[sel.sub], n = sub.nodi[sel.nodo];
     segna();
 
@@ -1304,6 +1374,13 @@ var Editor = (function () {
   function elimina() {
     var f = forme();
     if (!f || sel.forma < 0) return;
+    /* Su un livello spento non si cancella niente: quello che non si vede
+       non si può nemmeno sbagliare a togliere. */
+    if (!attivoVisibile()) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio prima ' +
+                     'di toglierne qualcosa.');
+      return;
+    }
     segna();
 
     /* UN TRATTO SCELTO SI TOGLIE DA SOLO. È il gradino più fine della
@@ -1350,6 +1427,22 @@ var Editor = (function () {
     if (strumento === 'spezzata') { finisciSpezzata(); return; }
     if (strumento !== 'scegli') return;
 
+    /* UN NODO NUOVO, E SUL TRATTO GIUSTO.
+     *
+     * Se c'è un tratto scelto, il nodo va LI' DENTRO, nel punto del tratto
+     * più vicino al puntatore. Prima si cercava ogni volta il tratto più
+     * vicino al clic su tutto il disegno, e ne venivano due guai, tutti e
+     * due segnalati usandolo:
+     *
+     *   — vicino a uno spigolo vinceva a volte il lato accanto, e il nodo
+     *     cascava a un pelo dal vertice: un segmento lungo zero virgola
+     *     niente, che non si vede e non si prende più;
+     *   — dove due linee si incrociano vinceva quella sotto, e il nodo
+     *     finiva su un tratto che non era quello su cui si stava lavorando.
+     *
+     * Un tratto scelto è una risposta che l'operatore ha già dato: usarla è
+     * più giusto che indovinare di nuovo.
+     */
     var p = punto(e), u = perPixel();
 
     var h = nodoSotto(p, u);
@@ -1359,20 +1452,62 @@ var Editor = (function () {
       return;
     }
 
-    /* Doppio clic su un tratto: un nodo nuovo dove si è cliccato. Il punto è
-       preso sulla polilinea, quindi sta sulla curva; la curva fra i due nodi
-       vicini cambia un po' di forma, ed è il prezzo di avere un nodo in più
-       senza dividere la cubica. */
-    var t = sotto(p, u);
+    var f = forme(), dove, sub, t;
+
+    if (sel.segmenti.length === 1) {
+      var sg = sel.segmenti[0];
+      var fm = f[sg.forma];
+      sub = fm && fm.tipo === 'tracciato' ? fm.sub[sg.sub] : null;
+      if (!sub) return;
+      var n = sub.nodi;
+      var a = n[sg.k], b = n[(sg.k + 1) % n.length];
+      if (!a || !b) return;
+
+      /* Il punto del tratto più vicino al puntatore, cercato nel parametro
+         della cubica: su una curva la proiezione sulla corda sarebbe
+         altrove. */
+      var c = cubicaDi(a, b), meglio = null;
+      for (var j = 1; j < 48; j++) {
+        var tt = j / 48, q = valuta(c, tt);
+        var d = Math.hypot(p.x - q.x, p.y - q.y);
+        if (!meglio || d < meglio.d) meglio = { d: d, t: tt, q: q };
+      }
+
+      /* Troppo vicino a un capo non si aggiunge niente: ne verrebbe un
+         segmento lungo quasi zero, che è esattamente il guaio da cui si sta
+         scappando. */
+      if (Math.hypot(meglio.q.x - a.x, meglio.q.y - a.y) < 4 * u ||
+          Math.hypot(meglio.q.x - b.x, meglio.q.y - b.y) < 4 * u) {
+        Log.add('err', 'Troppo vicino a un capo del tratto: ne verrebbe un ' +
+                       'segmento lungo quasi zero. Clicca più verso il mezzo.');
+        return;
+      }
+
+      segna();
+      dove = sg.k + 1;
+      sub.nodi.splice(dove, 0, Tracciato.nodo(meglio.q.x, meglio.q.y));
+      sel.forma = sg.forma; sel.forme = [sg.forma];
+      sel.sub = sg.sub; sel.nodo = dove;
+      sel.segmenti = [];
+      cambiato();
+      return;
+    }
+
+    /* Niente di scelto: si cerca come si è sempre fatto, sul disegno. */
+    t = sotto(p, u);
     if (!t || t.sub < 0) return;
-    var f = forme(), sub = f[t.forma].sub[t.sub];
+    sub = f[t.forma].sub[t.sub];
     segna();
-    var dove = Math.max(1, Math.min(sub.nodi.length - 1, Math.round(t.k - 1 + t.t) + 1));
+    dove = Math.max(1, Math.min(sub.nodi.length - 1, Math.round(t.k - 1 + t.t) + 1));
     sub.nodi.splice(dove, 0, Tracciato.nodo(t.punto.x, t.punto.y));
     sel.forma = t.forma; sel.forme = [t.forma]; sel.sub = t.sub; sel.nodo = dove;
+    sel.segmenti = [];
     cambiato();
   }
 
+  /* Il passo scritto nella barra, in millimetri del foglio. Cinque quando
+     il campo non dice niente di sensato: una griglia da zero non è una
+     griglia. */
   function passoScritto() {
     var c = document.getElementById('ed-griglia-mm');
     var v = c ? parseFloat(c.value) : NaN;
@@ -1389,9 +1524,9 @@ var Editor = (function () {
 
      L'OCCHIO E' LO STESSO della tab Disegno, non un secondo interruttore
      «solo per l'editor»: un livello spento non si disegna e non si stampa,
-     ed è una cosa sola. L'unica eccezione è quello che si sta modificando,
-     che si vede comunque — nasconderlo mentre ci si lavora sopra non vuol
-     dire niente. */
+     ed è una cosa sola — e dal 27 ottobre spegne anche quello su cui si sta
+     lavorando, perché un interruttore che a volte non spegne è peggio di
+     uno che manca. */
   function renderLivelli() {
     var box = document.getElementById('ed-livelli');
     if (!box || !window.Artwork) return;
@@ -1560,6 +1695,7 @@ var Editor = (function () {
           Artwork.commutaVisibile(b.dataset.edOcchio);
           renderLivelli();
           disegna();
+          scriviPiede();
         }
       });
     }
