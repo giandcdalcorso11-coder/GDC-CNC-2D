@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 56
-**Ultimo aggiornamento:** 2026-10-25 22:56
+**Versione:** 57
+**Ultimo aggiornamento:** 2026-10-26 11:34
 
 ## Regole di co-editing
 
@@ -244,7 +244,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
 
-**Stato:** in corso — **l'applicazione stampa, compone e disegna.** Oltre a mandare il programma (2026-10-25 mattina), adesso regge **più SVG sullo stesso foglio** come livelli ordinati, con i **cambi penna** fra l'uno e l'altro, e ha un **editor** con cui modificare e creare tracciati — nodi, maniglie, linee, rettangoli, cerchi, testi, taglio, magneti e annulla. **Deciso il 2026-10-25: la pagina NON va sull'ESP32**, resta sul PC; cade con questo il tetto dei 113 kB che vincolava ogni aggiunta, e la WebUI di FluidNC resta come rete di sicurezza. Quello che manca all'editor è scritto nelle note: annulla multiplo c'è, selezione multipla e agganci alla griglia no
+**Stato:** in corso — **l'applicazione stampa, compone e disegna.** Oltre a mandare il programma (2026-10-25 mattina), regge **più SVG sullo stesso foglio** come livelli ordinati con i **cambi penna** fra l'uno e l'altro, e ha un **editor** con cui modificare e creare tracciati — nodi, maniglie, linee, rettangoli, cerchi, testi, taglio, curve, magneti, griglia, selezione multipla e annulla. Dal 2026-10-26 **un file si apre in un livello per tinta** (ogni colore di bordo e ogni colore di riempimento), le tinte piene spente ma recuperabili: l'importatore non butta più via geometria in silenzio. L'elenco dei livelli è comandabile — occhio, trascinamento per l'ordine, cambio penna sulla riga, selezione multipla, etichetta «edit» — e il riquadro sul foglio lavora su più livelli insieme e ruota senza perdere la collocazione. **Deciso il 2026-10-25: la pagina NON va sull'ESP32**, resta sul PC; cade con questo il tetto dei 113 kB che vincolava ogni aggiunta, e la WebUI di FluidNC resta come rete di sicurezza. Quello che manca è scritto nelle note
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
 
@@ -337,6 +337,16 @@ mano a mano che le misure arrivano):
 - [2026-10-25] **L'editor esiste.** Sei strumenti, nodi e maniglie trascinabili, doppio clic per passare da spigolo a curva, taglio, testi che restano testi. **La y va in giù** come in un file SVG, perché è quel file che si sta modificando; il ribaltamento resta uno solo, in `toRect`. **La tela non ha formato né dimensioni**: quanto diventa grande il disegno lo decidono le maniglie sul foglio. E modificare una forma **non sposta il disegno sul foglio**: si tiene fermo il legame fra le due coordinate e il rettangolo si adegua, se no spostare un nodo rimpicciolirebbe tutto il resto.
 - [2026-10-25] **Magneti e annulla.** Tre aiuti in ordine di forza — nodo vicino, angolo entro sei gradi da un multiplo di 45, allineamento in x o y — con Alt per spegnerli un gesto e Shift per forzare l'angolo. L'annulla è una **pila di istantanee**, con una fotografia per gesto e il rettangolo del livello dentro all'istantanea.
 - [2026-10-25] **Quello che all'editor manca ancora**, per quando ci si torna: selezione multipla, agganci a una griglia, e la conversione di un segmento dritto in curva senza passare dal nodo. Un tratto importato dai nostri file **non ha curve** perché i file sono fatti di polilinee: le maniglie si mettono col doppio clic. Su un SVG preso dal web le curve ci sono già.
+
+- [2026-10-26] **I quattro angoli del foglio e il punto home sul tastierino**, con la penna che **si alza prima di partire**: questi pulsanti si premono per guardare dove sta il foglio, e un traverso da duecento millimetri con la punta appoggiata lascia una riga dritta in mezzo al disegno. Un punto fuori corsa spegne il suo pulsante e dice di quanto, perché senza finecorsa non c'è nient'altro che fermi il carrello. Gli angoli sono quattro e non tre: tutti e quattro sono **punti limite**, mentre il punto home non lo è — distinzione dell'utente, che ha corretto la mia.
+- [2026-10-26] **Il tastierino è fatto di quadrati concentrici**: 5 × 5 di caselle quadrate con un 3 × 3 al centro, stesso passo e stesso vuoto, quindi concentrici per costruzione e non per aggiustamento (misurato: 300 × 300 e 171 × 171). I quattro angoli del foglio stanno **sul giro**, ognuno dalla parte sua: quello dell'angolo in alto a destra in alto a destra. La posizione diventa l'informazione, come il pallino nel rettangolino e le tacche delle quote. I segni delle tre quote sono una penna che scende verso la riga del piano: la tacca di prima diceva l'altezza ma non di che cosa.
+- [2026-10-26] **L'editor ha chiuso le tre cose che mancavano**: selezione multipla (rettangolo e Shift+clic, spostamento e Canc sul gruppo), **griglia in millimetri del foglio** — convertiti con la scala del livello, perché le unità di un file possono valere un millimetro come un metro — e strumento **Curva**, che piega un tratto senza passare dal nodo. Un segmento dritto **è già** una cubica con le maniglie a un terzo e due terzi della corda: scriverle non sposta niente, e da lì il tratto segue il dito. Fra tutte le coppie di maniglie che portano il punto dove lo si tira si prende quella che le sposta di meno.
+- [2026-10-26] **La griglia è un interruttore suo, separato dai magneti, e non ha tolleranza.** Accesa, il punto va sempre sull'incrocio più vicino: una griglia che aggancia solo quando le passi vicino lascia i punti in mezzo, cioè non è una griglia. Su una tela vuota la scala non esiste e un'unità vale un millimetro; dalla seconda forma in poi i millimetri sono quelli veri.
+- [2026-10-26] **UN LIVELLO PER TINTA.** Si butta via solo lo sfondo — la forma senza bordo che copre tutta la tela —; tutto il resto entra diviso per colore di bordo o di riempimento, un livello per ciascuno. Le tinte piene di un file che ha anche dei bordi **nascono spente**, quindi il risultato di partenza è identico a prima, ma quello che prima spariva in silenzio adesso sta nell'elenco con il suo occhio. I livelli di uno stesso file **si adattano insieme**: il rettangolo si calcola sul disegno intero e si ritaglia per ciascuno, se no le facce di un cubo verrebbero scalate diversamente dai suoi spigoli. **Chiude il difetto che la regola del bordo introduceva il 2026-10-25.**
+- [2026-10-26] **L'elenco dei livelli è diventato comandabile.** Occhio e occhio sbarrato (un pallino non dice «visibile»: lo dice solo a chi lo sa già), tre lineette da trascinare con l'ordine che cambia davvero mentre si muove, cambio penna cliccabile dalla riga, spunta di selezione che **commuta** — quindi si può arrivare a non aver scelto niente, e il pulsante torna a dire «Crea» —, doppio clic che apre il riquadro sul foglio, etichetta **edit** sui livelli toccati nell'editor. L'etichetta **confronta e non annulla**: mostra com'era prima e rimette le modifiche, e la fotografia si prende al primo gesto, una volta sola.
+- [2026-10-26] **Il riquadro lavora su più livelli e ruota senza perdere niente.** Con più livelli scelti è l'unione dei loro rettangoli e le modifiche si distribuiscono in proporzione, quindi i rapporti fra i disegni restano. Scala e rotazione restano del livello principale: ruotare un gruppo attorno a un centro comune non è ruotare, è ruotare *e spostare*. Quattro **maniglie di rotazione** agli angoli, tonde e fuori dal riquadro perché la forma dica il gesto, con scatto ogni quindici gradi. **Rotazione non distruttiva**: restano fermi centro e scala, i due fattori si scambiano a un quarto di giro e il ritaglio gira insieme.
+- [2026-10-26] **Caduto il tetto dei kilobyte, cadono le rinunce che lo servivano:** `build.py` metteva fuori il disegno di esempio a ogni compilazione, e adesso lo tiene; per la scheda resta `--leggero`. La pagina è **505.357 byte** in un file solo. Collaudata **sul file unico** e non più solo sui sorgenti (`dist-test.js`): si apre, carica, genera, apre l'editor.
+- [2026-10-26] **Quello che all'editor manca ancora:** niente di quanto era segnato il 25 — selezione multipla, griglia e curve ci sono. Resta da capire, quando servirà, se un comando «separa in segmenti» serve davvero: l'ottimizzatore ricuce le polilinee contigue (152 tracciati dell'isometrico diventano 13 tratti di penna), quindi separare non costa alzate di penna, ma **non toglie i doppioni** — `dedupe` gira prima di `join` e un poligono chiuso non ha la stessa chiave di quattro segmenti separati. Misurato: accendendo anche il livello di occlusione dell'isometrico i tratti passano da 26 a 52.
 
 ### Step 5 — Struttura meccanica
 
@@ -580,6 +590,101 @@ mano a mano che le misure arrivano):
 - [2026-10-23] **Il modulo disegna, e la procedura di montaggio della penna è quella definitiva.** Non si cerca la quota giusta muovendo il servo: si porta il servo alla quota **già decisa** e si stringe la penna lì — i 25° non sono una misura, sono un'imposizione, e il profilo lo dice da sempre. Il foglio deve essere sotto durante la stretta, perché la quota è definita *punta sul foglio* e non *punta sulla tavola*. Verificata su più stampe: il tratto resta costante su 4,4 m (vortice) e su 21 m di spirografo per quanto ne ha fatto. **Resta aperto il gioco**, l'ultimo parametro del profilo mai misurato: la rosa mistica dei medaglioni è stata disegnata apposta per leggerlo — nove vertici su cui convergono otto corde ciascuno, e se il punto d'arrivo dipende dalla direzione d'arrivo i vertici chiudono in una rosellina larga quanto il gioco
 
 ## Storico sessioni
+
+### [2026-10-26 11:34] (software) L'importatore smette di buttare via geometria, l'elenco dei livelli diventa comandabile, e il tastierino si chiude a quadrati concentrici
+
+**Riepilogo:** un SVG isometrico ha smontato la regola con cui l'importatore distingueva disegno e decorazione — diciannove facce di cubo sparivano perché erano poligoni pieni senza contorno — e da lì è nato **un livello per tinta**; nello stesso giro l'elenco dei livelli è diventato comandabile (occhio, presa per trascinare, penna sulla riga, selezione multipla, etichetta «edit»), il riquadro di selezione ha imparato a lavorare su più livelli e a ruotare senza buttare via niente, e il tastierino è stato rifatto due volte fino a chiudersi su quadrati concentrici.
+
+**Cosa è stato fatto:**
+
+- **I quattro punti notevoli sul tastierino, poi diventati cinque.** Pulsanti che portano la penna al punto home e agli angoli del foglio, con la penna che **si alza prima di partire** (un traverso da duecento millimetri con la punta appoggiata lascia una riga dritta in mezzo al disegno) e con il punto fuori corsa che spegne il suo pulsante dicendo di quanto. Alla prima consegna gli angoli erano tre: l'utente ha fatto notare che gli altri vanno a un **punto limite** e il punto home non lo è, quindi il quarto angolo c'è e home è un'altra cosa, in un altro posto.
+- **Editor: le tre cose che mancavano**, segnate il 2026-10-25. Selezione multipla con rettangolo e Shift+clic, spostamento e Canc su tutto il gruppo; **griglia in millimetri del foglio** e non in unità del file; strumento **Curva** che piega un tratto senza passare dal nodo. Aggiunto dopo, per il caso dei cubi: **Togli tratto**, che leva il solo tratto cliccato.
+- **Un livello per tinta all'importazione**, e le tinte piene che nascono spente (vedi Decisioni).
+- **L'elenco dei livelli rifatto**: occhio e occhio sbarrato al posto dei due pallini, tre lineette da trascinare al posto delle due freccette — con l'ordine che cambia **davvero** mentre si trascina —, cambio penna cliccabile dalla riga, spunta di selezione che commuta (e quindi si può arrivare a **non aver scelto niente**, cosa che prima non si poteva), doppio clic sulla riga che apre il riquadro sul foglio, etichetta **edit** sui livelli toccati nell'editor.
+- **Il riquadro di selezione su più livelli**: unione dei rettangoli, modifiche distribuite in proporzione, più **quattro maniglie di rotazione** agli angoli.
+- **Il file unico rigenerato** con dentro il disegno di esempio, e `build.py --leggero` per chi dovesse rimettere la pagina sulla scheda.
+- **Il tastierino a quadrati concentrici** (vedi Decisioni).
+- **Prove da 604 a 712**, con tre collaudi nuovi: `piu-test.js` (62), `elenco-test.js` (32), `dist-test.js` (10, sul file unico invece che sui sorgenti).
+
+**Bug: l'importatore perdeva le facce dei cubi**
+
+**Sintomo:** caricando `iso-cross-2026-10-24-raw.svg` i cubi vengono disegnati senza due spigoli per uno. L'utente ricorda che una versione vecchia del programma le linee le metteva tutte, ma senza tridimensionalità.
+**Causa:** contati gli elementi del file, sono 95 in tre tinte — 38 `path` col bordo (facce in alto e di destra), 38 `polygon` pieni `#1a1a1a` (le stesse facce, riempite per nascondere quello che sta dietro) e **19 `polygon` pieni `#ccc` che sono le facce di sinistra e non hanno nessun contorno**. La regola introdotta il 2026-10-25 — «se nel file c'è almeno una forma col bordo, le forme senza bordo sono decorazione» — buttava via tutti e 57 i poligoni, e con loro l'unica geometria che non era duplicata.
+**Fix applicato:** si butta via solo lo sfondo (la forma senza bordo che copre tutta la tela); il resto entra diviso per tinta. Verificato che sui file già in repo tratti disegnati e ingombro restano **identici al centesimo**.
+
+**Bug: due Shift+clic di fila passavano per un doppio clic**
+
+**Sintomo:** nell'editor, cliccando due volte con Shift sullo stesso tratto per aggiungerlo e poi toglierlo dalla selezione, il gruppo si azzerava e compariva un nodo in più.
+**Causa:** i due clic cadevano dentro i 350 ms del doppio clic, e il doppio clic su un tratto infila un nodo lì e sceglie quella forma sola.
+**Fix applicato:** con Shift premuto il doppio clic non si conta. Trovato dal collaudo.
+
+**Bug: la scala in millimetri della griglia valeva un'unità**
+
+**Sintomo:** la griglia dell'editor, chiesta in millimetri del foglio, agganciava a passi sbagliati.
+**Causa:** `Artwork.scalaMm` divide il rettangolo sul foglio per l'ingombro nel file, e su un disegno fatto di **un tratto orizzontale solo** — cioè il primo tratto che si traccia su una tela vuota — l'ingombro è alto zero e il rapporto esce 0 o NaN.
+**Fix applicato:** in quel caso dice che una scala non c'è, e chi chiama ripiega su un'unità = un millimetro. Trovato dal collaudo.
+
+**Bug: una colonna del tastierino si gonfiava a 110 px**
+
+**Sintomo:** nel primo montaggio a caselle quadrate i pulsanti del centro si sovrapponevano, schiacciati a 13 px, mentre le colonne delle frecce laterali ne occupavano 110.
+**Causa:** `1fr` vuol dire `minmax(auto, 1fr)`, e il minimo automatico di una traccia è il min-content di quello che ci sta dentro: un pulsante quadrato alto due righe trasferisce l'altezza in larghezza e detta il minimo della colonna.
+**Fix applicato:** `minmax(0, 1fr)` su righe e colonne. Trovato **misurando le tracce**, non leggendo il codice.
+
+**Bug: ruotare buttava via la collocazione**
+
+**Sintomo:** segnalato dall'utente — si colloca il disegno a mano col riquadro, si tocca Rotazione, e il lavoro sparisce: il disegno riparte centrato e grande come all'apertura.
+**Causa:** `ruotaDalCampo` azzerava `box` e `ritaglio`. Era scritto come una scelta («un rettangolo pensato per l'altro verso schiaccerebbe il disegno»), ma la conseguenza vera era: ruota e ricomincia.
+**Fix applicato:** restano fermi **centro e scala**; a un quarto di giro i due fattori di scala si scambiano, così la deformazione viaggia col disegno; il ritaglio gira insieme, detto in frazioni del rettangolo. Verificato che quattro quarti di giro riportano tutto identico.
+
+**Decisioni prese:**
+
+- **Contesto:** la regola «il bordo distingue il disegno dalla decorazione» risolveva il caso vero dei riferimenti colorati nei nostri SVG (il pallino rosso del punto home) e sbagliava su qualsiasi file misto.
+  **Decisione:** **un livello per tinta.** Ogni bordo di un colore e ogni riempimento di un colore diventa un livello suo, con occhio, cestino, posto nell'ordine e cambio penna. Le tinte **piene** di un file che ha anche dei bordi **nascono spente**, quindi si stampa quello che si stampava prima; in un file senza nemmeno un bordo le forme piene sono il disegno e restano accese. I livelli nati da uno stesso file si adattano **insieme**: il rettangolo si calcola sul disegno intero e si ritaglia per ciascuno.
+  **Alternative scartate:** (a) tenere la regola e accettare la perdita — era già stata accettata il 25 ottobre «perché si vede subito nell'anteprima», e si è visto che non si vede; (b) riconoscere i doppioni e tenere solo le forme piene che non ricalcano un bordo — elegante su questo file, ma avrebbe fatto tornare a stampare i riferimenti colorati, cioè il bug segnalato dall'utente il 25; (c) una spunta «disegna anche le forme piene» per livello — un'opzione in più al posto di una struttura che c'era già.
+  **Supera la decisione del:** [2026-10-25] — la regola del bordo resta come **default** (le tinte piene nascono spente) ma non è più un filtro distruttivo.
+  **Da rivedere se:** un file con molte tinte di bordo produce un elenco illeggibile. Oggi il collaudo lo fa: `collaudo.svg` ne genera quattro.
+- **Contesto:** l'utente ha chiesto perché gli angoli del foglio fossero tre e il punto home stesse con loro.
+  **Decisione:** gli angoli del foglio sono **quattro**, perché tutti e quattro sono **punti limite**; il punto home non lo è — è dove i carrelli si parcheggiano — e sta in un altro posto, con un altro segno.
+  **Alternative scartate:** tenerne tre perché il quarto è la battuta contro cui si spinge il foglio. Era il mio ragionamento, ed era un ragionamento sul *gesto di posare il foglio*, non su *che cos'è quel pulsante*.
+- **Contesto:** il tastierino con i quattro angoli dentro al blocco di mezzo veniva 5 colonne × 6 righe, e l'utente ha chiesto proporzioni a quadrati concentrici disegnandole sopra a uno screenshot.
+  **Decisione:** **5 × 5 di caselle quadrate con un 3 × 3 al centro**, stesso passo e stesso vuoto, concentrici per costruzione. I **quattro angoli del foglio vanno sul giro**, nelle caselle di mezzo delle fasce laterali, ognuno dalla parte sua: quello dell'angolo in alto a destra sta in alto a destra. Misurato: pad 300 × 300, centro 171 × 171, celle 53,59.
+  **Alternative scartate:** (a) tenere il 3 × 4 al centro e accettare celle 4:3 — avrebbe disfatto i pulsanti quadrati chiesti il giorno prima; (b) un 4 × 4 al centro — cinque caselle vuote e il raggruppamento peggiore.
+  **Conseguenza inattesa, e migliore della ragione per cui è stato fatto:** la posizione del pulsante diventa l'informazione, come il pallino dentro al rettangolino e le tacche delle quote.
+- **Contesto:** con più livelli scelti, che cosa fanno i campi laterali.
+  **Decisione:** il **riquadro sul foglio** vale per tutto il gruppo e distribuisce le modifiche in proporzione; **scala e rotazione** restano del livello principale, e una nota sotto ai campi lo dice. Le **maniglie di rotazione** si mostrano solo con un livello scelto.
+  **Alternative scartate:** ruotare il gruppo attorno a un centro comune — non è ruotare, è ruotare *e spostare*, un'operazione diversa che nessuno ha chiesto.
+- **Contesto:** l'etichetta «edit» chiesta dall'utente per segnalare un livello modificato.
+  **Decisione:** l'etichetta **confronta**, non annulla: cliccandola si vede com'era prima, ricliccandola tornano le modifiche, e niente si perde. La fotografia la prende l'editor al primo gesto, **una volta sola**, se no mostrerebbe il penultimo stato invece di quello con cui il file è arrivato.
+- **Contesto:** la griglia dell'editor e i magneti.
+  **Decisione:** **due interruttori separati**, e la griglia **non ha tolleranza**: accesa, il punto va sempre sull'incrocio più vicino. Una griglia che aggancia solo quando le passi vicino lascia i punti in mezzo, cioè non è una griglia — è un terzo tipo di aiuto. Shift e Alt la scavalcano, e il reticolo si disegna solo quando le maglie si distinguono mentre l'aggancio resta acceso comunque.
+- **Contesto:** il campo Scala rimette in proporzione un disegno schiacciato a mano.
+  **Decisione:** **resta così**, confermato dall'utente. Posizione e ritaglio si conservano, la deformazione no — ed è il modo per tornare regolare.
+- **Contesto:** `build.py` toglieva sempre `sample.js` per risparmiare kilobyte sulla memoria dell'ESP32.
+  **Decisione:** il disegno di esempio **entra nel file unico**, e chi dovesse rimettere la pagina sulla scheda usa `--leggero`. È la prima conseguenza operativa della decisione del 2026-10-25 sulla pagina che resta sul PC: caduto il tetto, cadono le rinunce che lo servivano.
+
+**Numeri misurati:**
+
+- `iso-cross-2026-10-24-raw.svg`: **95 elementi**, 38 tratto `#ccc` + 38 pieno `#1a1a1a` + 19 pieno `#ccc`. Tenuti prima: 38. Adesso: 95 meno lo sfondo, in tre livelli.
+- Con il solo livello dei tratti l'ottimizzatore porta **152 tracciati a 13**, perché ricuce le polilinee contigue: ogni spigolo nel file è un segmento a sé, ma la penna li percorre di fila. Con anche le facce di sinistra: 171 → **26**.
+- **Accendendo anche il livello di occlusione si arriva a 52**, cioè il doppio: i doppioni **non** vengono tolti. `dedupe` gira prima di `join`, e un poligono chiuso di quattro punti non ha la stessa chiave di quattro segmenti separati. Verificato misurando, dopo aver supposto il contrario.
+- Pagina: **505.357 byte** in un file solo, esempio compreso.
+- Prove: **712**, tutte verdi.
+
+**File consegnati/modificati:**
+
+- `webui/js/svgimport.js` — `tinta()` e `colore()`; `saltare()` salta solo lo sfondo; ogni forma porta la sua tinta, `forme.tinte` l'elenco
+- `webui/js/artwork.js` — `load()` divide per tinta con adattamento comune, `perTinta()`, `scalaMm()`, selezione multipla (`selezionati`/`scelto`), `unione()`, `collocaA`/`ritagliaA` sul gruppo, `ruotaA()` e `quartoDiGiro()`, `statoRot()`, `segnaOrigine()`/`commutaOrigine()`, `riordinabile()`, elenco rifatto con i segni disegnati
+- `webui/js/editor.js` — selezione multipla e banda, griglia e reticolo, strumento Curva (`trattoSotto`, `piega`), strumento Togli tratto, Shift fuori dal doppio clic
+- `webui/js/selezione.js` — maniglie di rotazione
+- `webui/js/panel.js` — i cinque punti notevoli, i segni della penna e del foglio, tastierino a quadrati concentrici
+- `webui/js/paper.js` — doppio clic che apre il riquadro sul gruppo
+- `webui/css/components.css`, `webui/css/layout.css`, `webui/index.html`
+- `webui/tools/build.py` — `--leggero`; `webui/dist/` rigenerato
+- Collaudi nuovi: `piu-test.js`, `elenco-test.js`, `dist-test.js`; riscritto `sfondo-test.js` sulla regola nuova
+
+**Impatto su Vision/Pipeline:** aggiornato lo **Stato dello Step 4** e appese otto note.
+
+---
 
 ### [2026-10-25 22:56] (software) I livelli, l'editor, e la decisione di lasciare la pagina sul PC
 
