@@ -235,6 +235,11 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
      tastierino da mezzo schermo non si usa meglio: si usa peggio, perche' per
      premere due frecce di seguito bisogna attraversarlo. Si ferma qui. */
   max-width: 330px;
+  /* La cornice di fuori chiude il gruppo degli spostamenti: le otto frecce e,
+     dentro alla sua cornice, la colonna dei quattro punti notevoli. */
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  padding: 5px;
 }
 .btn-jog { font-size: 16px; padding: 0; }
 
@@ -250,17 +255,38 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 .jog-pad [data-pm-jog="S"]  { grid-area: 3 / 2; }
 .jog-pad [data-pm-jog="SE"] { grid-area: 3 / 3; }
 
-/* Il centro: le tre quote in colonna, e accanto le due frecce da un grado con
-   lo STOP sotto. Tre righe da una parte e tre dall'altra, cosi' si allineano. */
+/* IL CENTRO: tre colonne per quattro righe. A sinistra i quattro punti dove
+   si va con un click - il punto home e tre angoli del foglio -, in mezzo le
+   tre quote della penna, a destra le due frecce da un grado con lo STOP
+   sotto. I due posti in alto restano liberi.
+
+   La colonna di mezzo e' l'unica elastica: le altre due portano icone e
+   frecce, che hanno una larghezza loro, mentre "Contatto" va scritto e lo
+   spazio che avanza serve tutto a lui.
+
+   LE DUE CORNICI non sono decorazione: dicono quali pulsanti fanno la stessa
+   cosa. Sono due `<i>` vuoti messi nella griglia sotto ai pulsanti, perche'
+   un bordo intorno a celle che non sono un rettangolo nel flusso non si
+   disegna altrimenti. Il margine negativo le porta a meta' del vuoto fra le
+   celle, cosi' il bordo passa in mezzo e non addosso a un pulsante. */
 .jog-mid {
   grid-area: 2 / 2;
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 4px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 3px;
   min-width: 0;
 }
-.jog-h, .jog-deg { display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
-.jog-h .btn, .jog-deg .btn {
+.jog-cornice {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  margin: -2px;
+  pointer-events: none;
+}
+.jog-c-vai { grid-area: 1 / 1 / 5 / 2; }
+.jog-c-pen { grid-area: 2 / 2 / 5 / 4; }
+
+.jog-mid .btn {
   padding: 0 4px;
   font-size: 10px;
   line-height: 1;
@@ -270,7 +296,44 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
   gap: 4px;
   min-width: 0;
 }
-.jog-deg .btn { font-size: 11px; padding: 0 6px; }
+.jog-mid .pm-deg { font-size: 11px; padding: 0 5px; }
+.jog-mid .pm-vai { min-width: 32px; padding: 0 2px; }
+
+.jog-mid [data-pm-vai="home"]   { grid-area: 1 / 1; }
+.jog-mid [data-pm-vai="bd"]     { grid-area: 2 / 1; }
+.jog-mid [data-pm-vai="ad"]     { grid-area: 3 / 1; }
+.jog-mid [data-pm-vai="as"]     { grid-area: 4 / 1; }
+.jog-mid [data-pm-h="tappo"]    { grid-area: 2 / 2; }
+.jog-mid [data-pm-h="alzata"]   { grid-area: 3 / 2; }
+.jog-mid [data-pm-h="contatto"] { grid-area: 4 / 2; }
+.jog-mid [data-pm-deg="1"]      { grid-area: 2 / 3; }
+.jog-mid [data-pm-deg="-1"]     { grid-area: 3 / 3; }
+.jog-mid .pm-stop               { grid-area: 4 / 3; }
+.jog-mid [data-jog-vuoto="1"]   { grid-area: 1 / 2; }
+.jog-mid [data-jog-vuoto="2"]   { grid-area: 1 / 3; }
+
+/* I due posti liberi. Si vedono appena: ci sono per tenere ferma la griglia,
+   non per essere guardati. */
+.jog-vuoto { opacity: .25; }
+
+/* I SEGNI DEI QUATTRO PUNTI, gli stessi che stanno sul piano: la casetta
+   verde del punto home e il pallino rosso dell'angolo. Due disegni uguali si
+   riconoscono senza leggere niente, ed e' l'unico modo di dire "vai LI'" in
+   trenta pixel. Il pallino sta nell'angolo del rettangolino che corrisponde
+   all'angolo vero del foglio. */
+.ico-casa, .ico-fog { flex: 0 0 auto; width: 18px; height: 15px; }
+.ico-casa polyline, .ico-casa rect {
+  fill: none;
+  stroke: #5fa85f;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ico-fog rect { fill: none; stroke: currentColor; stroke-width: 1.2; opacity: .75; }
+.ico-fog .pt  { fill: #e8714f; stroke: none; }
+.btn:disabled .ico-casa polyline,
+.btn:disabled .ico-casa rect,
+.btn:disabled .ico-fog .pt { opacity: .45; }
 
 /* Il segno delle tre quote: una guida verticale con una tacca all'altezza
    giusta. Disegnata, non scritta: un carattere speciale su un browser c'e' e
@@ -294,6 +357,11 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 .h-top::after { top: 0; }
 .h-mid::after { top: 50%; margin-top: -1px; }
 .h-low::after { bottom: 0; }
+
+/* Un punto che casca fuori dalla corsa: il pulsante resta al suo posto - la
+   griglia non deve ballare quando si sposta il foglio - ma si segna, e il
+   suggerimento dice di quanto. */
+.pm-vai.is-ko .ico-fog rect { stroke: var(--danger); opacity: 1; }
 
 .btn-stop { border-color: #5b2b2b; color: #f0a0a0; font-weight: 700; }
 
@@ -1314,6 +1382,30 @@ code {
   fill: none;
   stroke: var(--warn);
   stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* IL RETICOLO sta sotto a tutto e non deve farsi notare: e' un riferimento,
+   non un disegno. Appena piu' chiaro del fondo, con le righe in pixel come il
+   resto degli strumenti - una griglia che si ingrossa quando ingrandisci
+   smette di essere una griglia. */
+.ed-reticolo line {
+  stroke: var(--line-soft);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* IL RETTANGOLO DI SELEZIONE. Tratteggiato come le guide, ma di un altro
+   colore: quelle dicono "il punto va qui", questo dice "prendo tutto quello
+   che tocco", e sono due cose che capitano nello stesso momento. */
+.ed-banda {
+  fill: var(--accent);
+  fill-opacity: .08;
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }

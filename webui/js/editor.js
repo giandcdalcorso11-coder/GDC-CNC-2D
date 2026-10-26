@@ -20,12 +20,18 @@ var Editor = (function () {
   var svg, tela, aiuto, piede, titolo;
   var strumento = 'scegli';
 
-  /* Che cosa è selezionato. `forma` è l'indice nelle forme del livello;
+  /* Che cosa è selezionato. `forme` è l'elenco degli indici scelti, `forma`
+     è il PRINCIPALE fra quelli — quello di cui si vedono nodi e maniglie —;
      `sub` e `nodo` scendono dentro, e valgono -1 quando la selezione si
-     ferma più in alto. */
-  var sel = { forma: -1, sub: -1, nodo: -1, maniglia: null };
+     ferma più in alto.
+     Due campi invece di uno perché le due domande sono diverse: «su che cosa
+     agisce Canc» vale per tutto il gruppo, «di chi si disegnano i nodi» vale
+     per uno solo. Con un gruppo i nodi non si mostrano affatto: venti
+     tracciati di quadratini sono un tappeto in cui il disegno sparisce. */
+  var sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null };
 
   var presa = null;        // trascinamento in corso
+  var banda = null;        // il rettangolo di selezione, mentre lo si tira
 
   /* IL DOPPIO CLIC CE LO CONTIAMO NOI, invece di aspettare l'evento del
      browser. Il browser emette `dblclick` solo se i due clic hanno lo stesso
@@ -51,6 +57,14 @@ var Editor = (function () {
 
   var SOGLIA_ANG = 6 * Math.PI / 180;   // quanto «quasi» vale come «esatto»
   var PASSO_ANG = Math.PI / 4;          // orizzontale, verticale, le due diagonali
+
+  /* LA GRIGLIA, in millimetri del foglio e non in unità del file: «da cinque»
+     vuol dire qualcosa, «da 0,37 unità» no. Zero vuol dire spenta.
+     A differenza degli altri magneti non ha una tolleranza: accesa, il punto
+     va SEMPRE sull'incrocio più vicino. Una griglia che aggancia solo quando
+     le passi vicino lascia i punti in mezzo, cioè non è una griglia — è un
+     terzo tipo di aiuto che nessuno ha chiesto. */
+  var griglia = 0;
 
   /* L'ANNULLA. Una pila di istantanee del livello, non un elenco di comandi
      da rifare al contrario: le operazioni qui sono poche e i disegni piccoli,
@@ -87,7 +101,7 @@ var Editor = (function () {
     var ora = Artwork.istantanea();
     Artwork.ripristina(storia.pop());
     if (ora) rifare.push(ora);
-    sel = { forma: -1, sub: -1, nodo: -1, maniglia: null };
+    nessunaForma();
     aggiornaStorici();
     disegna();
     scriviPiede();
@@ -98,10 +112,15 @@ var Editor = (function () {
     var ora = Artwork.istantanea();
     Artwork.ripristina(rifare.pop());
     if (ora) storia.push(ora);
-    sel = { forma: -1, sub: -1, nodo: -1, maniglia: null };
+    nessunaForma();
     aggiornaStorici();
     disegna();
     scriviPiede();
+  }
+
+  function nessunaForma() {
+    sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null };
+    banda = null;
   }
 
   function aggiornaStorici() {
@@ -146,6 +165,19 @@ var Editor = (function () {
     return Math.max(vista.w / r.width, vista.h / r.height);
   }
 
+  /* IL PASSO DELLA GRIGLIA IN UNITA' DEL FILE. Il numero che si scrive nella
+     barra è in millimetri del foglio; qui si divide per quanti millimetri
+     vale un'unità, che è il rapporto con cui il livello è stato adattato al
+     suo rettangolo. Su una tela ancora vuota quel rapporto non esiste e
+     un'unità vale un millimetro: è l'ipotesi meno sorprendente, e appena
+     c'è un tratto il foglio dice la sua. */
+  function passoGriglia() {
+    if (!(griglia > 0)) return null;
+    var k = (window.Artwork && Artwork.scalaMm) ? Artwork.scalaMm() : null;
+    var kx = (k && k.x > 0) ? k.x : 1, ky = (k && k.y > 0) ? k.y : 1;
+    return { x: griglia / kx, y: griglia / ky };
+  }
+
   function punto(e) {
     var p = svg.createSVGPoint();
     p.x = e.clientX;
@@ -169,13 +201,13 @@ var Editor = (function () {
     if (!svg) return;
     var f = forme() || [];
     var u = perPixel();
-    var out = '';
+    var out = reticolo(u);
 
     /* I tratti, tutti dello stesso colore: qui non si guarda il risultato, si
        guarda la struttura, e colori diversi direbbero cose che non ci sono. */
     for (var i = 0; i < f.length; i++) {
       var polys = Tracciato.appiattisci(f[i], TOL * u * 10);
-      var cls = i === sel.forma ? 'ed-tratto ed-scelto' : 'ed-tratto';
+      var cls = sel.forme.indexOf(i) >= 0 ? 'ed-tratto ed-scelto' : 'ed-tratto';
       for (var j = 0; j < polys.length; j++) {
         out += '<polyline class="' + cls + '" points="' + via(polys[j]) + '"></polyline>';
       }
@@ -190,7 +222,7 @@ var Editor = (function () {
     /* I nodi e le maniglie della forma scelta. Si mostrano solo di quella:
        tutti insieme sarebbero un tappeto di quadratini in cui non si trova
        più il disegno. */
-    var s = f[sel.forma];
+    var s = sel.forme.length === 1 ? f[sel.forma] : null;
     if (s && s.tipo === 'tracciato') {
       var lato = 7 * u, raggio = 4 * u;
       s.sub.forEach(function (sub, si) {
@@ -234,10 +266,48 @@ var Editor = (function () {
                '" x2="' + (vista.x0 + vista.w) + '" y2="' + g.y + '"></line>' +
                '<circle class="ed-guida-nodo" cx="' + g.x + '" cy="' + g.y +
                '" r="' + (4 * u) + '"></circle>';
+      } else if (g.tipo === 'incrocio') {
+        var c = 5 * u;
+        out += '<line class="ed-guida" x1="' + (g.x - c) + '" y1="' + g.y +
+               '" x2="' + (g.x + c) + '" y2="' + g.y + '"></line>' +
+               '<line class="ed-guida" x1="' + g.x + '" y1="' + (g.y - c) +
+               '" x2="' + g.x + '" y2="' + (g.y + c) + '"></line>';
       }
     });
 
+    if (banda) {
+      out += '<rect class="ed-banda" x="' + banda.x0 + '" y="' + banda.y0 +
+             '" width="' + (banda.x1 - banda.x0) +
+             '" height="' + (banda.y1 - banda.y0) + '"></rect>';
+    }
+
     svg.innerHTML = out;
+  }
+
+  /* IL RETICOLO. Si disegna solo se le maglie si distinguono: sotto i sette
+     pixel di passo non si vede una griglia, si vede un fondo grigio, e per
+     ottenerlo si pagherebbero migliaia di righe di SVG a ogni movimento del
+     mouse. L'AGGANCIO RESTA ACCESO lo stesso: le due cose sono separate, e
+     una griglia fitta serve proprio quando non la si vuole guardare.
+     Il tetto sul numero di righe è la stessa difesa dall'altra parte, per lo
+     schermo grande dove sette pixel di passo sono ancora tante righe. */
+  function reticolo(u) {
+    var g = passoGriglia();
+    if (!g || !vista) return '';
+    if (g.x / u < 7 || g.y / u < 7) return '';
+    var nx = Math.ceil(vista.w / g.x), ny = Math.ceil(vista.h / g.y);
+    if (nx + ny > 1200) return '';
+
+    var out = '<g class="ed-reticolo">', i, v;
+    for (i = 0, v = Math.floor(vista.x0 / g.x) * g.x; i <= nx + 1; i++, v += g.x) {
+      out += '<line x1="' + v + '" y1="' + vista.y0 + '" x2="' + v +
+             '" y2="' + (vista.y0 + vista.h) + '"></line>';
+    }
+    for (i = 0, v = Math.floor(vista.y0 / g.y) * g.y; i <= ny + 1; i++, v += g.y) {
+      out += '<line x1="' + vista.x0 + '" y1="' + v + '" x2="' +
+             (vista.x0 + vista.w) + '" y2="' + v + '"></line>';
+    }
+    return out + '</g>';
   }
 
   /* ------------------------- che cosa c'è sotto ------------------------- */
@@ -338,11 +408,13 @@ var Editor = (function () {
    */
   function aggancia(p, ancora, e, escludi) {
     guide = [];
-    if (!magneti || (e && e.altKey)) return p;
+    /* Alt spegne TUTTO, griglia compresa: una via d'uscita che lascia acceso
+       qualcosa non è una via d'uscita. */
+    if (e && e.altKey) return p;
 
     var u = perPixel();
     var tolN = 9 * u, tolA = 7 * u;
-    var ns = nodiTutti(escludi);
+    var ns = magneti ? nodiTutti(escludi) : [];
     var i, d;
 
     var vicino = null;
@@ -354,6 +426,29 @@ var Editor = (function () {
       guide.push({ tipo: 'nodo', x: vicino.n.x, y: vicino.n.y });
       return { x: vicino.n.x, y: vicino.n.y };
     }
+
+    /* LA GRIGLIA viene subito dopo i nodi e prima di tutto il resto, e quando
+       c'è decide da sola. Non si somma all'angolo né all'allineamento: su una
+       griglia l'orizzontale, la verticale e i quarantacinque gradi vengono da
+       sé, perché li fanno due incroci, e stringere anche l'angolo porterebbe
+       il punto fuori dalla griglia — cioè toglierebbe l'unica cosa che una
+       griglia promette. Resta l'eccezione di Shift, che l'angolo lo forza: chi
+       lo tiene premuto sta chiedendo quello, e lo ottiene fuori griglia.
+
+       E' un interruttore SUO, non uno dei magneti: si accende e si spegne
+       separatamente, e con i magneti spenti continua a valere. Sono due aiuti
+       di natura diversa — i magneti guardano il disegno che c'è, la griglia
+       non guarda niente — e volerli insieme o nessuno dei due è una
+       limitazione senza una ragione. */
+    var mag = passoGriglia();
+    if (mag && !(e && e.shiftKey)) {
+      var inc = { x: Math.round(p.x / mag.x) * mag.x,
+                  y: Math.round(p.y / mag.y) * mag.y };
+      guide.push({ tipo: 'incrocio', x: inc.x, y: inc.y });
+      return inc;
+    }
+
+    if (!magneti) return p;
 
     var q = { x: p.x, y: p.y };
 
@@ -411,10 +506,13 @@ var Editor = (function () {
   }
 
   var AIUTO = {
-    scegli: 'Clicca un tratto per sceglierlo. Trascina i nodi e le maniglie. ' +
-            'Doppio clic su un nodo: da spigolo a curva e viceversa. ' +
-            'Doppio clic su un tratto: aggiunge un nodo lì. Canc: toglie il nodo, ' +
-            'o il tratto intero se non c\'è un nodo scelto.',
+    scegli: 'Clicca un tratto per sceglierlo, trascina nel vuoto per sceglierne ' +
+            'più d\'uno, Shift+clic per aggiungerne e toglierne. Trascina i nodi ' +
+            'e le maniglie. Doppio clic su un nodo: da spigolo a curva e ' +
+            'viceversa. Doppio clic su un tratto: aggiunge un nodo lì. Canc: ' +
+            'toglie il nodo, o tutte le forme scelte se non c\'è un nodo scelto.',
+    curva:  'Trascina un tratto per incurvarlo. Se era dritto diventa una curva ' +
+            'senza spostarsi di un capello, e segue il dito da lì in poi.',
     spezzata: 'Clicca per mettere i punti. Doppio clic o Invio per finire, ' +
               'Esc per annullare.',
     rettangolo: 'Trascina da un angolo all\'altro.',
@@ -426,9 +524,15 @@ var Editor = (function () {
 
   function scriviAiuto() {
     if (!aiuto) return;
-    aiuto.textContent = (AIUTO[strumento] || '') +
-      (magneti ? '  ·  Magneti accesi: Alt per spegnerli un momento, Shift per ' +
-                 'forzare l\'angolo.' : '  ·  Magneti spenti.');
+    var coda = magneti
+      ? '  ·  Magneti accesi: Alt per spegnerli un momento, Shift per forzare ' +
+        'l\'angolo.'
+      : '  ·  Magneti spenti.';
+    if (griglia > 0) {
+      coda += '  ·  Griglia da ' + String(griglia).replace('.', ',') +
+              ' mm: i punti ci vanno sopra, Shift o Alt la scavalcano.';
+    }
+    aiuto.textContent = (AIUTO[strumento] || '') + coda;
   }
 
   function scriviPiede() {
@@ -437,7 +541,9 @@ var Editor = (function () {
     if (!f) { piede.textContent = ''; return; }
     var c = Tracciato.conta(f);
     piede.textContent = c.forme + ' forme · ' + c.nodi + ' nodi · ' +
-                        c.curve + ' con una curva' + (c.testi ? ' · ' + c.testi + ' testi' : '');
+                        c.curve + ' con una curva' +
+                        (c.testi ? ' · ' + c.testi + ' testi' : '') +
+                        (sel.forme.length > 1 ? '  —  ' + sel.forme.length + ' scelte' : '');
   }
 
   function chiudiCostruzione(annulla) {
@@ -466,7 +572,12 @@ var Editor = (function () {
          subito farebbe sparire il trascinamento: premere su un nodo appena
          scelto e tirarlo è un gesto normale, e assomiglia come due gocce
          d'acqua all'inizio di un doppio clic. Chi si muove sta trascinando. */
-      forseDoppio = ora - ultimoGiu.t < DOPPIO_MS &&
+      /* Con Shift premuto non si conta: due Shift+clic di fila sullo stesso
+         tratto sono «aggiungi» e «togli», non un doppio clic, e passavano
+         invece per un doppio clic che infilava un nodo e azzerava il gruppo.
+         Trovato dal collaudo. */
+      forseDoppio = !e.shiftKey &&
+                    ora - ultimoGiu.t < DOPPIO_MS &&
                     Math.abs(e.clientX - ultimoGiu.x) < DOPPIO_PX &&
                     Math.abs(e.clientY - ultimoGiu.y) < DOPPIO_PX;
       ultimoGiu = { t: ora, x: e.clientX, y: e.clientY };
@@ -483,6 +594,7 @@ var Editor = (function () {
     if (e.button !== 0) return;
 
     if (strumento === 'scegli') return giuScegli(e, p, u);
+    if (strumento === 'curva') return giuCurva(e, p, u);
     if (strumento === 'taglia') return taglia(p, u);
     if (strumento === 'spezzata') return giuSpezzata(p, e);
     if (strumento === 'testo') return metteTesto(p);
@@ -510,13 +622,61 @@ var Editor = (function () {
     }
 
     var t = sotto(p, u);
-    if (!t) { sel.forma = -1; sel.sub = -1; sel.nodo = -1; disegna(); return; }
+    if (!t) {
+      /* Il vuoto comincia un rettangolo di selezione. Non si deseleziona
+         subito: un clic nel vuoto che azzera e un trascinamento che sceglie
+         cominciano con lo stesso gesto, e quale dei due fosse lo si sa solo
+         al rilascio. */
+      presa = { tipo: 'banda', inizio: p };
+      banda = null;
+      svg.setPointerCapture(e.pointerId);
+      return;
+    }
 
+    /* Shift aggiunge e toglie. Togliendo quella che era la principale il
+       comando passa alla prima rimasta: «principale» vuol dire soltanto
+       «quella di cui si vedono i nodi», e finché c'è una selezione deve
+       esserci. */
+    if (e.shiftKey) {
+      var k = sel.forme.indexOf(t.forma);
+      if (k >= 0) {
+        sel.forme.splice(k, 1);
+        sel.forma = sel.forme.length ? sel.forme[0] : -1;
+      } else {
+        sel.forme.push(t.forma);
+        sel.forma = t.forma;
+      }
+      sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
+      disegna();
+      return;
+    }
+
+    /* Prendendo una forma CHE E' GIA' NEL GRUPPO si trascina tutto il gruppo.
+       È il gesto con cui si sposta quello che si è appena scelto, e
+       ricominciare da capo a ogni pressione renderebbe la selezione multipla
+       una cosa che si può fare ma non serve a niente. */
+    if (sel.forme.indexOf(t.forma) < 0) sel.forme = [t.forma];
     sel.forma = t.forma; sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
     presa = { tipo: 'forma', da: p };
     segna();
     svg.setPointerCapture(e.pointerId);
     disegna();
+  }
+
+  /* Chi finisce dentro al rettangolo. Basta che gli ingombri si tocchino:
+     pretendere che la forma ci stia tutta vorrebbe dire inseguire col
+     rettangolo i tratti che escono dallo schermo, ed è il contrario di quello
+     che si aspetta chi arriva da un programma di disegno. */
+  function scegliDentro(b) {
+    var f = forme() || [], out = [];
+    for (var i = 0; i < f.length; i++) {
+      var g = Tracciato.bbox([f[i]], TOL);
+      if (!isFinite(g.w) || !isFinite(g.h)) continue;
+      if (g.x1 >= b.x0 && g.x0 <= b.x1 && g.y1 >= b.y0 && g.y0 <= b.y1) out.push(i);
+    }
+    sel.forme = out;
+    sel.forma = out.length ? out[0] : -1;
+    sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
   }
 
   function muovi(e) {
@@ -555,6 +715,15 @@ var Editor = (function () {
       return;
     }
 
+    if (presa.tipo === 'banda') {
+      banda = { x0: Math.min(presa.inizio.x, p.x), y0: Math.min(presa.inizio.y, p.y),
+                x1: Math.max(presa.inizio.x, p.x), y1: Math.max(presa.inizio.y, p.y) };
+      disegna();
+      return;
+    }
+
+    if (presa.tipo === 'curva') { piega(p); return; }
+
     var f = forme();
     var dx = p.x - presa.da.x, dy = p.y - presa.da.y;
     presa.da = p;
@@ -592,7 +761,10 @@ var Editor = (function () {
     }
 
     if (presa.tipo === 'forma') {
-      sposta(f[sel.forma], dx, dy);
+      var gruppo = sel.forme.length ? sel.forme : [sel.forma];
+      for (var gi = 0; gi < gruppo.length; gi++) {
+        if (f[gruppo[gi]]) sposta(f[gruppo[gi]], dx, dy);
+      }
       cambiato();
       return;
     }
@@ -626,6 +798,18 @@ var Editor = (function () {
     }
     forseDoppio = false;
     guide = [];
+
+    if (tipo === 'banda') {
+      /* Tirato: si sceglie quello che c'è dentro. Solo premuto e rilasciato:
+         era un clic nel vuoto, e un clic nel vuoto azzera. */
+      if (mosso && banda) scegliDentro(banda);
+      else nessunaForma();
+      banda = null;
+      disegna();
+      scriviPiede();
+      return;
+    }
+
     if (!tipo) { disegna(); return; }
 
     if ((tipo === 'rettangolo' || tipo === 'cerchio') && costruendo) {
@@ -688,6 +872,121 @@ var Editor = (function () {
     }
     if (n.length > 1) { segna(); forme().push(costruendo); costruendo = null; cambiato(); }
     else { costruendo = null; disegna(); }
+  }
+
+  /* ------------------------------ la curva ------------------------------ */
+
+  /* PIEGARE UN TRATTO SENZA PASSARE DAL NODO.
+   *
+   * Finora, per far curvare una linea, bisognava prendere il nodo a un capo,
+   * trasformarlo in nodo curvo e poi tirarne la maniglia: tre gesti e due
+   * oggetti di mezzo, per una cosa che si pensa come «prendo la linea e la
+   * incurvo». Qui si prende la linea e la si incurva.
+   *
+   * UN SEGMENTO DRITTO E' GIA' UNA CUBICA: con le maniglie a un terzo e a due
+   * terzi della corda la curva coincide con la retta, punto per punto — non è
+   * un'approssimazione, è un'identità. Scriverle non cambia il disegno di un
+   * capello, e da lì in poi il tratto si piega.
+   */
+
+  function cubicaDi(a, b) {
+    return { p0: { x: a.x, y: a.y },
+             p1: a.ho || { x: a.x, y: a.y },
+             p2: b.hi || { x: b.x, y: b.y },
+             p3: { x: b.x, y: b.y } };
+  }
+
+  function copiaCubica(c) {
+    return { p0: { x: c.p0.x, y: c.p0.y }, p1: { x: c.p1.x, y: c.p1.y },
+             p2: { x: c.p2.x, y: c.p2.y }, p3: { x: c.p3.x, y: c.p3.y } };
+  }
+
+  function valuta(c, t) {
+    var v = 1 - t;
+    var A = v * v * v, B = 3 * v * v * t, C = 3 * v * t * t, D = t * t * t;
+    return { x: A * c.p0.x + B * c.p1.x + C * c.p2.x + D * c.p3.x,
+             y: A * c.p0.y + B * c.p1.y + C * c.p2.y + D * c.p3.y };
+  }
+
+  /* IL TRATTO SOTTO AL PUNTATORE, cercato fra due nodi alla volta. Non si
+     riusa `sotto()`: quella lavora sulla polilinea di un sotto-tracciato
+     intero e restituisce l'indice di un segmento APPIATTITO, che su una curva
+     non dice niente — una cubica sola può valerne trenta. Qui ogni tratto si
+     campiona NEL PARAMETRO, così il `t` che esce è quello della cubica, cioè
+     quello che serve per piegarla. */
+  function trattoSotto(p, u) {
+    var f = forme() || [], limite = 8 * u, meglio = null;
+    for (var i = 0; i < f.length; i++) {
+      if (f[i].tipo !== 'tracciato') continue;
+      for (var si = 0; si < f[i].sub.length; si++) {
+        var sub = f[i].sub[si], n = sub.nodi;
+        var quanti = sub.chiuso ? n.length : n.length - 1;
+        for (var k = 0; k < quanti; k++) {
+          var c = cubicaDi(n[k], n[(k + 1) % n.length]);
+          for (var j = 0; j <= 32; j++) {
+            var t = j / 32, q = valuta(c, t);
+            var d = Math.hypot(p.x - q.x, p.y - q.y);
+            if (d < limite && (!meglio || d < meglio.d)) {
+              meglio = { forma: i, sub: si, k: k, t: t, d: d };
+            }
+          }
+        }
+      }
+    }
+    return meglio;
+  }
+
+  function giuCurva(e, p, u) {
+    var t = trattoSotto(p, u);
+    if (!t) { Log.add('err', 'Lì sotto non c\'è nessun tratto da piegare.'); return; }
+
+    var f = forme(), sub = f[t.forma].sub[t.sub], n = sub.nodi;
+    var a = n[t.k], b = n[(t.k + 1) % n.length];
+    segna();
+
+    if (!a.ho) a.ho = { x: a.x + (b.x - a.x) / 3, y: a.y + (b.y - a.y) / 3 };
+    if (!b.hi) b.hi = { x: b.x - (b.x - a.x) / 3, y: b.y - (b.y - a.y) / 3 };
+
+    /* Il punto di presa si tiene lontano dagli estremi: lì i due pesi vanno a
+       zero insieme, e la maniglia da spostare per muovere il punto di un
+       millimetro diventerebbe lunga quanto il foglio. */
+    presa = {
+      tipo: 'curva', forma: t.forma, sub: t.sub, k: t.k,
+      t: Math.max(0.12, Math.min(0.88, t.t)),
+      /* Si parte SEMPRE dalla cubica di prima del gesto, non da quella
+         dell'evento precedente: piegare a partire da quello che si è appena
+         piegato accumula, e dopo venti eventi il tratto è da un'altra parte.
+         È la stessa regola del rettangolo sul foglio. */
+      c0: copiaCubica(cubicaDi(a, b))
+    };
+    sel.forma = t.forma; sel.forme = [t.forma]; sel.sub = -1; sel.nodo = -1;
+    svg.setPointerCapture(e.pointerId);
+    disegna();
+  }
+
+  /* Le due maniglie che portano il punto dove lo si sta tirando. Due
+     condizioni e quattro incognite lasciano infinite soluzioni: fra tutte si
+     prende quella che sposta le maniglie IL MENO POSSIBILE. Senza un criterio
+     schizzerebbero via ogni volta in modo diverso, e il tratto non seguirebbe
+     il dito. */
+  function piega(p) {
+    var f = forme();
+    var sub = f[presa.forma] && f[presa.forma].sub[presa.sub];
+    if (!sub) return;
+    var n = sub.nodi;
+    var a = n[presa.k], b = n[(presa.k + 1) % n.length];
+    if (!a || !b) return;
+
+    var t = presa.t, v = 1 - t;
+    var w1 = 3 * v * v * t, w2 = 3 * v * t * t;
+    var den = w1 * w1 + w2 * w2;
+    if (den < 1e-9) return;
+
+    var q = valuta(presa.c0, t);
+    var dx = p.x - q.x, dy = p.y - q.y;
+    a.ho = { x: presa.c0.p1.x + dx * w1 / den, y: presa.c0.p1.y + dy * w1 / den };
+    b.hi = { x: presa.c0.p2.x + dx * w2 / den, y: presa.c0.p2.y + dy * w2 / den };
+    cambiato();
   }
 
   /* ------------------------------ il testo ------------------------------ */
@@ -786,8 +1085,15 @@ var Editor = (function () {
       return;
     }
 
-    f.splice(sel.forma, 1);
-    sel.forma = -1; sel.sub = -1; sel.nodo = -1;
+    /* Si cancella dall'indice più alto al più basso: togliendo prima il
+       primo, tutti quelli dopo scalano di uno e si finirebbe per cancellare i
+       vicini invece dei scelti. */
+    var gruppo = (sel.forme.length ? sel.forme : [sel.forma]).slice()
+      .sort(function (a, b) { return b - a; });
+    for (var gi = 0; gi < gruppo.length; gi++) {
+      if (gruppo[gi] >= 0) f.splice(gruppo[gi], 1);
+    }
+    nessunaForma();
     cambiato();
   }
 
@@ -814,8 +1120,14 @@ var Editor = (function () {
     segna();
     var dove = Math.max(1, Math.min(sub.nodi.length - 1, Math.round(t.k - 1 + t.t) + 1));
     sub.nodi.splice(dove, 0, Tracciato.nodo(t.punto.x, t.punto.y));
-    sel.forma = t.forma; sel.sub = t.sub; sel.nodo = dove;
+    sel.forma = t.forma; sel.forme = [t.forma]; sel.sub = t.sub; sel.nodo = dove;
     cambiato();
+  }
+
+  function passoScritto() {
+    var c = document.getElementById('ed-griglia-mm');
+    var v = c ? parseFloat(c.value) : NaN;
+    return v > 0 ? v : 5;
   }
 
   /* ------------------------------- avvio ------------------------------- */
@@ -824,7 +1136,7 @@ var Editor = (function () {
      quello, senza si comincia da una tela vuota. */
   function apri() {
     if (!Artwork.forme()) Artwork.nuovo('nuovo disegno');
-    sel = { forma: -1, sub: -1, nodo: -1, maniglia: null };
+    nessunaForma();
     costruendo = null;
     guide = [];
     /* La storia è di QUESTO disegno: entrando su un altro livello, un annulla
@@ -855,6 +1167,14 @@ var Editor = (function () {
       else if (b.id === 'ed-elimina') elimina();
       else if (b.id === 'ed-annulla') annulla();
       else if (b.id === 'ed-rifai') rifai();
+      else if (b.id === 'ed-griglia') {
+        griglia = griglia > 0 ? 0 : passoScritto();
+        b.classList.toggle('attivo', griglia > 0);
+        document.getElementById('ed-griglia-campi').hidden = !(griglia > 0);
+        guide = [];
+        disegna();
+        scriviAiuto();
+      }
       else if (b.id === 'ed-magneti') {
         magneti = !magneti;
         b.classList.toggle('attivo', magneti);
@@ -862,6 +1182,14 @@ var Editor = (function () {
         disegna();
         scriviAiuto();
       }
+    });
+
+    /* Il passo si può cambiare a griglia accesa, e il reticolo segue mentre
+       si scrive: è il modo per trovare quello giusto: cinque millimetri su un
+       logo sono un'altra cosa che su una cornice. */
+    var campo = document.getElementById('ed-griglia-mm');
+    if (campo) campo.addEventListener('input', function () {
+      if (griglia > 0) { griglia = passoScritto(); disegna(); scriviAiuto(); }
     });
 
     svg.addEventListener('pointerdown', giu);
@@ -909,6 +1237,8 @@ var Editor = (function () {
            strumento: function () { return strumento; },
            scegliStrumento: scegliStrumento,
            selezione: function () { return { forma: sel.forma, sub: sel.sub, nodo: sel.nodo }; },
+           scelte: function () { return sel.forme.slice(); },
+           griglia: function (v) { if (v !== undefined) griglia = +v || 0; return griglia; },
            annulla: annulla, rifai: rifai,
            magneti: function (v) {
              if (v !== undefined) {

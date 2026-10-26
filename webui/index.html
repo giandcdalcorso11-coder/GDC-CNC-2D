@@ -254,6 +254,7 @@
       <button type="button" class="ed-str" data-str="rettangolo">Rettangolo</button>
       <button type="button" class="ed-str" data-str="cerchio">Cerchio</button>
       <button type="button" class="ed-str" data-str="testo">Testo</button>
+      <button type="button" class="ed-str" data-str="curva">Curva</button>
       <button type="button" class="ed-str" data-str="taglia">Taglia</button>
       <span class="ed-sep"></span>
       <span class="ed-campi" id="ed-testo-campi" hidden>
@@ -269,6 +270,12 @@
               title="Ctrl+Shift+Z" disabled>Rifai</button>
       <button type="button" class="ed-str attivo" id="ed-magneti"
               title="Alt li spegne mentre lo tieni premuto, Shift forza l'angolo">Magneti</button>
+      <button type="button" class="ed-str" id="ed-griglia"
+              title="I punti vanno sugli incroci. Shift o Alt la scavalcano">Griglia</button>
+      <span class="ed-campi" id="ed-griglia-campi" hidden>
+        <label>passo <input type="number" id="ed-griglia-mm" value="5" min="0.1" step="0.5"></label>
+        <span class="muted small">mm</span>
+      </span>
       <span class="ed-sep"></span>
       <button type="button" class="btn btn-ghost btn-small" id="ed-adatta">Adatta</button>
       <span class="ed-titolo" id="ed-titolo"></span>

@@ -102,10 +102,72 @@ var Panel = (function () {
     return h + '</div>';
   }
 
-  /* IL TASTIERINO. Otto direzioni intorno, e al centro i comandi della penna
-     invece del vecchio STOP: le tre quote in colonna, e accanto le due frecce
-     da un grado. Lo STOP non è sparito, è sceso sotto le due frecce — un
-     pannello di movimento senza un modo di fermarlo non si consegna. */
+  /* I QUATTRO PUNTI NOTEVOLI, quelli che si raggiungono con un click solo.
+     Il primo è il punto home. Gli altri tre sono angoli del foglio — tutti
+     meno quello in basso a sinistra, che è la battuta contro cui il foglio si
+     appoggia e che quindi non c'è bisogno di andare a cercare: partendo da lì
+     e girando in tondo (destra, su, sinistra) tre click dicono se il foglio
+     sta davvero dove la pagina lo disegna. Su una macchina senza finecorsa
+     quel confronto è l'unico modo di saperlo.
+
+     I segni ripetono quelli del piano: la casetta verde del punto home e il
+     pallino rosso dell'angolo sono gli stessi che si vedono sul foglio, e due
+     disegni uguali si riconoscono senza leggere niente. Il pallino sta
+     nell'angolo del rettangolino che corrisponde all'angolo vero — il disegno
+     E' l'informazione, come per le tacche delle quote. */
+  var VAI = [
+    ['home', 'Punto home',                            null],
+    ['bd',   'Angolo del foglio in basso a destra',   [14.5, 11.5]],
+    ['ad',   'Angolo del foglio in alto a destra',    [14.5,  1.5]],
+    ['as',   'Angolo del foglio in alto a sinistra',  [ 1.5,  1.5]]
+  ];
+
+  function nomeVai(k) {
+    for (var i = 0; i < VAI.length; i++) if (VAI[i][0] === k) return VAI[i][1];
+    return k;
+  }
+
+  /* Dove sta, in coordinate macchina. Il foglio ha l'origine nell'angolo in
+     basso a sinistra e la y cresce verso l'alto, come sul piano: qui non si
+     ribalta niente. */
+  function puntoVai(k) {
+    if (k === 'home') return Profile.puntoHome();
+    var p = State.data.paper, o = State.data.sheetOrigin;
+    if (!p || !o) return null;
+    if (k === 'bd') return { x: o.x + p.w, y: o.y };
+    if (k === 'ad') return { x: o.x + p.w, y: o.y + p.h };
+    if (k === 'as') return { x: o.x,       y: o.y + p.h };
+    return null;
+  }
+
+  function segnoVai(v) {
+    if (!v[2]) {
+      /* La stessa casetta del piano, con la y ribaltata: lì il gruppo è
+         girato e «in su» è +y, qui si è in una pagina e la y va in giù. */
+      return '<svg class="ico-casa" viewBox="-8 -1 16 14" aria-hidden="true">' +
+             '<polyline points="-7,7 0,0 7,7"></polyline>' +
+             '<rect x="-5" y="6" width="10" height="6"></rect>' +
+             '<rect x="-1.6" y="8.6" width="3.2" height="3.4"></rect></svg>';
+    }
+    return '<svg class="ico-fog" viewBox="0 0 16 13" aria-hidden="true">' +
+           '<rect x="1.5" y="1.5" width="13" height="10"></rect>' +
+           '<circle class="pt" cx="' + v[2][0] + '" cy="' + v[2][1] +
+           '" r="2.6"></circle></svg>';
+  }
+
+  /* IL TASTIERINO. Otto direzioni intorno, e al centro tre colonne per
+     quattro righe: a sinistra i quattro punti dove si va con un click, in
+     mezzo le tre quote della penna, a destra le due frecce da un grado con lo
+     STOP sotto. I due posti in alto restano liberi — sono pulsanti veri e
+     spenti, non caselle vuote, così il giorno che ci finirà dentro qualcosa
+     non si sposterà niente.
+
+     Le due cornici non sono decorazione: dicono quali pulsanti fanno la
+     stessa cosa. A sinistra quelli che muovono i carrelli, come le otto
+     frecce intorno; a destra quelli della penna. Lo STOP sta nell'angolo di
+     quella di destra pur non essendo un comando della penna: è dove la mano
+     lo cerca, sotto alle frecce, e il suo bordo rosso lo tiene distinto lo
+     stesso. */
   function tastierino() {
     var h = '<div class="jog-pad">';
     for (var i = 0; i < DIR.length; i++) {
@@ -113,7 +175,16 @@ var Panel = (function () {
            'data-pm-dx="' + DIR[i][1] + '" data-pm-dy="' + DIR[i][2] + '">' +
            DIR[i][3] + '</button>';
     }
-    h += '<div class="jog-mid"><div class="jog-h">';
+
+    h += '<div class="jog-mid">' +
+         '<i class="jog-cornice jog-c-vai"></i>' +
+         '<i class="jog-cornice jog-c-pen"></i>';
+
+    for (var v = 0; v < VAI.length; v++) {
+      h += '<button class="btn btn-jog pm-vai" data-pm-vai="' + VAI[v][0] +
+           '" title="' + VAI[v][1] + '">' + segnoVai(VAI[v]) + '</button>';
+    }
+
     for (var q = 0; q < QUOTE.length; q++) {
       /* Il nome sta in uno span suo perché in una colonna stretta va tolto:
          meglio la sola tacca, che si capisce, che «Contatto» tagliato a
@@ -123,15 +194,19 @@ var Panel = (function () {
            '<i class="h-ind ' + QUOTE[q][2] + '"></i>' +
            '<span class="pm-h-nome">' + QUOTE[q][1] + '</span></button>';
     }
-    h += '</div><div class="jog-deg">' +
-         '<button class="btn btn-ghost pm-deg" data-pm-deg="1" ' +
+
+    h += '<button class="btn btn-ghost pm-deg" data-pm-deg="1" ' +
          'title="Alza la penna di un grado di servo">&uarr;1&deg;</button>' +
          '<button class="btn btn-ghost pm-deg" data-pm-deg="-1" ' +
          'title="Abbassa la penna di un grado di servo">&darr;1&deg;</button>' +
          '<button class="btn btn-ghost btn-stop pm-stop" ' +
          'title="Ferma il movimento in corso">STOP</button>' +
-         '</div></div></div>';
-    return h;
+         '<button class="btn btn-ghost jog-vuoto" data-jog-vuoto="1" disabled ' +
+         'tabindex="-1" aria-hidden="true"></button>' +
+         '<button class="btn btn-ghost jog-vuoto" data-jog-vuoto="2" disabled ' +
+         'tabindex="-1" aria-hidden="true"></button>';
+
+    return h + '</div></div>';
   }
 
   /* Andare a un punto scrivendolo. Le frecce servono a cercare, questo a
@@ -196,6 +271,10 @@ var Panel = (function () {
 
     uno(el, '.pm-stop', function (b) {
       b.addEventListener('click', function () { Api.feedHold(); });
+    });
+
+    ognuno(el, '[data-pm-vai]', function (b) {
+      b.addEventListener('click', function () { vaiPunto(el, ist, this.dataset.pmVai); });
     });
 
     ognuno(el, '[data-pm-step]', function (b) {
@@ -356,6 +435,44 @@ var Panel = (function () {
     });
   }
 
+  /* Andare a un punto notevole. Gli stessi tre controlli di «Vai al punto» —
+     collegata, azzerata, dentro l'area — più una quarta cosa che lì non serve
+     e qui sì: LA PENNA SI ALZA PRIMA DI PARTIRE. Questi quattro pulsanti si
+     premono per guardare dove sta il foglio, e un traverso di duecento
+     millimetri con la punta appoggiata lascia una riga dritta in mezzo al
+     disegno. Alzare costa mezzo secondo e non si può disfare al contrario. */
+  function vaiPunto(el, ist, k) {
+    var q = puntoVai(k), nome = nomeVai(k).toLowerCase();
+    if (!q) { dice(el, 'Quel punto non è definito.'); return; }
+    if (!State.data.azzerata) {
+      dice(el, 'La macchina non è azzerata: quelle coordinate non avrebbero ' +
+               'un riferimento. Fai prima l\'homing.');
+      return;
+    }
+    var d = Profile.stanoDentro({ x0: q.x, y0: q.y, x1: q.x, y1: q.y });
+    if (!d.ok) {
+      dice(el, 'Il ' + nome + ' è fuori dall\'area percorribile, ' +
+               d.fuori.join(' e ') + '.');
+      return;
+    }
+
+    ist.meta = { x: q.x, y: q.y };
+    dice(el, 'Penna su, poi al ' + nome + ': X ' + q.x.toFixed(1) +
+             ' Y ' + q.y.toFixed(1) + '…');
+
+    var su = Profile.zAlzata();
+    /* Si alza solo se è più in basso: una quota già buona rimandata uguale
+       sarebbe mezzo secondo di servo per niente. */
+    var prima = (su !== null && State.data.pos.z < su - 0.01)
+      ? Api.penna(su) : Promise.resolve();
+
+    prima.then(function () { return Api.vaiA(q.x, q.y); })
+         .catch(function (e) {
+           ist.meta = null;
+           dice(el, 'Non ci è andata: ' + e.message);
+         });
+  }
+
   function uno(el, sel, fn) { var x = el.querySelector(sel); if (x) fn(x); }
   function ognuno(el, sel, fn) {
     var xs = el.querySelectorAll(sel);
@@ -397,6 +514,26 @@ var Panel = (function () {
     var puoAndare = collegata && !liberi && State.data.azzerata;
     ognuno(el, '.pm-goto-x, .pm-goto-y, .pm-goto-go', function (b) {
       b.disabled = !puoAndare;
+    });
+
+    /* I QUATTRO PUNTI NOTEVOLI si rinfrescano a ogni cambio di foglio, non
+       solo di posizione: il pulsante «alto a destra» vuol dire un punto
+       diverso appena si cambia formato o si trascina il foglio sul piano.
+       Le coordinate finiscono nel suggerimento perché un pulsante con un
+       disegno sopra dice DOVE si va ma non dice a quanti millimetri, e prima
+       di mandare un carrello da qualche parte quel numero si vuole leggere.
+       Un punto fuori dalla corsa spegne il suo pulsante e lo dice: senza
+       finecorsa non c'è nient'altro che fermi il carrello. */
+    ognuno(el, '[data-pm-vai]', function (b) {
+      var k = b.dataset.pmVai, q = puntoVai(k), nome = nomeVai(k);
+      if (!q) { b.disabled = true; b.title = nome + ': non è definito.'; return; }
+      var d = Profile.stanoDentro({ x0: q.x, y0: q.y, x1: q.x, y1: q.y });
+      var dove = ' — X ' + q.x.toFixed(1) + ' Y ' + q.y.toFixed(1) + ' mm';
+      b.disabled = !puoAndare || !d.ok;
+      b.classList.toggle('is-ko', !d.ok);
+      b.title = d.ok
+        ? nome + dove + '. Alza la penna e ci va.'
+        : nome + dove + ': fuori dall\'area percorribile, ' + d.fuori.join(' e ') + '.';
     });
 
     /* Arrivata? I campi si svuotano qui e non alla partenza: `ok` da FluidNC
@@ -494,6 +631,9 @@ var Panel = (function () {
     State.on('azzerata', aggiornaTutti);
     State.on('motoriLiberi', aggiornaTutti);
     State.on('profilo', aggiornaTutti);
+    /* Il foglio: i quattro pulsanti dei punti notevoli puntano ai suoi
+       angoli, e un foglio spostato li sposta tutti. */
+    State.on('paper', aggiornaTutti);
   }
 
   return { init: init, mount: mount, aggiorna: aggiornaTutti };

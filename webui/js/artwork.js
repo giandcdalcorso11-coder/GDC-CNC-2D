@@ -217,6 +217,26 @@ var Artwork = (function () {
     refit();
   }
 
+  /* QUANTO VALE UN'UNITA' DEL FILE, in millimetri sul foglio.
+     L'editor lavora nelle coordinate del file, che possono valere un
+     millimetro come un metro: una griglia si chiede in millimetri — «da
+     cinque» vuol dire qualcosa, «da 0,37 unità» no — e per convertirla serve
+     il rapporto con cui refit() ha adattato il disegno al suo rettangolo.
+     x e y separati, perché una deformazione li rende diversi.
+     Null quando non c'è ancora niente da misurare: su una tela vuota il
+     rapporto non esiste, e chi chiama decide cosa farne. */
+  function scalaMm(id) {
+    var l = id ? trova(id) : corrente();
+    if (!l || !l.box || !l.bb) return null;
+    var kx = l.box.w / l.bb.w, ky = l.box.h / l.bb.h;
+    /* Un disegno fatto di una riga orizzontale sola ha ingombro alto zero, e
+       il rapporto in y esce 0 o NaN. Non è un caso da scuola: è il primo
+       tratto che si traccia su una tela vuota. Allora non c'è nessuna scala
+       da dare, e si dice; chi chiama ripiega su un'unità = un millimetro. */
+    if (!(kx > 0) || !(ky > 0) || !isFinite(kx) || !isFinite(ky)) return null;
+    return { x: kx, y: ky };
+  }
+
   /* ISTANTANEA E RIPRISTINO, per l'annulla dell'editor.
      Si fotografano le forme E il rettangolo: rigenera() sposta il rettangolo
      per tenere fermo il disegno sul foglio, quindi rimettere solo le forme
@@ -855,6 +875,7 @@ var Artwork = (function () {
     collocaA: collocaA, ritagliaA: ritagliaA, ritagliato: ritagliato,
     percentuali: percentuali,
 
+    scalaMm: scalaMm,
     livelli: elenco, seleziona: seleziona, sceltoId: sceltoId, quale: quale,
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
     forme: formeScelte, rigenera: rigenera, nuovo: nuovo,
