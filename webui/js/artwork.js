@@ -61,42 +61,142 @@ var Artwork = (function () {
     return livelli.filter(function (l) { return l.visibile && l.raw.length; });
   }
 
+  /* UN FILE, UN LIVELLO PER TINTA.
+   *
+   * Un SVG quasi mai ha livelli, ma quasi sempre ha colori, e i colori sono
+   * il modo in cui chi l'ha fatto ha detto che cosa va insieme con che cosa.
+   * Qui quella distinzione diventa la nostra: ogni tinta — bordo di un
+   * colore, riempimento di un colore — diventa un livello, con il suo occhio,
+   * il suo cestino, il suo posto nell'ordine di stampa e il suo cambio penna.
+   *
+   * LE TINTE PIENE NASCONO SPENTE. Fino a ieri le forme senza bordo, in un
+   * file che ne aveva almeno una col bordo, sparivano senza lasciare traccia:
+   * era giusto per i riferimenti colorati dei nostri SVG e sbagliato per la
+   * geometria vera, come la faccia di un cubo disegnata come poligono pieno
+   * invece che come contorno. Nascendo spente il risultato di partenza resta
+   * quello di prima — si stampa quello che si stampava — ma quello che prima
+   * spariva adesso sta nell'elenco, e per riaverlo basta un occhio.
+   *
+   * I LIVELLI DI UN FILE SI ADATTANO INSIEME. Il rettangolo si calcola una
+   * volta sola sul disegno INTERO e poi si ritaglia per ciascuno: adattare
+   * ogni tinta per conto suo vorrebbe dire scalare le facce di un cubo in
+   * modo diverso dai suoi spigoli, cioè smontare il disegno nell'atto di
+   * aprirlo. È la stessa mappa di rigenera(), per la stessa ragione.
+   */
   function load(text, nome) {
     /* Si leggono le FORME, con le curve ancora curve, e da quelle si
        ricavano le polilinee. L'ordine conta: appiattire per primo e tenere
        solo il risultato è quello che rendeva impossibile modificare una
        curva importata. */
     var forme = SvgImport.parseForme(text);
-    var raw = Tracciato.appiattisciTutte(forme, forme.tolleranza);
-    var l = {
-      id: 'liv' + (++seq),
-      nome: nome,
-      forme: forme,
-      tol: forme.tolleranza,
-      raw: raw,
-      box: null,           // null = «non ancora collocato»: nasce centrato
-      ritaglio: null,      // null = «tutto»
-      rot: 0,
-      visibile: true,
-      /* Il primo livello non ha un «prima» in cui fermarsi; gli altri sì, e
-         di solito è proprio quello che si vuole caricando un secondo file. */
-      cambioPenna: livelli.length > 0,
-      art: []
-    };
-    livelli.push(l);
-    scelto = l.id;
+    var tol = forme.tolleranza;
+    var gruppi = perTinta(forme);
 
-    /* Lo sfondo scartato va detto, non taciuto: chi guarda l'anteprima deve
-       capire perché una forma che nel file c'era non viene disegnata. */
-    var sc = SvgImport.scartate(), n = sc.sfondi + sc.piene;
-    var c = Tracciato.conta(forme);
-    Log.add('msg', 'Importato ' + nome + ': ' + raw.length + ' tracciati' +
+    /* La mappa comune: ingombro e rettangolo di TUTTO il file. */
+    var tutte = Tracciato.appiattisciTutte(forme, tol);
+    var bbG = SvgImport.bbox(tutte);
+    var pc = +document.getElementById('art-scale').value || 100;
+    var boxG = SvgImport.fitRect(tutte, State.data.paper, pc);
+    var kx = bbG.w > 0 ? boxG.w / bbG.w : 1, ky = bbG.h > 0 ? boxG.h / bbG.h : 1;
+
+    var primo = livelli.length === 0;
+    var nati = [];
+
+    /* UNA TINTA PIENA NASCE SPENTA SOLO SE NEL FILE C'E' ANCHE UN BORDO.
+       È la vecchia regola, tenuta intera: in un file di linee una forma piena
+       è decorazione, in un file che di bordi non ne ha nemmeno uno — una
+       clipart, il nostro logo — le forme piene SONO il disegno, e spegnerle
+       vorrebbe dire aprire un file e non vedere niente. */
+    var aLinee = gruppi.some(function (g) { return !g.piena; });
+
+    /* IL NOME SI ALLUNGA SOLO QUANDO SERVE. Se del file si disegna una tinta
+       sola — il caso normale: un disegno di linee più i riferimenti colorati
+       — quella tinta è il file, e chiamarla «intreccio.svg · tratto #111»
+       sarebbe un dettaglio in più da leggere ogni volta per non sapere
+       niente di nuovo. Le altre il loro nome ce l'hanno, perché è la sola
+       cosa che dice che cosa accenderesti. */
+    var accese = gruppi.filter(function (g) { return !(g.piena && aLinee); }).length;
+
+    for (var g = 0; g < gruppi.length; g++) {
+      var gr = gruppi[g];
+      var raw = Tracciato.appiattisciTutte(gr.forme, tol);
+      if (!raw.length) continue;
+      var bb = SvgImport.bbox(raw);
+
+      var l = {
+        id: 'liv' + (++seq),
+        nome: (gruppi.length > 1 && (accese > 1 || (gr.piena && aLinee)))
+          ? nome + ' · ' + gr.nome : nome,
+        forme: gr.forme,
+        tol: tol,
+        raw: raw,
+        /* Non null: il rettangolo è il ritaglio di quello comune, ed è
+           l'unica cosa che tiene insieme le tinte di uno stesso file. La y è
+           ribaltata da toRect, che misura da b.y1 verso il basso. */
+        box: { x: boxG.x + (bb.x0 - bbG.x0) * kx,
+               y: boxG.y + (bbG.y1 - bb.y1) * ky,
+               w: bb.w * kx, h: bb.h * ky },
+        ritaglio: null,
+        rot: 0,
+        visibile: !(gr.piena && aLinee),
+        /* Le tinte di uno stesso file non chiedono un cambio penna fra loro:
+           sono un disegno solo diviso in pezzi, non due disegni. Lo chiede,
+           come sempre, il primo livello di un file che se ne aggiunge ad
+           altri già caricati. */
+        cambioPenna: !primo && nati.length === 0,
+        art: []
+      };
+      livelli.push(l);
+      nati.push(l);
+    }
+
+    if (!nati.length) throw new Error('Nessun tracciato trovato nel file.');
+    scelto = nati[0].id;
+
+    var sc = SvgImport.scartate();
+    var c = Tracciato.conta(nati[0].forme);
+    var spente = nati.filter(function (x) { return !x.visibile; });
+
+    Log.add('msg', 'Importato ' + nome + ': ' + nati[0].raw.length + ' tracciati' +
             (c.curve ? ', ' + c.curve + ' nodi con una curva' : ', tutti dritti') + '.' +
-            (n ? ' Saltate ' + n + ' forme senza bordo: in un file di linee ' +
-                 'sono lo sfondo e i riferimenti, e una penna non riempie.' : '') +
-            (livelli.length > 1 ? ' È il livello ' + livelli.length +
-                                  ': si disegna dopo gli altri.' : ''));
+            (sc.sfondi ? ' Saltato lo sfondo: copre tutta la tela, e una penna ' +
+                         'non riempie.' : '') +
+            (gruppi.length > 1
+               ? ' Il file ha ' + gruppi.length + ' tinte e ne è venuto un livello ' +
+                 'per ciascuna' +
+                 (spente.length
+                    ? ', ' + spente.length + (spente.length === 1 ? ' spento' : ' spenti') +
+                      ' perché sono forme piene: ' +
+                      'accendi l\'occhio se ne vuoi il contorno (' +
+                      spente.map(function (x) { return x.nome.split(' · ').pop(); }).join(', ') + ').'
+                    : '.')
+               : '') +
+            (primo ? '' : ' Si disegna dopo quello che c\'era.'));
     refit();
+  }
+
+  /* Le forme raggruppate per tinta, i BORDI PRIMA dei pieni. L'ordine è
+     quello di stampa: i contorni veri sono il disegno, i pieni sono quello
+     che si accende se serve, e un livello spento in cima all'elenco si nota
+     meno di uno spento in fondo. */
+  function perTinta(forme) {
+    var mappa = {}, bordi = [], pieni = [];
+    (forme.tinte || []).forEach(function (t) {
+      mappa[t.chiave] = { chiave: t.chiave, nome: t.nome, piena: t.piena, forme: [] };
+      (t.piena ? pieni : bordi).push(mappa[t.chiave]);
+    });
+    var fuori = null;
+    forme.forEach(function (f) {
+      var g = mappa[f.tinta];
+      if (!g) {
+        /* Una forma senza tinta non dovrebbe esserci, ma se c'è finisce in un
+           gruppo suo invece di sparire. */
+        if (!fuori) { fuori = { chiave: '?', nome: 'senza tinta', piena: false, forme: [] }; bordi.push(fuori); }
+        g = fuori;
+      }
+      g.forme.push(f);
+    });
+    return bordi.concat(pieni).filter(function (g) { return g.forme.length; });
   }
 
   function rimuovi(id) {

@@ -34,9 +34,9 @@ var Panel = (function () {
      si va senza doverlo leggere, e si disegna in CSS invece di affidarsi a un
      carattere speciale che poi su un browser non c'è. */
   var QUOTE = [
-    ['tappo',    'Tappo',    'h-top'],
-    ['alzata',   'Alzata',   'h-mid'],
-    ['contatto', 'Contatto', 'h-low']
+    ['tappo',    'Tappo',    'h-top', -5],
+    ['alzata',   'Alzata',   'h-mid',  0],
+    ['contatto', 'Contatto', 'h-low',  5]
   ];
 
   function markup(sez) {
@@ -102,24 +102,27 @@ var Panel = (function () {
     return h + '</div>';
   }
 
-  /* I QUATTRO PUNTI NOTEVOLI, quelli che si raggiungono con un click solo.
-     Il primo è il punto home. Gli altri tre sono angoli del foglio — tutti
-     meno quello in basso a sinistra, che è la battuta contro cui il foglio si
-     appoggia e che quindi non c'è bisogno di andare a cercare: partendo da lì
-     e girando in tondo (destra, su, sinistra) tre click dicono se il foglio
-     sta davvero dove la pagina lo disegna. Su una macchina senza finecorsa
-     quel confronto è l'unico modo di saperlo.
+  /* I CINQUE PUNTI CHE SI RAGGIUNGONO CON UN CLICK.
+     Quattro sono gli ANGOLI DEL FOGLIO, in colonna e in giro: basso a
+     sinistra, basso a destra, alto a destra, alto a sinistra. Sono i punti
+     LIMITE, e per questo ci stanno tutti e quattro: su una macchina senza
+     finecorsa girare il perimetro è l'unico modo di sapere se il foglio sta
+     davvero dove la pagina lo disegna.
+     Il quinto è il punto home, che limite non è — è dove i carrelli si
+     parcheggiano — e infatti sta da un'altra parte, in cima alla colonna di
+     mezzo, con il suo segno e non un rettangolino.
 
-     I segni ripetono quelli del piano: la casetta verde del punto home e il
-     pallino rosso dell'angolo sono gli stessi che si vedono sul foglio, e due
-     disegni uguali si riconoscono senza leggere niente. Il pallino sta
-     nell'angolo del rettangolino che corrisponde all'angolo vero — il disegno
-     E' l'informazione, come per le tacche delle quote. */
+     Dentro ai rettangolini ci sono le coordinate. Un disegno dice DOVE si va,
+     un numero dice A QUANTI MILLIMETRI, e prima di mandare un carrello da
+     qualche parte servono tutt'e due: il pallino nell'angolo giusto si legge
+     con la coda dell'occhio, i due numeri si leggono quando si vuole essere
+     sicuri. */
   var VAI = [
-    ['home', 'Punto home',                            null],
-    ['bd',   'Angolo del foglio in basso a destra',   [14.5, 11.5]],
-    ['ad',   'Angolo del foglio in alto a destra',    [14.5,  1.5]],
-    ['as',   'Angolo del foglio in alto a sinistra',  [ 1.5,  1.5]]
+    ['bs',   'Angolo del foglio in basso a sinistra', [ 2.5, 29.5]],
+    ['bd',   'Angolo del foglio in basso a destra',   [37.5, 29.5]],
+    ['ad',   'Angolo del foglio in alto a destra',    [37.5,  2.5]],
+    ['as',   'Angolo del foglio in alto a sinistra',  [ 2.5,  2.5]],
+    ['home', 'Punto home',                            null]
   ];
 
   function nomeVai(k) {
@@ -134,6 +137,7 @@ var Panel = (function () {
     if (k === 'home') return Profile.puntoHome();
     var p = State.data.paper, o = State.data.sheetOrigin;
     if (!p || !o) return null;
+    if (k === 'bs') return { x: o.x,       y: o.y };
     if (k === 'bd') return { x: o.x + p.w, y: o.y };
     if (k === 'ad') return { x: o.x + p.w, y: o.y + p.h };
     if (k === 'as') return { x: o.x,       y: o.y + p.h };
@@ -144,30 +148,55 @@ var Panel = (function () {
     if (!v[2]) {
       /* La stessa casetta del piano, con la y ribaltata: lì il gruppo è
          girato e «in su» è +y, qui si è in una pagina e la y va in giù. */
-      return '<svg class="ico-casa" viewBox="-8 -1 16 14" aria-hidden="true">' +
+      return '<svg class="ico-casa" viewBox="-9 -2 18 16" aria-hidden="true">' +
              '<polyline points="-7,7 0,0 7,7"></polyline>' +
              '<rect x="-5" y="6" width="10" height="6"></rect>' +
              '<rect x="-1.6" y="8.6" width="3.2" height="3.4"></rect></svg>';
     }
-    return '<svg class="ico-fog" viewBox="0 0 16 13" aria-hidden="true">' +
-           '<rect x="1.5" y="1.5" width="13" height="10"></rect>' +
+    return '<svg class="ico-fog" viewBox="0 0 40 32" aria-hidden="true">' +
+           '<rect x="2.5" y="2.5" width="35" height="27"></rect>' +
+           '<text class="vx" x="20" y="15">—</text>' +
+           '<text class="vy" x="20" y="26">—</text>' +
            '<circle class="pt" cx="' + v[2][0] + '" cy="' + v[2][1] +
-           '" r="2.6"></circle></svg>';
+           '" r="3.4"></circle></svg>';
   }
 
-  /* IL TASTIERINO. Otto direzioni intorno, e al centro tre colonne per
-     quattro righe: a sinistra i quattro punti dove si va con un click, in
-     mezzo le tre quote della penna, a destra le due frecce da un grado con lo
-     STOP sotto. I due posti in alto restano liberi — sono pulsanti veri e
-     spenti, non caselle vuote, così il giorno che ci finirà dentro qualcosa
-     non si sposterà niente.
+  /* IL SEGNO DELLE TRE QUOTE: una penna stilizzata e la riga del piano.
+     Prima era una tacca su una guida verticale, che diceva l'altezza ma non
+     diceva di CHE COSA: si capiva solo sapendolo già. Una punta che scende
+     verso una riga lo dice da sé, ed è il disegno che l'operatore stesso ha
+     fatto quando ha spiegato cosa voleva.
+     Il numero è lo scostamento in verticale: a contatto la punta tocca la
+     riga, alzata le sta sopra di cinque, al tappo di dieci. Le proporzioni
+     non sono quelle vere — tre millimetri di alzata su venti di corsa non si
+     vedrebbero — ma l'ORDINE sì, ed è quello che serve. */
+  function segnoQuota(dy) {
+    return '<svg class="ico-pen" viewBox="0 -4 24 30" aria-hidden="true">' +
+           '<g transform="translate(0,' + dy + ')">' +
+           '<rect class="corpo" x="8.5" y="1" width="7" height="11"></rect>' +
+           '<path class="punta" d="M8.5 12 L12 18 L15.5 12 Z"></path>' +
+           '</g>' +
+           '<line class="piano" x1="1.5" y1="23" x2="22.5" y2="23"></line></svg>';
+  }
 
-     Le due cornici non sono decorazione: dicono quali pulsanti fanno la
-     stessa cosa. A sinistra quelli che muovono i carrelli, come le otto
-     frecce intorno; a destra quelli della penna. Lo STOP sta nell'angolo di
-     quella di destra pur non essendo un comando della penna: è dove la mano
-     lo cerca, sotto alle frecce, e il suo bordo rosso lo tiene distinto lo
-     stesso. */
+  /* IL TASTIERINO. Cinque colonne per sei righe di caselle quadrate: le otto
+     frecce stanno sul giro, e al centro un blocco di tre per quattro.
+
+     TUTTI I PULSANTI SONO QUADRATI, e lo sono per costruzione: la griglia è
+     fatta di caselle quadrate e il blocco di mezzo ci si incastra dentro
+     riusando lo stesso passo e lo stesso vuoto. Prima le frecce di lato erano
+     rettangoli lunghi, perché occupavano una colonna stretta per tutta
+     l'altezza del centro.
+
+     Chi sta dove: a sinistra i quattro angoli del foglio; in cima alla
+     colonna di mezzo il punto home, in cima a quella di destra lo STOP; sotto
+     a tutt'e due, la penna. Lo STOP se n'è andato dal mezzo della penna
+     perché non è un comando della penna, ed è il solo pulsante che si vuole
+     trovare senza cercarlo.
+
+     I pulsanti della penna sono spostati di qualche pixel in diagonale: non è
+     un vezzo, è il modo di farli leggere come un gruppo solo senza mettergli
+     intorno una terza cornice in un pannello che ne ha già due. */
   function tastierino() {
     var h = '<div class="jog-pad">';
     for (var i = 0; i < DIR.length; i++) {
@@ -186,12 +215,12 @@ var Panel = (function () {
     }
 
     for (var q = 0; q < QUOTE.length; q++) {
-      /* Il nome sta in uno span suo perché in una colonna stretta va tolto:
-         meglio la sola tacca, che si capisce, che «Contatto» tagliato a
+      /* Il nome sta in uno span suo perché in una casella stretta va tolto:
+         meglio il solo disegno, che si capisce, che «Contatto» tagliato a
          «Cont», che non si capisce. Il titolo resta e lo dice per esteso. */
       h += '<button class="btn btn-ghost pm-h" data-pm-h="' + QUOTE[q][0] +
            '" title="Penna alla quota ' + QUOTE[q][1].toLowerCase() + '">' +
-           '<i class="h-ind ' + QUOTE[q][2] + '"></i>' +
+           segnoQuota(QUOTE[q][3]) +
            '<span class="pm-h-nome">' + QUOTE[q][1] + '</span></button>';
     }
 
@@ -202,8 +231,6 @@ var Panel = (function () {
          '<button class="btn btn-ghost btn-stop pm-stop" ' +
          'title="Ferma il movimento in corso">STOP</button>' +
          '<button class="btn btn-ghost jog-vuoto" data-jog-vuoto="1" disabled ' +
-         'tabindex="-1" aria-hidden="true"></button>' +
-         '<button class="btn btn-ghost jog-vuoto" data-jog-vuoto="2" disabled ' +
          'tabindex="-1" aria-hidden="true"></button>';
 
     return h + '</div></div>';
@@ -534,6 +561,14 @@ var Panel = (function () {
       b.title = d.ok
         ? nome + dove + '. Alza la penna e ci va.'
         : nome + dove + ': fuori dall\'area percorribile, ' + d.fuori.join(' e ') + '.';
+
+      /* I due numeri dentro al rettangolino. Interi: un millimetro è già più
+         fine di quanto si posi un foglio a mano, e tre cifre in una casella
+         da cinquanta pixel sono il massimo che si legge. Il titolo tiene il
+         decimale per chi lo vuole. */
+      var tx = b.querySelector('.vx'), ty = b.querySelector('.vy');
+      if (tx) tx.textContent = Math.round(q.x);
+      if (ty) ty.textContent = Math.round(q.y);
     });
 
     /* Arrivata? I campi si svuotano qui e non alla partenza: `ok` da FluidNC

@@ -53,29 +53,37 @@ var SvgImport = (function () {
 
       var els = svg.querySelectorAll(SELECTOR);
       var forme = [];
+      var tinte = [], indice = {};
       scarti = { sfondi: 0, piene: 0 };
-
-      /* Un file di linee o un file di forme? La risposta cambia il significato
-         di una forma piena, vedi saltare() qui sotto. */
-      var aLinee = false;
-      for (var k = 0; k < els.length && !aLinee; k++) {
-        if (haBordo(els[k])) aLinee = true;
-      }
 
       for (var i = 0; i < els.length; i++) {
         var el = els[i];
         var ctm = el.getScreenCTM && el.getScreenCTM();
         if (!ctm) continue;
         var m = rootInv.multiply(ctm);
-        if (saltare(el, m, vb, aLinee)) continue;
+        if (saltare(el, m, vb)) continue;
 
         var f = daElemento(el);
         if (!f) continue;
-        forme.push(Tracciato.trasforma(f, m));
+        f = Tracciato.trasforma(f, m);
+
+        /* LA TINTA viaggia con la forma, perché è il solo modo di ricostruire
+           dopo che cosa, nel file, era una cosa sola. `trasforma` restituisce
+           un oggetto nuovo, quindi si segna qui e non prima. */
+        var t = tinta(el);
+        f.tinta = t.chiave;
+        f.piena = t.piena;
+        if (!indice[t.chiave]) {
+          indice[t.chiave] = { chiave: t.chiave, nome: t.nome, piena: t.piena, quante: 0 };
+          tinte.push(indice[t.chiave]);
+        }
+        indice[t.chiave].quante++;
+        forme.push(f);
       }
 
       if (!forme.length) throw new Error('Nessun tracciato trovato nel file.');
       forme.tolleranza = diag / 20000;
+      forme.tinte = tinte;
       return forme;
 
     } finally {
@@ -141,6 +149,33 @@ var SvgImport = (function () {
     return polys;
   }
 
+  /* LA TINTA DI UNA FORMA: come è dipinta nel file, e se è dipinta col bordo
+     o col riempimento. È la cosa che distingue i pezzi di un disegno quando
+     il file non ha livelli — e un SVG, quasi sempre, non li ha.
+     Il nome serve all'elenco dei livelli e deve dire due cose in poche
+     lettere: con che cosa è disegnata e di che colore. */
+  function tinta(el) {
+    var cs = window.getComputedStyle(el);
+    if (haBordo(el)) {
+      return { chiave: 't:' + cs.stroke, nome: 'tratto ' + colore(cs.stroke),
+               piena: false };
+    }
+    return { chiave: 'p:' + cs.fill, nome: 'pieno ' + colore(cs.fill), piena: true };
+  }
+
+  /* `rgb(204, 204, 204)` non si legge, `#ccc` sì. */
+  function colore(c) {
+    var m = /^rgba?\(\s*(\d+)\D+(\d+)\D+(\d+)/.exec(String(c || ''));
+    if (!m) return String(c || '—');
+    var h = '#';
+    for (var i = 1; i <= 3; i++) {
+      h += ('0' + Number(m[i]).toString(16)).slice(-2);
+    }
+    /* I tre esadecimali doppi si accorciano, come fa chi li scrive a mano. */
+    if (h[1] === h[2] && h[3] === h[4] && h[5] === h[6]) h = '#' + h[1] + h[3] + h[5];
+    return h;
+  }
+
   function haBordo(el) {
     var cs = window.getComputedStyle(el);
     return !!(cs.stroke && cs.stroke !== 'none' && parseFloat(cs.strokeWidth) > 0);
@@ -148,38 +183,32 @@ var SvgImport = (function () {
 
   /* Non tutto quello che c'e' in un file va tracciato.
    *
-   * Un SVG prodotto da un programma — i nostri compresi — porta con se' roba
-   * che serve solo a guardarlo a schermo: il rettangolo bianco di fondo, che
-   * altrimenti si vedrebbe trasparente, e i riferimenti colorati, come il
-   * pallino rosso che segna il punto home. Una penna non ha ne' il bianco ne'
-   * il rosso: disegnarli vuol dire una cornice e un cerchietto di troppo sul
-   * foglio, e nel caso dello sfondo anche un ingombro piu' largo del disegno
-   * vero, che e' il numero con cui si decide la scala.
+   * Resta UNA cosa sola che si butta via davvero: la forma senza bordo che
+   * copre tutta la tela. Quello e' lo sfondo — il rettangolo bianco che un
+   * programma mette per non far vedere il trasparente — e disegnarlo vuol
+   * dire una cornice di troppo sul foglio e, peggio, un ingombro piu' largo
+   * del disegno vero, che e' il numero con cui si decide la scala.
    *
-   * Il discrimine e' il BORDO, non il riempimento:
+   * TUTTO IL RESTO SI TIENE. Fino al 26 ottobre la regola era un'altra: se
+   * nel file c'era almeno una forma col bordo, allora il disegno era fatto di
+   * linee e ogni forma senza bordo era decorazione, e si saltava. Quella
+   * regola risolveva il caso vero dei riferimenti colorati — il pallino rosso
+   * del punto home nei nostri SVG — ma buttava via anche la geometria vera.
    *
-   * - se nel file c'e' almeno una forma col bordo, allora il disegno e' fatto
-   *   di linee e le forme senza bordo sono decorazione: si saltano;
-   * - se invece nel file NON c'e' un solo bordo, il disegno e' fatto di forme
-   *   piene — una clipart, un logo — e quelle forme sono tutto quello che c'e':
-   *   si tracciano come contorni, che e' la regola scritta nell'interfaccia.
-   *   Li' si salta solo chi copre l'intera tela, perche' quello e' per forza
-   *   lo sfondo.
+   * Il caso che l'ha smontata e' un disegno isometrico di cubi: le facce in
+   * alto e di lato avevano il loro contorno disegnato, quella di sinistra no,
+   * era solo un poligono pieno. Risultato: diciannove facce senza spigoli, e
+   * dei cubi a cui mancavano due lati per uno.
    *
-   * Il caso che questa regola sbaglia e' il file misto, con una forma piena
-   * che fa parte per davvero di un disegno di linee: quella si perde. Si
-   * preferisce comunque, perche' si vede subito nell'anteprima e il log dice
-   * quante forme sono state saltate, mentre lo sfondo disegnato si scopre a
-   * stampa finita.
+   * Adesso le forme piene entrano, ma nella loro TINTA, che diventa un
+   * livello suo — spento, cosi' il risultato di partenza e' identico a prima.
+   * Quello che prima spariva in silenzio adesso sta nell'elenco con il suo
+   * occhio accanto: una cosa che si butta via si deve poter vedere prima.
    *
-   * Senza viewBox non si sa quanto e' grande la tela: li' il secondo caso non
-   * salta niente, e si disegna un rettangolo di troppo invece di rischiare di
-   * perdere il disegno. */
-  function saltare(el, m, vb, aLinee) {
+   * Senza viewBox non si sa quanto e' grande la tela, e li' non si salta
+   * niente: meglio un rettangolo di troppo che un disegno perso. */
+  function saltare(el, m, vb) {
     if (haBordo(el)) return false;
-
-    if (aLinee) { scarti.piene++; return true; }
-
     if (!vb || !(vb.width > 0) || !(vb.height > 0)) return false;
 
     var b;

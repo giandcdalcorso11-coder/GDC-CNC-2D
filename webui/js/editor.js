@@ -511,6 +511,8 @@ var Editor = (function () {
             'e le maniglie. Doppio clic su un nodo: da spigolo a curva e ' +
             'viceversa. Doppio clic su un tratto: aggiunge un nodo lì. Canc: ' +
             'toglie il nodo, o tutte le forme scelte se non c\'è un nodo scelto.',
+    togli:  'Clicca un tratto: sparisce quello e basta. Un tracciato chiuso ' +
+            'si apre li, uno aperto si spezza in due.',
     curva:  'Trascina un tratto per incurvarlo. Se era dritto diventa una curva ' +
             'senza spostarsi di un capello, e segue il dito da lì in poi.',
     spezzata: 'Clicca per mettere i punti. Doppio clic o Invio per finire, ' +
@@ -595,6 +597,7 @@ var Editor = (function () {
 
     if (strumento === 'scegli') return giuScegli(e, p, u);
     if (strumento === 'curva') return giuCurva(e, p, u);
+    if (strumento === 'togli') return togliTratto(p, u);
     if (strumento === 'taglia') return taglia(p, u);
     if (strumento === 'spezzata') return giuSpezzata(p, e);
     if (strumento === 'testo') return metteTesto(p);
@@ -987,6 +990,49 @@ var Editor = (function () {
     a.ho = { x: presa.c0.p1.x + dx * w1 / den, y: presa.c0.p1.y + dy * w1 / den };
     b.hi = { x: presa.c0.p2.x + dx * w2 / den, y: presa.c0.p2.y + dy * w2 / den };
     cambiato();
+  }
+
+  /* TOGLIERE UN TRATTO SOLO, quello sotto al puntatore.
+   *
+   * Canc toglie una forma intera, e una forma intera e' spesso un quadrilatero
+   * o una faccia: per levare UNO spigolo bisognava sceglierne un nodo e
+   * sperare che la forma avesse la struttura giusta. Un disegno isometrico si
+   * ripulisce dalle linee nascoste un tratto alla volta, e quel gesto deve
+   * essere un clic.
+   *
+   * Un tracciato chiuso a cui si toglie un lato non si spezza in due: si apre,
+   * e comincia dove finiva il lato tolto. Uno aperto si spezza, e i due pezzi
+   * restano separati come se la penna si fosse alzata — che e' esattamente
+   * quello che succedera'.
+   */
+  function togliTratto(p, u) {
+    var t = trattoSotto(p, u);
+    if (!t) { Log.add('err', 'Li sotto non c\'e nessun tratto.'); return; }
+
+    var f = forme(), forma = f[t.forma], sub = forma.sub[t.sub], n = sub.nodi;
+    segna();
+
+    if (sub.chiuso) {
+      sub.nodi = n.slice(t.k + 1).concat(n.slice(0, t.k + 1));
+      sub.chiuso = false;
+      cambiato();
+      Log.add('msg', 'Tolto un lato: il tracciato chiuso si e aperto li.');
+      return;
+    }
+
+    var pezzi = [n.slice(0, t.k + 1), n.slice(t.k + 1)].filter(function (z) {
+      return z.length > 1;
+    }).map(function (z) { return { nodi: z, chiuso: false }; });
+
+    forma.sub.splice.apply(forma.sub, [t.sub, 1].concat(pezzi));
+    if (!forma.sub.length) {
+      f.splice(t.forma, 1);
+      nessunaForma();
+    }
+    cambiato();
+    Log.add('msg', pezzi.length === 2
+      ? 'Tolto un tratto: restano due pezzi separati.'
+      : 'Tolto un tratto.');
   }
 
   /* ------------------------------ il testo ------------------------------ */

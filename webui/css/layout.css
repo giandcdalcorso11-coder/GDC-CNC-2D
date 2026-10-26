@@ -225,16 +225,10 @@ body.sta-ridimensionando { cursor: col-resize; user-select: none; }
 }
 
 /* Sotto i 200 px il tastierino resta leggibile solo rimpicciolendo le
-   scritte del centro: i nomi delle tre quote sono la parte che si stringe
-   per prima, ed e' giusto che sia cosi' - una freccia senza etichetta si
-   capisce lo stesso, "Contatto" tagliato a "Cont" no. */
+   scritte del centro: una freccia senza etichetta si capisce lo stesso. */
 @container lato (max-width: 200px) {
-  .jog-mid .btn { font-size: 9px; gap: 2px; }
-  .jog-mid .pm-deg { font-size: 10px; padding: 0 3px; }
-  .jog-mid .pm-vai { min-width: 26px; }
-  .ico-casa, .ico-fog { width: 13px; height: 11px; }
-  .h-ind { width: 7px; height: 11px; }
-  .h-ind::after { width: 7px; }
+  .jog-mid .btn { font-size: 9px; }
+  .jog-mid .pm-deg { font-size: 10px; }
   .btn-jog { font-size: 14px; }
 }
 
@@ -253,15 +247,13 @@ body.sta-ridimensionando { cursor: col-resize; user-select: none; }
   .btn.full { white-space: normal; line-height: 1.3; }
 }
 
-/* Delle tre quote resta la sola tacca appena la colonna si stringe. La
-   soglia e' misurata, non scelta, ed e' SALITA da 250 a 300: il centro del
-   tastierino adesso ha tre colonne invece di due - i quattro punti notevoli
-   si sono presi la prima - e a "Contatto" resta meno spazio di prima. Nella
-   barra laterale, larga 268, i nomi non ci stanno piu'; nella tab dedicata il
-   pannello non e' dentro a questo container e i nomi restano.
-   E' la degradazione giusta: la tacca dice l'altezza da se', un nome tagliato
-   no, e il titolo lo dice per esteso a chi ci passa sopra. */
+/* Dei nomi delle tre quote resta il solo disegno appena la casella si
+   stringe: una penna che scende verso il piano si capisce da se', "Contatto"
+   tagliato a "Cont" no, e il titolo lo dice per esteso a chi ci passa sopra.
+   La soglia e' misurata, non scelta: nella barra laterale, larga 268, le
+   caselle del centro stanno sui quaranta pixel e il nome non ci sta; nella
+   tab dedicata il pannello non e' dentro a questo container e il nome resta. */
 @container lato (max-width: 300px) {
   .pm-h-nome { display: none; }
-  .jog-mid .btn { gap: 0; }
+  .ico-pen { width: 72%; max-height: none; }
 }
