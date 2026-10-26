@@ -28,13 +28,21 @@ var Editor = (function () {
      agisce Canc» vale per tutto il gruppo, «di chi si disegnano i nodi» vale
      per uno solo. Con un gruppo i nodi non si mostrano affatto: venti
      tracciati di quadratini sono un tappeto in cui il disegno sparisce. */
-  /* `seg` è il TRATTO scelto: {sub, k}, cioè il pezzo fra il nodo k e il
-     successivo del sotto-tracciato sub. Si arriva a lui cliccando una
-     seconda volta una forma già scelta — prima la forma, poi il suo pezzo,
-     come si entra in un gruppo — e Canc toglie quello e basta.
-     Prima non c'era: il clic prendeva la polilinea intera, e per levare uno
-     spigolo bisognava infilargli dei nodi e cancellarli uno a uno. */
-  var sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null, seg: null };
+  /* `segmenti` sono i TRATTI scelti: {forma, sub, k}, cioè il pezzo fra il
+     nodo k e il successivo. Ci si arriva in due modi, e sono due gesti
+     diversi apposta:
+
+       clic su una forma GIA' SCELTA   →  quel tratto, e solo quello
+       CTRL+clic su un tratto          →  lo aggiunge o lo toglie dal mucchio
+
+     Il secondo è quello che serve per ripulire un disegno: si prendono dieci
+     linee nascoste e si preme Canc una volta sola. Prima il clic prendeva la
+     polilinea intera, e per levare uno spigolo bisognava infilargli dei nodi
+     col doppio clic e cancellarli uno a uno.
+
+     SHIFT resta sulle FORME e CTRL sui TRATTI: due tasti, due gradini, e
+     nessuno dei due che indovina quale volevi. */
+  var sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null, segmenti: [] };
 
   var presa = null;        // trascinamento in corso
   var banda = null;        // il rettangolo di selezione, mentre lo si tira
@@ -135,7 +143,7 @@ var Editor = (function () {
   }
 
   function nessunaForma() {
-    sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null, seg: null };
+    sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null, segmenti: [] };
     banda = null;
   }
 
@@ -250,7 +258,10 @@ var Editor = (function () {
     /* I nodi e le maniglie della forma scelta. Si mostrano solo di quella:
        tutti insieme sarebbero un tappeto di quadratini in cui non si trova
        più il disegno. */
-    var s = sel.forme.length === 1 ? f[sel.forma] : null;
+    /* I nodi si mostrano di una forma sola, e non mentre si stanno
+       scegliendo dei tratti: lì i quadratini coprirebbero proprio i pezzi
+       che si sta cercando di vedere. */
+    var s = (sel.forme.length === 1 && !sel.segmenti.length) ? f[sel.forma] : null;
     if (s && s.tipo === 'tracciato') {
       var lato = 7 * u, raggio = 4 * u;
       s.sub.forEach(function (sub, si) {
@@ -272,19 +283,19 @@ var Editor = (function () {
       });
     }
 
-    /* Il tratto scelto, sopra al suo tracciato: si vede che cosa toglierebbe
+    /* I tratti scelti, sopra ai loro tracciati: si vede che cosa toglierebbe
        Canc, che è l'unica domanda che conta quando si ripulisce un disegno. */
-    if (sel.seg && f[sel.forma] && f[sel.forma].tipo === 'tracciato') {
-      var sg = f[sel.forma].sub[sel.seg.sub];
-      if (sg) {
-        var nn = sg.nodi, a0 = nn[sel.seg.k], b0 = nn[(sel.seg.k + 1) % nn.length];
-        if (a0 && b0) {
-          var cc = cubicaDi(a0, b0), pz = [];
-          for (var zz = 0; zz <= 24; zz++) pz.push(valuta(cc, zz / 24));
-          out += '<polyline class="ed-seg" points="' + via(pz) + '"></polyline>';
-        }
-      }
-    }
+    sel.segmenti.forEach(function (t) {
+      var fm = f[t.forma];
+      if (!fm || fm.tipo !== 'tracciato') return;
+      var sg = fm.sub[t.sub];
+      if (!sg) return;
+      var nn = sg.nodi, a0 = nn[t.k], b0 = nn[(t.k + 1) % nn.length];
+      if (!a0 || !b0) return;
+      var cc = cubicaDi(a0, b0), pz = [];
+      for (var zz = 0; zz <= 24; zz++) pz.push(valuta(cc, zz / 24));
+      out += '<polyline class="ed-seg" points="' + via(pz) + '"></polyline>';
+    });
 
     /* Le guide per ultime, sopra a tutto: servono mentre si guarda il
        puntatore, e sotto al disegno non si vedrebbero. */
@@ -549,11 +560,12 @@ var Editor = (function () {
 
   var AIUTO = {
     scegli: 'Clicca una forma per sceglierla; cliccala UNA SECONDA VOLTA e ' +
-            'scendi al singolo tratto, che si evidenzia. Trascina nel vuoto ' +
-            'per scegliere più forme, Shift+clic per aggiungerne e toglierne. ' +
-            'Trascina i nodi e le maniglie. Doppio clic su un nodo: da spigolo ' +
-            'a curva e viceversa; su un tratto: aggiunge un nodo lì. Canc toglie ' +
-            'quello che è scelto — il tratto, o il nodo, o le forme.',
+            'scendi al singolo tratto. <b>Ctrl+clic prende i tratti</b> e li ' +
+            'somma — dieci linee e un Canc solo —, <b>Shift+clic</b> fa lo ' +
+            'stesso con le forme intere; trascinando nel vuoto si prende ' +
+            'quello che il rettangolo tocca. Trascina i nodi e le maniglie. ' +
+            'Doppio clic su un nodo: da spigolo a curva e viceversa; su un ' +
+            'tratto: aggiunge un nodo lì. Canc toglie quello che è scelto.',
     togli:  'Clicca un tratto: sparisce quello e basta. Un tracciato chiuso ' +
             'si apre li, uno aperto si spezza in due.',
     curva:  'Trascina un tratto per incurvarlo. Se era dritto diventa una curva ' +
@@ -577,7 +589,7 @@ var Editor = (function () {
       coda += '  ·  Griglia da ' + String(griglia).replace('.', ',') +
               ' mm: i punti ci vanno sopra, Shift o Alt la scavalcano.';
     }
-    aiuto.textContent = (AIUTO[strumento] || '') + coda;
+    aiuto.innerHTML = (AIUTO[strumento] || '') + esc(coda);
   }
 
   function scriviPiede() {
@@ -617,11 +629,12 @@ var Editor = (function () {
          subito farebbe sparire il trascinamento: premere su un nodo appena
          scelto e tirarlo è un gesto normale, e assomiglia come due gocce
          d'acqua all'inizio di un doppio clic. Chi si muove sta trascinando. */
-      /* Con Shift premuto non si conta: due Shift+clic di fila sullo stesso
+      /* Con SHIFT o CTRL premuto non si conta: due clic di fila sullo stesso
          tratto sono «aggiungi» e «togli», non un doppio clic, e passavano
-         invece per un doppio clic che infilava un nodo e azzerava il gruppo.
-         Trovato dal collaudo. */
-      forseDoppio = !e.shiftKey &&
+         invece per un doppio clic che infilava un nodo e azzerava la
+         scelta. Trovato dal collaudo, prima su Shift e poi di nuovo, tale e
+         quale, su Ctrl: la stessa trappola due volte. */
+      forseDoppio = !e.shiftKey && !e.ctrlKey && !e.metaKey &&
                     ora - ultimoGiu.t < DOPPIO_MS &&
                     Math.abs(e.clientX - ultimoGiu.x) < DOPPIO_PX &&
                     Math.abs(e.clientY - ultimoGiu.y) < DOPPIO_PX;
@@ -667,6 +680,16 @@ var Editor = (function () {
       return;
     }
 
+    /* CTRL (o Cmd) PRENDE I TRATTI, e li accumula. È il gradino fine, e
+       serve prima di tutto a ripulire: dieci linee nascoste, un Canc. */
+    if (e.ctrlKey || e.metaKey) {
+      var tr = trattoSotto(p, u);
+      if (!tr) { nessunaForma(); disegna(); return; }
+      commutaSegmento(tr.forma, tr.sub, tr.k);
+      disegna();
+      return;
+    }
+
     var t = sotto(p, u);
     if (!t) {
       /* Il vuoto comincia un rettangolo di selezione. Non si deseleziona
@@ -692,7 +715,7 @@ var Editor = (function () {
         sel.forme.push(t.forma);
         sel.forma = t.forma;
       }
-      sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.seg = null;
+      sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];
       disegna();
       return;
     }
@@ -706,12 +729,32 @@ var Editor = (function () {
        parte, perché premere su una forma scelta e tirarla è un gesto
        normale e assomiglia all'inizio di questo. */
     var giaSola = sel.forme.length === 1 && sel.forme[0] === t.forma;
-    if (sel.forme.indexOf(t.forma) < 0) { sel.forme = [t.forma]; sel.seg = null; }
+    if (sel.forme.indexOf(t.forma) < 0) { sel.forme = [t.forma]; sel.segmenti = []; }
     sel.forma = t.forma; sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
     presa = { tipo: 'forma', da: p, giaSola: giaSola, p0: p };
     segna();
     svg.setPointerCapture(e.pointerId);
     disegna();
+  }
+
+  /* Un tratto dentro o fuori dal mucchio, e le forme che lo contengono
+     restano segnate: servono a far vedere di che cosa fa parte quello che si
+     è preso. */
+  function commutaSegmento(fi, si, k) {
+    var dove = -1;
+    for (var i = 0; i < sel.segmenti.length; i++) {
+      var t = sel.segmenti[i];
+      if (t.forma === fi && t.sub === si && t.k === k) { dove = i; break; }
+    }
+    if (dove >= 0) sel.segmenti.splice(dove, 1);
+    else sel.segmenti.push({ forma: fi, sub: si, k: k });
+
+    sel.forme = [];
+    sel.segmenti.forEach(function (t) {
+      if (sel.forme.indexOf(t.forma) < 0) sel.forme.push(t.forma);
+    });
+    sel.forma = sel.forme.length ? sel.forme[sel.forme.length - 1] : -1;
+    sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
   }
 
   /* Chi finisce dentro al rettangolo. Basta che gli ingombri si tocchino:
@@ -856,7 +899,8 @@ var Editor = (function () {
     if (tipo === 'forma' && !mosso && e.button === 0 && presaGiaSola) {
       var pp = punto(e), uu = perPixel();
       var tt = trattoSotto(pp, uu);
-      sel.seg = (tt && tt.forma === sel.forma) ? { sub: tt.sub, k: tt.k } : null;
+      sel.segmenti = (tt && tt.forma === sel.forma)
+        ? [{ forma: tt.forma, sub: tt.sub, k: tt.k }] : [];
       presaGiaSola = false;
       guide = [];
       disegna();
@@ -1091,7 +1135,7 @@ var Editor = (function () {
     if (sub.chiuso) {
       sub.nodi = n.slice(k + 1).concat(n.slice(0, k + 1));
       sub.chiuso = false;
-      sel.seg = null;
+      sel.segmenti = [];
       cambiato();
       Log.add('msg', 'Tolto un lato: il tracciato chiuso si e aperto li.');
       return;
@@ -1102,7 +1146,7 @@ var Editor = (function () {
     }).map(function (z) { return { nodi: z, chiuso: false }; });
 
     forma.sub.splice.apply(forma.sub, [si, 1].concat(pezzi));
-    sel.seg = null;
+    sel.segmenti = [];
     if (!forma.sub.length) {
       f.splice(fi, 1);
       nessunaForma();
@@ -1163,6 +1207,75 @@ var Editor = (function () {
                    secondo.nodi.length + ' nodi.');
   }
 
+  /* PIU' TRATTI IN UNA VOLTA.
+   *
+   * Non è togliere n volte un tratto: togliendo il primo, i sotto-tracciati
+   * si spezzano e si rinumerano, e il secondo indice non punterebbe più dove
+   * puntava. Si lavora invece per sotto-tracciato, ricostruendolo da capo
+   * con i soli pezzi continui che avanzano — e su un tracciato chiuso il
+   * giro riparte dal primo tratto tolto, così i pezzi vengono interi invece
+   * che spezzati in corrispondenza del nodo zero, che è un posto che non
+   * vuol dire niente.
+   */
+  function levaTratti(lista) {
+    var f = forme();
+    if (!f || !lista.length) return;
+
+    var mappa = {}, quali = {};
+    lista.forEach(function (t) {
+      (mappa[t.forma + '/' + t.sub] || (mappa[t.forma + '/' + t.sub] = [])).push(t.k);
+      quali[t.forma] = true;
+    });
+
+    /* Dalla forma di indice più alto alla più bassa: una forma che sparisce
+       rinumera tutte quelle dopo di lei. */
+    Object.keys(quali).map(Number).sort(function (a, b) { return b - a; })
+      .forEach(function (fi) {
+        var forma = f[fi];
+        if (!forma || forma.tipo !== 'tracciato') return;
+        var nuovi = [];
+        forma.sub.forEach(function (sub, si) {
+          var togli = mappa[fi + '/' + si];
+          if (!togli || !togli.length) { nuovi.push(sub); return; }
+          spezzaSub(sub, togli).forEach(function (z) { nuovi.push(z); });
+        });
+        if (nuovi.length) forma.sub = nuovi;
+        else f.splice(fi, 1);
+      });
+
+    var quanti = lista.length;
+    nessunaForma();
+    cambiato();
+    Log.add('msg', 'Tolti ' + quanti + ' tratti.');
+  }
+
+  function spezzaSub(sub, togli) {
+    var n = sub.nodi, m = n.length;
+    var quanti = sub.chiuso ? m : m - 1;
+    var via = {};
+    togli.forEach(function (k) { via[k] = true; });
+
+    var partenza = 0;
+    if (sub.chiuso) {
+      for (var z = 0; z < quanti; z++) if (via[z]) { partenza = z + 1; break; }
+    }
+
+    var out = [], cur = null;
+    for (var i = 0; i < quanti; i++) {
+      var k = (partenza + i) % quanti;
+      if (via[k]) {
+        if (cur && cur.length > 1) out.push({ nodi: cur, chiuso: false });
+        cur = null;
+        continue;
+      }
+      var a = n[k], b = n[(k + 1) % m];
+      if (!cur) cur = [a, b];
+      else cur.push(b);
+    }
+    if (cur && cur.length > 1) out.push({ nodi: cur, chiuso: false });
+    return out;
+  }
+
   /* --------------------------- nodi e forme --------------------------- */
 
   function commutaNodo() {
@@ -1196,8 +1309,12 @@ var Editor = (function () {
     /* UN TRATTO SCELTO SI TOGLIE DA SOLO. È il gradino più fine della
        selezione, e Canc agisce sempre su quello che si vede scelto: se c'è
        un tratto evidenziato, è lui. */
-    if (sel.seg) {
-      levaTratto(sel.forma, sel.seg.sub, sel.seg.k);
+    if (sel.segmenti.length) {
+      if (sel.segmenti.length === 1) {
+        levaTratto(sel.segmenti[0].forma, sel.segmenti[0].sub, sel.segmenti[0].k);
+      } else {
+        levaTratti(sel.segmenti);
+      }
       return;
     }
 
@@ -1457,7 +1574,10 @@ var Editor = (function () {
            scegliStrumento: scegliStrumento,
            selezione: function () { return { forma: sel.forma, sub: sel.sub, nodo: sel.nodo }; },
            scelte: function () { return sel.forme.slice(); },
-           tratto: function () { return sel.seg ? { sub: sel.seg.sub, k: sel.seg.k } : null; },
+           tratto: function () {
+             return sel.segmenti.length ? { sub: sel.segmenti[0].sub, k: sel.segmenti[0].k } : null;
+           },
+           tratti: function () { return sel.segmenti.slice(); },
            griglia: function (v) { if (v !== undefined) griglia = +v || 0; return griglia; },
            annulla: annulla, rifai: rifai,
            magneti: function (v) {
