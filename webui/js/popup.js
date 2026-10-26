@@ -24,6 +24,12 @@ var Popup = (function () {
   var box, titolo, passoEtichetta, descrizione, nota, contenitore, okBtn, annullaBtn;
   var corrente = -1, passi = [];
 
+  /* Quale procedura si sta facendo. Le due usano la stessa finestra e lo
+     stesso motore, ma finiscono in modo diverso: quella di inizio stampa
+     rigenera il programma e lo manda, quella del cambio penna riprende un
+     programma che sta già aspettando. */
+  var modo = 'stampa';
+
   /* ------------------------------- i tre passi ---------------------------- */
 
   function definisci() {
@@ -148,70 +154,118 @@ var Popup = (function () {
     ];
   }
 
-  /* ----------------------- il passo del cambio penna ---------------------- */
+  /* ------------------------- il cambio penna -------------------------- */
 
-  /* UN PASSO SOLO, e non è uno dei tre di inizio stampa: è lo stesso gesto
-     del secondo — abbassa finché segna — ma fatto a metà stampa, su un
-     foglio che è già disegnato, con una penna che non è quella di prima.
-     Quello che ne esce non è «l'altezza di contatto di oggi» ma «di quanto
-     la penna nuova sporge diversamente», e serve al Sender per correggere le
-     quote che restano.
+  /* DUE PASSI, e in mezzo ai due il servo si muove.
+   *
+   * 1. togli la penna vecchia — il servo è in alto, al tappo, dove c'è più
+   *    spazio per sfilarla;
+   * 2. il servo scende alla QUOTA DI CONTATTO DEL PROGRAMMA e ci resta;
+   *    infili la penna nuova finché tocca il piano e stringi lì.
+   *
+   * È lo stesso gesto con cui la penna si monta la prima volta, ed è il
+   * motivo per cui non c'è niente da misurare e niente da correggere nel
+   * G-code: la penna si adatta al programma. Il contrario — misurare dove
+   * tocca la penna nuova e spostare tutte le quote che restano — funziona
+   * anche, ma è aritmetica messa a rimediare un gesto che si può fare bene.
+   *
+   * La differenza fra toccare il PIANO qui e il FOGLIO durante i tre popup è
+   * lo spessore della carta, un decimo scarso. La banda morta del servo vale
+   * 0,9 gradi, cioè 0,29 mm: quel decimo la macchina non sa nemmeno farlo.
+   */
 
-     Il foglio è già in macchina e l'origine è presa: non si rimisura niente
-     altro. E non si sposta la testina da sola: il foglio ha sopra mezzo
-     disegno, e dove c'è un punto libero su cui lasciare il segno lo sa
-     l'operatore, non noi. */
-  function passoCambioPenna(fatto) {
-    return [{
-      nome: 'Penna nuova: dove tocca il foglio',
-      sezioni: { posizione: true, homing: false, assi: true, penna: true },
-      testo: function () {
-        var v = Sender.altezzaUsata();
-        return 'Infila la penna nuova <b>come l\'altra</b>: la porti alla quota ' +
-               'di contatto e la stringi lì, non il contrario.<br><br>' +
-               'Poi portala su un <b>punto libero del foglio</b> — con le frecce ' +
-               'qui sotto — e abbassala a piccoli passi finché <b>lascia il ' +
-               'segno</b>. Non serve premere.<br><br>' +
-               'Serve perché il G-code che resta porta le quote della penna di ' +
-               'prima' + (v === null ? '' : ', che toccava a <b>Z' + v.toFixed(2) +
-               '</b>') + ': una penna che sporge mezzo millimetro in più ' +
-               'premerebbe dentro la carta, una che sporge mezzo in meno ' +
-               'disegnerebbe per aria. Appena confermi, le ' +
-               Sender.restano() + ' righe che mancano vengono spostate della ' +
-               'differenza.';
-      },
-      entra: function () {},
-      /* Stessa soglia del secondo passo, e per lo stesso motivo: confermare
-         a penna alzata manda in stampa un disegno fatto in aria. */
-      pronto: function () {
-        var alzata = Profile.alzataMm(), contatto = Profile.zContatto();
-        if (alzata === null || contatto === null) return false;
-        return State.data.pos.z < contatto + alzata / 2;
-      },
-      attesa: 'La penna è ancora troppo in alto: così disegneresti in aria.',
-      etichetta: 'Penna nuova a posto',
-      esci: function () {
-        var z = State.data.pos.z;
-        State.data.altezzaContatto = z;
-        alzaPenna();
-        fatto(z);
-        return true;
-      }
-    }];
+  /* La quota a cui il programma in corso appoggia la penna. Senza (un file
+     caricato a mano, mai passato dai popup) si usa quella nominale del
+     profilo, che è la stessa con cui la penna è stata montata la prima volta. */
+  function quotaContatto() {
+    var v = Sender.altezzaUsata();
+    return v === null ? Profile.zContatto() : v;
   }
 
-  /* L'ingresso del cambio penna. Senza una quota di partenza non c'è nessuna
-     differenza da calcolare — succede con un file caricato a mano, mai
-     passato dai tre popup — e allora si riprende e basta, dicendolo. */
+  function passiCambioPenna() {
+    return [
+      {
+        nome: 'Togli la penna',
+        sezioni: { posizione: true, homing: false, assi: false, penna: false },
+        testo: function () {
+          return 'La testina è al <b>punto home</b> e la penna è in posizione ' +
+                 '<b>tappo</b>, cioè tutta in alto: è lì che c\'è più spazio per ' +
+                 'sfilarla.<br><br>' +
+                 'Allenta i morsetti e togli la penna. Quando l\'hai tolta premi ' +
+                 'il pulsante: il servo <b>scende alla quota di contatto</b> e ci ' +
+                 'resta, ed è lì che monterai quella nuova.';
+        },
+        entra: function () {},
+        pronto: function () { return true; },
+        attesa: '',
+        etichetta: 'Ho tolto la penna',
+        esci: function () {
+          /* Il servo scende a vuoto: non c'è niente nei morsetti, niente da
+             toccare. Da qui in poi quella quota non si muove più. */
+          Api.penna(quotaContatto());
+          return true;
+        }
+      },
+      {
+        nome: 'Monta la penna nuova',
+        sezioni: { posizione: true, homing: false, assi: false, penna: false },
+        testo: function () {
+          var z = quotaContatto();
+          return 'Il servo è fermo alla <b>quota di contatto</b> del programma, ' +
+                 'Z' + (z === null ? '—' : z.toFixed(2)) + ': <b>non si muove più ' +
+                 'da sola</b>.<br><br>' +
+                 'Infila la penna nuova nei morsetti finché la <b>punta tocca il ' +
+                 'piano</b> e stringi lì. È lo stesso gesto del primo montaggio, ' +
+                 'e serve a questo: così il G-code che resta vale com\'è scritto, ' +
+                 'senza che nessuno lo ritocchi.<br><br>' +
+                 'I due pulsanti qui sotto sono per <b>provare</b>: a contatto la ' +
+                 'punta deve sfiorare il piano, alzata deve staccarsene di ' +
+                 'qualche millimetro. Se non torna, allenta e rifai.';
+        },
+        /* I due pulsanti di prova sono QUI e non nel pannello: quelli del
+           pannello usano le quote NOMINALI del profilo, e la quota che conta
+           adesso è quella del programma in corso, che può essere diversa di
+           qualche decimo. Due pulsanti uguali che vanno in due posti diversi
+           sono il modo migliore di montare una penna storta. */
+        extra: function () {
+          return '<div class="pop-pen"><p class="muted small">Prova la penna ' +
+                 'appena montata</p><div class="btn-row">' +
+                 '<button type="button" class="btn btn-small" id="pop-pen-su">' +
+                 'Penna alzata</button>' +
+                 '<button type="button" class="btn btn-small" id="pop-pen-giu">' +
+                 'Penna a contatto</button></div></div>';
+        },
+        entra: function () {
+          var giu = document.getElementById('pop-pen-giu');
+          var su = document.getElementById('pop-pen-su');
+          if (giu) giu.addEventListener('click', function () { Api.penna(quotaContatto()); });
+          if (su) su.addEventListener('click', function () {
+            var alzata = Profile.alzataMm(), z = quotaContatto();
+            if (alzata !== null && z !== null) Api.penna(z + alzata);
+          });
+        },
+        pronto: function () { return !!State.data.connected; },
+        attesa: 'La macchina non è collegata.',
+        etichetta: 'Riprendi la stampa col colore nuovo',
+        esci: function () {
+          /* Si riparte a penna alzata. Il generatore dopo il segno ridichiara
+             tutto, Z compresa, quindi non sarebbe indispensabile — ma se fra
+             qui e la ripresa succede qualcosa, la punta è su e non sul
+             foglio. */
+          var alzata = Profile.alzataMm(), z = quotaContatto();
+          if (alzata !== null && z !== null) Api.penna(z + alzata);
+          Sender.riprendiCambio();
+          return true;
+        }
+      }
+    ];
+  }
+
+  /* L'ingresso del cambio penna, dal pulsante Riprendi. */
   function cambioPenna() {
     if (Sender.stato() !== 'cambio') return;
-    if (Sender.altezzaUsata() === null || !State.data.connected) {
-      Log.add('msg', 'Riprendo senza rimisurare: di questo programma non si sa ' +
-                     'a che quota toccava la penna di prima.');
-      Sender.riprendiCambio(null);
-      return;
-    }
-    passi = passoCambioPenna(function (z) { Sender.riprendiCambio(z); });
+    modo = 'penna';
+    passi = passiCambioPenna();
     apri(0);
   }
 
@@ -248,12 +302,15 @@ var Popup = (function () {
     box.hidden = false;
     /* Con un passo solo «Passo 1 di 1» non dice niente: dice quello che si
        sta facendo, invece. */
-    passoEtichetta.textContent = passi.length > 1
-      ? 'Passo ' + (i + 1) + ' di ' + passi.length
-      : 'Cambio penna';
+    passoEtichetta.textContent = (modo === 'penna' ? 'Cambio penna — passo ' : 'Passo ') +
+                                 (i + 1) + ' di ' + passi.length;
     titolo.textContent = p.nome;
     descrizione.innerHTML = typeof p.testo === 'function' ? p.testo() : p.testo;
     okBtn.textContent = p.etichetta;
+    /* «Annulla la stampa» durante un cambio penna sarebbe una bugia: lì
+       quel pulsante chiude la finestra e lascia la stampa ferma dov'è, col
+       disegno a metà sul foglio. */
+    annullaBtn.textContent = modo === 'penna' ? 'Più tardi' : 'Annulla la stampa';
     Panel.mount(contenitore, p.sezioni);
     /* Campi che appartengono al passo e non al pannello: il pannello è un
        componente condiviso, e infilarci dentro i campi di un passo lo
@@ -278,11 +335,11 @@ var Popup = (function () {
     if (p.esci() === false) return;
     if (corrente + 1 < passi.length) { apri(corrente + 1); return; }
     chiudi();
-    /* La consegna è la fine dei TRE passi di inizio stampa. Il passo del
-       cambio penna ha già fatto quello che doveva nel suo `esci`: qui non
-       c'è nessun programma da rigenerare e da mandare — ce n'è uno a metà
-       che sta aspettando. */
-    if (passi.length > 1) consegna();
+    /* La consegna è la fine dei tre passi di INIZIO STAMPA. Il cambio penna
+       ha già fatto quello che doveva nel suo ultimo `esci`: lì non c'è
+       nessun programma da rigenerare e da mandare — ce n'è uno a metà che
+       sta aspettando. */
+    if (modo === 'stampa') consegna();
   }
 
   function chiudi() {
@@ -321,6 +378,7 @@ var Popup = (function () {
       fermati('Non c\'è nessun disegno preparato.');
       return;
     }
+    modo = 'stampa';
     passi = definisci();
     apri(0);
   }

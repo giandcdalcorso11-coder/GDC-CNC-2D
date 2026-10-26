@@ -916,6 +916,17 @@ code {
 }
 .pop-off p { margin: 0 0 6px; }
 
+/* I due pulsanti di prova del cambio penna: stessa fascia separata dei campi
+   dello scostamento, perche' sono la stessa cosa - roba che appartiene al
+   PASSO e non al pannello di controllo, che e' un componente condiviso. */
+.pop-pen {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+.pop-pen p { margin: 0 0 6px; }
+.pop-pen .btn-row .btn { flex: 1; }
+
 /* Il piano si puo' ingrandire con la rotella e spostare trascinando il fondo.
    Il cursore lo dice: una mano aperta sul fondo, chiusa mentre si trascina.
    Sul foglio resta il cursore del trascinamento del foglio, che e' un'altra

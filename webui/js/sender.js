@@ -46,12 +46,13 @@ var Sender = (function () {
   var t0 = 0;
   var nome = '';
 
-  /* LA QUOTA DI CONTATTO CON CUI IL FILE E' STATO SCRITTO. Non è un doppione
-     di `State.data.altezzaContatto`: quella dice a che quota tocca la penna
-     che c'è adesso, questa a che quota toccava quella con cui il G-code è
-     stato generato. Finché la penna è una sola i due numeri coincidono; dopo
-     un cambio penna no, ed è tutta lì la differenza fra un disegno giusto e
-     mezzo disegno fatto in aria. */
+  /* LA QUOTA DI CONTATTO CON CUI IL FILE E' STATO SCRITTO. È il numero a cui
+     si porta il servo quando si monta una penna nuova a metà stampa: la
+     penna si infila finché tocca e si stringe lì, quindi il G-code che resta
+     continua a valere senza che nessuno lo ritocchi.
+     Si tiene qui e non si rilegge da `State.data.altezzaContatto` perché
+     quella è «la misura di oggi» e può cambiare — basta rilanciare i popup —
+     mentre questa è una proprietà del programma in corso. */
   var altezzaUsata = null;
 
   /* Via i commenti e le righe vuote. Non è cosmesi: ogni riga mandata è un
@@ -154,74 +155,32 @@ var Sender = (function () {
   function cambioPenna() {
     stato = 'cambio';
     Log.add('msg', 'Cambio penna: la testina finisce il poco che ha in coda, ' +
-                   'poi sale al tappo e va al punto home. Cambia la penna e ' +
-                   'premi Riprendi: ti verrà chiesto di rimisurare a che quota ' +
-                   'tocca il foglio, perché la penna nuova non sporge dai ' +
-                   'morsetti quanto quella di prima.');
+                   'poi sale al tappo e va al punto home. Premi Riprendi e ' +
+                   'la procedura ti guida: togli la penna, il servo scende ' +
+                   'alla quota di contatto, monti la nuova lì.');
     aggiorna();
     parcheggia();
   }
 
-  /* LE QUOTE CHE RESTANO, SPOSTATE DELLA DIFFERENZA.
+  /* La ripresa dopo un cambio penna.
    *
-   * Il G-code porta la Z in coordinate assolute — «G1 Z-21.271» — e quel
-   * numero viene dall'altezza di contatto misurata col secondo popup, cioè
-   * da QUELLA penna infilata a QUELLA profondità. La penna nuova si infila
-   * finché tocca il foglio e si stringe lì: se sporge mezzo millimetro in
-   * più, le righe che restano la fanno premere mezzo millimetro dentro la
-   * carta; se sporge mezzo in meno, disegna per aria. Mezzo disegno, e te ne
-   * accorgi a foglio finito.
+   * NON C'E' NESSUNA QUOTA DA CORREGGERE, ed è il punto della procedura: la
+   * penna nuova si infila col servo già fermo alla quota di contatto del
+   * programma, e si stringe lì. È la penna che si adatta al G-code, non il
+   * G-code alla penna — lo stesso gesto con cui la penna si monta la prima
+   * volta, e l'unico in cui non c'è un numero da misurare e quindi da
+   * sbagliare.
    *
-   * Si sposta ogni Z tranne quella del TAPPO, che non è una quota di penna
-   * ma il fine corsa in cima: spostarla vorrebbe dire mandare il servo contro
-   * il suo limite per niente. E nessuna quota può finire sopra il tappo.
-   *
-   * Si lavora sul testo e non si rigenera il programma: rigenerarlo
-   * vorrebbe dire ritrovare a quale tratto si era arrivati, e il numero di
-   * riga non lo dice. Lo spostamento è esatto quanto una rigenerazione,
-   * perché è esattamente la stessa somma che farebbe il generatore. */
-  function spostaZ(da, delta) {
-    var tappo = Profile.zTappo();
-    var quante = 0;
-    for (var k = da; k < righe.length; k++) {
-      var r = righe[k];
-      if (r === PAUSA) continue;
-      var nuova = r.replace(/Z(-?\d+(?:\.\d+)?)/g, function (tutto, v) {
-        var z = parseFloat(v);
-        if (tappo !== null && Math.abs(z - tappo) < 0.001) return tutto;
-        var nz = z + delta;
-        if (tappo !== null && nz > tappo) nz = tappo;
-        quante++;
-        return 'Z' + nz.toFixed(3);
-      });
-      if (nuova !== r) righe[k] = nuova;
-    }
-    return quante;
-  }
-
-  /* La ripresa dopo un cambio penna, con la quota appena rimisurata. */
-  function riprendiCambio(nuova) {
+   * Il primo tentativo faceva il contrario: rimisurare dove toccava la penna
+   * nuova e spostare di quella differenza tutte le quote delle righe che
+   * restavano. Funzionava, ed era venticinque righe di aritmetica per
+   * rimediare a un gesto che si può semplicemente fare bene.
+   */
+  function riprendiCambio() {
     if (stato !== 'cambio') return;
-
-    var delta = (altezzaUsata === null || nuova === null || isNaN(nuova))
-      ? 0 : nuova - altezzaUsata;
-
-    if (Math.abs(delta) < 0.005) {
-      Log.add('msg', 'La penna nuova tocca il foglio alla stessa quota della ' +
-                     'precedente: non c\'è niente da correggere.');
-    } else {
-      var quante = spostaZ(i, delta);
-      altezzaUsata = nuova;
-      Log.add('msg', 'Penna nuova: tocca a Z' + nuova.toFixed(2) + ', ' +
-                     (delta > 0 ? '+' : '') + delta.toFixed(2) + ' mm rispetto ' +
-                     'alla precedente. Spostate ' + quante + ' quote di penna ' +
-                     'nelle ' + (righe.length - i) + ' righe che restano.');
-      if (Math.abs(delta) > 1) {
-        Log.add('err', Math.abs(delta).toFixed(1) + ' mm di differenza sono ' +
-                       'tanti per due penne infilate con la stessa procedura: ' +
-                       'se non era voluto, ferma la stampa e rimonta la penna.');
-      }
-    }
+    Log.add('msg', 'Penna nuova montata alla quota del programma: le ' +
+                   (righe.length - i) + ' righe che restano valgono come ' +
+                   'sono scritte.');
     riprendi();
   }
 
