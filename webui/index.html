@@ -11,7 +11,12 @@
 <body>
 
 <header class="topbar">
-  <div class="brand">GDC CNC 2D <span>SLICER</span></div>
+  <!-- Il numero di versione: quante volte questa pagina e' cambiata. Lo
+       scrive tools/versione.py contando i commit che hanno toccato webui/,
+       e lo mette qui app.js: cosi' si sa sempre quale copia si ha davanti,
+       che e' la domanda che ci si fa quando qualcosa non si comporta come
+       l'ultima volta. -->
+  <div class="brand">GDC CNC 2D <span>SLICER</span><b class="ver" id="brand-ver"></b></div>
 
   <div class="state-group">
     <span id="machine-state" class="state-badge state-off">Disconnesso</span>
@@ -716,6 +721,7 @@
   </div>
 </section>
 
+<script src="js/versione.js"></script>
 <script src="js/profile.js"></script>
 <script src="js/state.js"></script>
 <script src="js/api.js"></script>

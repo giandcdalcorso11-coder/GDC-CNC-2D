@@ -250,6 +250,20 @@
     refreshCalib();
     refreshStampa();
 
-    Log.add('msg', 'Interfaccia avviata in modalità finta. Premi Connetti per iniziare.');
+    /* Il numero di versione in alto. Lo scrive tools/versione.py contando i
+       commit che hanno toccato webui/: è «quante volte questa pagina è
+       cambiata», e serve a sapere quale copia si ha davanti quando qualcosa
+       non si comporta come l'ultima volta. */
+    var ver = document.getElementById('brand-ver');
+    if (ver && typeof Versione !== 'undefined') {
+      ver.textContent = 'v' + Versione.numero;
+      ver.title = 'Versione ' + Versione.numero + ' della pagina, del ' +
+                  Versione.data + '. È il numero di volte che è cambiata.';
+    }
+
+    Log.add('msg', 'Interfaccia avviata in modalità finta. Premi Connetti per ' +
+                   'iniziare.' +
+                   (typeof Versione !== 'undefined'
+                      ? ' Pagina v' + Versione.numero + ' del ' + Versione.data + '.' : ''));
   });
 })();

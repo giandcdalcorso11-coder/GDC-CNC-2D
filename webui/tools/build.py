@@ -21,12 +21,19 @@ stesso WebSocket - e con quella decisione e' caduto il tetto dei kilobyte.
 Chi dovesse rimetterla sulla scheda usi --leggero.
 """
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 bare = '--bare' in sys.argv
 leggero = '--leggero' in sys.argv
+
+# IL NUMERO DI VERSIONE SI RIFA' PRIMA DI OGNI COMPILAZIONE, perche' questo
+# script gira sempre prima di consegnare la pagina: cosi' il numero non
+# dipende da nessuno che si ricordi di aggiornarlo. Vedi tools/versione.py.
+if '--niente-versione' not in sys.argv:
+    subprocess.run([sys.executable, str(ROOT / 'tools' / 'versione.py')], check=False)
 
 html = (ROOT / 'index.html').read_text(encoding='utf-8')
 

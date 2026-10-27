@@ -18,6 +18,22 @@
 }
 .brand span { color: var(--accent); }
 
+/* Il numero di versione accanto al nome. Piccolo e smorzato: serve quando lo
+   si cerca - "che copia ho davanti?" - e non deve farsi notare il resto del
+   tempo. */
+.ver {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--text-mute);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 2px 7px;
+  vertical-align: 2px;
+}
+
 .state-group { display: flex; align-items: center; gap: 12px; }
 
 .dro {
