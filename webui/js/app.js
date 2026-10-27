@@ -226,6 +226,7 @@
     Selezione.init();
     Sorgenti.init();
     Editor.init();
+    Progetto.init();
 
     /* «Stampa» non manda niente: apre la procedura dei tre popup, che prende le
        misure del momento e solo alla fine rigenera e consegna il programma. */

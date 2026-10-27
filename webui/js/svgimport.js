@@ -390,6 +390,90 @@ var SvgImport = (function () {
     return toRect(polys, fitRect(polys, sheet, percent));
   }
 
+  /* ------------------------- i tratti doppi -------------------------
+   *
+   * IL CASO VERO, 2026-10-27: un disegno isometrico di cubi, stampato bene,
+   * e la penna che su certe linee ci passa DUE VOLTE. Quelle linee sono gli
+   * spigoli condivisi fra due facce adiacenti: nel file ogni faccia ha il suo
+   * contorno chiuso, e il lato in comune sta dentro tutt'e due. Non è un
+   * difetto del file — un programma di disegno le facce le chiude — ma su una
+   * penna è un difetto e basta: il secondo passaggio ricalca il primo, la
+   * riga esce più marcata e a volte sdoppiata di un decimo, e il tempo se ne
+   * va. Non esiste nessun motivo per cui si voglia ripassare esattamente lo
+   * stesso segmento, quindi qui si toglie e lo si dice.
+   *
+   * Si lavora sui SEGMENTI e non sulle forme: due cubi diversi non sono forme
+   * uguali, hanno solo un lato in comune, e la cosa doppia è quel lato.
+   * Togliendolo la polilinea si spezza in due pezzi, che è esattamente quello
+   * che deve succedere: la penna disegna il pezzo prima e il pezzo dopo, e
+   * salta quello che c'era già.
+   *
+   * I capi si APPAIANO a una tolleranza invece di confrontarli per uguaglianza:
+   * lo stesso punto arrivato da due strade diverse differisce nell'ultima
+   * cifra, e due numeri che differiscono nell'ultima cifra non cascano nella
+   * stessa casella se le caselle sono fisse. Ogni punto cerca prima un vicino
+   * già visto nelle nove caselle intorno alla sua, e solo se non lo trova ne
+   * apre uno nuovo. La tolleranza è un ventesimo di millimetro: la punta di
+   * una penna è otto volte tanto, quindi due tratti più vicini di così sul
+   * foglio sono la stessa riga.
+   *
+   * Questo NON toglie le sovrapposizioni parziali — un tratto lungo e uno
+   * corto che ci sta sopra — che sono un problema diverso e si vedono
+   * nell'editor. Qui si toglie quello che è doppio e basta.
+   */
+  var DOPPIO = 0.05;
+
+  function senzaDoppioni(polys, tol) {
+    tol = tol || DOPPIO;
+    var celle = {}, punti = [];
+    var visti = {}, tolti = 0, out = [];
+
+    /* Il numero d'ordine del punto, con l'appaiamento nelle nove caselle. */
+    function idDi(p) {
+      var cx = Math.floor(p.x / tol), cy = Math.floor(p.y / tol);
+      for (var i = -1; i <= 1; i++) {
+        for (var j = -1; j <= 1; j++) {
+          var lista = celle[(cx + i) + '|' + (cy + j)];
+          if (!lista) continue;
+          for (var k = 0; k < lista.length; k++) {
+            var q = punti[lista[k]];
+            if (Math.abs(q.x - p.x) <= tol && Math.abs(q.y - p.y) <= tol) return lista[k];
+          }
+        }
+      }
+      var id = punti.length;
+      punti.push(p);
+      var ck = cx + '|' + cy;
+      (celle[ck] = celle[ck] || []).push(id);
+      return id;
+    }
+
+    for (var i = 0; i < polys.length; i++) {
+      var src = polys[i], cur = null, a = idDi(src[0]);
+      for (var j = 1; j < src.length; j++) {
+        var b = idDi(src[j]);
+        /* Un segmento di lunghezza nulla non è doppio, è niente: si salta
+           senza spezzare il tratto e senza contarlo. */
+        if (b === a) continue;
+        var chiave = a < b ? a + '-' + b : b + '-' + a;
+        if (visti[chiave]) {
+          tolti++;
+          if (cur && cur.length > 1) out.push(cur);
+          cur = null;
+        } else {
+          visti[chiave] = true;
+          if (cur) cur.push(src[j]);
+          else cur = [src[j - 1], src[j]];
+        }
+        a = b;
+      }
+      if (cur && cur.length > 1) out.push(cur);
+    }
+
+    out.tolti = tolti;
+    return out;
+  }
+
   /* Diradamento di Douglas-Peucker: toglie i punti che non spostano la linea
      piu' della tolleranza. Un tratto dritto campionato ogni mezzo millimetro
      torna ad essere due punti, e il pianificatore di FluidNC puo' accelerare
@@ -426,7 +510,7 @@ var SvgImport = (function () {
   }
 
   return { parse: parse, parseForme: parseForme, toSheet: toSheet, toRect: toRect, fitRect: fitRect,
-           ritaglia: ritaglia,
+           ritaglia: ritaglia, senzaDoppioni: senzaDoppioni,
            percentuali: percentuali, simplify: simplify, bbox: bbox,
            dist: dist, scartate: function () { return scarti; } };
 })();

@@ -92,6 +92,24 @@ var Artwork = (function () {
    * aprirlo. È la stessa mappa di rigenera(), per la stessa ragione.
    */
   function load(text, nome) {
+    /* UN PROGETTO SALVATO NON SI IMPORTA: SI RIPRENDE. Dentro c'è lo stato
+       com'era — forme con le loro curve, livelli, rettangoli, ritagli,
+       foglio — e rileggerne i tracciati disegnati vorrebbe dire tornare a un
+       disegno di segmenti dritti, cioè buttare via proprio la parte che si
+       era salvata. Vedi js/progetto.js. */
+    var pg = (typeof Progetto !== 'undefined') ? Progetto.leggi(text) : null;
+    if (pg) {
+      if (livelli.length &&
+          !window.confirm('«' + nome + '» è un progetto salvato: riaprendolo, ' +
+                          'i ' + livelli.length + ' livelli che ci sono adesso ' +
+                          'vengono sostituiti. Procedo?')) {
+        Log.add('msg', 'Progetto non riaperto: quello che c\'era resta com\'è.');
+        return;
+      }
+      Progetto.applica(pg, nome);
+      return;
+    }
+
     /* Si leggono le FORME, con le curve ancora curve, e da quelle si
        ricavano le polilinee. L'ordine conta: appiattire per primo e tenere
        solo il risultato è quello che rendeva impossibile modificare una
@@ -182,6 +200,19 @@ var Artwork = (function () {
                : '') +
             (primo ? '' : ' Si disegna dopo quello che c\'era.'));
     refit();
+
+    /* I TRATTI DOPPI SI DICONO SUBITO, qui e non nel silenzio di refit().
+       Il 2026-10-27 un disegno di cubi è stato stampato con gli spigoli in
+       comune ripassati due volte, e il difetto si è visto sulla carta: non
+       perché fosse nascosto, ma perché nessuno l'aveva detto. */
+    var dp = nati.reduce(function (s, x) { return s + (x.doppi || 0); }, 0);
+    if (dp) {
+      Log.add('msg', (dp === 1 ? 'Tolto 1 tratto doppio' : 'Tolti ' + dp + ' tratti doppi') +
+              ': nel file ' + (dp === 1 ? 'era disegnato' : 'erano disegnati') +
+              ' due volte nello stesso posto — succede con gli spigoli in ' +
+              'comune fra due facce — e la penna ci sarebbe passata sopra ' +
+              'due volte.');
+    }
   }
 
   /* Le forme raggruppate per tinta, i BORDI PRIMA dei pieni. L'ordine è
@@ -444,6 +475,64 @@ var Artwork = (function () {
     selezionati = [l.id];
     refit();
     return l.id;
+  }
+
+  /* ------------------- salvataggio e ripresa del lavoro -------------------
+     Due funzioni sole, e tutte e due qui dentro perché qui dentro stanno i
+     livelli: il formato del file lo decide js/progetto.js, che di livelli non
+     sa niente e non deve saperne.
+
+     Si salvano le FORME e non i tracciati: i tracciati sono un prodotto —
+     li rifà l'appiattimento — e sono anche l'unica cosa che un SVG normale
+     saprebbe già dire. Si salva anche `origine`, la fotografia di com'era il
+     livello prima delle modifiche, perché l'etichetta EDIT serve proprio a
+     riguardarla, e riaprendo il lavoro domani è ancora la stessa domanda. */
+  function progetto() {
+    return {
+      livelli: livelli.map(function (l) {
+        return {
+          nome: l.nome, tol: l.tol, forme: l.forme,
+          box: l.box, ritaglio: l.ritaglio, rot: l.rot,
+          visibile: l.visibile, cambioPenna: l.cambioPenna,
+          origine: l.origine || null, mostraOrigine: !!l.mostraOrigine
+        };
+      }),
+      /* I tracciati sul foglio, per livello: servono a disegnare il file, non
+         a ricostruirlo. Stanno fuori dall'elenco salvato apposta. */
+      tratti: livelli.map(function (l) { return l.art; })
+    };
+  }
+
+  function daProgetto(ls) {
+    livelli = [];
+    scelto = null;
+    selezionati = [];
+    pause = [];
+    (ls || []).forEach(function (d) {
+      var l = {
+        id: 'liv' + (++seq),
+        nome: d.nome || 'livello',
+        forme: d.forme || [],
+        tol: d.tol || Tracciato.TOLLERANZA,
+        raw: [],
+        box: d.box || null,
+        ritaglio: d.ritaglio || null,
+        rot: d.rot || 0,
+        visibile: d.visibile !== false,
+        cambioPenna: !!d.cambioPenna,
+        origine: d.origine || null,
+        mostraOrigine: !!d.mostraOrigine,
+        art: []
+      };
+      l.raw = Tracciato.appiattisciTutte(l.forme, l.tol);
+      livelli.push(l);
+    });
+    if (livelli.length) {
+      scelto = livelli[0].id;
+      selezionati = [scelto];
+    }
+    if (window.Selezione) Selezione.chiudi();
+    refit();
   }
 
   function elenco() {
@@ -738,7 +827,7 @@ var Artwork = (function () {
      percorso. Va richiamata quando cambia un rettangolo, una rotazione, un
      ritaglio, l'ordine, la visibilità o il formato del foglio. */
   function refit() {
-    var art = [], di = [];
+    var art = [], di = [], doppi = 0;
 
     for (var i = 0; i < livelli.length; i++) {
       var l = livelli[i];
@@ -763,7 +852,20 @@ var Artwork = (function () {
       l.bb = SvgImport.bbox(polys);
 
       var mm = SvgImport.simplify(SvgImport.toRect(polys, l.box), 0.06);
-      l.art = l.ritaglio ? SvgImport.ritaglia(mm, l.ritaglio) : mm;
+      /* I TRATTI DOPPI SI TOLGONO QUI, sul foglio e in millimetri, dopo il
+         ritaglio: la tolleranza con cui si decide che due tratti sono lo
+         stesso tratto è un ventesimo di millimetro, e un ventesimo di
+         millimetro vuol dire qualcosa solo sul foglio — nelle unità del file
+         può valere un metro. Dopo il ritaglio e non prima perché anche il
+         ritaglio può lasciare due pezzi sovrapposti.
+         Si rifà a ogni refit invece di una volta all'importazione: così vale
+         anche per quello che si disegna nell'editor, e un tratto ripassato a
+         mano sopra a un altro non arriva alla penna. */
+      var pulito = SvgImport.senzaDoppioni(
+        l.ritaglio ? SvgImport.ritaglia(mm, l.ritaglio) : mm);
+      l.doppi = pulito.tolti;
+      doppi += pulito.tolti;
+      l.art = pulito;
 
       if (!l.visibile) continue;
       for (var j = 0; j < l.art.length; j++) { art.push(l.art[j]); di.push(l.id); }
@@ -772,6 +874,7 @@ var Artwork = (function () {
     State.data.art = art.length ? art : null;
     State.data.artDi = di;
     State.data.artName = nomeComplessivo();
+    State.data.artDoppi = doppi;
 
     /* Ogni cambio invalida il programma: le coordinate non sono più quelle,
        e gli indici delle pause nemmeno. */
@@ -826,6 +929,16 @@ var Artwork = (function () {
   function renderElenco() {
     var box = document.getElementById('livelli');
     var testa = document.getElementById('liv-testa');
+    /* «Salva» ha senso solo se c'è qualcosa da salvare, e quel qualcosa sono
+       i livelli: sta qui perché qui si sa quanti ce ne sono. */
+    var sv = document.getElementById('btn-save-prog');
+    if (sv) {
+      sv.disabled = !livelli.length;
+      sv.title = livelli.length
+        ? 'Salva il lavoro in un SVG che questa pagina sa riaprire dov\'era: ' +
+          'livelli, forme modificate, foglio e cambi penna'
+        : 'Niente da salvare: non c\'è nessun livello';
+    }
     if (!box) return;
     box.hidden = !livelli.length;
     if (testa) testa.hidden = !livelli.length;
@@ -1242,9 +1355,13 @@ var Artwork = (function () {
       : '';
 
     document.getElementById('gcode-out').value = prep;
+    var dp = State.data.artDoppi || 0;
     Log.add('msg', 'G-code pronto: ' + prep.split('\n').length + ' righe, ' +
                    Gcode.durata(d.secondi) + ' stimati' +
-                   (nPause ? ', ' + nPause + ' cambi penna' : '') + '.');
+                   (nPause ? ', ' + nPause + ' cambi penna' : '') + '.' +
+                   (dp ? ' ' + dp + (dp === 1 ? ' tratto doppio non ci va' :
+                                     ' tratti doppi non ci vanno') +
+                         ': la penna ci sarebbe passata due volte.' : ''));
   }
 
   /* L'invio passa dal Sender, che manda le righe una per una sul WebSocket.
@@ -1352,6 +1469,7 @@ var Artwork = (function () {
   return {
     init: init, load: load, clear: clear, refit: refit,
     prepare: prepare, invia: invia,
+    progetto: progetto, daProgetto: daProgetto,
 
     riquadro: riquadro, riquadroPieno: riquadroPieno,
     collocaA: collocaA, ritagliaA: ritagliaA, ritagliato: ritagliato,

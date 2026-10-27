@@ -30,6 +30,13 @@ var Popup = (function () {
      programma che sta già aspettando. */
   var modo = 'stampa';
 
+  /* «PIU' TARDI» DEVE RESTARE PIU' TARDI. La procedura del cambio penna si
+     apre da sé quando la stampa arriva al segno; se la si chiude, non deve
+     riaprirsi al respiro successivo dello stato — sarebbe un popup che non si
+     riesce a chiudere. Si riapre dal pulsante Riprendi, che è il gesto con
+     cui si dice «adesso sì». */
+  var rimandato = false;
+
   /* ------------------------------- i tre passi ---------------------------- */
 
   function definisci() {
@@ -196,8 +203,19 @@ var Popup = (function () {
                  'resta, ed è lì che monterai quella nuova.';
         },
         entra: function () {},
-        pronto: function () { return true; },
-        attesa: '',
+        /* LA PENNA NON SI TOCCA MENTRE LA TESTINA CAMMINA. La finestra si
+           apre appena la stampa arriva al segno, ma in quel momento la
+           macchina ha ancora in coda le ultime righe più l'alzata al tappo e
+           il ritorno al punto home: sono secondi, e sono i secondi in cui
+           uno allunga la mano. Il pulsante aspetta che si sia fermata.
+           Scollegata il controllo non vuol dire niente — non c'è niente che
+           si muova — e allora non blocca. */
+        pronto: function () {
+          var m = State.data.machine;
+          return !State.data.connected || (m !== 'Run' && m !== 'Jog');
+        },
+        attesa: 'La testina sta ancora finendo: aspetta che si fermi al punto ' +
+                'home prima di mettere le mani sulla penna.',
         etichetta: 'Ho tolto la penna',
         esci: function () {
           /* Il servo scende a vuoto: non c'è niente nei morsetti, niente da
@@ -261,12 +279,32 @@ var Popup = (function () {
     ];
   }
 
-  /* L'ingresso del cambio penna, dal pulsante Riprendi. */
+  /* L'ingresso del cambio penna: dal pulsante Riprendi, e da sé appena la
+     stampa arriva al segno. */
   function cambioPenna() {
     if (Sender.stato() !== 'cambio') return;
+    rimandato = false;
     modo = 'penna';
     passi = passiCambioPenna();
     apri(0);
+  }
+
+  /* IL POPUP SI APRE DA SE'.
+   *
+   * Prima la stampa si fermava al cambio penna, lo scriveva nel registro, e
+   * stava lì: per far comparire la procedura bisognava premere Riprendi — cioè
+   * premere un pulsante che DICE di riprendere sperando che invece si fermi e
+   * chieda. Il 2026-10-27, alla prima stampa a due colori vera, è stato
+   * premuto con la paura che la stampa ripartisse saltando il cambio.
+   *
+   * Un pulsante che per essere premuto ha bisogno di sapere che non fa quello
+   * che c'è scritto è un pulsante scritto male. Adesso la finestra compare da
+   * sola quando il livello è finito, e Riprendi resta quello che sembra: il
+   * modo di riaprirla se si è scelto «Più tardi». */
+  function autoCambio() {
+    if (State.data.stampa.stato !== 'cambio') { rimandato = false; return; }
+    if (rimandato || !box.hidden) return;
+    cambioPenna();
   }
 
   function alzaPenna() {
@@ -401,9 +439,10 @@ var Popup = (function () {
          ferma dov'è. Il disegno è a metà sul foglio, e buttarlo via perché si
          è premuto «Annulla» sarebbe la cosa più costosa che questo pulsante
          possa fare. */
+      if (cambio) rimandato = true;
       Log.add('msg', cambio
-        ? 'Rimisurazione annullata: la stampa resta ferma al cambio penna. ' +
-          'Premi di nuovo Riprendi quando sei pronto.'
+        ? 'Cambio penna rimandato: la stampa resta ferma dov\'è. ' +
+          'Premi Riprendi quando sei pronto e la procedura si riapre.'
         : 'Stampa annullata.');
     });
 
@@ -413,6 +452,10 @@ var Popup = (function () {
     State.on('pos', aggiorna);
     State.on('azzerata', aggiorna);
     State.on('motoriLiberi', aggiorna);
+    /* Anche `machine`: il primo passo del cambio penna aspetta che la
+       testina si fermi, e «ferma» è una cosa che si legge da lì. */
+    State.on('machine', aggiorna);
+    State.on('stampa', autoCambio);
   }
 
   return { init: init, avviaStampa: avviaStampa, chiudi: chiudi,

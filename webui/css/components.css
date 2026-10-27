@@ -337,7 +337,14 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
   fill: currentColor;
   font-size: 11px;
   font-family: inherit;
-  text-anchor: middle;
+  text-anchor: end;
+}
+/* Il nome dell'asse: piu' piccolo e piu' smorto del numero, perche' la
+   lettera si legge una volta e il numero tutte le volte. */
+.ico-fog .vn {
+  font-size: 8.5px;
+  text-anchor: start;
+  opacity: .55;
 }
 .ico-casa { flex: 0 0 auto; width: 60%; height: auto; }
 .ico-casa polyline, .ico-casa rect {
@@ -355,6 +362,27 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
    griglia non deve ballare quando si sposta il foglio - ma si segna, e il
    suggerimento dice di quanto. */
 .pm-vai.is-ko .ico-fog rect { stroke: var(--danger); opacity: 1; }
+
+/* L'ANGOLO CHE NON E' L'ANGOLO. Il foglio esce dalla corsa, quindi il
+   pulsante non porta allo spigolo della carta ma allo spigolo della parte
+   che la penna raggiunge. Si va lo stesso - e' il punto utile - ma il
+   pallino lo dice: vuoto invece che pieno, come un riferimento preso di
+   ripiego. */
+.pm-vai.is-orlo .ico-fog .pt {
+  fill: none;
+  stroke: #e8714f;
+  stroke-width: 1.6;
+}
+
+/* UNA FRECCIA CHE PORTEREBBE FUORI DALL'AREA. Non e' un errore e non e' un
+   guasto: e' il confine, e il pulsante resta al suo posto - la griglia non
+   deve ballare mentre si avvicina il carrello - ma si spegne e si segna.
+   Il suggerimento dice di quanto si uscirebbe e che basta un passo piu'
+   piccolo. */
+.btn-jog.is-ko:disabled {
+  color: var(--danger);
+  opacity: .75;
+}
 
 /* LA PENNA E IL PIANO. Una punta che scende verso una riga dice l'altezza E
    di che cosa si sta parlando; la tacca di prima diceva solo l'altezza, e si
@@ -1236,6 +1264,15 @@ code {
 }
 
 /* ------------------- elenco dei livelli ------------------- */
+
+/* Titolo di scheda con un comando accanto: il comando sta sulla riga del
+   titolo perche' e' il titolo a dire su che cosa agisce. */
+.card-testa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 
 .liv-testa {
   display: flex;

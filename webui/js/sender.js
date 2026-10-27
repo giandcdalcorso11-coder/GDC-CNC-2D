@@ -155,9 +155,10 @@ var Sender = (function () {
   function cambioPenna() {
     stato = 'cambio';
     Log.add('msg', 'Cambio penna: la testina finisce il poco che ha in coda, ' +
-                   'poi sale al tappo e va al punto home. Premi Riprendi e ' +
-                   'la procedura ti guida: togli la penna, il servo scende ' +
-                   'alla quota di contatto, monti la nuova lì.');
+                   'poi sale al tappo e va al punto home. La procedura si apre ' +
+                   'da sé e ti guida: togli la penna, il servo scende alla ' +
+                   'quota di contatto, monti la nuova lì. Se la chiudi con ' +
+                   '«Più tardi», Riprendi la riapre.');
     aggiorna();
     parcheggia();
   }

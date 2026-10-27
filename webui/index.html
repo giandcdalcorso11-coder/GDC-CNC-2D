@@ -76,7 +76,15 @@
       </section>
 
       <section class="card">
-        <h2>Disegno</h2>
+        <!-- «Salva» sta accanto al titolo perche' e' il titolo a dire di che
+             cosa parla: salva IL DISEGNO - livelli, forme modificate, foglio,
+             cambi penna - in un SVG che questa pagina sa riaprire dov'era.
+             Vedi js/progetto.js. -->
+        <div class="card-testa">
+          <h2>Disegno</h2>
+          <button class="btn btn-ghost btn-small" id="btn-save-prog" disabled
+                  title="Salva il lavoro in un SVG che si puo' riaprire qui e continuare">Salva</button>
+        </div>
         <div class="dropzone" id="dropzone">
           <p><strong>Trascina qui un file SVG</strong></p>
           <p class="muted">oppure clicca per sceglierlo</p>
@@ -736,6 +744,7 @@
 <script src="js/paper.js"></script>
 <script src="js/righelli.js"></script>
 <script src="js/artwork.js"></script>
+<script src="js/progetto.js"></script>
 <script src="js/selezione.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/preview.js"></script>

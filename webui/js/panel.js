@@ -127,18 +127,45 @@ var Panel = (function () {
     return k;
   }
 
-  /* Dove sta, in coordinate macchina. Il foglio ha l'origine nell'angolo in
-     basso a sinistra e la y cresce verso l'alto, come sul piano: qui non si
-     ribalta niente. */
+  /* Il rettangolo che la penna raggiunge DAVVERO: l'intersezione fra il
+     foglio e la corsa. È lo stesso tratteggio azzurro che si vede sul piano,
+     e lo stesso numero che la barra sotto al disegno chiama «la penna ne
+     raggiunge». Null quando le due cose non si toccano: lì non c'è nessun
+     punto dove andare. */
+  function rettPenna() {
+    var p = State.data.paper, o = State.data.sheetOrigin;
+    if (!p || !o) return null;
+    var lx = Profile.corsaPercorribile('x'), ly = Profile.corsaPercorribile('y');
+    var r = { x0: Math.max(0, o.x), x1: Math.min(lx, o.x + p.w),
+              y0: Math.max(0, o.y), y1: Math.min(ly, o.y + p.h) };
+    return (r.x1 >= r.x0 && r.y1 >= r.y0) ? r : null;
+  }
+
+  /* DOVE SI VA, in coordinate macchina.
+     Non è l'angolo della CARTA: è l'angolo della parte di carta che la penna
+     raggiunge. Con un foglio più piccolo della corsa sono lo stesso punto e
+     non cambia niente; con un foglio più grande — che è la configurazione
+     che questa macchina usa davvero, coi fogli tagliati a mano più larghi
+     della campata — l'angolo vero sta fuori, e un pulsante che punta a un
+     posto irraggiungibile può solo restare spento. Spento non diceva niente:
+     adesso porta al punto più vicino che la macchina sa raggiungere, che è
+     esattamente quello che si vuole guardare quando si preme.
+     `tagliato` dice se è successo, perché il suggerimento deve dirlo. */
   function puntoVai(k) {
     if (k === 'home') return Profile.puntoHome();
     var p = State.data.paper, o = State.data.sheetOrigin;
     if (!p || !o) return null;
-    if (k === 'bs') return { x: o.x,       y: o.y };
-    if (k === 'bd') return { x: o.x + p.w, y: o.y };
-    if (k === 'ad') return { x: o.x + p.w, y: o.y + p.h };
-    if (k === 'as') return { x: o.x,       y: o.y + p.h };
-    return null;
+    var vero = k === 'bs' ? { x: o.x,       y: o.y }
+             : k === 'bd' ? { x: o.x + p.w, y: o.y }
+             : k === 'ad' ? { x: o.x + p.w, y: o.y + p.h }
+             : k === 'as' ? { x: o.x,       y: o.y + p.h } : null;
+    if (!vero) return null;
+    var r = rettPenna();
+    if (!r) return null;
+    var q = { x: Math.min(r.x1, Math.max(r.x0, vero.x)),
+              y: Math.min(r.y1, Math.max(r.y0, vero.y)) };
+    q.tagliato = Math.abs(q.x - vero.x) > 0.05 || Math.abs(q.y - vero.y) > 0.05;
+    return q;
   }
 
   function segnoVai(v) {
@@ -150,10 +177,16 @@ var Panel = (function () {
              '<rect x="-5" y="6" width="10" height="6"></rect>' +
              '<rect x="-1.6" y="8.6" width="3.2" height="3.4"></rect></svg>';
     }
+    /* I DUE NUMERI PORTANO IL NOME DELL'ASSE. Erano due cifre incolonnate,
+       e due cifre incolonnate non dicono quale delle due è la X: si poteva
+       solo indovinarlo dall'ordine. La lettera sta a sinistra, piccola, e il
+       numero a destra, dove si legge un numero. */
     return '<svg class="ico-fog" viewBox="0 0 40 32" aria-hidden="true">' +
            '<rect x="2.5" y="2.5" width="35" height="27"></rect>' +
-           '<text class="vx" x="20" y="15">—</text>' +
-           '<text class="vy" x="20" y="26">—</text>' +
+           '<text class="vn" x="6" y="15">X</text>' +
+           '<text class="vx" x="34.5" y="15">—</text>' +
+           '<text class="vn" x="6" y="26">Y</text>' +
+           '<text class="vy" x="34.5" y="26">—</text>' +
            '<circle class="pt" cx="' + v[2][0] + '" cy="' + v[2][1] +
            '" r="3.4"></circle></svg>';
   }
@@ -420,6 +453,9 @@ var Panel = (function () {
       if (on) fisso = true;
     });
     uno(el, '.pm-step-free', function (i) { i.classList.toggle('is-active', !fisso); });
+    /* Cambiare passo cambia dove si finisce, quindi cambia quali frecce si
+       possono premere: a 5 mm dal confine, 1 mm ci sta e 10 no. */
+    aggiorna(ist);
   }
 
   function etichettaVai(el) {
@@ -491,8 +527,8 @@ var Panel = (function () {
     }
 
     ist.meta = { x: q.x, y: q.y };
-    dice(el, 'Penna su, poi al ' + nome + ': X ' + q.x.toFixed(1) +
-             ' Y ' + q.y.toFixed(1) + '…');
+    dice(el, 'Penna su, poi al ' + nome + (q.tagliato ? ', per quanto ci arriva' : '') +
+             ': X ' + q.x.toFixed(1) + ' Y ' + q.y.toFixed(1) + '…');
 
     var su = Profile.zAlzata();
     /* Si alza solo se è più in basso: una quota già buona rimandata uguale
@@ -505,6 +541,20 @@ var Panel = (function () {
            ist.meta = null;
            dice(el, 'Non ci è andata: ' + e.message);
          });
+  }
+
+  /* Di quanto un punto esce dall'area percorribile, in parole. Vuoto vuol
+     dire che ci sta. È lo stesso conto di Profile.stanoDentro, ma su un
+     punto solo e senza origine foglio: qui si ragiona già in coordinate
+     macchina. */
+  function sbordo(x, y) {
+    var lx = Profile.corsaPercorribile('x'), ly = Profile.corsaPercorribile('y');
+    var f = [];
+    if (x < -1e-6)      f.push('a sinistra di ' + (-x).toFixed(1) + ' mm');
+    if (x > lx + 1e-6)  f.push('a destra di ' + (x - lx).toFixed(1) + ' mm');
+    if (y < -1e-6)      f.push('sotto di ' + (-y).toFixed(1) + ' mm');
+    if (y > ly + 1e-6)  f.push('sopra di ' + (y - ly).toFixed(1) + ' mm');
+    return f;
   }
 
   function uno(el, sel, fn) { var x = el.querySelector(sel); if (x) fn(x); }
@@ -532,8 +582,35 @@ var Panel = (function () {
     });
 
     /* A motori liberi le frecce non servono a niente: FluidNC li riattiverebbe
-       al primo comando, buttando via l'appoggio appena fatto. */
-    ognuno(el, '[data-pm-jog]', function (b) { b.disabled = !collegata || liberi; });
+       al primo comando, buttando via l'appoggio appena fatto.
+
+       E NON SI PREME UNA FRECCIA CHE PORTA FUORI DALL'AREA. Questa macchina
+       non ha finecorsa: oltre il confine non c'è niente che fermi il
+       carrello, il pignone esce dalla cremagliera e si rimonta a mano. Il
+       controllo c'era già su «Vai al punto» e sui quattro angoli — cioè sui
+       comandi in cui si scrive una coordinata — e mancava proprio dove si
+       arriva al confine un click alla volta.
+       Il conto si rifà a ogni cambio di passo, non solo di posizione: con lo
+       stesso carrello fermo, 1 mm ci sta e 50 no. E vale solo a macchina
+       AZZERATA: senza origine quelle coordinate non vogliono dire niente, e
+       spegnere le frecce proprio mentre si sta facendo l'azzeramento
+       toglierebbe l'unico modo di farlo. */
+    ognuno(el, '[data-pm-jog]', function (b) {
+      var dx = (+b.dataset.pmDx) * ist.passo, dy = (+b.dataset.pmDy) * ist.passo;
+      var fuori = nota ? sbordo(State.data.pos.x + dx, State.data.pos.y + dy) : [];
+      var passo = String(ist.passo).replace('.', ',');
+      b.disabled = !collegata || liberi || fuori.length > 0;
+      b.classList.toggle('is-ko', fuori.length > 0);
+      b.title = fuori.length
+        ? 'Con un passo da ' + passo + ' mm si finirebbe ' + fuori.join(' e ') +
+          ' fuori dall\'area percorribile, e qui non c\'è nessun finecorsa che ' +
+          'fermi il carrello. Scegli un passo più piccolo.'
+        : (nota
+            ? 'Sposta di ' + passo + ' mm'
+            : 'Sposta di ' + passo + ' mm. La macchina non è azzerata: finché ' +
+              'non lo è, nessuno può sapere se questo movimento resta ' +
+              'dentro l\'area.');
+    });
     ognuno(el, '[data-pm-step]', function (b) { b.disabled = !collegata; });
     uno(el, '.pm-step-free', function (b) { b.disabled = !collegata; });
 
@@ -560,14 +637,29 @@ var Panel = (function () {
        finecorsa non c'è nient'altro che fermi il carrello. */
     ognuno(el, '[data-pm-vai]', function (b) {
       var k = b.dataset.pmVai, q = puntoVai(k), nome = nomeVai(k);
-      if (!q) { b.disabled = true; b.title = nome + ': non è definito.'; return; }
+      if (!q) {
+        b.disabled = true;
+        b.classList.add('is-ko');
+        b.title = k === 'home' ? nome + ': non è definito.'
+          : nome + ': il foglio è tutto fuori dalla corsa, la penna non ne ' +
+            'raggiunge nemmeno un pezzo. Sposta il foglio.';
+        var vx = b.querySelector('.vx'), vy = b.querySelector('.vy');
+        if (vx) vx.textContent = '—';
+        if (vy) vy.textContent = '—';
+        return;
+      }
       var d = Profile.stanoDentro({ x0: q.x, y0: q.y, x1: q.x, y1: q.y });
       var dove = ' — X ' + q.x.toFixed(1) + ' Y ' + q.y.toFixed(1) + ' mm';
       b.disabled = !puoAndare || !d.ok;
       b.classList.toggle('is-ko', !d.ok);
-      b.title = d.ok
-        ? nome + dove + '. Alza la penna e ci va.'
-        : nome + dove + ': fuori dall\'area percorribile, ' + d.fuori.join(' e ') + '.';
+      b.classList.toggle('is-orlo', !!q.tagliato);
+      b.title = !d.ok
+        ? nome + dove + ': fuori dall\'area percorribile, ' + d.fuori.join(' e ') + '.'
+        : q.tagliato
+          ? nome + ': il foglio esce dalla corsa, quindi quell\'angolo la ' +
+            'macchina non lo raggiunge. Si va al corrispondente angolo della ' +
+            'parte di foglio che raggiunge' + dove + '. Alza la penna e ci va.'
+          : nome + dove + '. Alza la penna e ci va.';
 
       /* I due numeri dentro al rettangolino. Interi: un millimetro è già più
          fine di quanto si posi un foglio a mano, e tre cifre in una casella
