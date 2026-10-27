@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 57
-**Ultimo aggiornamento:** 2026-10-26 11:34
+**Versione:** 58
+**Ultimo aggiornamento:** 2026-10-27 21:05
 
 ## Regole di co-editing
 
@@ -244,7 +244,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 ### Step 4 — GDC CNC 2D SLICER (interfaccia web e generazione G-code)
 
 
-**Stato:** in corso — **l'applicazione stampa, compone e disegna.** Oltre a mandare il programma (2026-10-25 mattina), regge **più SVG sullo stesso foglio** come livelli ordinati con i **cambi penna** fra l'uno e l'altro, e ha un **editor** con cui modificare e creare tracciati — nodi, maniglie, linee, rettangoli, cerchi, testi, taglio, curve, magneti, griglia, selezione multipla e annulla. Dal 2026-10-26 **un file si apre in un livello per tinta** (ogni colore di bordo e ogni colore di riempimento), le tinte piene spente ma recuperabili: l'importatore non butta più via geometria in silenzio. L'elenco dei livelli è comandabile — occhio, trascinamento per l'ordine, cambio penna sulla riga, selezione multipla, etichetta «edit» — e il riquadro sul foglio lavora su più livelli insieme e ruota senza perdere la collocazione. **Deciso il 2026-10-25: la pagina NON va sull'ESP32**, resta sul PC; cade con questo il tetto dei 113 kB che vincolava ogni aggiunta, e la WebUI di FluidNC resta come rete di sicurezza. Quello che manca è scritto nelle note
+**Stato:** in corso — **l'applicazione stampa, compone e disegna.** Oltre a mandare il programma (2026-10-25 mattina), regge **più SVG sullo stesso foglio** come livelli ordinati con i **cambi penna** fra l'uno e l'altro, e ha un **editor** con cui modificare e creare tracciati — nodi, maniglie, linee, rettangoli, cerchi, testi, taglio, curve, magneti, griglia, selezione multipla e annulla. Dal 2026-10-26 **un file si apre in un livello per tinta** (ogni colore di bordo e ogni colore di riempimento), le tinte piene spente ma recuperabili: l'importatore non butta più via geometria in silenzio. L'elenco dei livelli è comandabile — occhio, trascinamento per l'ordine, cambio penna sulla riga, selezione multipla, etichetta «edit» — e il riquadro sul foglio lavora su più livelli insieme e ruota senza perdere la collocazione. **Deciso il 2026-10-25: la pagina NON va sull'ESP32**, resta sul PC; cade con questo il tetto dei 113 kB che vincolava ogni aggiunta, e la WebUI di FluidNC resta come rete di sicurezza. Dal 2026-10-26 l’editor sceglie il **singolo tratto** fra due nodi invece della polilinea intera, ha **i suoi livelli** e somma i tratti con Ctrl, e il **cambio penna** è la procedura in sei passi che l’utente aveva in mente. La pagina porta **il numero di versione accanto al titolo**, contato dai commit. Quello che manca è scritto nelle note
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
 
@@ -347,6 +347,12 @@ mano a mano che le misure arrivano):
 - [2026-10-26] **Il riquadro lavora su più livelli e ruota senza perdere niente.** Con più livelli scelti è l'unione dei loro rettangoli e le modifiche si distribuiscono in proporzione, quindi i rapporti fra i disegni restano. Scala e rotazione restano del livello principale: ruotare un gruppo attorno a un centro comune non è ruotare, è ruotare *e spostare*. Quattro **maniglie di rotazione** agli angoli, tonde e fuori dal riquadro perché la forma dica il gesto, con scatto ogni quindici gradi. **Rotazione non distruttiva**: restano fermi centro e scala, i due fattori si scambiano a un quarto di giro e il ritaglio gira insieme.
 - [2026-10-26] **Caduto il tetto dei kilobyte, cadono le rinunce che lo servivano:** `build.py` metteva fuori il disegno di esempio a ogni compilazione, e adesso lo tiene; per la scheda resta `--leggero`. La pagina è **505.357 byte** in un file solo. Collaudata **sul file unico** e non più solo sui sorgenti (`dist-test.js`): si apre, carica, genera, apre l'editor.
 - [2026-10-26] **Quello che all'editor manca ancora:** niente di quanto era segnato il 25 — selezione multipla, griglia e curve ci sono. Resta da capire, quando servirà, se un comando «separa in segmenti» serve davvero: l'ottimizzatore ricuce le polilinee contigue (152 tracciati dell'isometrico diventano 13 tratti di penna), quindi separare non costa alzate di penna, ma **non toglie i doppioni** — `dedupe` gira prima di `join` e un poligono chiuso non ha la stessa chiave di quattro segmenti separati. Misurato: accendendo anche il livello di occlusione dell'isometrico i tratti passano da 26 a 52.
+
+- [2026-10-26] **Il cambio penna è due popup e nessun conto.** La procedura è quella dettata dall'utente: la macchina arriva al segno, mette la penna in **tappo** e va a **home**; primo popup, «togli la penna»; il servo scende alla **quota di contatto**; secondo popup, «monta la penna nuova» con i due pulsanti «alzata» e «contatto» per provarla e il pulsante che riprende. La versione precedente, scritta la mattina, **rimisurava la quota di contatto della penna nuova e spostava di conseguenza tutte le Z rimaste** nel programma: venticinque righe di aritmetica **cancellate**, perché montando la penna *alla quota che il programma usa già* non c'è più niente da correggere. È la penna che si adatta al programma, non il programma alla penna — e il conto che chiude la questione è che la banda morta del servo (0,9°) vale **0,29 mm** alla punta, mentre la differenza di spessore fra due fogli sta sotto il decimo: si stava correggendo una cosa più piccola di quello che la macchina sa fare.
+- [2026-10-26] **«Scegli» prende il tratto, non la linea.** Un clic seleziona **il segmento fra due nodi** e Canc toglie quello: è la richiesta dell'utente dopo aver ripulito a mano un livello dell'isometrico, dove per cancellare un lato bisognava prima spezzare la polilinea aggiungendo due nodi. Togliere un tratto da un percorso chiuso lo riapre dal primo segmento rimosso, così non resta un anello che si richiude da solo. **Ctrl somma i tratti** (ricliccandone uno lo rimette fuori) e un Canc li toglie tutti insieme: dieci linee, un tasto.
+- [2026-10-26] **L'editor ha i livelli.** Striscia con occhio e riga selezionabile, come nella tab del foglio: si lavora su un livello per volta e gli altri si vedono in trasparenza sotto o si spengono. Senza, portando un file in due tinte nell'editor si poteva modificare solo la tinta attiva — ed era il caso vero, perché l'isometrico sono due livelli da ripulire. **L'annulla è per livello**, non globale: una pila di istantanee per ciascuno, se no tornare indietro su un livello disfaceva il lavoro fatto sull'altro.
+- [2026-10-26] **Quattro cose trovate usando il programma, non provandolo.** (1) Il nodo nuovo cadeva **sulla linea sotto** invece che su quella scelta: dove due linee si incrociano la più vicina cambia a ogni pixel, quindi la selezione è diventata **appiccicosa** — se il clic è ancora entro il raggio di presa, resta scelto il tratto che era scelto. (2) Il nodo troppo vicino a un capo creava un **segmento da un pelo**: entro quattro pixel dal capo non si inserisce più niente. (3) Due **Ctrl+clic** di fila valevano un doppio clic, quindi inserivano un nodo e azzeravano il gruppo — la stessa trappola già chiusa per Shift il giorno prima, riaperta dal tasto nuovo. (4) **L'occhio non spegneva il livello attivo**, per una scelta mia: l'utente ha dato il controesempio che la smonta («se li oscuro tutti e cambio livello comunque vedo quello in cui sono»), quindi adesso lo spegne e un livello spento non si può nemmeno scegliere.
+- [2026-10-27] **Il numero di versione è contato, non incrementato.** Accanto al titolo c'è il numero della pagina, e `tools/versione.py` lo ricava da `git log -- webui/` + 1 a ogni compilazione: un numero scritto a mano prima o poi non viene aggiornato, e allora **dice una cosa falsa invece di non dire niente**. Alla domanda «quante versioni abbiamo cambiato in tutto?» la risposta non era da inventare: era nel registro. Oggi la pagina è la **70**, 539.766 byte in un file solo.
 
 ### Step 5 — Struttura meccanica
 
@@ -589,7 +595,126 @@ mano a mano che le misure arrivano):
 - [2026-10-22] **Battuta misurata 17°** con la striscia di carta, contro i 19 fissati per costruzione il giorno prima: i due gradi sono quello che il modulo aveva ancora da scendere quando il pignone è stato calzato. I 25° di penna abbassata restano, perché non sono battuta + 6 ma l'angolo a cui la penna è stata stretta. **Nasce la posizione tappo a 90°**, che fa due lavori: riposo a fine stampa e all'accensione, e tetto del meccanismo (oltre, lo stadio flottante esce dalle guide). Conseguenza su FluidNC: l'arco dell'asse Z va dal contatto al tappo e non all'alzata, se no `mapConstrain` tronca — `max_travel_mm 21.271`, impulsi 2222 e 1500. **E il parser di FluidNC non accetta commenti in coda a una chiave**, cosa che il nostro config.yaml faceva quasi ovunque: riscritto il generatore, e il file a mano sostituito dalla copia generata
 - [2026-10-23] **Il modulo disegna, e la procedura di montaggio della penna è quella definitiva.** Non si cerca la quota giusta muovendo il servo: si porta il servo alla quota **già decisa** e si stringe la penna lì — i 25° non sono una misura, sono un'imposizione, e il profilo lo dice da sempre. Il foglio deve essere sotto durante la stretta, perché la quota è definita *punta sul foglio* e non *punta sulla tavola*. Verificata su più stampe: il tratto resta costante su 4,4 m (vortice) e su 21 m di spirografo per quanto ne ha fatto. **Resta aperto il gioco**, l'ultimo parametro del profilo mai misurato: la rosa mistica dei medaglioni è stata disegnata apposta per leggerlo — nove vertici su cui convergono otto corde ciascuno, e se il punto d'arrivo dipende dalla direzione d'arrivo i vertici chiudono in una rosellina larga quanto il gioco
 
+- [2026-10-26] **Il cambio colore non è un cambio di taratura.** Montando la penna nuova con il servo già **alla quota di contatto del programma in corso**, la procedura di montaggio del 2026-10-23 vale identica a metà stampa: si infila finché tocca il foglio e si stringe lì. Da qui la cancellazione della correzione di Z nel Sender (vedi Step 4), e il conto che la giustifica: 0,9° di banda morta del servo = **0,29 mm** alla punta, dieci volte lo spessore di un foglio.
+
+### Step 7 — Logo e identità visiva della macchina
+
+**Stato:** in corso — **tre varianti costruite e consegnate, nessuna ancora scelta.** Il generatore (`logo/cnc2d.js`) compone le lettere dai contorni veri di **Jost Bold** letti dal file del font e applica le regole misurate sul logo GDC Stuff
+
+**Obiettivo:** un logo della macchina che si legga sul telaio e in fondo a un foglio, derivato dal logo GDC Stuff invece che somigliargli, e **disegnabile dalla macchina stessa**
+
+**Decisioni progettuali:**
+- **Le tre lettere di GDC non sono un alfabeto, quindi non si continua l'alfabeto.** Misurate sui percorsi del file: la G ha l'asta a **0,257** dell'altezza maiuscola, la C a **0,181**. Sono tre segni disegnati uno per uno; chiedere al disegno «come sarebbe una N in questo carattere» non ha risposta
+- **Si continuano invece i tre modi di interrompere la forma**, che sono trasportabili su qualunque lettera: la **C spezzata** (vuoto di 64,8 su 196,6, un terzo della lettera, e si legge «C» comunque — *chiusura*), la **D piena** senza occhiello (*figura-sfondo* all'estremo), la **D più bassa** delle maiuscole (0,751, allineamento rotto per scelta). Nel logo dell'utente la chiusura c'era già, e non per caso
+- **Il font di base è Jost Bold, con i contorni letti dal TTF** e non ridisegnati a mano: upem 1000, maiuscola 700. La **D piena è invece costruita** come mezzo ellisse al rapporto misurato (97 × 147,6), perché la D di Jost è disegnata come asta + pancia e non come esterno + occhiello: riempirla non dà un semicerchio pieno, dà una D con la pancia chiusa
+- **La prossimità fa la lettura:** nella variante a riga lo stacco fra parola e numero è il **doppio** dell'avvicinamento fra le lettere, ed è quello che fa leggere «CNC» e «2D» come due cose invece di cinque segni in fila
+
+**Criterio di completamento:** l'utente conferma una variante, e di quella esiste la versione **plottabile** — senza `clipPath`, con le due metà della C come percorsi veri — disegnata dalla macchina su carta
+
+**Note (cronologia dello step):**
+- [2026-10-27] **Misurato `gdc master.svg` campionando i percorsi veri**, non a occhio: asta della G 50,6/196,6, della C 35,4/196,6, vuoto della C 64,8, D 97 × 147,6 e **piena**, due filetti 116,55 × 7,14 ai lati di STUFF. Ogni costante del generatore è una di queste misure, in frazione dell'altezza maiuscola.
+- [2026-10-27] **Tre varianti, tre usi diversi.** **A — la riga:** `CNC 2D` in fila, da leggere, regge fino a 16 px. **B — il monogramma:** lo schizzo dell'utente messo in squadra, il 2 e la N fusi sulla larghezza di un'asta. **C — la chiusura:** `CNC` grande col `2D` dentro al vuoto della C finale, cioè il difetto trasformato nel posto dove sta il resto del nome; va usata grande, perché a 16 px il «2D» si chiude in una macchia. **La variante B è la mia lettura dello schizzo e va confermata:** nella foto il secondo segno può essere un 2 dentro la N o una N col ricciolo, e ho scelto.
+
+### Step 8 — Miglioramenti della macchina: cavi, box elettronica, alloggiamenti
+
+**Stato:** in corso — **progetto sui numeri del CAD, niente stampato.** Tre fronti aperti dall'utente il 2026-10-27: i cavi dei motori e del servo che strisciano sul piano, il circuito da chiudere in un box con coperchio trasparente, e lo spazio libero a sinistra da trasformare in alloggiamenti
+
+**Obiettivo:** nessun cavo tocca il piano in nessuna posizione dei carrelli; il circuito resta **a vista** dentro un box chiuso; fogli, penne e moduli hanno un posto sulla macchina
+
+**Decisioni progettuali:**
+- **Il box va nella striscia da 140,04 mm, non in quella da 147,5.** A sinistra ci sono **due** strisce libere e non una: la prima (X −493,74 … −353,70) ha **altezza libera** perché la trave finisce lì; la seconda (fino a X −206,20) è più larga ma ha il **soffitto a Z 104,18**, dove il portale ci passa sopra. Un box alto 120 nella seconda lo prende in pieno il portale
+- **Catena stampata sull'asse Y, cavo piatto sopra la trave per l'asse X.** La faccia superiore della trave è a **Z 127,68** e sopra non c'è niente: un cavo lì è più alto del foglio, della penna e di qualunque cosa appoggi sul piano — **toglie** il cavo dal piano invece di spostarlo. Sull'asse X la catena è scartata non per ingombro ma per massa: 17 maglie sul carrello sono peso nel posto peggiore della macchina, con lo **sbalzo di 70,47 mm** in Y che lo moltiplica sull'imbardata (vedi `cad-assieme.md`)
+- **Gli alloggiamenti sono due oggetti, non uno.** I fogli A5 in piano entrano per **mezzo millimetro** (148 contro 147,5) e le penne in piedi non ci stanno sotto un soffitto di 104: quindi un vano **basso** sotto la trave (fogli coricati, moduli) e una rastrelliera **alta** accanto al box, dove l'altezza è libera. Progettare un contenitore unico sarebbe stato scoprirlo a stampa fatta
+
+**Criterio di completamento:** portando i carrelli a tutte e quattro le combinazioni di fine corsa nessun cavo sfiora il piano né si impiglia; il coperchio del box chiude con il circuito dentro e si vede; fogli, penne e moduli stanno al loro posto
+
+**Note (cronologia dello step):**
+- [2026-10-27] **`misure/cavi-box-e-alloggiamenti.md`:** le due strisce a sinistra, i percorsi possibili per i due assi, e la catena dimensionata — **passo 16, raggio 30**, che fa 29,9° per giunto e rispetta la regola dei 5÷10 diametri di cavo; **17 maglie su X e 16 su Y**, ansa alta **84 mm**. Tutti i numeri vengono dal STEP, non dallo schermo.
+- [2026-10-27] **Tre misure mancano e non si inventano:** la **sezione della rotaia destra** (nel CAD c'è la cremagliera, non la rotaia) e dove ci si può avvitare, l'**ingombro della scheda** con driver e alimentatore, il **diametro vero dei cavi**. E i 140 mm vanno confermati col metro, perché la posizione dei blocchi nel CAD vale ±2 mm.
+
 ## Storico sessioni
+
+### [2026-10-27 21:05] (software+meccanica) Il cambio penna perde l'aritmetica, l'editor impara a prendere un tratto solo, e si aprono il logo e i cavi
+
+**Riepilogo:** il cambio penna è stato riscritto sulla procedura che l'utente aveva in mente — e nel farlo venticinque righe che spostavano le Z sono state **cancellate**, perché montando la penna alla quota del programma non c'è niente da correggere; poi l'editor è stato rifatto per il lavoro vero (il singolo tratto, i livelli, Ctrl) con quattro difetti trovati dall'utente mentre ripuliva a mano un disegno isometrico; infine sono nati due fronti nuovi, il **logo** della macchina derivato dall'alfabeto di GDC Stuff e il **progetto dei cavi, del box e degli alloggiamenti**.
+
+**Cosa è stato fatto:**
+
+- **Il cambio penna, due volte.** La prima versione (mattina) faceva la cosa «giusta»: rimisurava la quota di contatto della penna nuova e spostava tutte le Z rimaste nel programma. L'utente ha dettato la sua procedura in sei passi — tappo, home, «togli la penna», servo a contatto, «monta la penna nuova» con i due pulsanti di prova, «riprendi» — e quella procedura **rende il conto inutile**: la penna si monta *alla quota che il programma usa già*. Venticinque righe via. Il numero che chiude la questione: la banda morta del servo, 0,9°, vale **0,29 mm** alla punta, mentre fra due fogli di spessore diverso c'è un decimo — si stava correggendo qualcosa di più piccolo di quello che la macchina sa fare.
+- **L'editor per il lavoro vero.** «Scegli» prende il **tratto fra due nodi** e non la polilinea; **Ctrl** somma i tratti e un Canc li toglie tutti; l'editor ha **i suoi livelli** con l'occhio, e l'annulla è per livello. Tutto chiesto dall'utente **mentre** ripuliva a mano le facce dell'isometrico, non in astratto.
+- **Quattro difetti trovati sullo stesso lavoro** (vedi i blocchi qui sotto): il nodo che finiva sulla linea sotto, il segmento da un pelo, Ctrl che valeva un doppio clic, l'occhio che non spegneva il livello attivo.
+- **Il numero di versione accanto al titolo**, contato dai commit che toccano `webui/` invece di essere scritto a mano. Oggi è la **70**.
+- **Il logo:** misurato `gdc master.svg` sui percorsi veri, scaricato **Jost Bold** e letti i contorni di C, N, D e 2 dal TTF, scritto un generatore e consegnate tre varianti (riga, monogramma, chiusura) con il provino a 34 e 16 px.
+- **La macchina:** `misure/cavi-box-e-alloggiamenti.md`, con le due strisce libere a sinistra, la catena dimensionata e la proposta — catena sull'asse Y, cavo piatto sopra la trave per l'asse X.
+- **Collaudo:** 22 file di prova, **756 asserzioni, tutte verdi**, incluse quelle nuove sul cambio penna (`penna-test`), sulla selezione del singolo tratto (`segm-test`) e sul file unico compilato (`dist-test`).
+
+**Bug: il nodo nuovo cade sulla linea sbagliata**
+
+**Sintomo:** su un disegno denso, aggiungendo un nodo a una spezzata selezionata, il nodo compariva **su un'altra linea** — quella che passava sotto al punto cliccato.
+**Causa:** la ricerca prendeva ogni volta il tratto più vicino al cursore, e dove due linee si incrociano quale sia il più vicino cambia a ogni pixel.
+**Fix applicato:** selezione **appiccicosa** — se il clic cade ancora entro il raggio di presa del tratto già scelto, resta quello; e il nodo si inserisce **nel tratto scelto**, non in quello sotto il cursore. Verificato in `segm-test`.
+
+**Bug: il nodo troppo vicino a un capo crea un segmento invisibile**
+
+**Sintomo:** «alcune volte funzionava liscio, altre volte il punto dove cliccavo attirava a se uno dei lati adiacenti creando un piccolissimo segmento in più».
+**Causa:** l'inserimento non aveva alcuna distanza minima dai due capi del tratto.
+**Fix applicato:** entro **quattro pixel** da un capo l'inserimento viene rifiutato. Verificato.
+
+**Bug: due Ctrl+clic valgono un doppio clic**
+
+**Sintomo:** sommando tratti con Ctrl, al secondo clic saltava fuori un nodo nuovo e la selezione si azzerava.
+**Causa:** il riconoscimento del doppio clic non guardava i modificatori. **È la stessa trappola chiusa il 2026-10-25 per Shift**, riaperta dal tasto appena aggiunto.
+**Fix applicato:** un clic con Shift, Ctrl o Cmd non conta mai come metà di un doppio clic. Verificato per entrambi i tasti.
+
+**Bug: l'occhio non spegne il livello su cui si lavora**
+
+**Sintomo:** «se sono su un livello selezionato e clicco l'occhio non si oscura — se li oscuro tutti e cambio livello comunque vedo quello in cui sono».
+**Causa:** era una **mia scelta**, non un difetto di codice: tenevo visibile il livello attivo perché lavorarci sopra senza vederlo mi pareva assurdo.
+**Fix applicato:** l'occhio spegne anche il livello attivo, e un livello spento non si può selezionare. Il controesempio dell'utente è più forte del mio ragionamento: se spegnere tutto non spegne niente, l'occhio non è un interruttore.
+
+**Decisioni prese:**
+
+- **Contesto:** il cambio penna a metà stampa sembrava richiedere di rimisurare la quota di contatto della penna nuova e di correggere le Z successive.
+  **Decisione:** nessuna correzione. La penna nuova si monta **alla quota di contatto che il programma sta già usando**, come al primo montaggio: è la penna che si adatta al programma.
+  **Alternative scartate:** rimisurare e traslare le Z rimaste (scritta, funzionante, **rimossa**): aggiunge uno stato da ricordare a metà programma per correggere meno di un terzo di millimetro, sotto la granularità del servo.
+  **Da rivedere se:** si monteranno utensili di lunghezza non regolabile nei morsetti (una lama, un modulo rigido), dove la quota non è scegliibile a mano.
+
+- **Contesto:** l'editor selezionava la polilinea intera, e per cancellare un lato di un cubo bisognava spezzarla a mano con due nodi.
+  **Decisione:** l'unità di selezione è il **tratto fra due nodi**; Ctrl ne somma più di uno.
+  **Alternative scartate:** un comando «separa in segmenti» da dare al livello (segnato il 2026-10-26 come forse inutile): separare non costa alzate di penna perché l'ottimizzatore ricuce, **ma non toglie i doppioni** — e comunque non serviva separare, serviva poter scegliere.
+  **Da rivedere se:** servirà cancellare centinaia di tratti alla volta, dove un rettangolo di selezione sui tratti sarebbe più veloce dei clic.
+
+- **Contesto:** «quante versioni abbiamo cambiato della webapp in tutto?»
+  **Decisione:** il numero si **conta** dal registro dei commit a ogni compilazione, e si mostra accanto al titolo.
+  **Alternative scartate:** un numero scritto a mano nel sorgente — prima o poi non viene aggiornato, e allora dice una cosa falsa invece di non dire niente.
+
+- **Contesto:** fare il logo della macchina partendo dal logo GDC Stuff.
+  **Decisione:** non si continua l'alfabeto (non esiste: la G ha l'asta a 0,257 dell'altezza maiuscola, la C a 0,181), si continuano i **tre modi di interrompere la forma** — C spezzata, D piena, D più bassa — sopra i contorni veri di Jost Bold.
+  **Alternative scartate:** ridisegnare le lettere a mano imitando la G e la C (tre campioni incoerenti non danno una regola); usare il font così com'è (non sarebbe un logo derivato, sarebbe una scritta).
+  **Da rivedere se:** l'utente conferma una lettura dello schizzo diversa dalla variante B, che è una mia interpretazione.
+
+- **Contesto:** i cavi strisciano sul piano e a sinistra c'è spazio libero.
+  **Decisione:** **catena stampata sull'asse Y, cavo piatto sopra la trave per l'asse X**, box nella striscia da 140,04 mm ad altezza libera, alloggiamenti divisi in due oggetti (vano basso + rastrelliera alta).
+  **Alternative scartate:** catena su entrambi gli assi (17 maglie sul carrello X sono massa nel posto peggiore, con 70,47 mm di sbalzo che la moltiplicano sull'imbardata); un contenitore unico a sinistra (A5 in piano entra per mezzo millimetro, le penne in piedi non ci stanno sotto 104 mm).
+  **Da rivedere se:** i diametri veri dei cavi o l'ingombro della scheda, che l'utente deve ancora misurare, non stanno nei numeri assunti.
+
+**File consegnati/modificati:**
+
+- `webui/js/sender.js`, `webui/js/popup.js`, `webui/js/jog.js` — il cambio penna a due popup; **rimossa** la correzione di Z
+- `webui/js/editor.js`, `webui/js/artwork.js`, `webui/css/components.css`, `webui/index.html` — selezione del singolo tratto, Ctrl, livelli nell'editor, i quattro fix
+- `webui/tools/versione.py` (nuovo), `webui/js/versione.js` (generato), `webui/tools/build.py`, `webui/index.html` — il numero di versione
+- `webui/dist/cnc2d-ui.html` — il file unico rigenerato (539.766 byte, versione 70)
+- `logo/cnc2d.js`, `logo/jost-glifi.json`, `logo/README.md`, `logo/cnc2d-a-riga.svg`, `logo/cnc2d-b-monogramma.svg`, `logo/cnc2d-c-chiusura.svg` (nuovi)
+- `misure/cavi-box-e-alloggiamenti.md` (nuovo)
+- Consegnati all'utente: `logo-varianti.png` (il provino a tre dimensioni) e i due documenti sopra
+
+**Impatto su Vision/Pipeline:**
+
+- **Step 4** aggiornato nello stato (editor a livello di tratto, cambio penna, numero di versione) con cinque note nuove.
+- **Step 6**: una nota sul fatto che il cambio colore **non è un cambio di taratura**.
+- **Due step nuovi**, aperti dall'utente: **Step 7 — Logo e identità visiva della macchina** e **Step 8 — Miglioramenti della macchina: cavi, box elettronica, alloggiamenti**. Sono i primi due step che non riguardano né il moto né il disegno: la macchina funziona, e si comincia a finirla.
+
+---
 
 ### [2026-10-26 11:34] (software) L'importatore smette di buttare via geometria, l'elenco dei livelli diventa comandabile, e il tastierino si chiude a quadrati concentrici
 
