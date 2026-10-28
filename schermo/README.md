@@ -108,7 +108,10 @@ quindi vale la pena scriverla come scartata. Tre motivi, in ordine di peso:
    di contatto misurate quel giorno su quel foglio. Il G-code di ieri non vale
    oggi, e metterlo su una SD non lo fa valere.
 
-**Serve a una cosa sola, e è buona: il registro delle stampe.** Oggi il
+**Serve a tenerci il SLICER, ed è l'uso che da solo giustifica la scheda.**
+Vedi la sezione qui sotto: è la cosa più grossa che la SD rimette in gioco.
+
+**E serve al registro delle stampe.** Oggi il
 registro vive nella pagina e muore con lei. Sulla SD diventa il **libro di
 bordo della macchina**: una riga per stampa, in CSV perché un CSV si apre con
 qualunque cosa e si allunga in fondo senza riscriverlo.
@@ -140,6 +143,55 @@ Due usi minori, veri ma piccoli:
 con D0 per la sua selezione). Scrivere mentre si disegna fa singhiozzare
 l'animazione, quindi si scrive **ai cambi di stato e mai durante il tocco
 lungo dello stop**, che è l'unico momento in cui un fotogramma perso si vede.
+
+### La SD rimette in gioco il SLICER servito dalla macchina
+
+Il 26 ottobre la pagina era stata tolta dall'ESP32 e lasciata sul PC, e il
+motivo era uno solo: **non ci stava**. Dopo FluidNC e la sua WebUI restano
+**64 kB liberi** sulla scheda, e la pagina compilata ne pesa **583** — 172
+compressa (misurati il 2026-10-28; crescono a ogni funzione nuova). Con quella decisione, però, si è persa una cosa che faceva comodo:
+**un indirizzo solo, sempre aggiornato, che qualunque dispositivo apre**.
+
+La SD del telecomando la rimette in gioco, e **senza toccare la macchina**:
+
+| | |
+|---|---|
+| Dove | `cnc2d-telecomando.local/` — il MKR fa già da server HTTP per il suo `POST` |
+| Che cosa | `cnc2d-ui.html.gz`, ~170 kB, mandato con `Content-Encoding: gzip` |
+| Quanto ci mette | qualche secondo, e una volta sola: la pagina si apre prima di stampare |
+
+**La regola non si rompe, ed è il punto che conta: servire un file non è
+comandare una macchina.** Il telecomando consegna dei byte; una volta
+caricata, la pagina parla con FluidNC come ha sempre fatto, dal browser.
+Niente secondo padrone.
+
+Anzi, ne viene una semplificazione: servita da lì, la pagina è **nella stessa
+origine** dell'API del telecomando, e l'header CORS smette di servire.
+
+**I tre passi, in ordine di valore:**
+
+1. **La pagina.** Un indirizzo solo invece di una copia per dispositivo. E
+   capire se la copia è vecchia è già risolto: il numero di versione sta
+   accanto al titolo, quindi una card indietro si vede a colpo d'occhio.
+2. **Una cartella di disegni.** Gli SVG sulla scheda, elencati dalla pagina:
+   la sezione «Dove trovare disegni» smette di puntare a internet e punta alla
+   macchina. Qui i gigabyte cominciano a voler dire qualcosa.
+3. **I progetti salvati** (`.cnc2d.svg`, vedi `webui/js/progetto.js`). Oggi
+   salvi sul portatile e continui su quel portatile; con una scrittura sulla
+   SD salvi dalla macchina e continui da dove ti pare. Chiede un endpoint di
+   caricamento sul telecomando, quindi è il terzo passo e non il primo.
+
+**Due cose da non dimenticare.**
+
+- **La SD non diventa mai l'unica strada.** Il telecomando è a batteria e
+  dorme: se fosse l'unico posto dove vive la pagina, con la pila scarica non
+  si stamperebbe più. Il file locale resta, e la SD è una strada **in più**.
+- **Multi-dispositivo vuol dire ACCESSO, non ancora interfaccia.** La pagina è
+  disegnata per uno schermo largo — barra laterale più piano. Da un telefono
+  si aprirà, ma usarla davvero è un lavoro suo, separato da questo.
+
+E l'aggiornamento della pagina sulla scheda, finché non c'è il caricamento da
+rete, si fa come si fa: si sfila la micro SD e si copia il file.
 
 ### Tutti i piedini del MKR sono occupati
 
