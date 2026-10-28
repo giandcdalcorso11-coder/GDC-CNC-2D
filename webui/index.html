@@ -269,7 +269,8 @@
       <button type="button" class="ed-str" data-str="cerchio">Cerchio</button>
       <button type="button" class="ed-str" data-str="testo">Testo</button>
       <button type="button" class="ed-str" data-str="curva">Curva</button>
-      <button type="button" class="ed-str" data-str="taglia">Taglia</button>
+      <button type="button" class="ed-str" data-str="taglia"
+              title="Clicca su un tratto: si spezza in due li">Spezza</button>
       <button type="button" class="ed-str" data-str="togli"
               title="Toglie il solo tratto su cui clicchi">Togli tratto</button>
       <span class="ed-sep"></span>
@@ -279,6 +280,15 @@
       </span>
       <button type="button" class="btn btn-ghost btn-small" id="ed-curvo">Spigolo / curva</button>
       <button type="button" class="btn btn-ghost btn-small" id="ed-elimina">Elimina</button>
+      <!-- Taglia, copia e incolla servono a una cosa sola: rimettere una
+           linea nel LIVELLO giusto senza spostarla sul foglio. Vedi
+           js/editor.js, sopra il blocco degli appunti. -->
+      <button type="button" class="btn btn-ghost btn-small" id="ed-taglia"
+              title="Ctrl+X - lo toglie di qui e lo mette negli appunti" disabled>Taglia</button>
+      <button type="button" class="btn btn-ghost btn-small" id="ed-copia"
+              title="Ctrl+C" disabled>Copia</button>
+      <button type="button" class="btn btn-ghost btn-small" id="ed-incolla"
+              title="Ctrl+V - gli appunti sono vuoti" disabled>Incolla</button>
       <span class="ed-sep"></span>
       <button type="button" class="btn btn-ghost btn-small" id="ed-annulla"
               title="Ctrl+Z" disabled>Annulla</button>

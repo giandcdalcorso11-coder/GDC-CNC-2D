@@ -349,6 +349,9 @@ var Editor = (function () {
     }
 
     svg.innerHTML = out;
+    /* Taglia, copia e incolla dipendono da che cosa è scelto, e qui passa
+       ogni cambio di selezione: non c'è un secondo posto da ricordarsi. */
+    aggiornaBarra();
   }
 
   /* IL RETICOLO. Si disegna solo se le maglie si distinguono: sotto i sette
@@ -580,7 +583,9 @@ var Editor = (function () {
             'o prendi nodi e maniglie. <b>Doppio clic</b> su un tratto scelto: ' +
             'ci infila un nodo, dove hai cliccato e su quello e non su un ' +
             'altro; su un nodo: da spigolo a curva e viceversa. Canc toglie ' +
-            'quello che è scelto.',
+            'quello che è scelto. <b>Ctrl+X</b> o <b>Ctrl+C</b>, poi un altro ' +
+            'livello e <b>Ctrl+V</b>: ci finisce nello stesso posto del foglio, ' +
+            'cambia solo la penna che lo disegna.',
     togli:  'Clicca un tratto: sparisce quello e basta. Un tracciato chiuso ' +
             'si apre li, uno aperto si spezza in due.',
     curva:  'Trascina un tratto per incurvarlo. Se era dritto diventa una curva ' +
@@ -1423,6 +1428,206 @@ var Editor = (function () {
     cambiato();
   }
 
+  /* ---------------------- taglia, copia, incolla ----------------------
+   *
+   * A CHE COSA SERVE, perché non è il copia-incolla di un documento: a
+   * rimettere una linea nel livello giusto. L'importazione divide per tinta,
+   * e la tinta è il modo in cui chi ha fatto il file ha detto cosa va
+   * insieme — ma non sempre è il modo in cui lo si vuole disegnare: le facce
+   * di sinistra di un cubo possono finire insieme ai contorni, e lì sono una
+   * penna sola quando ne volevi due. Si sceglie, si taglia, si cambia
+   * livello, si incolla, e sul foglio non si è mosso niente: è cambiata solo
+   * la penna che le disegnerà.
+   *
+   * SUL FOGLIO NON SI MUOVE NIENTE, ed è l'unico requisito che conta. Due
+   * livelli hanno coordinate diverse — sono quelle dei file da cui vengono —
+   * quindi lo stesso punto ha numeri diversi nei due. La conversione la fa
+   * Artwork.incolla passando per il foglio; qui si decide solo CHE COSA
+   * viaggia.
+   *
+   * L'ANNULLA RESTA DUE PASSI, uno per livello, e non è una mancanza: il
+   * taglio e l'incolla sono due gesti su due disegni diversi, e la pila
+   * dell'annulla è per livello apposta. Ctrl+Z sul livello di arrivo toglie
+   * quello che è appena arrivato; Ctrl+Z su quello di partenza lo rimette
+   * dov'era.
+   */
+
+  /* Gli appunti si portano dietro LA MAPPA del livello da cui vengono, non
+     il suo nome: le forme sono scritte in quelle coordinate, e il livello che
+     gliele ha date può cambiarle un attimo dopo — il taglio stesso le cambia,
+     se quello che resta è una riga verticale. Vedi Artwork.mappa(). */
+  var appunti = null;      // { forme: [...], da: mappa, che: 'sette tratti' }
+
+  function cpNodo(n) {
+    return { x: n.x, y: n.y,
+             hi: n.hi ? { x: n.hi.x, y: n.hi.y } : null,
+             ho: n.ho ? { x: n.ho.x, y: n.ho.y } : null };
+  }
+
+  /* I capi di un pezzo staccato perdono la maniglia che guardava FUORI:
+     quella apparteneva al tratto rimasto di là, e tenerla piegherebbe il
+     pezzo verso un nodo che non c'è più. */
+  function capi(s) {
+    s.nodi[0].hi = null;
+    s.nodi[s.nodi.length - 1].ho = null;
+    return s;
+  }
+
+  /* I TRATTI SCELTI, staccati e messi in una forma sola.
+     Quelli che si toccano restano attaccati: dieci tratti di fila sono una
+     polilinea, non dieci alzate di penna — e un'alzata di penna in più si
+     vede sulla carta. Se di un tracciato chiuso sono scelti TUTTI i tratti,
+     quello che ne esce è ancora chiuso. */
+  function daiSegmenti(f, lista) {
+    var gruppi = {}, ordine = [];
+    lista.forEach(function (s) {
+      var kk = s.forma + '|' + s.sub;
+      if (!gruppi[kk]) { gruppi[kk] = { forma: s.forma, sub: s.sub, ks: [] }; ordine.push(kk); }
+      gruppi[kk].ks.push(s.k);
+    });
+
+    var subs = [];
+    ordine.forEach(function (kk) {
+      var g = gruppi[kk], fm = f[g.forma];
+      if (!fm || fm.tipo !== 'tracciato' || !fm.sub[g.sub]) return;
+      var sb = fm.sub[g.sub], n = sb.nodi, m = n.length;
+      var ks = g.ks.slice().sort(function (a, b) { return a - b; });
+
+      if (sb.chiuso && ks.length >= m) {
+        subs.push({ nodi: n.map(cpNodo), chiuso: true });
+        return;
+      }
+      var cur = null, prima = null;
+      ks.forEach(function (k) {
+        if (cur && prima === k - 1) cur.nodi.push(cpNodo(n[(k + 1) % m]));
+        else {
+          if (cur) subs.push(capi(cur));
+          cur = { nodi: [cpNodo(n[k]), cpNodo(n[(k + 1) % m])], chiuso: false };
+        }
+        prima = k;
+      });
+      if (cur) subs.push(capi(cur));
+    });
+    return subs.length ? [Tracciato.tracciato(subs)] : [];
+  }
+
+  function raccogli() {
+    var f = forme();
+    if (!f) return null;
+    if (sel.segmenti.length) {
+      var t = daiSegmenti(f, sel.segmenti);
+      return t.length ? t : null;
+    }
+    var gruppo = sel.forme.length ? sel.forme : (sel.forma >= 0 ? [sel.forma] : []);
+    var out = [];
+    gruppo.forEach(function (i) {
+      if (f[i]) out.push(JSON.parse(JSON.stringify(f[i])));
+    });
+    return out.length ? out : null;
+  }
+
+  function quanti(n, uno, tanti) {
+    return n === 1 ? uno : n + ' ' + tanti;
+  }
+
+  function copia(tagliando) {
+    if (!forme()) return;
+    if (!attivoVisibile()) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio prima ' +
+                     'di prenderci qualcosa.');
+      return;
+    }
+    var r = raccogli();
+    if (!r) {
+      Log.add('err', 'Non c\'è niente di scelto: clicca un tratto, o tienine ' +
+                     'premuto Ctrl per sommarne altri.');
+      return;
+    }
+    var da = Artwork.mappa();
+    if (!da) {
+      Log.add('err', 'Questo livello non ha ancora una posizione sul foglio: ' +
+                     'non saprei dove rimettere quello che prendo.');
+      return;
+    }
+    appunti = {
+      forme: r,
+      da: da,
+      daLiv: Artwork.sceltoId(),
+      che: sel.segmenti.length
+        ? quanti(sel.segmenti.length, 'un tratto', 'tratti')
+        : quanti(sel.forme.length || 1, 'una forma', 'forme')
+    };
+    if (tagliando) elimina();
+    Log.add('msg', (tagliando ? 'Via dal livello e negli appunti: '
+                              : 'Negli appunti: ') + appunti.che +
+                   '. Scegli il livello e premi Ctrl+V: il posto sul foglio ' +
+                   'non cambia.');
+    aggiornaBarra();
+  }
+
+  function incolla() {
+    if (!appunti) {
+      Log.add('err', 'Gli appunti sono vuoti: scegli qualcosa e premi Ctrl+C ' +
+                     '(o Ctrl+X per portarlo via di qui).');
+      return;
+    }
+    if (!forme()) return;
+    if (!attivoVisibile()) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio prima ' +
+                     'di metterci qualcosa.');
+      return;
+    }
+    var f = forme(), prima = f.length;
+    segna();
+    var n = Artwork.incolla(appunti.forme, appunti.da);
+    if (!n) {
+      /* Niente è cambiato: l'istantanea appena presa sarebbe un passo
+         indietro che non riporta indietro niente. */
+      storia.pop();
+      aggiornaStorici();
+      Log.add('err', 'Non sono riuscito a collocare quello che c\'era negli ' +
+                     'appunti: questo livello ha già dentro qualcosa ma non ha ' +
+                     'una posizione sul foglio.');
+      return;
+    }
+
+    /* Quello che è appena arrivato resta SCELTO: è l'unico modo di
+       accorgersi subito se è finito dove si voleva, e di spostarlo se no. */
+    sel.forme = [];
+    for (var i = prima; i < prima + n; i++) sel.forme.push(i);
+    sel.forma = prima;
+    sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];
+
+    var l = (Artwork.livelli() || []).filter(function (x) { return x.principale; })[0];
+    var stesso = appunti.daLiv === Artwork.sceltoId();
+    cambiato();
+    Log.add('msg', 'Incollato nel livello «' + (l ? l.nome : '—') + '»: ' +
+            appunti.che + ', nello stesso posto sul foglio.' +
+            (stesso ? ' È lo stesso livello da cui venivano, quindi la copia ' +
+                      'sta esattamente sopra l\'originale: spostala, o dal ' +
+                      'foglio sparirà come tratto doppio.' : ''));
+  }
+
+  /* Taglia e copia valgono se c'è qualcosa di scelto, incolla se gli appunti
+     non sono vuoti. Un pulsante che si può premere e non fa niente è un
+     pulsante che insegna a non fidarsi dei pulsanti. */
+  function aggiornaBarra() {
+    var vivo = !!forme() && attivoVisibile();
+    var ha = vivo && !!(sel.segmenti.length || sel.forme.length || sel.forma >= 0);
+    var b = document.getElementById('ed-taglia');
+    if (b) b.disabled = !ha;
+    b = document.getElementById('ed-copia');
+    if (b) b.disabled = !ha;
+    b = document.getElementById('ed-incolla');
+    if (b) {
+      b.disabled = !appunti || !vivo;
+      b.title = appunti
+        ? 'Ctrl+V — ' + appunti.che + ' dagli appunti, in questo livello e ' +
+          'nello stesso posto sul foglio'
+        : 'Ctrl+V — gli appunti sono vuoti';
+    }
+  }
+
   function doppio(e) {
     if (strumento === 'spezzata') { finisciSpezzata(); return; }
     if (strumento !== 'scegli') return;
@@ -1605,6 +1810,7 @@ var Editor = (function () {
     adatta();
     scriviPiede();
     scriviAiuto();
+    aggiornaBarra();
   }
 
   function init() {
@@ -1622,6 +1828,9 @@ var Editor = (function () {
       else if (b.id === 'ed-adatta') adatta();
       else if (b.id === 'ed-curvo') commutaNodo();
       else if (b.id === 'ed-elimina') elimina();
+      else if (b.id === 'ed-taglia') copia(true);
+      else if (b.id === 'ed-copia') copia(false);
+      else if (b.id === 'ed-incolla') incolla();
       else if (b.id === 'ed-annulla') annulla();
       else if (b.id === 'ed-rifai') rifai();
       else if (b.id === 'ed-griglia') {
@@ -1680,6 +1889,16 @@ var Editor = (function () {
         rifai();
         return;
       }
+      /* Ctrl+X, Ctrl+C, Ctrl+V. Sono i nostri appunti e non quelli del
+         sistema: quello che viaggia qui sono forme con le loro maniglie e il
+         livello da cui vengono, cioè roba che negli appunti del sistema non
+         saprebbe come stare. */
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && 'xcv'.indexOf(e.key.toLowerCase()) >= 0) {
+        e.preventDefault();
+        if (e.key.toLowerCase() === 'v') incolla();
+        else copia(e.key.toLowerCase() === 'x');
+        return;
+      }
       if (e.key === 'Escape') { chiudiCostruzione(true); scegliStrumento('scegli'); }
       else if (e.key === 'Enter') finisciSpezzata();
       else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); elimina(); }
@@ -1716,6 +1935,8 @@ var Editor = (function () {
            tratti: function () { return sel.segmenti.slice(); },
            griglia: function (v) { if (v !== undefined) griglia = +v || 0; return griglia; },
            annulla: annulla, rifai: rifai,
+           copia: copia, incolla: incolla,
+           appunti: function () { return appunti ? appunti.che : null; },
            magneti: function (v) {
              if (v !== undefined) {
                magneti = !!v;

@@ -575,6 +575,138 @@ var Artwork = (function () {
     });
   }
 
+  /* ---------------- portare un disegno da un livello all'altro ----------------
+   *
+   * LA MAPPA DI UN LIVELLO: dalle sue coordinate a quelle del foglio, in
+   * millimetri. È la stessa catena che fa refit() — prima la rotazione, poi
+   * toRect — scritta come una matrice sola, perché una matrice si inverte e
+   * si compone e una catena di passi no.
+   *
+   *   toRect:  x_f = box.x + (x_r - bb.x0) · kx
+   *            y_f = box.y + (bb.y1 - y_r) · ky        (la y si ribalta QUI)
+   *   rot:     x_r = x·cos - y·sin,  y_r = x·sin + y·cos
+   *
+   * Null quando il livello non ha ancora una collocazione — è nato adesso ed
+   * è vuoto —: lì non c'è nessuna mappa, e chi chiama deve saperlo invece di
+   * ricevere numeri inventati.
+   *
+   * L'INGOMBRO LARGO ZERO NON E' UN CASO DI SCUOLA: è un livello fatto di una
+   * riga verticale sola, e ci si arriva togliendo un tratto da una L. Lì il
+   * rapporto non esiste, e toRect ripiega su «un'unità vale un millimetro»:
+   * qui si ripiega sulla stessa cosa, perché una mappa che non dice quello
+   * che fa davvero refit è peggio di nessuna mappa.
+   */
+  function fattore(lato, quanto) { return quanto > 0 ? lato / quanto : 1; }
+
+  function matriceFoglio(l) {
+    if (!l || !l.box || !l.bb || !isFinite(l.bb.x0) || !isFinite(l.bb.y1)) return null;
+    var kx = fattore(l.box.w, l.bb.w), ky = fattore(l.box.h, l.bb.h);
+    if (!(kx > 0) || !(ky > 0) || !isFinite(kx) || !isFinite(ky)) return null;
+    var a = (l.rot || 0) * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);
+    return { a:  kx * co, c: -kx * si, e: l.box.x - kx * l.bb.x0,
+             b: -ky * si, d: -ky * co, f: l.box.y + ky * l.bb.y1 };
+  }
+
+  function inversa(m) {
+    var det = m.a * m.d - m.b * m.c;
+    if (!det || !isFinite(det)) return null;
+    return { a: m.d / det, b: -m.b / det, c: -m.c / det, d: m.a / det,
+             e: (m.c * m.f - m.d * m.e) / det,
+             f: (m.b * m.e - m.a * m.f) / det };
+  }
+
+  /* Prima `p`, poi `q`. L'ordine è quello della frase, non quello del
+     prodotto fra matrici, perché è così che lo si legge quando si usa. */
+  function prodotto(p, q) {
+    return {
+      a: q.a * p.a + q.c * p.b,
+      b: q.b * p.a + q.d * p.b,
+      c: q.a * p.c + q.c * p.d,
+      d: q.b * p.c + q.d * p.d,
+      e: q.a * p.e + q.c * p.f + q.e,
+      f: q.b * p.e + q.d * p.f + q.f
+    };
+  }
+
+  /* LA MAPPA DEL LIVELLO CHE SI STA MODIFICANDO, da portarsi dietro insieme
+   * alle forme che se ne prendono.
+   *
+   * Si porta via la MAPPA e non l'id del livello, ed è una differenza che
+   * costa un'ora a scoprirla: chi copia prende le forme in QUELLE coordinate,
+   * e un attimo dopo il livello può averne altre. Basta il taglio stesso —
+   * togli un tratto a una L e resta una riga verticale, che un ingombro largo
+   * non ce l'ha più, e la sua mappa non è più quella con cui le forme erano
+   * state lette. Tenendo la mappa, quello che è negli appunti resta leggibile
+   * anche se il livello da cui viene cambia, si svuota o sparisce.
+   */
+  function mappa() {
+    var l = corrente();
+    var m = matriceFoglio(l);
+    return m ? { m: m, tol: l.tol } : null;
+  }
+
+  /* INCOLLA nel livello che si sta modificando delle forme prese da un
+   * altro, LASCIANDOLE DOVE SONO SUL FOGLIO.
+   *
+   * È la cosa che serve quando l'importazione mette una linea nel livello
+   * sbagliato — le facce di sinistra di un cubo finite insieme ai contorni,
+   * per dire. Si prende, si cambia livello, si incolla, e sul foglio non si
+   * è mosso niente: ha cambiato solo la penna con cui verrà disegnata.
+   *
+   * Ogni livello ha le SUE coordinate, che sono quelle del file da cui
+   * viene: lo stesso punto del foglio ha numeri diversi in due livelli. Si
+   * passa per il foglio — la mappa che viene con le forme, poi l'inversa
+   * della mappa di chi riceve — e si trasforma la forma intera, maniglie
+   * comprese.
+   *
+   * IL LIVELLO VUOTO è il caso che conta e va trattato a parte: un livello
+   * appena creato non ha un rettangolo, quindi non ha una mappa, e non c'è
+   * niente da invertire. Allora le forme entrano come sono, e la mappa che è
+   * arrivata con loro gliela si dà a lui, scomposta nei termini in cui un
+   * livello la tiene: una rotazione e un rettangolo ancorato al proprio
+   * ingombro. Le due scale si rileggono dalla matrice — kx è la lunghezza
+   * della prima colonna, ky della seconda — perché una rotazione non cambia
+   * la lunghezza di un vettore.
+   */
+  function incolla(entranti, da) {
+    var B = corrente();
+    if (!B || !entranti || !entranti.length || !da || !da.m) return 0;
+
+    var mb = matriceFoglio(B), copia = null;
+    if (mb) {
+      var inv = inversa(mb);
+      if (inv) {
+        var m = prodotto(da.m, inv);
+        copia = entranti.map(function (f) { return Tracciato.trasforma(f, m); });
+      }
+    }
+
+    if (!copia) {
+      /* Senza mappa ma con dentro qualcosa: il rettangolo glielo si
+         ricalcolerebbe, e quel rettangolo è quello che tiene fermo il disegno
+         che c'è già. Meglio non incollare che spostare quello che c'era. */
+      if (B.forme.length) return 0;
+      var kx = Math.sqrt(da.m.a * da.m.a + da.m.c * da.m.c);
+      var ky = Math.sqrt(da.m.b * da.m.b + da.m.d * da.m.d);
+      if (!(kx > 0) || !(ky > 0)) return 0;
+
+      copia = JSON.parse(JSON.stringify(entranti));
+      if (da.tol) B.tol = da.tol;
+      B.rot = Math.atan2(-da.m.c, da.m.a) * 180 / Math.PI;
+      if (Math.abs(B.rot) < 1e-9) B.rot = 0;
+
+      var raw = Tracciato.appiattisciTutte(copia, B.tol);
+      var bb = SvgImport.bbox(B.rot ? rotateAll(raw, B.rot) : raw);
+      if (!isFinite(bb.x0)) return 0;
+      B.box = { x: da.m.e + kx * bb.x0, y: da.m.f - ky * bb.y1,
+                w: kx * bb.w, h: ky * bb.h };
+      B.ritaglio = null;
+    }
+
+    for (var i = 0; i < copia.length; i++) B.forme.push(copia[i]);
+    return copia.length;
+  }
+
   /* I tratti degli ALTRI livelli VISIBILI, già portati nelle coordinate di
      quello che si sta modificando: è quello che l'editor disegna dietro.
      Tutti i visibili e non solo quelli scelti, perché nell'editor è l'occhio
@@ -1483,6 +1615,7 @@ var Artwork = (function () {
     commutaOrigine: commutaOrigine,
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
     forme: formeScelte, rigenera: rigenera, nuovo: nuovo,
+    mappa: mappa, incolla: incolla,
     istantanea: istantanea, ripristina: ripristina,
     commutaCambioPenna: commutaCambioPenna,
 
