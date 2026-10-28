@@ -103,23 +103,28 @@ var Panel = (function () {
   }
 
   /* I CINQUE PUNTI CHE SI RAGGIUNGONO CON UN CLICK.
-     Quattro sono gli ANGOLI DEL FOGLIO. Stanno sul giro esterno, ognuno
-     dalla parte sua: quello dell'angolo in alto a destra sta in alto a
-     destra del tastierino. La posizione È l'informazione — come il pallino
-     nel rettangolino e come le tacche delle quote — e un pulsante messo dove
-     uno lo cercherebbe non ha bisogno di essere letto.
+     Quattro sono i PUNTI LIMITE DELLA CORSA, e non hanno niente a che fare
+     col foglio: si premono per vedere DOVE ARRIVA LA MACCHINA, e la macchina
+     arriva dove arriva anche quando sul piano non c'è nessun foglio. Stanno
+     sul giro esterno, ognuno dalla parte sua: quello in alto a destra sta in
+     alto a destra del tastierino. La posizione È l'informazione — come il
+     pallino nel rettangolino e come le tacche delle quote — e un pulsante
+     messo dove uno lo cercherebbe non ha bisogno di essere letto.
      Il quinto è il punto home, che limite non è: sta dentro, in cima al
      quadrato di mezzo, con la sua casetta e non un rettangolino.
 
      Dentro ai rettangolini ci sono le coordinate. Un disegno dice DOVE si
      va, un numero dice A QUANTI MILLIMETRI, e prima di mandare un carrello
-     da qualche parte servono tutt'e due. */
+     da qualche parte servono tutt'e due.
+
+     IL PALLINO NON STA SULLO SPIGOLO ma appena dentro, perché appena dentro
+     è dove si va: vedi ORLO qui sotto. */
   var VAI = [
-    ['as',   'Angolo del foglio in alto a sinistra',  [ 2.5,  2.5]],
-    ['ad',   'Angolo del foglio in alto a destra',    [37.5,  2.5]],
-    ['bs',   'Angolo del foglio in basso a sinistra', [ 2.5, 29.5]],
-    ['bd',   'Angolo del foglio in basso a destra',   [37.5, 29.5]],
-    ['home', 'Punto home',                            null]
+    ['as',   'Punto limite in alto a sinistra',  [ 4.5,  4.5]],
+    ['ad',   'Punto limite in alto a destra',    [35.5,  4.5]],
+    ['bs',   'Punto limite in basso a sinistra', [ 4.5, 27.5]],
+    ['bd',   'Punto limite in basso a destra',   [35.5, 27.5]],
+    ['home', 'Punto home',                        null]
   ];
 
   function nomeVai(k) {
@@ -127,45 +132,49 @@ var Panel = (function () {
     return k;
   }
 
-  /* Il rettangolo che la penna raggiunge DAVVERO: l'intersezione fra il
-     foglio e la corsa. È lo stesso tratteggio azzurro che si vede sul piano,
-     e lo stesso numero che la barra sotto al disegno chiama «la penna ne
-     raggiunge». Null quando le due cose non si toccano: lì non c'è nessun
-     punto dove andare. */
-  function rettPenna() {
-    var p = State.data.paper, o = State.data.sheetOrigin;
-    if (!p || !o) return null;
-    var lx = Profile.corsaPercorribile('x'), ly = Profile.corsaPercorribile('y');
-    var r = { x0: Math.max(0, o.x), x1: Math.min(lx, o.x + p.w),
-              y0: Math.max(0, o.y), y1: Math.min(ly, o.y + p.h) };
-    return (r.x1 >= r.x0 && r.y1 >= r.y0) ? r : null;
+  /* IL BORDO DI RISPETTO DEL MOVIMENTO A MANO.
+   *
+   * Un millimetro dentro al confine della corsa, su tutti e quattro i lati.
+   * Non è prudenza generica: il confine è il punto in cui il pignone arriva
+   * in fondo alla cremagliera, e qui non c'è nessun finecorsa che lo fermi —
+   * quando si scappa, si scappa a mano e si rimonta a mano. Un millimetro è
+   * trentaquattro passi di motore: abbastanza da non arrivarci per
+   * arrotondamento, abbastanza poco da non togliere area utile che serva.
+   *
+   * Vale per il movimento A MANO di questo pannello: i quattro punti limite
+   * ci si appoggiano sopra, e le frecce non lo scavalcano. NON vale per la
+   * stampa, che ha il suo margine di sicurezza nel profilo macchina e viene
+   * controllata da Profile.stanoDentro: sono due cose diverse, e confonderle
+   * vorrebbe dire togliere due volte lo stesso millimetro.
+   */
+  var ORLO = 1;
+
+  function limiti() {
+    return {
+      x0: ORLO, y0: ORLO,
+      x1: Profile.corsaPercorribile('x') - ORLO,
+      y1: Profile.corsaPercorribile('y') - ORLO
+    };
   }
 
-  /* DOVE SI VA, in coordinate macchina.
-     Non è l'angolo della CARTA: è l'angolo della parte di carta che la penna
-     raggiunge. Con un foglio più piccolo della corsa sono lo stesso punto e
-     non cambia niente; con un foglio più grande — che è la configurazione
-     che questa macchina usa davvero, coi fogli tagliati a mano più larghi
-     della campata — l'angolo vero sta fuori, e un pulsante che punta a un
-     posto irraggiungibile può solo restare spento. Spento non diceva niente:
-     adesso porta al punto più vicino che la macchina sa raggiungere, che è
-     esattamente quello che si vuole guardare quando si preme.
-     `tagliato` dice se è successo, perché il suggerimento deve dirlo. */
+  /* Di quanto un numero sta fuori da un intervallo. Zero vuol dire dentro. */
+  function fuoriDa(v, a, b) { return v < a ? a - v : v > b ? v - b : 0; }
+
+  /* DOVE SI VA, in coordinate macchina. I quattro angoli del rettangolo
+     percorribile, rientrati di ORLO. Il foglio non c'entra: questi pulsanti
+     dicono dove finisce la MACCHINA.
+     Null se la corsa è talmente corta che il bordo di rispetto se la mangia
+     tutta — un profilo non ancora misurato — perché lì non c'è nessun punto
+     dove andare. */
   function puntoVai(k) {
     if (k === 'home') return Profile.puntoHome();
-    var p = State.data.paper, o = State.data.sheetOrigin;
-    if (!p || !o) return null;
-    var vero = k === 'bs' ? { x: o.x,       y: o.y }
-             : k === 'bd' ? { x: o.x + p.w, y: o.y }
-             : k === 'ad' ? { x: o.x + p.w, y: o.y + p.h }
-             : k === 'as' ? { x: o.x,       y: o.y + p.h } : null;
-    if (!vero) return null;
-    var r = rettPenna();
-    if (!r) return null;
-    var q = { x: Math.min(r.x1, Math.max(r.x0, vero.x)),
-              y: Math.min(r.y1, Math.max(r.y0, vero.y)) };
-    q.tagliato = Math.abs(q.x - vero.x) > 0.05 || Math.abs(q.y - vero.y) > 0.05;
-    return q;
+    var L = limiti();
+    if (!(L.x1 >= L.x0) || !(L.y1 >= L.y0)) return null;
+    if (k === 'bs') return { x: L.x0, y: L.y0 };
+    if (k === 'bd') return { x: L.x1, y: L.y0 };
+    if (k === 'ad') return { x: L.x1, y: L.y1 };
+    if (k === 'as') return { x: L.x0, y: L.y1 };
+    return null;
   }
 
   function segnoVai(v) {
@@ -181,7 +190,7 @@ var Panel = (function () {
        e due cifre incolonnate non dicono quale delle due è la X: si poteva
        solo indovinarlo dall'ordine. La lettera sta a sinistra, piccola, e il
        numero a destra, dove si legge un numero. */
-    return '<svg class="ico-fog" viewBox="0 0 40 32" aria-hidden="true">' +
+    return '<svg class="ico-area" viewBox="0 0 40 32" aria-hidden="true">' +
            '<rect x="2.5" y="2.5" width="35" height="27"></rect>' +
            '<text class="vn" x="6" y="15">X</text>' +
            '<text class="vx" x="34.5" y="15">—</text>' +
@@ -527,8 +536,8 @@ var Panel = (function () {
     }
 
     ist.meta = { x: q.x, y: q.y };
-    dice(el, 'Penna su, poi al ' + nome + (q.tagliato ? ', per quanto ci arriva' : '') +
-             ': X ' + q.x.toFixed(1) + ' Y ' + q.y.toFixed(1) + '…');
+    dice(el, 'Penna su, poi al ' + nome + ': X ' + q.x.toFixed(1) +
+             ' Y ' + q.y.toFixed(1) + '…');
 
     var su = Profile.zAlzata();
     /* Si alza solo se è più in basso: una quota già buona rimandata uguale
@@ -543,17 +552,23 @@ var Panel = (function () {
          });
   }
 
-  /* Di quanto un punto esce dall'area percorribile, in parole. Vuoto vuol
-     dire che ci sta. È lo stesso conto di Profile.stanoDentro, ma su un
-     punto solo e senza origine foglio: qui si ragiona già in coordinate
-     macchina. */
-  function sbordo(x, y) {
-    var lx = Profile.corsaPercorribile('x'), ly = Profile.corsaPercorribile('y');
-    var f = [];
-    if (x < -1e-6)      f.push('a sinistra di ' + (-x).toFixed(1) + ' mm');
-    if (x > lx + 1e-6)  f.push('a destra di ' + (x - lx).toFixed(1) + ' mm');
-    if (y < -1e-6)      f.push('sotto di ' + (-y).toFixed(1) + ' mm');
-    if (y > ly + 1e-6)  f.push('sopra di ' + (y - ly).toFixed(1) + ' mm');
+  /* DI QUANTO UN MOVIMENTO PEGGIORA LE COSE, in parole. Vuoto vuol dire che
+     si può fare.
+     Non basta chiedere «il punto d'arrivo sta dentro al bordo di rispetto?»:
+     se per qualunque motivo il carrello si trova già fuori — una stampa che
+     usa tutta l'area, un profilo cambiato dopo — nessuna freccia funzionerebbe
+     più, nemmeno quelle che riportano dentro. Si confronta l'arrivo con la
+     PARTENZA, e si rifiuta solo quello che allontana ancora. */
+  function sbordo(da, a) {
+    var L = limiti(), f = [];
+    var fx = fuoriDa(a.x, L.x0, L.x1), ox = fuoriDa(da.x, L.x0, L.x1);
+    var fy = fuoriDa(a.y, L.y0, L.y1), oy = fuoriDa(da.y, L.y0, L.y1);
+    if (fx > ox + 1e-6) {
+      f.push((a.x < L.x0 ? 'a sinistra di ' : 'a destra di ') + fx.toFixed(1) + ' mm');
+    }
+    if (fy > oy + 1e-6) {
+      f.push((a.y < L.y0 ? 'sotto di ' : 'sopra di ') + fy.toFixed(1) + ' mm');
+    }
     return f;
   }
 
@@ -597,14 +612,18 @@ var Panel = (function () {
        toglierebbe l'unico modo di farlo. */
     ognuno(el, '[data-pm-jog]', function (b) {
       var dx = (+b.dataset.pmDx) * ist.passo, dy = (+b.dataset.pmDy) * ist.passo;
-      var fuori = nota ? sbordo(State.data.pos.x + dx, State.data.pos.y + dy) : [];
+      var fuori = nota
+        ? sbordo(State.data.pos,
+                 { x: State.data.pos.x + dx, y: State.data.pos.y + dy })
+        : [];
       var passo = String(ist.passo).replace('.', ',');
       b.disabled = !collegata || liberi || fuori.length > 0;
       b.classList.toggle('is-ko', fuori.length > 0);
       b.title = fuori.length
         ? 'Con un passo da ' + passo + ' mm si finirebbe ' + fuori.join(' e ') +
-          ' fuori dall\'area percorribile, e qui non c\'è nessun finecorsa che ' +
-          'fermi il carrello. Scegli un passo più piccolo.'
+          ' oltre il bordo di rispetto, che sta ' + ORLO + ' mm dentro al fine ' +
+          'corsa: lì non c\'è nessun finecorsa che fermi il carrello. Scegli un ' +
+          'passo più piccolo.'
         : (nota
             ? 'Sposta di ' + passo + ' mm'
             : 'Sposta di ' + passo + ' mm. La macchina non è azzerata: finché ' +
@@ -627,22 +646,22 @@ var Panel = (function () {
       b.disabled = !puoAndare;
     });
 
-    /* I QUATTRO PUNTI NOTEVOLI si rinfrescano a ogni cambio di foglio, non
-       solo di posizione: il pulsante «alto a destra» vuol dire un punto
-       diverso appena si cambia formato o si trascina il foglio sul piano.
+    /* I QUATTRO PUNTI LIMITE non dipendono dal foglio: dipendono dalla CORSA,
+       cioè dal profilo macchina. Spostare la carta sul piano non li muove di
+       un millimetro, ed è giusto così — sono i punti che si premono per
+       vedere dove arriva la macchina, non dove sta il foglio.
        Le coordinate finiscono nel suggerimento perché un pulsante con un
        disegno sopra dice DOVE si va ma non dice a quanti millimetri, e prima
-       di mandare un carrello da qualche parte quel numero si vuole leggere.
-       Un punto fuori dalla corsa spegne il suo pulsante e lo dice: senza
-       finecorsa non c'è nient'altro che fermi il carrello. */
+       di mandare un carrello da qualche parte quel numero si vuole leggere. */
     ognuno(el, '[data-pm-vai]', function (b) {
       var k = b.dataset.pmVai, q = puntoVai(k), nome = nomeVai(k);
       if (!q) {
         b.disabled = true;
         b.classList.add('is-ko');
         b.title = k === 'home' ? nome + ': non è definito.'
-          : nome + ': il foglio è tutto fuori dalla corsa, la penna non ne ' +
-            'raggiunge nemmeno un pezzo. Sposta il foglio.';
+          : nome + ': la corsa dichiarata è più corta del bordo di rispetto, ' +
+            'quindi non c\'è nessun punto dove andare. Guarda le corse nella ' +
+            'tab Impostazioni.';
         var vx = b.querySelector('.vx'), vy = b.querySelector('.vy');
         if (vx) vx.textContent = '—';
         if (vy) vy.textContent = '—';
@@ -652,14 +671,12 @@ var Panel = (function () {
       var dove = ' — X ' + q.x.toFixed(1) + ' Y ' + q.y.toFixed(1) + ' mm';
       b.disabled = !puoAndare || !d.ok;
       b.classList.toggle('is-ko', !d.ok);
-      b.classList.toggle('is-orlo', !!q.tagliato);
+      /* La coda sul bordo di rispetto vale per i quattro limiti e non per il
+         punto home, che limite non è: è dove i carrelli si parcheggiano. */
       b.title = !d.ok
         ? nome + dove + ': fuori dall\'area percorribile, ' + d.fuori.join(' e ') + '.'
-        : q.tagliato
-          ? nome + ': il foglio esce dalla corsa, quindi quell\'angolo la ' +
-            'macchina non lo raggiunge. Si va al corrispondente angolo della ' +
-            'parte di foglio che raggiunge' + dove + '. Alza la penna e ci va.'
-          : nome + dove + '. Alza la penna e ci va.';
+        : nome + dove + (k === 'home' ? '' : ', cioè ' + ORLO +
+                         ' mm dentro al fine corsa') + '. Alza la penna e ci va.';
 
       /* I due numeri dentro al rettangolino. Interi: un millimetro è già più
          fine di quanto si posi un foglio a mano, e tre cifre in una casella

@@ -330,10 +330,10 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
    nell'angolo di cui si parla e dentro le due coordinate. Il pallino e' dello
    stesso rosso dello zero sul piano - due disegni uguali si riconoscono senza
    leggere niente - e i numeri dicono quello che un disegno non puo' dire. */
-.ico-fog { flex: 0 0 auto; width: 100%; height: auto; }
-.ico-fog rect { fill: none; stroke: currentColor; stroke-width: 1.4; opacity: .55; }
-.ico-fog .pt  { fill: #e8714f; stroke: none; }
-.ico-fog text {
+.ico-area { flex: 0 0 auto; width: 100%; height: auto; }
+.ico-area rect { fill: none; stroke: currentColor; stroke-width: 1.4; opacity: .55; }
+.ico-area .pt  { fill: #e8714f; stroke: none; }
+.ico-area text {
   fill: currentColor;
   font-size: 11px;
   font-family: inherit;
@@ -341,7 +341,7 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 }
 /* Il nome dell'asse: piu' piccolo e piu' smorto del numero, perche' la
    lettera si legge una volta e il numero tutte le volte. */
-.ico-fog .vn {
+.ico-area .vn {
   font-size: 8.5px;
   text-anchor: start;
   opacity: .55;
@@ -356,23 +356,12 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 }
 .btn:disabled .ico-casa polyline,
 .btn:disabled .ico-casa rect,
-.btn:disabled .ico-fog .pt { opacity: .45; }
+.btn:disabled .ico-area .pt { opacity: .45; }
 
-/* Un angolo che casca fuori dalla corsa: il pulsante resta al suo posto - la
-   griglia non deve ballare quando si sposta il foglio - ma si segna, e il
-   suggerimento dice di quanto. */
-.pm-vai.is-ko .ico-fog rect { stroke: var(--danger); opacity: 1; }
-
-/* L'ANGOLO CHE NON E' L'ANGOLO. Il foglio esce dalla corsa, quindi il
-   pulsante non porta allo spigolo della carta ma allo spigolo della parte
-   che la penna raggiunge. Si va lo stesso - e' il punto utile - ma il
-   pallino lo dice: vuoto invece che pieno, come un riferimento preso di
-   ripiego. */
-.pm-vai.is-orlo .ico-fog .pt {
-  fill: none;
-  stroke: #e8714f;
-  stroke-width: 1.6;
-}
+/* Un punto limite che non esiste - corsa piu corta del bordo di rispetto,
+   cioe' un profilo non ancora misurato: il pulsante resta al suo posto - la
+   griglia non deve ballare - ma si segna, e il suggerimento dice perche'. */
+.pm-vai.is-ko .ico-area rect { stroke: var(--danger); opacity: 1; }
 
 /* UNA FRECCIA CHE PORTEREBBE FUORI DALL'AREA. Non e' un errore e non e' un
    guasto: e' il confine, e il pulsante resta al suo posto - la griglia non
