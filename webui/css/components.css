@@ -1256,6 +1256,21 @@ code {
 
 /* Titolo di scheda con un comando accanto: il comando sta sulla riga del
    titolo perche' e' il titolo a dire su che cosa agisce. */
+/* La pila del telecomando in alto. Smorta finche' la carica e' tanta: e'
+   un dato, non un allarme, e diventa un allarme solo sotto al venti. */
+.tele-pila {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.tele-pila svg { width: 17px; height: 10px; display: block; }
+.tele-pila rect { fill: none; stroke: currentColor; stroke-width: 1.2; }
+.tele-pila .tappo, .tele-pila .carica { fill: currentColor; stroke: none; }
+.tele-pila.is-warn { color: var(--warn); }
+.tele-pila.is-ko   { color: var(--danger); }
+
 .card-testa {
   display: flex;
   align-items: center;

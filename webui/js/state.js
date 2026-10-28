@@ -65,7 +65,12 @@ var State = (function () {
        barra in alto, i pulsanti e il registro ascoltano `stampa` e basta.
        `stato` vale fermo | invio | pausa | fine | errore. */
     stampa: { stato: 'fermo', nome: '', fatte: 0, totale: 0,
-              percento: 0, rimanente: null }
+              percento: 0, rimanente: null },
+
+    /* Il telecomando: c'è un indirizzo, ha risposto, e quanta batteria gli
+       resta. `visto` falso con `attivo` vero vuol dire «configurato ma non
+       raggiungibile», che è uno stato diverso da «non ce l'ho». */
+    telecomando: { attivo: false, visto: false, batteria: null }
   };
 
   var listeners = {};

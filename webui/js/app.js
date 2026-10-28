@@ -91,6 +91,38 @@
   /* L'avanzamento, in una riga sola. Non è una barra perché il numero che
      serve davvero mentre si guarda la macchina è «quanto manca», e quello si
      legge meglio scritto che disegnato. */
+  /* LA PILA DEL TELECOMANDO, in alto accanto allo stato della macchina.
+     C'è solo quando il telecomando ha risposto: un indicatore sempre acceso
+     per un oggetto che spesso non è collegato sarebbe un posto vuoto da
+     guardare tutti i giorni. Il colore è l'informazione prima del numero —
+     sotto il 20% è un avviso, non un dato. */
+  function refreshTele() {
+    var el = document.getElementById('tele-pila');
+    if (!el) return;
+    var t = State.data.telecomando;
+    var pc = t && t.visto ? t.batteria : null;
+    el.hidden = !(t && t.visto);
+    if (el.hidden) return;
+    el.classList.toggle('is-ko', pc !== null && pc < 20);
+    el.classList.toggle('is-warn', pc !== null && pc >= 20 && pc < 40);
+    el.innerHTML = pila(pc) + (pc === null ? '' : '<b>' + pc + '%</b>');
+    el.title = 'Telecomando collegato' +
+               (pc === null ? ': la carica non la sa dire.'
+                            : ', batteria al ' + pc + '%.');
+  }
+
+  /* Il segno della pila: lo stesso disegno del vetro del telecomando, perché
+     due pile diverse per la stessa batteria si guardano due volte. */
+  function pila(pc) {
+    var w = pc === null ? 0 : Math.max(0, Math.min(1, pc / 100)) * 9;
+    return '<svg viewBox="0 0 17 10" aria-hidden="true">' +
+           '<rect x="1" y="1" width="13" height="8" rx="1.6"></rect>' +
+           '<rect class="tappo" x="15" y="3.4" width="1.6" height="3.2" rx=".6"></rect>' +
+           (w > 0 ? '<rect class="carica" x="2.5" y="2.5" width="' + w.toFixed(1) +
+                    '" height="5" rx=".6"></rect>' : '') +
+           '</svg>';
+  }
+
   function refreshStampa() {
     var s = State.data.stampa;
     var inCorso = s.stato === 'invio' || s.stato === 'pausa' || s.stato === 'cambio';
@@ -227,6 +259,7 @@
     Sorgenti.init();
     Editor.init();
     Progetto.init();
+    Telecomando.init();
 
     /* «Stampa» non manda niente: apre la procedura dei tre popup, che prende le
        misure del momento e solo alla fine rigenera e consegna il programma. */
@@ -244,12 +277,14 @@
     State.on('azzerata', function () { refreshCalib(); refreshPos(); });
     State.on('motoriLiberi', refreshCalib);
     State.on('stampa', refreshStampa);
+    State.on('telecomando', refreshTele);
 
     refreshState();
     refreshLink();
     refreshPos();
     refreshCalib();
     refreshStampa();
+    refreshTele();
 
     /* Il numero di versione in alto. Lo scrive tools/versione.py contando i
        commit che hanno toccato webui/: è «quante volte questa pagina è

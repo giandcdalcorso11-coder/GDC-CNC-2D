@@ -332,9 +332,33 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
    firmware una volta sola.
 2. **Il colore della penna corrente** nel messaggio: il SLICER lo sa (è la
    tinta del livello), va solo spedito.
-3. **Il lato SLICER**: il `POST` con il suo ritmo, l'indirizzo del
-   telecomando fra le impostazioni accanto a quello della macchina, e la
-   pila accanto allo stato della macchina — solo quando il telecomando c'è.
+3. ~~Il lato SLICER~~ — **fatto il 2026-10-28**, `webui/js/telecomando.js`.
+   Indirizzo nelle impostazioni (vuoto = spento), `POST /stato` col suo
+   ritmo, pila in alto solo quando il telecomando ha risposto, e i tasti che
+   entrano dalla stessa porta da cui entrerebbe un dito sulla pagina. Il
+   collaudo gira contro un telecomando finto: `tele-test.js`, 37 asserzioni.
+
+   **Il messaggio, com'è adesso:**
+
+   ```
+   POST /stato
+   { v:1, stato, nome, percento, rimanente, passo, macchina, azzerata, data }
+     → 200  { tasto, batteria }
+   ```
+
+   `tasto` vale `pausa`, `riprendi`, `stop`, `avanti`, `prova`, o niente.
+   `passo` è 0 o 1 durante il cambio penna, altrimenti null. `rimanente` è in
+   millisecondi e **null finché il Sender non l'ha misurato**.
+
+   Due cose imparate scrivendolo:
+   - **Il battito è di due velocità**: 400 ms quando c'è qualcosa in corso,
+     2 s a riposo — perché a riposo non c'è niente da raccontare ma bisogna
+     comunque accorgersi che qualcuno ha premuto.
+   - **Un cambio di stato non aspetta il prossimo giro, ma la percentuale
+     non è un cambio di stato.** Metterla fra le cose urgenti voleva dire
+     cento messaggi in più per stampa, per dire una cosa che il battito
+     racconta comunque due decimi dopo. Trovato dal collaudo, che contava le
+     chiamate.
 4. **Il firmware**: `Arduino_MKRIoTCarrier` per vetro, tasti e LED;
    `WiFiNINA` per la rete.
 5. **La grafica va confermata sul vetro vero.** Finché non c'è, `mock.html` è

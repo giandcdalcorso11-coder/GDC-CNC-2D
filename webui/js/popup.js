@@ -37,6 +37,13 @@ var Popup = (function () {
      cui si dice «adesso sì». */
   var rimandato = false;
 
+  /* Dove sta il servo durante il montaggio della penna nuova. Serve al tasto
+     PROVA del telecomando, che è uno solo e alterna: sul vetro del
+     telecomando il disegno della penna mostra già dove si trova, quindi due
+     tasti che fanno il contrario l'uno dell'altro sarebbero un tasto di
+     troppo. Sul popup restano due pulsanti, perché lì lo spazio c'è. */
+  var pennaGiu = true;
+
   /* ------------------------------- i tre passi ---------------------------- */
 
   function definisci() {
@@ -254,13 +261,13 @@ var Popup = (function () {
                  'Penna a contatto</button></div></div>';
         },
         entra: function () {
+          /* Entrando, il servo è sceso al contatto: lo ha fatto l'`esci` del
+             passo prima, ed è il gesto con cui la penna si monta. */
+          pennaGiu = true;
           var giu = document.getElementById('pop-pen-giu');
           var su = document.getElementById('pop-pen-su');
-          if (giu) giu.addEventListener('click', function () { Api.penna(quotaContatto()); });
-          if (su) su.addEventListener('click', function () {
-            var alzata = Profile.alzataMm(), z = quotaContatto();
-            if (alzata !== null && z !== null) Api.penna(z + alzata);
-          });
+          if (giu) giu.addEventListener('click', function () { provaPenna(true); });
+          if (su) su.addEventListener('click', function () { provaPenna(false); });
         },
         pronto: function () { return !!State.data.connected; },
         attesa: 'La macchina non è collegata.',
@@ -305,6 +312,49 @@ var Popup = (function () {
     if (State.data.stampa.stato !== 'cambio') { rimandato = false; return; }
     if (rimandato || !box.hidden) return;
     cambioPenna();
+  }
+
+  /* La prova della penna appena montata. `giu` dice dove portarla; senza
+     argomento alterna, che è quello che fa il tasto unico del telecomando.
+     Le quote sono quelle del PROGRAMMA IN CORSO e non quelle nominali del
+     profilo: possono essere diverse di qualche decimo, e due comandi uguali
+     che vanno in due posti diversi sono il modo migliore di montare una
+     penna storta. */
+  function provaPenna(giu) {
+    var alzata = Profile.alzataMm(), z = quotaContatto();
+    if (z === null) return;
+    pennaGiu = (giu === undefined) ? !pennaGiu : !!giu;
+    if (pennaGiu) Api.penna(z);
+    else if (alzata !== null) Api.penna(z + alzata);
+  }
+
+  /* A che punto è la procedura della penna, per chi la deve disegnare
+     altrove: 0 = togli la vecchia, 1 = monta la nuova, null = non siamo lì.
+     Si risponde anche a finestra chiusa — «Più tardi» non annulla il cambio
+     penna, lo rimanda, e il telecomando deve continuare a dire dove siamo. */
+  function passoPenna() {
+    if (Sender.stato() !== 'cambio') return null;
+    if (box.hidden || modo !== 'penna') return 0;
+    return corrente;
+  }
+
+  /* L'ingresso dal telecomando. Non reimplementa niente: apre la finestra se
+     era stata rimandata, e poi preme gli stessi pulsanti. */
+  function daTelecomando(tasto) {
+    if (Sender.stato() !== 'cambio') return false;
+    if (box.hidden || modo !== 'penna') cambioPenna();
+    if (tasto === 'apri') return true;
+    if (tasto === 'prova') { provaPenna(); return true; }
+    if (tasto === 'avanti') {
+      var p = passi[corrente];
+      if (!p || !p.pronto()) {
+        Log.add('err', 'Dal telecomando: non ancora. ' + (p ? p.attesa : ''));
+        return false;
+      }
+      avanti();
+      return true;
+    }
+    return false;
   }
 
   function alzaPenna() {
@@ -459,5 +509,6 @@ var Popup = (function () {
   }
 
   return { init: init, avviaStampa: avviaStampa, chiudi: chiudi,
-           cambioPenna: cambioPenna };
+           cambioPenna: cambioPenna,
+           passoPenna: passoPenna, telecomando: daTelecomando };
 })();

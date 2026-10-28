@@ -434,6 +434,20 @@ var Settings = (function () {
       document.getElementById('host').value = State.data.host;
     });
 
+    /* L'indirizzo del telecomando, accanto a quello della macchina: sono due
+       cose della stessa famiglia — dove sta una scatola sulla rete — e vuoto
+       vuol dire spento, che è lo stato normale di chi non ce l'ha. */
+    var tele = document.getElementById('set-tele');
+    if (tele && window.Telecomando) {
+      tele.value = Telecomando.stato().indirizzo;
+      tele.addEventListener('change', function () {
+        Telecomando.dove(this.value.trim());
+        notaTele();
+      });
+      State.on('telecomando', notaTele);
+      notaTele();
+    }
+
     mock.addEventListener('change', function () {
       State.set('mock', this.checked);
       Api.disconnect();
@@ -444,6 +458,21 @@ var Settings = (function () {
 
     riempi();
     State.on('paper', aggiorna);
+  }
+
+  function notaTele() {
+    var p = document.getElementById('set-tele-stato');
+    if (!p) return;
+    var t = State.data.telecomando;
+    if (!t || !t.attivo) {
+      p.textContent = 'Spento: senza indirizzo non si manda niente, e la ' +
+                      'pagina funziona come ha sempre funzionato.';
+      return;
+    }
+    p.textContent = t.visto
+      ? 'Collegato' + (t.batteria === null ? '.' : ', batteria al ' + t.batteria + '%.')
+      : 'Non raggiungibile. La stampa non ne risente: il telecomando guarda e ' +
+        'comanda, non è sulla strada dei comandi.';
   }
 
   return { init: init, riempi: riempi, aggiorna: aggiorna };
