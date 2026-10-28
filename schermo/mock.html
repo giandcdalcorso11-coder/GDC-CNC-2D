@@ -18,11 +18,12 @@
 
   DUE VINCOLI COMANDANO TUTTA LA GRAFICA.
 
-  1. Il display è 240 × 240 su poco più di tre centimetri di vetro: intorno a
-     un decimo di millimetro per pixel. Una riga a 24 px è alta tre
-     millimetri, e nel tondo ci stanno un simbolo, un numero e due parole.
-     Per questo la pagina mostra tutto DUE VOLTE, grande e a grandezza vera:
-     una grafica che funziona solo nel riquadro grande non funziona.
+  1. Il display è 240 × 240 su 1,3 pollici, cioè 33 mm di vetro (datasheet
+     ABX00073, letto il 2026-10-28): 0,1376 mm per pixel. Una riga a 24 px è
+     alta tre millimetri e tre decimi, e nel tondo ci stanno un simbolo, un
+     numero e due parole. Per questo la pagina mostra tutto DUE VOLTE, grande
+     e a grandezza vera: una grafica che funziona solo nel riquadro grande
+     non funziona.
 
   2. Il MKR WiFi 1010 ha 32 kB di RAM. Una pagina video 240 × 240 a 16 bit ne
      vuole 115: NON ESISTE un buffer. Si disegna direttamente sul vetro, per
@@ -65,9 +66,8 @@ b.v { color: var(--text-dim); }
            box-shadow: 0 0 0 1px #2a313d, 0 12px 34px #0009; }
 .grande { width: 380px; height: 380px; }
 
-/* Solo il vetro, alla misura vera. Tre centimetri e mezzo è l'ipotesi
-   PRUDENTE: se il pannello è il più grande dei due, si legge meglio di
-   così, non peggio. */
+/* Solo il vetro, alla misura vera: 1,3 pollici tondi, 33 mm, dal datasheet.
+   L'ipotesi prudente da cui si era partiti era quella giusta. */
 .panel { border-radius: 50%; background: #000; display: block;
          box-shadow: 0 0 0 3px #11141a, 0 0 0 5px #2a313d; }
 .vera { width: 33mm; height: 33mm; }
@@ -108,7 +108,7 @@ input[type=range] { width: 100%; }
 
   <div class="vetro">
     <svg class="panel vera" id="vera" viewBox="0 0 240 240"></svg>
-    <span>il vetro a grandezza vera (ipotesi prudente, 33 mm)</span>
+    <span>il vetro a grandezza vera: 1,3&Prime;, 33 mm</span>
   </div>
 
   <div class="comandi">

@@ -16,19 +16,38 @@ montato. Si disegna lì e si porta sul vetro quando è giusta.
 **MKR IoT Carrier Rev2** (ABX00073) con dentro un **MKR WiFi 1010**. Era già
 in casa, quindi non c'è niente da comprare e niente da saldare.
 
+Numeri dal **datasheet ABX00073**, letto il 2026-10-28:
+
 | Cosa | Perché conta qui |
 |---|---|
-| Display tondo al centro, 240 × 240 | è lo schermo |
-| **5 tasti capacitivi** intorno | è quello che lo fa diventare un telecomando invece di una vetrina |
-| **5 LED RGB** accanto ai tasti | dicono quale tasto è vivo, e si vedono da fuori stanza |
-| **Batteria 18650** dietro | nessun filo: non sta sul coperchio del box, sta dove vuoi tu |
-| SD, 2 relè, Grove, BME688, LSM6DSOX | non servono a questo lavoro |
+| Display TFT tondo, **1,3" · 240 × 240** (modulo 36 × 40 mm) | 33 mm di vetro: **0,1376 mm per pixel** |
+| **5 tasti capacitivi** qTouch intorno | è quello che lo fa diventare un telecomando invece di una vetrina |
+| **5 LED RGB** APA102 accanto ai tasti | dicono quale tasto è vivo, e si vedono da fuori stanza |
+| **Cicalino** (M1) | vedi sotto: è la cosa che il datasheet ha aggiunto al progetto |
+| **Batteria 18650** dietro, ricarica via USB del MKR | nessun filo: non sta sul coperchio del box, sta dove vuoi tu |
+| SD, 2 relè KEMET 2 A, Grove, BME688, LSM6DSOX, APDS-9960 | non servono a questo lavoro |
 
-> **Due numeri da confermare sulla scheda vera**, perché `docs.arduino.cc` non
-> è raggiungibile dalla sessione in cui questo è stato scritto: la **misura
-> del vetro** (1,3" o 1,54", cioè 33 o 39 mm) e la risoluzione. Il mock usa
-> 240 × 240 su 33 mm, che è l'ipotesi **prudente**: se il pannello è il più
-> grande dei due, si legge meglio, non peggio.
+Libreria obbligata: **`Arduino_MKRIoTCarrier` 2.0.0 o successiva** — il
+datasheet la dichiara come requisito, non come consiglio. Il controller del
+vetro non è nominato e non serve saperlo: ci parla la libreria.
+
+### Il cicalino cambia la cosa più importante
+
+Il telecomando esiste per un motivo: **sapere che è il momento del cambio
+penna**. Uno schermo lo dice a chi lo sta guardando; un **beep lo dice a chi
+non lo sta guardando**, che è il caso vero — una stampa dura venti minuti e
+nessuno la fissa. Due note al cambio penna, una all'errore, niente a fine
+stampa: lì il silenzio va bene, il disegno è finito e si vede.
+
+### La batteria, e perché il vetro deve dormire
+
+Il datasheet dichiara **fino a 48 h con una 2500 mAh**, ma è il consumo di un
+sensore che si sveglia ogni tanto: col vetro acceso e il WiFi attivo sarà
+molto meno. Quindi **il display si spegne da solo quando non c'è niente in
+corso** e si riaccende quando succede qualcosa — o quando lo prendi in mano,
+perché la IMU LSM6DSOX ha la funzione di risveglio e qui ha un motivo per
+esistere invece di essere un ninnolo. Durante una stampa resta acceso: è il
+suo mestiere.
 
 ### I due vincoli che comandano la grafica
 
@@ -142,9 +161,9 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
 
 ## Quello che manca
 
-1. **Confermare misura e risoluzione del vetro** (`docs.arduino.cc` non è
-   raggiungibile dalla sessione), e la corrispondenza numero ↔ posizione dei
-   pad, che si vede premendoli.
+1. **La corrispondenza numero ↔ posizione dei pad**, che si vede premendoli
+   sulla scheda: le posizioni nel mock sono giuste, i numeri li mappa il
+   firmware una volta sola.
 2. **Il colore della penna corrente** nel messaggio: il SLICER lo sa (è la
    tinta del livello), va solo spedito.
 3. **Il lato SLICER**: il `POST` con il suo ritmo, e l'indirizzo del
