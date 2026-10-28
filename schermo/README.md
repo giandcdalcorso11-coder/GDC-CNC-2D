@@ -99,9 +99,19 @@ Due cose da non sbagliare:
    L'unica eccezione è il tasto **PROVA** del secondo passo, che alza e
    abbassa il servo: lo stai guardando da venti centimetri con la penna in
    mano, ed è esattamente il gesto per cui il telecomando esiste.
-3. **Lo STOP si tiene premuto.** Un pad capacitivo sfiorato da una manica non
-   deve buttare via venti minuti di disegno. Un secondo, con l'anello che si
-   riempie mentre lo tieni.
+3. **Lo STOP si conferma due volte.** È l'unica cosa qui dentro che non si
+   può disfare, e un pad capacitivo sfiorato da una manica non deve buttare
+   via venti minuti di disegno.
+
+   | | |
+   |---|---|
+   | **primo tocco** | non ferma niente: chiede. L'anello diventa un **conto alla rovescia rosso che si svuota** — se non rispondi, la domanda se ne va da sola. Rosso, e al contrario di come andava un attimo prima, quindi non lo si scambia per l'avanzamento. Gli altri tasti si spengono, tranne un **ANNULLA** esplicito |
+   | **secondo tocco, tenuto** | uno **spicchio si riempie in un secondo** al centro del vetro, e solo da pieno la stampa si ferma. Mollando prima non succede niente, e il dito ha visto quanto mancava per tutto il tempo |
+
+   Lo spicchio è un oggetto diverso dall'anello apposta: l'anello sta sul
+   bordo e dice a che punto è la stampa, lo spicchio sta in mezzo e dice a che
+   punto è il tuo dito. Girano nello stesso verso, perché due cose che
+   misurano il tempo sullo stesso vetro non possono girare in versi diversi.
 4. **I due relè non si toccano.** Togliere corrente a metà stampa non è una
    funzione.
 
@@ -118,6 +128,8 @@ numero → posizione una volta sola.
 | Pronta | nessuno — far partire una stampa senza guardare il foglio non è una comodità |
 | In stampa | PAUSA · STOP |
 | In pausa | RIPRENDI · STOP |
+| Stop, primo tocco | ANNULLA · TIENI |
+| Stop, tocco lungo | TIENI |
 | Cambio penna, togli | FATTO |
 | Cambio penna, monta | RIPRENDI · PROVA |
 | Finita, errore, in attesa | nessuno |
@@ -130,8 +142,9 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
 
 ## Quello che manca
 
-1. **Confermare misura e risoluzione del vetro** sulla scheda vera, e la
-   corrispondenza numero ↔ posizione dei pad.
+1. **Confermare misura e risoluzione del vetro** (`docs.arduino.cc` non è
+   raggiungibile dalla sessione), e la corrispondenza numero ↔ posizione dei
+   pad, che si vede premendoli.
 2. **Il colore della penna corrente** nel messaggio: il SLICER lo sa (è la
    tinta del livello), va solo spedito.
 3. **Il lato SLICER**: il `POST` con il suo ritmo, e l'indirizzo del
