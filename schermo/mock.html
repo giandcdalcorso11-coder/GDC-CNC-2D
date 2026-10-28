@@ -3,106 +3,112 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GDC CNC 2D — schermo tondo, prova di grafica</title>
+<title>GDC CNC 2D — il telecomando tondo, prova di grafica</title>
 
 <!--
-  LO SCHERMO DELLA MACCHINA, disegnato prima di comprare un filo.
+  IL TELECOMANDO DELLA MACCHINA, disegnato prima di scrivere una riga di
+  firmware.
 
-  Il pannello è un GC9A01: 240 × 240 pixel su un tondo di 32,4 mm. Quei due
-  numeri insieme sono il vincolo che decide tutto: 0,135 mm per pixel, e una
-  riga di testo che a 24 px è alta 3,2 mm. Ci stanno un simbolo, un numero e
-  due parole. Non ci sta un registro, non ci sta un nome di file, non ci
-  stanno due righe di spiegazione.
+  L'oggetto è un MKR IoT Carrier Rev2 con dentro un MKR WiFi 1010: un disco
+  con il display in mezzo, CINQUE TASTI capacitivi intorno, cinque LED RGB
+  accanto ai tasti, e la batteria 18650 dietro. Non è uno schermo: è un
+  telecomando che ha anche uno schermo, ed è una cosa diversa — la procedura
+  del cambio penna si fa alla macchina, con le mani sulla penna, e finora per
+  premere «riprendi» bisognava tornare al portatile.
 
-  Per questo la pagina mostra la stessa grafica DUE VOLTE: grande, per
-  disegnarla, e a grandezza vera, per sapere se si legge. Una grafica che
-  funziona solo nel riquadro grande è una grafica che non funziona.
+  DUE VINCOLI COMANDANO TUTTA LA GRAFICA.
 
-  Quello che si vede qui non è un'invenzione: sono i dati che il SLICER ha
-  già in `State.data.stampa` — stato, righe fatte, righe totali, percentuale,
-  tempo rimanente — più i due passi del cambio penna. Portarli sul pannello è
-  spedirli; inventarne di nuovi no.
+  1. Il display è 240 × 240 su poco più di tre centimetri di vetro: intorno a
+     un decimo di millimetro per pixel. Una riga a 24 px è alta tre
+     millimetri, e nel tondo ci stanno un simbolo, un numero e due parole.
+     Per questo la pagina mostra tutto DUE VOLTE, grande e a grandezza vera:
+     una grafica che funziona solo nel riquadro grande non funziona.
+
+  2. Il MKR WiFi 1010 ha 32 kB di RAM. Una pagina video 240 × 240 a 16 bit ne
+     vuole 115: NON ESISTE un buffer. Si disegna direttamente sul vetro, per
+     forme, una regione alla volta. Tutto quello che si vede qui è fatto di
+     archi, rettangoli, cerchi e testo — cioè di quello che Adafruit_GFX sa
+     fare — apposta.
+
+  Quello che lo schermo mostra non è inventato: sono i dati che il SLICER ha
+  già in `State.data.stampa` (stato, righe fatte, righe totali, percentuale,
+  tempo rimanente) più i due passi del cambio penna.
 
   LA PERCENTUALE E' DI RIGHE, NON DI TEMPO. Uno spostamento lungo e un
-  trattino sono una riga per uno. Il tempo stimato esiste (il Sender lo
-  misura sul ritmo vero) ma TACE sotto le venti righe, perché una stima su
+  trattino sono una riga per uno. Il tempo stimato esiste — il Sender lo
+  misura sul ritmo vero — ma TACE sotto le venti righe, perché una stima su
   dieci righe è un numero inventato: qui si comporta allo stesso modo, e
-  finché non c'è non c'è niente al suo posto.
+  finché non c'è, al suo posto non c'è niente.
 -->
 
 <style>
 :root {
-  --bg:        #12151a;
-  --bg-raised: #191d25;
-  --line:      #2a313d;
-  --text:      #e6eaf0;
-  --text-dim:  #97a1b0;
-  --text-mute: #6b7686;
-  --accent:    #4c9aff;
-  --danger:    #e05252;
-  --warn:      #e0a63a;
-  --ok:        #43b581;
+  --bg: #12151a; --bg-raised: #191d25; --line: #2a313d;
+  --text: #e6eaf0; --text-dim: #97a1b0; --text-mute: #6b7686;
+  --accent: #4c9aff; --danger: #e05252; --warn: #e0a63a; --ok: #43b581;
 }
 * { box-sizing: border-box; }
-body {
-  margin: 0; padding: 22px;
-  background: var(--bg); color: var(--text);
-  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
+body { margin: 0; padding: 22px; background: var(--bg); color: var(--text);
+       font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 h1 { font-size: 15px; letter-spacing: .08em; text-transform: uppercase;
      color: var(--text-dim); margin: 0 0 4px; font-weight: 600; }
-p.nota { color: var(--text-mute); max-width: 68ch; margin: 0 0 20px; }
+p.nota { color: var(--text-mute); max-width: 74ch; margin: 0 0 20px; }
+b.v { color: var(--text-dim); }
 
-.banco { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; }
-
+.banco { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
 .vetro { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.vetro span { font-size: 11px; color: var(--text-mute); letter-spacing: .05em; }
+.vetro span { font-size: 11px; color: var(--text-mute); letter-spacing: .04em;
+              text-align: center; max-width: 26ch; }
 
-/* Il tondo nero del pannello. Il bordo scuro è la cornice di plastica:
-   serve a non guardare il disegno sospeso nel vuoto, che inganna. */
+/* Il disco del carrier: nero opaco, come la scheda vera. */
+.carrier { border-radius: 50%; background: #15171c; display: block;
+           box-shadow: 0 0 0 1px #2a313d, 0 12px 34px #0009; }
+.grande { width: 380px; height: 380px; }
+
+/* Solo il vetro, alla misura vera. Tre centimetri e mezzo è l'ipotesi
+   PRUDENTE: se il pannello è il più grande dei due, si legge meglio di
+   così, non peggio. */
 .panel { border-radius: 50%; background: #000; display: block;
-         box-shadow: 0 0 0 5px #11141a, 0 0 0 7px #2a313d, 0 10px 30px #0008; }
-.grande { width: 360px; height: 360px; }
-/* 32,4 mm: la misura vera del vetro. Guardalo da mezzo metro, che è la
-   distanza da cui lo guarderai davvero. */
-.vera { width: 32.4mm; height: 32.4mm; }
+         box-shadow: 0 0 0 3px #11141a, 0 0 0 5px #2a313d; }
+.vera { width: 33mm; height: 33mm; }
 
 .comandi { background: var(--bg-raised); border: 1px solid var(--line);
-           border-radius: 9px; padding: 14px; min-width: 260px; }
+           border-radius: 9px; padding: 14px; min-width: 268px; }
 .comandi h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
               color: var(--text-dim); margin: 0 0 10px; font-weight: 600; }
-.schermate { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
-button.sch {
-  background: #222834; color: var(--text); border: 1px solid var(--line);
-  border-radius: 5px; padding: 7px 10px; cursor: pointer; text-align: left;
-  font: inherit;
-}
+.schermate { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+button.sch { background: #222834; color: var(--text); border: 1px solid var(--line);
+             border-radius: 5px; padding: 7px 10px; cursor: pointer;
+             text-align: left; font: inherit; }
 button.sch:hover { background: #2b3340; }
 button.sch.on { background: #2f6fc4; border-color: #2f6fc4; }
-label.riga { display: block; font-size: 12px; color: var(--text-dim); margin-top: 10px; }
+label.riga { display: block; font-size: 12px; color: var(--text-dim); margin-top: 8px; }
 input[type=range] { width: 100%; }
-.spiega { margin-top: 14px; font-size: 12px; color: var(--text-mute);
+.spiega { margin-top: 12px; font-size: 12px; color: var(--text-mute);
           border-top: 1px solid var(--line); padding-top: 10px; }
+.spiega b { color: var(--text-dim); font-weight: 600; }
 </style>
 </head>
 <body>
 
-<h1>Schermo tondo della macchina — prova di grafica</h1>
+<h1>Il telecomando tondo — prova di grafica</h1>
 <p class="nota">
-  GC9A01, 240 × 240 px su 32,4 mm di vetro: <b>0,135 mm per pixel</b>. A
-  sinistra la grafica ingrandita per disegnarla, a destra <b>a grandezza
-  vera</b> — se una cosa non si legge lì, non si legge.
+  MKR IoT Carrier Rev2 + MKR WiFi 1010. A sinistra il disco intero con i
+  <b class="v">cinque tasti</b> e i <b class="v">cinque LED</b>, a destra il
+  solo vetro <b class="v">a grandezza vera</b>. Le etichette dei tasti
+  compaiono solo quando quel tasto fa qualcosa, e il LED accanto si accende
+  del colore di quello che fa.
 </p>
 
 <div class="banco">
   <div class="vetro">
-    <svg class="panel grande" id="grande" viewBox="0 0 240 240"></svg>
-    <span>×1,5 — per disegnare</span>
+    <svg class="carrier grande" id="grande" viewBox="0 0 380 380"></svg>
+    <span>il disco intero — per disegnare</span>
   </div>
 
   <div class="vetro">
     <svg class="panel vera" id="vera" viewBox="0 0 240 240"></svg>
-    <span>32,4 mm — come lo vedrai</span>
+    <span>il vetro a grandezza vera (ipotesi prudente, 33 mm)</span>
   </div>
 
   <div class="comandi">
@@ -116,18 +122,18 @@ input[type=range] { width: 100%; }
 </div>
 
 <script>
-/* ------------------------------------------------------------------ *
- * I SEGNI
- *
- * La penna e il piano sono gli STESSI del tastierino della pagina: una
- * punta che scende verso una riga. Un simbolo già visto non si impara due
- * volte, e qui è l'unica cosa che si può permettere di non avere accanto
- * una parola che la spieghi.
- * ------------------------------------------------------------------ */
+/* ================================================================== *
+ * IL VETRO
+ * ================================================================== */
 
-var C = 120;                 // il centro
-var R_ANELLO = 110;          // raggio dell'anello, 15 px dal bordo del vetro
+var C = 120;              // centro, in coordinate del display
+var R_ANELLO = 101;       // raggio dell'anello
 var SPESSORE = 11;
+
+/* L'anello è rientrato di una decina di pixel rispetto al bordo del vetro:
+   fuori di lì ci va l'etichetta del tasto, che deve stare dalla parte del
+   tasto a cui si riferisce. Un'etichetta in mezzo allo schermo e un tasto
+   sul bordo sono due cose che l'occhio non mette insieme. */
 
 function arco(da, a, r) {
   /* Da -90° (le dodici) in senso orario, come un orologio: è il verso in cui
@@ -139,9 +145,9 @@ function arco(da, a, r) {
          (C + r * Math.cos(a1)).toFixed(2) + ' ' + (C + r * Math.sin(a1)).toFixed(2);
 }
 
-function anello(pc, colore, fondo) {
+function anello(pc, colore, vuoto) {
   var out = '<circle cx="120" cy="120" r="' + R_ANELLO + '" fill="none" stroke="' +
-            (fondo || '#232935') + '" stroke-width="' + SPESSORE + '"/>';
+            (vuoto || '#232935') + '" stroke-width="' + SPESSORE + '"/>';
   if (pc > 0) {
     out += '<path d="' + arco(0, Math.min(359.9, pc * 3.6), R_ANELLO) + '" fill="none" ' +
            'stroke="' + colore + '" stroke-width="' + SPESSORE + '" stroke-linecap="round"/>';
@@ -150,32 +156,30 @@ function anello(pc, colore, fondo) {
 }
 
 /* IL PALLINO DEL COLORE: di che penna si sta parlando.
-   Un pallino e non la parola «nero»: a 0,135 mm per pixel una parola di
-   quattro lettere è alta due millimetri e si indovina, un pallino colorato si
-   vede. Ed è l'unica cosa che lo schermo può dire e il registro no: quale
-   penna deve esserci dentro ADESSO. */
+   Un pallino e non la parola «nero»: a un decimo di millimetro per pixel una
+   parola di quattro lettere è alta due millimetri e si indovina, un pallino
+   colorato si vede. Ed è l'unica cosa che il telecomando può dire e il
+   registro no: quale penna deve esserci dentro ADESSO.
+   Il contorno chiaro non è decorazione — la penna nera è il caso normale, e
+   un disco nero su fondo nero non è un pallino, è niente. */
 function pallino(colore, y) {
-  /* Il contorno chiaro non è decorazione: la penna nera è il caso normale, e
-     un disco nero su fondo nero non è un pallino, è niente. */
   return '<circle cx="120" cy="' + y + '" r="7" fill="' + colore +
          '" stroke="#97a1b0" stroke-width="1.5"/>';
 }
 
-/* I passi della procedura, come due puntini in fondo. «1 di 2» scritto sarebbe
-   alto un millimetro e mezzo: non è una scritta piccola, è una scritta che non
-   si legge, e allora tanto vale disegnarla. */
-function passi(quale, quanti) {
-  var out = '', x0 = 120 - (quanti - 1) * 9;
-  for (var i = 0; i < quanti; i++) {
-    out += '<circle cx="' + (x0 + i * 18) + '" cy="208" r="4" fill="' +
-           (i === quale ? '#e0a63a' : '#39414f') + '"/>';
-  }
-  return out;
-}
+/* I DUE PUNTINI DEL «1 DI 2» SONO STATI TOLTI. Erano la cosa giusta su uno
+   schermo che guardi e basta: su tre centimetri «1 di 2» scritto non si
+   legge, e due puntini sì. Ma qui sotto ci sono i tasti, e il tasto che dice
+   FATTO dice già che c'è un dopo — mentre lo spazio in fondo serve alle
+   etichette, che devono stare dalla parte del tasto a cui si riferiscono.
+   Fra un segno che ripete e un'etichetta che dice cosa fa un dito, si tiene
+   l'etichetta. */
 
-/* La penna: corpo, punta, e la riga del piano. `dy` è quanto sta in alto. */
+/* La penna: corpo, punta, e la riga del piano — gli stessi segni del
+   tastierino della pagina. Un simbolo già visto non si impara due volte.
+   `dy` è quanto la punta sta sopra il piano. */
 function penna(dy, colore) {
-  return '<g transform="translate(120,96) scale(2.2)">' +
+  return '<g transform="translate(120,86) scale(1.7)">' +
          '<g transform="translate(0,' + dy + ')">' +
          '<rect x="-3.5" y="-11" width="7" height="11" fill="none" stroke="' + colore +
          '" stroke-width="1.5" stroke-linejoin="round"/>' +
@@ -191,26 +195,68 @@ function testo(s, y, px, colore, peso) {
          '" font-weight="' + (peso || 600) + '">' + s + '</text>';
 }
 
-/* ------------------------------------------------------------------ *
+/* ================================================================== *
+ * I CINQUE TASTI
+ *
+ * Stanno fisicamente intorno al vetro, a settantadue gradi uno dall'altro.
+ * Le posizioni qui sono quelle; i NUMERI invece no: quale pad sia lo 00 e
+ * quale il 04 si vede premendoli sulla scheda vera. Il firmware mappa
+ * numero → posizione una volta sola, e la grafica non se ne accorge.
+ *
+ * L'etichetta sta DENTRO al vetro ma dalla parte del suo tasto, e compare
+ * solo quando quel tasto fa qualcosa: cinque etichette fisse intorno a un
+ * disegno da tre centimetri sarebbero una cornice di parole.
+ * ================================================================== */
+
+var POSTI = {
+  alto:     -90,
+  altoDx:   -18,
+  bassoDx:   54,
+  bassoSx:  126,
+  altoSx:   198
+};
+
+function etichetta(posto, parola, colore) {
+  var a = POSTI[posto] * Math.PI / 180;
+  var r = 86;
+  var x = 120 + r * Math.cos(a), y = 120 + r * Math.sin(a) + 5;
+  /* In alto e in basso il testo è centrato; ai lati si appoggia al bordo. */
+  var anc = Math.abs(Math.cos(a)) < 0.35 ? 'middle' : (Math.cos(a) > 0 ? 'end' : 'start');
+  return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + anc +
+         '" fill="' + colore + '" font-family="system-ui, sans-serif" ' +
+         'font-size="15" font-weight="700">' + parola + '</text>';
+}
+
+/* ================================================================== *
  * LE SCHERMATE
  *
  * Una per ogni cosa che la macchina può stare facendo, e nessuna di più:
- * sono gli stati che il Sender dichiara già — fermo, invio, pausa, cambio,
- * fine, errore — più i due passi della procedura della penna, che sono i
- * due momenti in cui lo schermo serve davvero perché sei tu a dover fare
+ * sono gli stati che il Sender già dichiara — fermo, invio, pausa, cambio,
+ * fine, errore — più i due passi della procedura della penna, che sono i due
+ * momenti in cui il telecomando serve davvero, perché sei tu a dover fare
  * qualcosa.
- * ------------------------------------------------------------------ */
+ *
+ * `tasti` dice che cosa fa ogni pad IN QUESTA schermata. Un tasto che in una
+ * schermata non fa niente non ha etichetta e ha il LED spento: non è spento
+ * per risparmiare, è spento perché premerlo non farebbe niente, e un tasto
+ * che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
+ *
+ * IL TELECOMANDO NON MUOVE LA MACCHINA. Ferma, riprende, e guida il cambio
+ * penna. Mandare un carrello da qualche parte vuol dire guardare delle
+ * coordinate, e su tre centimetri di vetro le coordinate non ci stanno:
+ * quello resta un gesto della pagina, dove i numeri si leggono.
+ * ================================================================== */
 
 var SCHERMATE = [
   {
     k: 'pronta', nome: 'Pronta',
     perche: 'Niente in corso. L\'anello è spento: non c\'è nessun avanzamento ' +
-            'da raccontare, e un anello pieno a riposo mentirebbe.',
+            'da raccontare, e un anello pieno a riposo mentirebbe. <b>Nessun ' +
+            'tasto attivo</b> — far partire una stampa senza guardare il ' +
+            'foglio non è una comodità.',
+    tasti: {},
     disegna: function () {
       return anello(0, '#000') +
-        /* Il tetto in SU: è la stessa casetta del tastierino, e lì il gruppo
-           è girato perché sul piano la y cresce verso l'alto. Qui si è in
-           uno schermo, dove va in giù, quindi si disegna già dritta. */
         '<g transform="translate(120,92) scale(2.1)">' +
         '<polyline points="-7,7 0,0 7,7" fill="none" stroke="#43b581" stroke-width="1.6" ' +
         'stroke-linejoin="round" stroke-linecap="round"/>' +
@@ -223,103 +269,170 @@ var SCHERMATE = [
   },
   {
     k: 'stampa', nome: 'In stampa',
-    perche: 'L\'anello è la percentuale di RIGHE fatte, non di tempo. Il tempo ' +
-            'sotto compare solo quando il Sender ne ha misurato abbastanza — ' +
-            'sotto le venti righe non c\'è, e al suo posto non c\'è niente.',
+    perche: 'L\'anello è la percentuale di <b>righe</b> fatte, non di tempo. Il ' +
+            'tempo sotto compare solo quando il Sender ne ha misurato ' +
+            'abbastanza: sotto le venti righe non c\'è, e al suo posto non c\'è ' +
+            'niente. Il pallino in cima dice quale penna è montata adesso.',
+    tasti: { altoSx: ['PAUSA', '#4c9aff'], bassoDx: ['STOP', '#e05252'] },
     disegna: function (st) {
       return anello(st.pc, '#4c9aff') +
-        testo(st.pc + '%', 134, 58, '#e6eaf0', 700) +
+        testo(st.pc + '%', 140, 54, '#e6eaf0', 700) +
         (st.pc > 6
-          ? testo('~' + Math.max(1, Math.round((100 - st.pc) * 0.38)) + ' min', 166, 17, '#97a1b0', 400)
-          : testo('misuro il ritmo', 166, 15, '#6b7686', 400)) +
-        pallino('#1a1a1a', 68);
+          ? testo('~' + Math.max(1, Math.round((100 - st.pc) * 0.38)) + ' min', 170, 17, '#97a1b0', 400)
+          : testo('misuro il ritmo', 170, 15, '#6b7686', 400)) +
+        pallino('#1a1a1a', 78);
     }
   },
   {
     k: 'pausa', nome: 'In pausa',
     perche: 'L\'anello resta dov\'è e cambia colore: si vede da lontano che è ' +
-            'fermo per scelta e non rotto. La penna è ancora giù.',
+            'fermo per scelta e non rotto. La penna è ancora giù, quindi ' +
+            'riprendendo continua dallo stesso punto.',
+    tasti: { altoSx: ['RIPRENDI', '#4c9aff'], bassoDx: ['STOP', '#e05252'] },
     disegna: function (st) {
       return anello(st.pc, '#e0a63a') +
-        '<g fill="#e0a63a"><rect x="104" y="96" width="11" height="34" rx="2"/>' +
-        '<rect x="125" y="96" width="11" height="34" rx="2"/></g>' +
-        testo('IN PAUSA', 160, 24, '#e6eaf0') +
-        testo(st.pc + '%', 182, 15, '#6b7686', 400);
+        '<g fill="#e0a63a"><rect x="105" y="98" width="10" height="30" rx="2"/>' +
+        '<rect x="125" y="98" width="10" height="30" rx="2"/></g>' +
+        testo('IN PAUSA', 158, 23, '#e6eaf0') +
+        testo(st.pc + '%', 180, 15, '#6b7686', 400);
     }
   },
   {
     k: 'penna1', nome: 'Cambio penna · togli',
-    perche: 'QUESTA E\' LA SCHERMATA PER CUI VALE LA PENA FARE LO SCHERMO. ' +
-            'La macchina è ferma al punto home e aspetta te, che sei lì ' +
-            'davanti con le mani sulla penna. Oggi per saperlo guardi il ' +
-            'portatile.',
+    perche: '<b>Questa è la schermata per cui vale la pena costruire il ' +
+            'telecomando.</b> La macchina è ferma al punto home e aspetta te, ' +
+            'che sei lì davanti con le mani sulla penna. Oggi, per saperlo e ' +
+            'per dire che hai finito, torni al portatile.',
+    tasti: { alto: ['FATTO', '#e0a63a'] },
     disegna: function (st) {
       return anello(st.pc, '#e0a63a') +
         penna(-14, '#e0a63a') +
-        testo('TOGLI', 158, 26, '#e6eaf0') +
-        testo('LA PENNA', 184, 26, '#e6eaf0') +
-        passi(0, 2);
+        testo('TOGLI', 140, 24, '#e6eaf0') +
+        testo('LA PENNA', 163, 24, '#e6eaf0');
     }
   },
   {
     k: 'penna2', nome: 'Cambio penna · monta',
     perche: 'Il servo è sceso alla quota di contatto e non si muove più: la ' +
             'penna nuova si infila finché tocca il piano e si stringe lì. Il ' +
-            'simbolo dice esattamente quello — punta sulla riga. Il pallino ' +
-            'dice QUALE penna montare: il colore del livello che viene dopo, ' +
-            'che il SLICER sa e il registro non ti mette davanti agli occhi.',
+            'pallino dice <b>quale</b> montare — il colore del livello che ' +
+            'viene dopo, che il SLICER sa. <b>PROVA</b> alterna contatto e ' +
+            'alzata, e il disegno della penna segue: è l\'unico movimento che ' +
+            'il telecomando comanda, e lo stai guardando da venti centimetri ' +
+            'con la penna in mano.',
+    /* UN TASTO SOLO PER LA PROVA, non due. «Alzata» e «contatto» erano due
+       etichette che si pestavano i piedi in fondo al vetro, ma il motivo per
+       togliere la seconda è migliore di così: il disegno della penna mostra
+       GIA' dove sta il servo, quindi un tasto che alterna basta — premi e
+       scende, premi e sale, e lo vedi sullo schermo e sulla macchina. Due
+       tasti che fanno il contrario l'uno dell'altro, quando lo stato è già
+       sotto gli occhi, sono un tasto di troppo. */
+    tasti: { alto: ['RIPRENDI', '#e0a63a'], bassoDx: ['PROVA', '#43b581'] },
     disegna: function (st) {
       return anello(st.pc, '#e0a63a') +
         penna(0, '#43b581') +
-        testo('MONTA', 158, 26, '#e6eaf0') +
-        pallino('#c0392b', 184) +
-        passi(1, 2);
+        testo('MONTA', 140, 24, '#e6eaf0') +
+        pallino('#c0392b', 166);
     }
   },
   {
     k: 'fine', nome: 'Finita',
-    perche: 'Anello pieno e verde. La durata vera, non quella stimata: a cose ' +
-            'fatte la stima non serve più a niente.',
+    perche: 'Anello pieno e verde. La durata <b>vera</b>, non quella stimata: a ' +
+            'cose fatte la stima non serve più a niente.',
+    tasti: {},
     disegna: function () {
       return anello(100, '#43b581') +
-        '<path d="M96 120 L113 138 L146 100" fill="none" stroke="#43b581" ' +
+        '<path d="M98 118 L113 134 L143 100" fill="none" stroke="#43b581" ' +
         'stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>' +
-        testo('FATTO', 172, 26, '#e6eaf0') +
-        testo('18 min', 194, 15, '#6b7686', 400);
+        testo('FATTO', 168, 25, '#e6eaf0') +
+        testo('18 min', 190, 15, '#6b7686', 400);
     }
   },
   {
     k: 'errore', nome: 'Errore',
     perche: 'Rosso pieno: non è un avanzamento, è un allarme, e l\'anello ' +
-            'intero serve a vederlo da fuori stanza. Sotto, la riga a cui si ' +
-            'è fermata — il perché si legge sul portatile, qui non ci sta.',
+            'intero serve a vederlo da fuori stanza. Sotto, la riga a cui si è ' +
+            'fermata: il <b>perché</b> si legge sul portatile, qui non ci sta ' +
+            'e fingere il contrario vorrebbe dire troncarlo a metà.',
+    tasti: {},
     disegna: function () {
       return anello(100, '#e05252') +
-        '<g transform="translate(120,104)">' +
-        '<path d="M0 -24 L25 20 L-25 20 Z" fill="none" stroke="#e05252" ' +
+        '<g transform="translate(120,102)">' +
+        '<path d="M0 -22 L23 19 L-23 19 Z" fill="none" stroke="#e05252" ' +
         'stroke-width="6" stroke-linejoin="round"/>' +
-        '<rect x="-3" y="-10" width="6" height="18" rx="3" fill="#e05252"/>' +
-        '<circle cx="0" cy="13" r="3.4" fill="#e05252"/></g>' +
-        testo('FERMA', 164, 26, '#e6eaf0') +
-        testo('riga 1 284', 186, 15, '#6b7686', 400);
+        '<rect x="-3" y="-9" width="6" height="17" rx="3" fill="#e05252"/>' +
+        '<circle cx="0" cy="12" r="3.2" fill="#e05252"/></g>' +
+        testo('FERMA', 160, 25, '#e6eaf0') +
+        testo('riga 1 284', 182, 15, '#6b7686', 400);
     }
   },
   {
     k: 'attesa', nome: 'Senza il SLICER',
-    perche: 'Lo schermo prende i dati dal SLICER, non dalla macchina: la ' +
-            'percentuale e i cambi penna esistono solo lì. Quando il ' +
-            'portatile non c\'è lo dice, invece di mostrare numeri vecchi.',
+    perche: 'Il telecomando prende i dati dal SLICER, non dalla macchina: ' +
+            'percentuale e cambi penna esistono solo lì. Quando il portatile ' +
+            'non c\'è lo dice, invece di mostrare numeri vecchi che sembrano ' +
+            'freschi.',
+    tasti: {},
     disegna: function () {
       return anello(0, '#000') +
-        '<g transform="translate(120,106)" fill="none" stroke="#6b7686" stroke-width="5" ' +
-        'stroke-linecap="round"><path d="M-26 -6 A 37 37 0 0 1 26 -6"/>' +
-        '<path d="M-15 6 A 21 21 0 0 1 15 6"/></g>' +
-        '<circle cx="120" cy="124" r="4" fill="#6b7686"/>' +
-        testo('IN ATTESA', 164, 23, '#97a1b0') +
-        testo('apri il SLICER', 186, 14, '#6b7686', 400);
+        '<g transform="translate(120,104)" fill="none" stroke="#6b7686" stroke-width="5" ' +
+        'stroke-linecap="round"><path d="M-24 -6 A 34 34 0 0 1 24 -6"/>' +
+        '<path d="M-14 6 A 20 20 0 0 1 14 6"/></g>' +
+        '<circle cx="120" cy="122" r="4" fill="#6b7686"/>' +
+        testo('IN ATTESA', 162, 22, '#97a1b0') +
+        testo('apri il SLICER', 184, 14, '#6b7686', 400);
     }
   }
 ];
+
+/* ================================================================== *
+ * IL DISCO: vetro al centro, tasti e LED intorno
+ * ================================================================== */
+
+var CC = 190, R_DISCO = 188, R_VETRO = 120;
+var R_PAD = 154;          // dove stanno i pad capacitivi
+var R_LED = 136;          // il LED, fra il pad e il vetro
+
+function disco(s) {
+  var out = '<circle cx="190" cy="190" r="' + R_DISCO + '" fill="#15171c"/>';
+
+  for (var p in POSTI) {
+    var a = POSTI[p] * Math.PI / 180;
+    var x = CC + R_PAD * Math.cos(a), y = CC + R_PAD * Math.sin(a);
+    var vivo = !!s.tasti[p];
+
+    /* Il pad: l'impronta digitale serigrafata sulla scheda vera, qui ridotta
+       a tre archi. Un pad che fa qualcosa si schiarisce. */
+    out += '<g transform="translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ') rotate(' +
+           (POSTI[p] + 90).toFixed(1) + ')" fill="none" stroke="' +
+           (vivo ? '#e6eaf0' : '#363c48') + '" stroke-width="2.6" stroke-linecap="round">' +
+           '<path d="M-13 6 A 13 13 0 0 1 13 6"/>' +
+           '<path d="M-8 9 A 8 8 0 0 1 8 9"/>' +
+           '<path d="M-3 12 A 3 3 0 0 1 3 12"/></g>';
+
+    /* Il LED accanto al pad, del colore di quello che il tasto fa. */
+    var lx = CC + R_LED * Math.cos(a), ly = CC + R_LED * Math.sin(a);
+    var col = vivo ? s.tasti[p][1] : null;
+    if (col) {
+      out += '<circle cx="' + lx.toFixed(1) + '" cy="' + ly.toFixed(1) +
+             '" r="12" fill="' + col + '" opacity=".16"/>';
+    }
+    out += '<circle cx="' + lx.toFixed(1) + '" cy="' + ly.toFixed(1) + '" r="5.5" fill="' +
+           (col || '#20242c') + '"/>';
+  }
+
+  out += '<circle cx="190" cy="190" r="' + (R_VETRO + 3) + '" fill="#0a0b0d"/>';
+  out += '<g transform="translate(70,70)">' + schermo(s) + '</g>';
+  return out;
+}
+
+function schermo(s) {
+  var out = '<circle cx="120" cy="120" r="120" fill="#000"/>' + s.disegna(stato);
+  for (var p in s.tasti) out += etichetta(p, s.tasti[p][0], s.tasti[p][1]);
+  return out;
+}
+
+/* ================================================================== */
 
 var stato = { k: 'stampa', pc: 47 };
 
@@ -327,15 +440,12 @@ function render() {
   var s = null;
   for (var i = 0; i < SCHERMATE.length; i++) if (SCHERMATE[i].k === stato.k) s = SCHERMATE[i];
   if (!s) return;
-  var svg = s.disegna(stato);
-  document.getElementById('grande').innerHTML = svg;
-  document.getElementById('vera').innerHTML = svg;
-  document.getElementById('spiega').textContent = s.perche;
+  document.getElementById('grande').innerHTML = disco(s);
+  document.getElementById('vera').innerHTML = schermo(s);
+  document.getElementById('spiega').innerHTML = s.perche;
   document.getElementById('pc-val').textContent = stato.pc + '%';
   var bs = document.querySelectorAll('button.sch');
-  for (var j = 0; j < bs.length; j++) {
-    bs[j].classList.toggle('on', bs[j].dataset.k === stato.k);
-  }
+  for (var j = 0; j < bs.length; j++) bs[j].classList.toggle('on', bs[j].dataset.k === stato.k);
 }
 
 var box = document.getElementById('schermate');
@@ -351,7 +461,6 @@ box.addEventListener('click', function (e) {
   stato.k = b.dataset.k;
   render();
 });
-
 document.getElementById('pc').addEventListener('input', function () {
   stato.pc = +this.value;
   render();
