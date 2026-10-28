@@ -36,18 +36,79 @@ vetro non è nominato e non serve saperlo: ci parla la libreria.
 Il telecomando esiste per un motivo: **sapere che è il momento del cambio
 penna**. Uno schermo lo dice a chi lo sta guardando; un **beep lo dice a chi
 non lo sta guardando**, che è il caso vero — una stampa dura venti minuti e
-nessuno la fissa. Due note al cambio penna, una all'errore, niente a fine
-stampa: lì il silenzio va bene, il disegno è finito e si vede.
+nessuno la fissa.
 
-### La batteria, e perché il vetro deve dormire
+| Momento | Suono | Si ripete? |
+|---|---|---|
+| **cambio penna** | due note alte, corte | **sì, ogni 20 s finché non premi** |
+| **fine stampa** | tre note che scendono | no |
+| **errore** | tre note basse | no |
+
+Tre disegni diversi, perché il punto è **capire cosa è successo senza
+guardare**. E uno solo si ripete: il cambio penna è l'unico in cui la macchina
+sta **aspettando te**, e un suono che squilla una volta sola la lascia ferma
+un'ora se in quel momento eri in un'altra stanza. Gli altri due raccontano una
+cosa già successa: ripeterli sarebbe insistere su niente.
+
+### La batteria
 
 Il datasheet dichiara **fino a 48 h con una 2500 mAh**, ma è il consumo di un
 sensore che si sveglia ogni tanto: col vetro acceso e il WiFi attivo sarà
-molto meno. Quindi **il display si spegne da solo quando non c'è niente in
-corso** e si riaccende quando succede qualcosa — o quando lo prendi in mano,
-perché la IMU LSM6DSOX ha la funzione di risveglio e qui ha un motivo per
-esistere invece di essere un ninnolo. Durante una stampa resta acceso: è il
-suo mestiere.
+molto meno.
+
+**Come si legge la carica.** Il pinout dice che il 18650 va **diritto al VBAT
+del MKR** (cavetto fra i due connettori) e che sul carrier non passa da nessun
+partitore verso un piedino analogico. Quindi, in ordine di costo:
+
+1. **`analogRead(ADC_BATTERY)`** — se la variante del MKR WiFi 1010 definisce
+   quel nome, c'è già un partitore sulla scheda e il lavoro è finito. **Una
+   riga di sketch risponde**, ed è la prima cosa da provare.
+2. **Il PMIC** (BQ24195L, via `Arduino_PMIC`): dà di sicuro lo **stato** — in
+   carica, carica, in scarica, guasto — ma non ha un misuratore di carica a
+   bordo, quindi una percentuale probabilmente no. Lo stato è comunque utile e
+   si prende gratis.
+3. **Un partitore su A0**, se i primi due non bastano: due resistenze uguali
+   (100 k va bene) dal più della batteria, e il centro sul **Grove A0**, che è
+   libero. Niente da saldare sul carrier — basta un cavetto Grove.
+
+Dalla tensione la percentuale è un'approssimazione, perché la curva di una
+Li-ion è piatta in mezzo: **non si scrivono i decimali** e si guarda il
+colore, che è l'informazione vera.
+
+**Dove si vede.** Sul telecomando **sempre sulla schermata Pronta**, che è
+quella che hai davanti quando lo prendi in mano; **sotto al 20% dappertutto**,
+in rosso, perché lì non è un dato ma un avviso. Non sulle due schermate dello
+stop: in mezzo a una domanda a cui devi rispondere adesso, una pila rossa è
+rumore. Nel SLICER la percentuale arriva con la risposta del telecomando e
+compare accanto allo stato della macchina, **solo quando il telecomando c'è**.
+
+### Perché il vetro deve dormire
+
+**D3 è `DISP_BL`**, la retroilluminazione, ed è un piedino comandabile: il
+vetro si spegne davvero, non si limita a diventare nero. Quindi **si spegne da
+solo quando non c'è niente in corso** e si riaccende quando succede qualcosa —
+o quando lo prendi in mano, perché la IMU LSM6DSOX ha la funzione di risveglio
+e qui ha un motivo per esistere invece di essere un ninnolo. Durante una
+stampa resta acceso: è il suo mestiere.
+
+### Tutti i piedini del MKR sono occupati
+
+Dal pinout, e vale la pena saperlo prima di progettare qualunque altra cosa
+attorno a questa scheda:
+
+| | |
+|---|---|
+| A1, A2, A3, A4, A5 | i cinque tasti (TOUCH2, 3, 4, 5, 1 — **in quest'ordine**) |
+| D0 | SD_CS · D1, D2 i due relè |
+| **D3** | **DISP_BL**, la retroilluminazione |
+| D4, D5 | LED_CKI, LED_SDI — i cinque RGB sono APA102, clock e dati |
+| D6 | interrupt di APDS e IMU · **D7 il cicalino** |
+| D8, D9, D10 | SPI, condivisa fra display e SD |
+| D11, D12 | I²C dei sensori |
+| D13, D14, RESET | DISP_CS, DISP_DC, DISP_RST |
+
+**Liberi restano solo A0 e A6**, sui due connettori Grove analogici. Sono
+quelli che servirebbero al partitore della batteria.
 
 ### I due vincoli che comandano la grafica
 
@@ -93,8 +154,11 @@ seconda connessione, e il telecomando non comincia mai lui una conversazione.
 
 ```
 POST /stato    { stato, percento, rimanente, colore, passo }
-  → 200        { tasto: "riprendi" }        // o niente
+  → 200        { tasto: "riprendi", batteria: 78 }
 ```
+
+La carica viaggia nella **risposta** e non in una chiamata sua: è un dato del
+telecomando, e il telecomando parla solo quando gli si chiede qualcosa.
 
 Due cose da non sbagliare:
 
@@ -166,8 +230,9 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
    firmware una volta sola.
 2. **Il colore della penna corrente** nel messaggio: il SLICER lo sa (è la
    tinta del livello), va solo spedito.
-3. **Il lato SLICER**: il `POST` con il suo ritmo, e l'indirizzo del
-   telecomando fra le impostazioni, accanto a quello della macchina.
+3. **Il lato SLICER**: il `POST` con il suo ritmo, l'indirizzo del
+   telecomando fra le impostazioni accanto a quello della macchina, e la
+   pila accanto allo stato della macchina — solo quando il telecomando c'è.
 4. **Il firmware**: `Arduino_MKRIoTCarrier` per vetro, tasti e LED;
    `WiFiNINA` per la rete.
 5. **La grafica va confermata sul vetro vero.** Finché non c'è, `mock.html` è

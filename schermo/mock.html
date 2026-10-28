@@ -117,6 +117,9 @@ input[type=range] { width: 100%; }
     <label class="riga"><span id="pc-nome">Avanzamento</span> <b id="pc-val">47%</b>
       <input type="range" id="pc" min="0" max="100" value="47">
     </label>
+    <label class="riga">Batteria del telecomando <b id="bat-val">78%</b>
+      <input type="range" id="bat" min="0" max="100" value="78">
+    </label>
     <div class="spiega" id="spiega"></div>
   </div>
 </div>
@@ -213,6 +216,52 @@ function spicchio(pc, cx, cy, r, colore) {
          ' Z" fill="' + colore + '"/>';
 }
 
+/* LA PILA DEL TELECOMANDO.
+ *
+ * Non sta su tutte le schermate, e non è una dimenticanza. Un indicatore di
+ * batteria sempre acceso è un numero che si smette di guardare dopo due
+ * giorni — come un allarme che suona sempre. Qui compare in due casi, che
+ * sono i due in cui a qualcuno interessa:
+ *
+ *   - sulla schermata PRONTA, sempre: è quella che vedi quando lo prendi in
+ *     mano, e «lo prendo in mano» è esattamente il momento in cui vuoi
+ *     sapere se reggerà la stampa che stai per far partire;
+ *   - su tutte le altre SOTTO AL 20%, in rosso: lì non è un dato, è un
+ *     avviso, e un avviso deve farsi vedere anche in mezzo a un disegno.
+ *
+ * Il colore è l'informazione prima del numero: sopra il 40 è smorto, fra 20
+ * e 40 ambra, sotto rosso. Da tre metri il numero non si legge e il colore sì.
+ */
+function coloreBatteria(pc) {
+  return pc < 20 ? '#e05252' : pc < 40 ? '#e0a63a' : '#97a1b0';
+}
+
+function pila(pc, cx, cy, h, colore) {
+  var w = h * 1.9, x = cx - w / 2, y = cy - h / 2;
+  var pieno = Math.max(0, Math.min(1, pc / 100)) * (w - 5);
+  return '<g>' +
+    '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) +
+    '" height="' + h + '" rx="2.5" fill="none" stroke="' + colore + '" stroke-width="2"/>' +
+    '<rect x="' + (x + w + 1.5).toFixed(1) + '" y="' + (y + h * 0.3).toFixed(1) +
+    '" width="2.6" height="' + (h * 0.4).toFixed(1) + '" rx="1" fill="' + colore + '"/>' +
+    (pieno > 0
+      ? '<rect x="' + (x + 2.5).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) + '" width="' +
+        pieno.toFixed(1) + '" height="' + (h - 5) + '" rx="1" fill="' + colore + '"/>'
+      : '') +
+    '</g>';
+}
+
+/* Pila e numero, in riga e centrati. */
+function rigaPila(pc, y, h, px) {
+  var col = coloreBatteria(pc);
+  var wPila = h * 1.9 + 4, wTesto = String(pc).length * px * 0.62 + px * 0.6;
+  var tot = wPila + 6 + wTesto, x0 = 120 - tot / 2;
+  return pila(pc, x0 + wPila / 2, y, h, col) +
+    '<text x="' + (x0 + wPila + 6).toFixed(1) + '" y="' + (y + px * 0.36).toFixed(1) +
+    '" fill="' + col + '" font-family="system-ui, sans-serif" font-size="' + px +
+    '" font-weight="600">' + pc + '%</text>';
+}
+
 function testo(s, y, px, colore, peso) {
   return '<text x="120" y="' + y + '" text-anchor="middle" fill="' + colore +
          '" font-family="system-ui, sans-serif" font-size="' + px +
@@ -277,7 +326,8 @@ var SCHERMATE = [
     perche: 'Niente in corso. L\'anello è spento: non c\'è nessun avanzamento ' +
             'da raccontare, e un anello pieno a riposo mentirebbe. <b>Nessun ' +
             'tasto attivo</b> — far partire una stampa senza guardare il ' +
-            'foglio non è una comodità.',
+            'foglio non è una comodità. <b>La pila sta qui</b>, perché questa ' +
+            'è la schermata che vedi quando lo prendi in mano.',
     tasti: {},
     disegna: function () {
       return anello(0, '#000') +
@@ -287,8 +337,9 @@ var SCHERMATE = [
         '<rect x="-5" y="6" width="10" height="6" fill="none" stroke="#43b581" stroke-width="1.6"/>' +
         '<rect x="-1.6" y="8.6" width="3.2" height="3.4" fill="none" stroke="#43b581" stroke-width="1.4"/>' +
         '</g>' +
-        testo('PRONTA', 160, 26, '#e6eaf0') +
-        testo('al punto home', 182, 15, '#6b7686', 400);
+        testo('PRONTA', 154, 25, '#e6eaf0') +
+        testo('al punto home', 174, 14, '#6b7686', 400) +
+        rigaPila(stato.bat, 198, 13, 15);
     }
   },
   {
@@ -489,13 +540,20 @@ function disco(s) {
 
 function schermo(s) {
   var out = '<circle cx="120" cy="120" r="120" fill="#000"/>' + s.disegna(stato);
+  /* Sotto al 20% la pila si fa vedere ovunque, tranne dove ci sarebbe
+     dentro: sulla schermata Pronta c'è già, e sulle due dello stop il vetro
+     è occupato da una domanda a cui si deve rispondere adesso — una pila
+     rossa accanto a «FERMARE?» è rumore nel momento sbagliato. */
+  if (stato.bat < 20 && s.k !== 'pronta' && s.k.indexOf('stop') !== 0) {
+    out += pila(stato.bat, 120, 206, 11, '#e05252');
+  }
   for (var p in s.tasti) out += etichetta(p, s.tasti[p][0], s.tasti[p][1]);
   return out;
 }
 
 /* ================================================================== */
 
-var stato = { k: 'stampa', pc: 47 };
+var stato = { k: 'stampa', pc: 47, bat: 78 };
 
 function render() {
   var s = null;
@@ -509,6 +567,7 @@ function render() {
      della stampa, il conto alla rovescia, lo spicchio del dito — e deve dire
      quale, se no sembra lo stesso numero che vuol dire cose diverse. */
   document.getElementById('pc-nome').textContent = s.slider || 'Avanzamento';
+  document.getElementById('bat-val').textContent = stato.bat + '%';
   var bs = document.querySelectorAll('button.sch');
   for (var j = 0; j < bs.length; j++) bs[j].classList.toggle('on', bs[j].dataset.k === stato.k);
 }
@@ -528,6 +587,10 @@ box.addEventListener('click', function (e) {
 });
 document.getElementById('pc').addEventListener('input', function () {
   stato.pc = +this.value;
+  render();
+});
+document.getElementById('bat').addEventListener('input', function () {
+  stato.bat = +this.value;
   render();
 });
 
