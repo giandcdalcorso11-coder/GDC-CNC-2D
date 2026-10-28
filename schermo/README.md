@@ -91,6 +91,56 @@ o quando lo prendi in mano, perché la IMU LSM6DSOX ha la funzione di risveglio
 e qui ha un motivo per esistere invece di essere un ninnolo. Durante una
 stampa resta acceso: è il suo mestiere.
 
+### La micro SD: a che cosa serve e a che cosa no
+
+**Non serve a stampare dalla SD**, ed è la prima idea che viene in mente
+quindi vale la pena scriverla come scartata. Tre motivi, in ordine di peso:
+
+1. Romperebbe la regola che tiene in piedi tutto: il telecomando **non parla
+   con FluidNC**. Due padroni sulla stessa macchina è come ci si ritrova con
+   la penna che scende mentre il carrello cammina.
+2. Un SAMD21 che alimenta venti minuti di G-code via WiFi rifarebbe
+   esattamente il guasto che questo progetto ha già diagnosticato e risolto —
+   il canale lungo che cade e si porta dietro la macchina, due stampe morte il
+   2026-10-23 — con un dispositivo più debole di quello che lo faceva prima.
+3. E comunque **non è la memoria che lega la stampa al portatile**: è il fatto
+   che il programma si **rigenera** dopo i tre popup, con l'origine e l'altezza
+   di contatto misurate quel giorno su quel foglio. Il G-code di ieri non vale
+   oggi, e metterlo su una SD non lo fa valere.
+
+**Serve a una cosa sola, e è buona: il registro delle stampe.** Oggi il
+registro vive nella pagina e muore con lei. Sulla SD diventa il **libro di
+bordo della macchina**: una riga per stampa, in CSV perché un CSV si apre con
+qualunque cosa e si allunga in fondo senza riscriverlo.
+
+```
+data;nome;righe;durata_s;cambi_penna;esito
+2026-10-28T21:14;gdc master.svg;1284;1083;1;finita
+2026-10-28T22:02;iso-cross.svg;2140;1710;0;fermata
+```
+
+La data la manda il SLICER nel `POST`: il telecomando non ha un orologio che
+sopravviva a una batteria scarica, e il browser la data ce l'ha. Si scrive
+**una riga a fine stampa**, non a ogni messaggio — una scheda SD scritta tre
+volte al secondo per venti minuti è una scheda SD rotta.
+
+È un registro **a perdere**: se il telecomando era spento, quella stampa nel
+libro non c'è. Va bene così — è una memoria in più, non una contabilità.
+
+Due usi minori, veri ma piccoli:
+
+- **Il logo all'accensione.** Un'immagine 240 × 240 a 16 bit sono 115 kB:
+  nella flash del SAMD21 (256 kB in tutto) non ci sta comoda, sulla SD sì. Il
+  giorno che il logo della macchina esiste, è lì che va.
+- **Una copia del profilo macchina.** Il profilo vive in `localStorage`, che
+  sparisce se si cancellano i dati del sito. Una copia scritta sulla SD a ogni
+  cambio è una rete sotto a numeri che sono costati giornate di misure.
+
+**Una regola pratica:** la SD **divide la SPI con il display** (D8, D9, D10,
+con D0 per la sua selezione). Scrivere mentre si disegna fa singhiozzare
+l'animazione, quindi si scrive **ai cambi di stato e mai durante il tocco
+lungo dello stop**, che è l'unico momento in cui un fotogramma perso si vede.
+
 ### Tutti i piedini del MKR sono occupati
 
 Dal pinout, e vale la pena saperlo prima di progettare qualunque altra cosa
