@@ -484,6 +484,30 @@ mezzo gli errori che non c'entrano con la scheda**:
   istante del primo: «tocca e tieni» invece di «tocca, poi tieni», cioè
   esattamente la sicurezza che si voleva. Adesso aspetta il rilascio.
 
+### La prova in bianco
+
+Impostazioni → **Prova in bianco**, accanto all'indirizzo del telecomando. Il
+SLICER **recita una stampa intera** — pronta ma da azzerare, pronta, in stampa
+con la penna nera, cambio penna in due passi con la penna rossa, di nuovo in
+stampa, finita, errore — e in fondo **smette di chiamare**, perché «senza
+SLICER» è l'unica schermata che non si può provare mandando qualcosa. Un
+minuto, e si sono viste tutte e dieci le schermate, sentiti i quattro suoni e
+premuti i cinque tasti. Senza, per vederle ci vogliono venti minuti di stampa
+e un foglio.
+
+**I tasti non escono dalla prova.** Non è prudenza, è il punto: se «riprendi»
+finisse al Sender mentre si recita una stampa che non esiste, la prova in
+bianco sarebbe l'unica cosa del progetto capace di far partire una stampa
+vera. Li consuma la recita, e premere PAUSA ferma anche il copione — se no
+premerlo non si vedrebbe, perché un attimo dopo la stampa finta sarebbe andata
+avanti lo stesso. Il tasto PROVA, che sulla macchina muove il servo, qui dice
+soltanto che non lo muove.
+
+La prova **si rifiuta di partire** se c'è una stampa in corso, e senza
+indirizzo non parte perché non c'è nessuno a cui recitare. `prova-test.js`, 24
+asserzioni, di cui una sola conta davvero: che per tutta la recita il Sender
+non si sia mosso.
+
 ### Quello che si vedrà e che non si può sapere da qui
 
 Il font di Adafruit_GFX è a **larghezza fissa, 6 × 8 px per unità di corpo**:

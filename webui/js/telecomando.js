@@ -59,7 +59,7 @@ var Telecomando = (function () {
      sopravviva a una batteria scarica, e il browser ce l'ha. Gli serve per
      il registro delle stampe sulla sua SD. */
   function messaggio() {
-    var s = State.data.stampa;
+    var s = finta || State.data.stampa;
     return {
       v: 1,
       stato: s.stato,
@@ -75,9 +75,10 @@ var Telecomando = (function () {
          tinta — e allora sul vetro non c'è nessun pallino: meglio di uno
          nero inventato, che vorrebbe dire «monta la penna nera». */
       penna: s.penna || null,
-      passo: (window.Popup && Popup.passoPenna) ? Popup.passoPenna() : null,
-      macchina: State.data.machine,
-      azzerata: !!State.data.azzerata,
+      passo: finta ? finta.passo
+                   : ((window.Popup && Popup.passoPenna) ? Popup.passoPenna() : null),
+      macchina: finta ? finta.macchina : State.data.machine,
+      azzerata: finta ? !!finta.azzerata : !!State.data.azzerata,
       data: new Date().toISOString()
     };
   }
@@ -104,7 +105,7 @@ var Telecomando = (function () {
   /* ------------------------------ il dialogo ------------------------------ */
 
   function manda() {
-    if (!indirizzo || inVolo) return;
+    if (!indirizzo || inVolo || muto) return;
     var m = messaggio();
     firma = impronta(m);
     inVolo = true;
@@ -157,6 +158,12 @@ var Telecomando = (function () {
   function premuto(tasto) {
     Log.add('msg', 'Telecomando: ' + tasto + '.');
 
+    /* DURANTE LA PROVA IL TASTO NON ESCE DA QUI. Non è prudenza: è il
+       punto della prova. Se «riprendi» finisse al Sender mentre si sta
+       recitando una stampa che non esiste, la prova in bianco sarebbe
+       l'unica cosa al mondo capace di far partire una stampa vera. */
+    if (finta) { provaTasto(tasto); return; }
+
     if (tasto === 'pausa') { Sender.pausa(); return; }
 
     if (tasto === 'riprendi') {
@@ -182,13 +189,158 @@ var Telecomando = (function () {
     Log.add('err', 'Il telecomando ha mandato un tasto che non conosco: ' + tasto);
   }
 
+  /* ------------------------- la prova in bianco ------------------------- */
+
+  /* FAR VIVERE AL TELECOMANDO TUTTA LA VITA DI UNA STAMPA senza una
+   * macchina e senza un foglio: partenza, avanzamento, cambio penna in due
+   * passi, fine, errore, e il silenzio di quando il portatile non c'è.
+   * Serve a collaudarlo appena montato — dieci schermate, cinque tasti,
+   * quattro suoni e cinque LED si vedono in un minuto invece che in venti
+   * minuti di stampa vera, che oltretutto costano un foglio.
+   *
+   * La recita vive in `finta`, che ha la stessa forma di
+   * `State.data.stampa` ma NON è quella: la pagina non se ne accorge, e
+   * soprattutto i tasti che tornano indietro li consuma la prova stessa.
+   * Senza quello, una prova in bianco sarebbe l'unica cosa al mondo capace
+   * di far partire una stampa vera.
+   */
+  var finta = null, muto = false;
+  var passoProva = 0, daQuando = 0, timerProva = null;
+  var RITMO_PROVA = 200;
+
+  function vuoto() {
+    return { stato: 'fermo', nome: 'prova in bianco', percento: 0, rimanente: null,
+             penna: null, passo: null, macchina: 'Idle', azzerata: false };
+  }
+
+  /* Il copione. I due passi del cambio penna aspettano che tu prema — e
+     il tempo c'è lo stesso, lungo: una prova che si pianta aspettando un
+     dito è peggio di una che va avanti da sola. Quel «premi FATTO» nel
+     nome non è decorazione: il nome finisce nel registro del SLICER, che
+     è dove uno guarda se sul vetro non capisce cosa gli si chiede. */
+  var COPIONE = [
+    { nome: 'pronta, ma da azzerare', ms: 2500,
+      entra: function (f) { f.stato = 'fermo'; f.azzerata = false; } },
+    { nome: 'pronta', ms: 2500,
+      entra: function (f) { f.azzerata = true; } },
+    { nome: 'in stampa, penna nera', ms: 9000,
+      entra: function (f) {
+        f.stato = 'invio'; f.macchina = 'Run'; f.percento = 0; f.rimanente = null;
+        f.penna = { colore: '#000', nome: 'prova · tratto #000' };
+      },
+      durante: function (f, k) {
+        f.percento = Math.round(k * 48);
+        /* Il tempo compare solo dopo un po', come fa il Sender vero: sotto
+           le venti righe non c'è, e sul vetro al suo posto non c'è niente. */
+        if (k > 0.25) f.rimanente = Math.round((1 - k) * 9 * 60000);
+      } },
+    { nome: 'cambio penna — togli (premi FATTO)', ms: 40000,
+      entra: function (f) {
+        f.stato = 'cambio'; f.passo = 0; f.macchina = 'Idle';
+        f.penna = { colore: '#c0392b', nome: 'prova · tratto #c0392b' };
+      } },
+    { nome: 'cambio penna — monta (premi RIPRENDI)', ms: 40000,
+      entra: function (f) { f.passo = 1; } },
+    { nome: 'in stampa, penna rossa', ms: 9000,
+      entra: function (f) { f.stato = 'invio'; f.passo = null; f.macchina = 'Run'; },
+      durante: function (f, k) {
+        f.percento = Math.round(48 + k * 52);
+        f.rimanente = Math.round((1 - k) * 4 * 60000);
+      } },
+    { nome: 'finita', ms: 5000,
+      entra: function (f) { f.stato = 'fine'; f.percento = 100; f.rimanente = 0;
+                            f.macchina = 'Idle'; } },
+    { nome: 'errore', ms: 5000,
+      entra: function (f) { f.stato = 'errore'; } },
+    /* L'ultimo pezzo è il SILENZIO: si smette di chiamare, e dopo sei
+       secondi il telecomando deve dire da sé che il portatile non c'è.
+       È l'unica schermata che non si può provare mandando qualcosa. */
+    { nome: 'senza SLICER (silenzio)', ms: 9000,
+      entra: function () { muto = true; } }
+  ];
+
+  function provaAvanti(i) {
+    if (!finta) return;
+    if (i >= COPIONE.length) { prova(false); return; }
+    passoProva = i;
+    muto = false;
+    daQuando = Date.now();
+    if (COPIONE[i].entra) COPIONE[i].entra(finta);
+    Log.add('msg', 'Prova: ' + COPIONE[i].nome + '.');
+    firma = '';
+    manda();
+    battito();
+    segnala();
+  }
+
+  function provaTick() {
+    if (!finta) return;
+    var p = COPIONE[passoProva];
+    /* In pausa il copione sta fermo: se no premere PAUSA non si vedrebbe,
+       perché un attimo dopo la recita sarebbe andata avanti lo stesso. */
+    if (finta.stato === 'pausa') { daQuando += RITMO_PROVA; return; }
+    var k = Math.min(1, (Date.now() - daQuando) / p.ms);
+    if (p.durante) p.durante(finta, k);
+    if (k >= 1) provaAvanti(passoProva + 1);
+  }
+
+  function provaTasto(tasto) {
+    var f = finta;
+    if (!f) return;
+    if (tasto === 'pausa' && f.stato === 'invio') {
+      f.stato = 'pausa'; f.macchina = 'Idle';
+    } else if (tasto === 'riprendi' && f.stato === 'pausa') {
+      f.stato = 'invio'; f.macchina = 'Run';
+    } else if (f.stato === 'cambio' && (tasto === 'avanti' || tasto === 'riprendi')) {
+      provaAvanti(passoProva + 1);
+      return;
+    } else if (tasto === 'stop') {
+      Log.add('msg', 'Prova: lo stop è arrivato già confermato. Qui finisce la prova.');
+      prova(false);
+      return;
+    } else if (tasto === 'prova') {
+      Log.add('msg', 'Prova: il tasto PROVA, qui, non muove il servo.');
+    }
+    firma = '';
+  }
+
+  function prova(acceso) {
+    if (acceso === undefined) acceso = !finta;
+    if (acceso) {
+      if (finta) return true;
+      if (!indirizzo) {
+        Log.add('err', 'Per la prova serve l\'indirizzo del telecomando.');
+        return false;
+      }
+      if (window.Sender && Sender.inCorso && Sender.inCorso()) {
+        Log.add('err', 'C\'è una stampa in corso: la prova in bianco si fa a ' +
+                       'macchina ferma.');
+        return false;
+      }
+      finta = vuoto();
+      timerProva = setInterval(provaTick, RITMO_PROVA);
+      Log.add('msg', 'Prova in bianco del telecomando: recita una stampa intera. ' +
+                     'La macchina non si muove e i tasti non escono dalla prova.');
+      provaAvanti(0);
+    } else {
+      if (timerProva) clearInterval(timerProva);
+      timerProva = null; finta = null; muto = false; firma = '';
+      Log.add('msg', 'Prova del telecomando finita.');
+      manda();
+      battito();
+      segnala();
+    }
+    return true;
+  }
+
   /* --------------------------- lo stato per la UI --------------------------- */
 
   function segnala() {
     State.set('telecomando', {
       attivo: !!indirizzo,
       visto: visto,
-      batteria: batteria
+      batteria: batteria,
+      prova: !!finta
     });
   }
 
@@ -199,7 +351,7 @@ var Telecomando = (function () {
      mandarne uno per riga vorrebbe dire inondare una scheda che ha 32 kB di
      memoria. */
   function invita() {
-    var s = State.data.stampa.stato;
+    var s = (finta || State.data.stampa).stato;
     return s === 'invio' || s === 'pausa' || s === 'cambio';
   }
 
@@ -239,7 +391,8 @@ var Telecomando = (function () {
   }
 
   function stato() {
-    return { indirizzo: indirizzo, visto: visto, batteria: batteria };
+    return { indirizzo: indirizzo, visto: visto, batteria: batteria,
+             prova: !!finta };
   }
 
   function init() {
@@ -252,5 +405,6 @@ var Telecomando = (function () {
     State.on('azzerata', subito);
   }
 
-  return { init: init, dove: dove, stato: stato, manda: manda, premuto: premuto };
+  return { init: init, dove: dove, stato: stato, manda: manda, premuto: premuto,
+           prova: prova, inProva: function () { return !!finta; } };
 })();

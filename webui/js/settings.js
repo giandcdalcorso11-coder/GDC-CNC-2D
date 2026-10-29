@@ -448,6 +448,13 @@ var Settings = (function () {
       notaTele();
     }
 
+    /* La prova in bianco. Si accende solo con un indirizzo: senza, non c'è
+       nessuno a cui recitare. */
+    var pv = document.getElementById('btn-tele-prova');
+    if (pv && window.Telecomando) {
+      pv.addEventListener('click', function () { Telecomando.prova(); });
+    }
+
     mock.addEventListener('change', function () {
       State.set('mock', this.checked);
       Api.disconnect();
@@ -462,17 +469,25 @@ var Settings = (function () {
 
   function notaTele() {
     var p = document.getElementById('set-tele-stato');
-    if (!p) return;
+    var pv = document.getElementById('btn-tele-prova');
     var t = State.data.telecomando;
+    if (pv) {
+      pv.disabled = !t || !t.attivo;
+      pv.textContent = (t && t.prova) ? 'Ferma la prova' : 'Prova in bianco';
+      pv.classList.toggle('btn-primary', !!(t && t.prova));
+    }
+    if (!p) return;
     if (!t || !t.attivo) {
       p.textContent = 'Spento: senza indirizzo non si manda niente, e la ' +
                       'pagina funziona come ha sempre funzionato.';
       return;
     }
-    p.textContent = t.visto
+    p.textContent = (t.prova ? 'PROVA IN BIANCO in corso: il telecomando recita ' +
+                                'una stampa, la macchina non si muove. ' : '') +
+      (t.visto
       ? 'Collegato' + (t.batteria === null ? '.' : ', batteria al ' + t.batteria + '%.')
       : 'Non raggiungibile. La stampa non ne risente: il telecomando guarda e ' +
-        'comanda, non è sulla strada dei comandi.';
+        'comanda, non è sulla strada dei comandi.');
   }
 
   return { init: init, riempi: riempi, aggiorna: aggiorna };
