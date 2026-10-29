@@ -54,6 +54,57 @@ MKRIoTCarrier carrier;
 WiFiServer server(80);
 
 /* ===================================================================
+ * I TIPI, TUTTI QUI IN CIMA
+ *
+ * Non è gusto di ordine: l'IDE di Arduino genera da sé i prototipi di
+ * tutte le funzioni del file e li infila PRIMA della prima funzione. Un
+ * tipo dichiarato più in basso viene nominato da quei prototipi quando
+ * ancora non esiste, e il compilatore si ferma su righe che a guardarle
+ * sembrano giuste. Quindi: prima i tipi, poi tutto il resto.
+ * =================================================================== */
+
+struct Stato {
+  char  stato[10];      // fermo | invio | pausa | cambio | fine | errore
+  int   percento;       // 0..100, -1 = non c'è
+  long  rimanente;      // millisecondi, -1 = il Sender non l'ha ancora misurato
+  char  penna[10];      // "#rrggbb", vuoto = il livello non ha una tinta
+  char  nome[28];       // il nome del lavoro: serve solo al libro di bordo
+  int   passo;          // 0 o 1 nel cambio penna, -1 fuori
+  char  macchina[8];    // Idle | Run | Jog | Hold | Alarm
+  bool  azzerata;
+  char  data[26];       // la manda il SLICER: qui un orologio non c'è
+};
+
+Stato S;
+unsigned long ultimoMessaggio = 0;    // millis() dell'ultimo POST servito
+bool mai = true;                      // non è ancora arrivato niente
+
+/* Sei secondi di silenzio e lo schermo lo dice. Sono quindici battiti
+   mancati durante una stampa (il SLICER chiama ogni 400 ms) e tre a
+   riposo: abbastanza da non lampeggiare per un pacchetto perso. */
+const unsigned long SCADENZA = 6000;
+
+/* `NESSUNA` non è una schermata: vuol dire «quello che c'è sul vetro non
+   vale più, rifallo». Sta dentro all'elenco invece di essere un -1 buttato
+   lì perché un valore fuori dall'intervallo di un enum, in C++, è
+   ufficialmente non definito: funziona finché funziona. */
+enum Schermata { PRONTA, STAMPA, IN_PAUSA, PENNA1, PENNA2,
+                 STOP_ARMATO, STOP_TIENI, FINE, ERRORE, ATTESA, NESSUNA };
+
+enum Posto { ALTO, ALTO_SX, ALTO_DX, BASSO_SX, BASSO_DX, NESSUNO };
+
+struct Tasto { Posto dove; const char* parola; uint16_t colore; const char* manda; };
+const int MAX_TASTI = 2;
+
+struct Nota { int hz; int ms; };    // hz = 0: silenzio
+
+/* Da qui in giù cominciano le funzioni: sopra ci sono solo tipi e
+   variabili, e questa è la prima. I prototipi che l'IDE genera finiscono
+   proprio qui sopra, dove ormai i tipi esistono. */
+bool vivo() { return !mai && millis() - ultimoMessaggio < SCADENZA; }
+
+
+/* ===================================================================
  * I COLORI
  *
  * Gli stessi del banco di prova (`schermo/mock.html`), convertiti in
@@ -104,39 +155,9 @@ int alto(int k)                 { return 8 * k; }
 /* ===================================================================
  * QUELLO CHE ARRIVA DAL SLICER
  * =================================================================== */
-struct Stato {
-  char  stato[10];      // fermo | invio | pausa | cambio | fine | errore
-  int   percento;       // 0..100, -1 = non c'è
-  long  rimanente;      // millisecondi, -1 = il Sender non l'ha ancora misurato
-  char  penna[10];      // "#rrggbb", vuoto = il livello non ha una tinta
-  char  nome[28];       // il nome del lavoro: serve solo al libro di bordo
-  int   passo;          // 0 o 1 nel cambio penna, -1 fuori
-  char  macchina[8];    // Idle | Run | Jog | Hold | Alarm
-  bool  azzerata;
-  char  data[26];       // la manda il SLICER: qui un orologio non c'è
-};
-
-Stato S;
-unsigned long ultimoMessaggio = 0;    // millis() dell'ultimo POST servito
-bool mai = true;                      // non è ancora arrivato niente
-
-/* Sei secondi di silenzio e lo schermo lo dice. Sono quindici battiti
-   mancati durante una stampa (il SLICER chiama ogni 400 ms) e tre a
-   riposo: abbastanza da non lampeggiare per un pacchetto perso. */
-const unsigned long SCADENZA = 6000;
-
-bool vivo() { return !mai && millis() - ultimoMessaggio < SCADENZA; }
-
 /* ===================================================================
  * LE SCHERMATE
  * =================================================================== */
-/* `NESSUNA` non è una schermata: vuol dire «quello che c'è sul vetro non
-   vale più, rifallo». Sta dentro all'elenco invece di essere un -1 buttato
-   lì perché un valore fuori dall'intervallo di un enum, in C++, è
-   ufficialmente non definito: funziona finché funziona. */
-enum Schermata { PRONTA, STAMPA, IN_PAUSA, PENNA1, PENNA2,
-                 STOP_ARMATO, STOP_TIENI, FINE, ERRORE, ATTESA, NESSUNA };
-
 Schermata schermoOra = ATTESA;
 Schermata schermoDisegnato = NESSUNA;
 
@@ -178,8 +199,6 @@ Schermata quale() {
  * qui dentro 0 con 4 e 1 con 3: il 2 resta in alto comunque, perché
  * l'insieme delle posizioni è simmetrico.
  * =================================================================== */
-enum Posto { ALTO, ALTO_SX, ALTO_DX, BASSO_SX, BASSO_DX, NESSUNO };
-
 touchButtons padDi(Posto p) {
   switch (p) {
     case BASSO_SX: return TOUCH0;
@@ -194,9 +213,6 @@ touchButtons padDi(Posto p) {
    non ha etichetta e ha il LED spento: non per risparmiare, ma perché
    premerlo non farebbe niente, e un tasto che a volte non fa niente
    senza dirlo insegna a non fidarsi dei tasti. */
-struct Tasto { Posto dove; const char* parola; uint16_t colore; const char* manda; };
-const int MAX_TASTI = 2;
-
 int tastiDi(Schermata s, Tasto* out) {
   switch (s) {
     case STAMPA:
@@ -256,8 +272,6 @@ void manda(const char* t) { if (!daMandare[0]) strncpy(daMandare, t, sizeof(daMa
  * Se cade altrove, si sposta QUESTO numero e l'ottava lo segue.
  * =================================================================== */
 const int RISONANZA = 4000;
-
-struct Nota { int hz; int ms; };    // hz = 0: silenzio
 
 /* Generati dal banco di prova, che li fa anche sentire. */
 const Nota SUONO_PARTENZA[] = { {3520, 55}, {4186, 55}, {4699, 85} };
