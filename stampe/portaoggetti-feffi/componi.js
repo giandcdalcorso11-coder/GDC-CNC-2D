@@ -42,7 +42,14 @@ var dati = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 var stile = process.argv[3];
 var neri = [], grigi = [], extra = '';
 
-if (stile === 'isoipse') {
+if (stile === 'quota') {
+  var v = dati.quota, alt = 128, larg = alt * v.rapporto, x0 = 12, y0 = 10;
+  grigi.push(mappa(v.isoipse, x0, y0, alt));
+  neri.push(mappa(v.sagoma, x0, y0, alt));
+  var cx = (x0 + larg + 210) / 2 + 2;
+  neri.push(scritta('KIRA', cx, 106, 10));
+  grigi.push(scritta('PER FEFFI', cx, 118, 4.6));
+} else if (stile === 'isoipse') {
   var v = dati.tre_quarti, alt = 100, larg = alt * v.rapporto, x0 = 105 - larg / 2, y0 = 8;
   grigi.push(mappa(v.isoipse, x0, y0, alt));
   neri.push(mappa(v.sagoma, x0, y0, alt));

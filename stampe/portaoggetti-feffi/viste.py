@@ -165,6 +165,66 @@ SOGLIA_CHIARO = 0.80
 SOGLIA_SCURO = 0.52
 
 
+def profondita_quota(V, Vr, T, altezza_px, margine=2):
+    """Come S.profondita, ma oltre alla profondita' tiene la QUOTA vera (Z del
+    modello, non ruotato) del punto piu' vicino: le linee di livello a quota
+    costante sono le curve di una carta topografica, e a occhio ordinano il
+    rilievo molto meglio delle linee a profondita' costante, che in una vista
+    obliqua sono solo onde."""
+    u, v, d = Vr[:, 0], Vr[:, 2], Vr[:, 1]
+    u0, u1, v0, v1 = u.min(), u.max(), v.min(), v.max()
+    scala = (altezza_px - 2 * margine) / (v1 - v0)
+    W = int(round((u1 - u0) * scala)) + 2 * margine
+    H = altezza_px
+    a, b, c = T[:, 0], T[:, 1], T[:, 2]
+
+    def sette(q):
+        return np.concatenate([q[a], q[b], q[c], (q[a] + q[b]) / 2,
+                               (q[b] + q[c]) / 2, (q[c] + q[a]) / 2,
+                               (q[a] + q[b] + q[c]) / 3])
+    U, Vv, D, Z = sette(u), sette(v), sette(d), sette(V[:, 2])
+    ix = np.clip(((U - u0) * scala + margine).astype(np.int64), 0, W - 1)
+    iy = np.clip((H - 1 - ((Vv - v0) * scala + margine)).astype(np.int64), 0, H - 1)
+    cella = iy * W + ix
+    ordine = np.argsort(-D, kind='stable')          # dal piu' lontano al piu' vicino
+    prof = np.full(H * W, np.inf)
+    quota = np.full(H * W, np.nan)
+    prof[cella[ordine]] = D[ordine]                  # l'ultimo che scrive e' il piu' vicino
+    quota[cella[ordine]] = Z[ordine]
+    return prof.reshape(H, W), quota.reshape(H, W)
+
+
+def vista_quota(V, T, rz, rx, alt_px=620, passo_mm=3.0, sigma=4):
+    Vr = ruota(V, rz, rx)
+    P, Zq = profondita_quota(V, Vr, T, alt_px)
+    P[~np.isfinite(P)] = np.nan
+    P = S.mediana3(S.mediana3(P))
+    mask = S.riempi_buchi(np.isfinite(P))
+    Zq = np.where(np.isfinite(P), Zq, np.nan)
+    for _ in range(3):
+        Zq = S.mediana3(Zq)
+    Zq = np.where(mask, Zq, np.nan)
+    Zs = liscia(Zq, sigma)
+    Zs = np.where(mask, Zs, np.nan)
+    righe, colonne = np.nonzero(mask)
+    r0, r1, c0, c1 = righe.min(), righe.max(), colonne.min(), colonne.max()
+    k = 1.0 / (r1 - r0)
+
+    def norm(p, tol=0.0008):
+        return S.dirada([((x - c0) * k, (y - r0) * k) for x, y in p], tol)
+
+    sagoma = [q for q in (norm(p) for p in S.contorni(mask.astype(float), 0.5, salta_nan=False))
+              if len(q) > 1 and S.lunghezza(q) > 0.05]
+    iso = []
+    z0, z1 = np.nanmin(Zs), np.nanmax(Zs)
+    for liv in np.arange(np.ceil(z0 / passo_mm) * passo_mm, z1, passo_mm):
+        for p in S.contorni(Zs, liv):
+            q = norm(p)
+            if len(q) > 2 and S.lunghezza(q) > 0.10:
+                iso.append(q)
+    return {'rapporto': (c1 - c0) * k, 'sagoma': sagoma, 'isoipse': iso}
+
+
 def arrotonda(d):
     for k, v in d.items():
         if isinstance(v, list):
@@ -181,6 +241,7 @@ if __name__ == '__main__':
         'alto': lambda: vista(V, T, 0, 90, tratti=False),
         'tre_quarti': lambda: vista(V, T, -30, 45, alt_px=1400, tratti=True),
         'fianco': lambda: vista(V, T, 0, 0, tratti=False),
+        'quota': lambda: vista_quota(V, T, -50, 38, alt_px=640, passo_mm=3.0, sigma=5),
     }
     viste = {n: f() for n, f in richieste.items() if not solo or n in solo.split(',')}
     for n, v in viste.items():
