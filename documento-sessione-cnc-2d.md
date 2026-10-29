@@ -1,14 +1,14 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 59
-**Ultimo aggiornamento:** 2026-10-29 07:45
+**Versione:** 60
+**Ultimo aggiornamento:** 2026-10-29 14:40
 
 ## Regole di co-editing
 
-Questo documento è scritto da **due sessioni Claude Code in parallelo sullo stesso branch**: una sul fronte **meccanica/firmware**, una sul fronte **contenuti e serie social**. Per non perdere voci a vicenda:
+Questo documento è scritto da **tre sessioni Claude Code in parallelo**: una sul fronte **meccanica/firmware**, una sul fronte **contenuti e serie social**, e (dal 2026-10-29) una sul fronte **stampe: i disegni e i file SVG che l'utente manda in stampa** (magneti della lavagna d'allenamento, per ora). Ogni sessione può lavorare sul proprio branch: la regola vale comunque, perché le voci si fondono. Per non perdere voci a vicenda:
 
 1. **`git fetch` e rebase prima di scrivere, push subito dopo.** Non lasciare modifiche locali non pushate: la finestra di collisione è tutta lì.
-2. **Marca la voce di storico con il fronte di lavoro**, es. `### [2026-09-26 17:48] (meccanica) …`. Due sessioni diverse sono due voci diverse: la regola "una voce per sessione" non impone di fonderle.
+2. **Marca la voce di storico con il fronte di lavoro**, es. `### [2026-09-26 17:48] (meccanica) …`; il fronte della terza sessione è `(stampe)`. Due sessioni diverse sono due voci diverse: la regola "una voce per sessione" non impone di fonderle.
 3. **Le note dei singoli Step si appendono in fondo al proprio Step**, quindi non collidono mai finché le due sessioni lavorano su Step diversi.
 4. **Se la Versione va in conflitto**, chi risolve mette `max(A, B) + 1` e tiene **entrambe** le voci, ordinate per data decrescente. Mai scartarne una.
 5. Gli unici punti di contesa reali sono **le due righe di testata** e **la prima riga dopo `## Storico sessioni`**. Tutto il resto è partizionato per costruzione.
@@ -667,7 +667,46 @@ mano a mano che le misure arrivano):
 - [2026-10-28] **Il lato SLICER è fatto e collaudato** (`webui/js/telecomando.js`, 37 asserzioni contro un telecomando finto). Il messaggio: `POST /stato` con `{v, stato, nome, percento, rimanente, passo, macchina, azzerata, data}`, risposta `{tasto, batteria}`. Battito a **due velocità**: 400 ms con qualcosa in corso, 2 s a riposo — a riposo non c'è niente da raccontare, ma bisogna comunque accorgersi che qualcuno ha premuto. **Indirizzo vuoto = spento**, che è lo stato normale di chi non ce l'ha.
 - [2026-10-28] **Quello che manca:** il firmware (`Arduino_MKRIoTCarrier` + `WiFiNINA`), la corrispondenza **numero ↔ posizione** dei cinque pad (si vede premendoli: le posizioni nel mock sono giuste), e il **colore della penna** nel messaggio — il SLICER lo sa, è la tinta del livello, ma va portato fin dentro al G-code per sapere *quale* penna sta disegnando a metà programma.
 
+### Step 10 — Progetti da stampare: i magneti della lavagna d'allenamento
+
+**Stato:** in corso — **avviato 2026-10-29, solo impostazione.** Nessun file prodotto; si aspetta dall'utente la lista degli esercizi e le misure dei magneti.
+
+**Obiettivo:** un set di quadrati magnetici stampati, con scritti in modo bello e permanente i nomi degli esercizi, così che preparare l'allenamento del giorno si riduca ad **attaccare i magneti in ordine** sulla lavagna. Fronte **non legato alla macchina CNC**: è un uso del lavoro grafico a servizio dell'attività dell'utente (atleta di beach volley); è il fronte `(stampe)`, la terza sessione.
+
+**Decisioni progettuali:**
+- **Come si usa la lavagna** (dalla foto "Dare to Challenge"): la lavagna ha un blocco di righe, una per esercizio; a sinistra i **magneti grandi**, uno per esercizio, con il colore che dice il tipo; a destra, scritti a pennarello, i parametri. I **magneti piccoli** (etichette bianche) definiscono i parametri e sono quattro: **Intenzione, Fase, Rally, Score**.
+- **Il colore è il tipo di esercizio:** **verde = competizione**, **azzurro = ripetizione a obiettivo**, **arancione = costruzione**. Il testo di ogni magnete è il **nome dell'esercizio** (esempi visti: «Forza 4», «3», «7», «Out of 8», «In a row», «7-3»).
+- **Il flusso** è lo stesso dei progetti da stampare: **mockup per l'approvazione**, poi **un SVG per ciascun magnete** da mandare in stampa.
+- **Dimensioni e lista esercizi non sono ancora note:** arrivano dallo staff dell'utente in un file; fino ad allora niente disegno di dettaglio.
+
+**Criterio di completamento:** l'utente approva il mockup, riceve un SVG per ogni magnete (esercizi + parametri), li stampa e li usa sulla lavagna per un allenamento vero.
+
+**Note (cronologia dello step):**
+- [2026-10-29] Step aperto. Visto dalla foto della lavagna lo schema colori/parametri; mancano lista esercizi e misure dei magneti.
+
 ## Storico sessioni
+
+### [2026-10-29 14:40] (stampe) Si apre il terzo fronte: i magneti della lavagna d'allenamento
+
+**Riepilogo:** nasce la terza conversazione del progetto, dedicata ai **progetti da stampare**: il primo sono i **magneti colorati con i nomi degli esercizi** che lo staff dell'utente usa ogni giorno per comporre il programma d'allenamento sulla lavagna; per ora solo impostazione, letto il documento e scritto il messaggio per le altre due sessioni.
+
+**Cosa è stato fatto:**
+- Letto il documento (v59) e lo stato dei branch: la sessione `(stampe)` lavora sul branch `claude/quirky-bohr-u9ktwd`; esiste un altro branch di sessione, `claude/elegant-knuth-0396no`, con modifiche al telecomando (`schermo/`) non ancora nel documento.
+- Analizzata la foto della lavagna «Dare to Challenge»: colori dei magneti = tipo di esercizio, magneti piccoli = parametri (Intenzione, Fase, Rally, Score).
+- Aggiornate le regole di co-editing (tre sessioni invece di due) e aperto lo **Step 10**.
+- Scritto, per l'utente, il messaggio da incollare nelle altre due conversazioni.
+
+**Decisioni prese:**
+- Contesto: il fronte non c'entra con la macchina né con i contenuti social, e un terzo scrittore sul documento aumenta i punti di contesa.
+- Decisione: terzo fronte con etichetta `(stampe)` e Step 10 suo; stessi accorgimenti di co-editing (fetch/rebase prima di scrivere, voci per fronte, Versione = max + 1).
+- Alternative scartate: mettere i magneti sotto lo Step 7 (logo/identità) — è un lavoro con file, flusso e criterio propri.
+- Da rivedere se: i disegni dei magneti riusassero stabilmente il logo o la grafica del SLICER, e allora i due fronti andrebbero coordinati.
+
+**File consegnati/modificati:** `documento-sessione-cnc-2d.md` (v60: regole di co-editing, Step 10, questa voce).
+
+**Impatto su Vision/Pipeline:** Vision invariata. Pipeline: aggiunto Step 10; regole di co-editing aggiornate a tre sessioni.
+
+---
 
 ### [2026-10-29 07:45] (software+hardware) Quattro difetti trovati stampando sul serio, il lavoro che si salva, e la macchina che prende un telecomando
 
