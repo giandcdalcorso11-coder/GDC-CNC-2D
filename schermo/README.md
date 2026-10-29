@@ -47,28 +47,60 @@ nessuno la fissa.
 
 | Momento | Suono | Si ripete? |
 |---|---|---|
-| **cambio penna** | due colpi corti, staccati | **sì, ogni 20 s finché non premi** |
-| **fine stampa** | tre colpi corti di seguito | no |
-| **errore** | uno lungo | no |
+| **partenza** | tre note corte che salgono | no |
+| **cambio penna** | due colpi sulla nota più forte | **sì, ogni 20 s finché non premi** |
+| **fine stampa** | un motivetto: scende, risale, e l'ultima resta | no |
+| **errore** | uno lungo, sulla stessa nota del cambio penna | no |
 
-**Tre ritmi, non tre altezze** — e questo lo ha deciso lo schema. M1 è un
+**Due allarmi e due motivetti, e la differenza non è estetica.** Cambio penna
+e problema devono arrivare **dall'altra stanza**: stanno su **una nota sola**,
+quella dove il cicalino è più forte, e si distinguono per il **ritmo** — due
+colpi contro uno lungo. E' una differenza che regge anche quando il suono
+arriva attutito da una porta, mentre due altezze diverse, attutite, diventano
+la stessa cosa. Partenza e fine le senti da vicino (la partenza l'hai appena
+fatta partire tu), quindi possono permettersi delle note, che costano un po'
+di volume. La fine però **attacca sulla nota della risonanza**, così la prima
+cosa che senti arriva lontano anche se il resto è più piano.
+
+**Perché il volume non si può scegliere e l'altezza sì.** M1 è un
 **ABT-461-RC**, un trasduttore magnetico **a comando esterno**: dentro non ha
-un oscillatore, quindi non suona perché gli dai tensione, suona solo
-finché gli fai commutare il piedino (D7, che accende Q1, un 2N7002K, sul
-lato basso; il trasduttore sta sul 3V3 e R8 fra i due è uno zero ohm). E ha
-una **risonanza**: intorno ai 4 kHz grida, un'ottava sotto è un soffio.
-Quindi tre suoni che si distinguono per l'altezza sarebbero stati uno forte e
-due che non si sentono dall'altra stanza, che è esattamente il caso per cui
-esiste il cicalino. Si tiene **una sola frequenza**, quella dove il coso è
-più forte, e si cambia il **ritmo**: due colpi, tre colpi, uno lungo.
-*Supera i tre suoni scritti il 2026-10-28* («due note alte», «tre note che
-scendono», «tre note basse»), che erano scritti pensando a un cicalino con
-l'oscillatore dentro.
+un oscillatore, quindi non suona perché gli dai tensione — suona finché gli
+fai commutare il piedino (D7, che accende Q1, un 2N7002K, sul lato basso; il
+trasduttore sta sul 3V3 e R8 fra i due è uno zero ohm). E non ha volume: o
+commuta o non commuta. L'unica cosa che cambia quanto si sente è la
+**frequenza**, perché ha una **risonanza**: intorno ai 4 kHz grida, un'ottava
+sotto è un soffio. Per questo tutte le note stanno nella stessa ottava —
+**A7-D8, cioè 3,5-4,7 kHz**, l'ultima ottava di un pianoforte — e per questo
+gli allarmi non si muovono di lì.
 
-Tre disegni diversi, perché il punto è **capire cosa è successo senza
+*Supera i tre suoni scritti il 2026-10-28* («due note alte», «tre note che
+scendono», «tre note basse»): erano pensati per un cicalino con l'oscillatore
+dentro, dove l'altezza è gratis.
+
+**Nessuno dei quattro ha bisogno di un campo nuovo nel messaggio.** Sono
+quattro **cambi di `stato`**, e lo stato il POST lo porta già: fermo→invio
+suona la partenza, invio→cambio il cambio penna, →fine il motivetto,
+→errore quello lungo. Sono esattamente i cambi che `impronta()` considera
+urgenti e che quindi non aspettano il giro dopo — il suono arriva quando
+cambia la faccia del telecomando, che è la stessa cosa.
+
+**I 4 kHz sono da confermare a orecchio.** Che sia a comando esterno lo dice
+lo schema; la frequenza esatta della risonanza no, e una spazzata da 1 a 6 kHz
+col firmware la trova in dieci secondi. Se cade altrove, si sposta lì tutta
+l'ottava: è un numero solo, `RISONANZA`.
+
+**Si sentono in `mock.html`**, col pulsante accanto a ognuno. La prova li fa
+passare per un filtro centrato sulla risonanza invece di suonarli tutti allo
+stesso volume: una prova che li pareggia direbbe una bugia comoda, e la bugia
+si scoprirebbe in officina con un motivetto inudibile dall'altra stanza. C'è
+un interruttore per togliere il filtro e sentire la differenza. La pagina
+sputa anche la tabella `{hertz, millesimi}` già pronta per lo sketch, così
+non si ricopia a mano un suono scelto bene.
+
+Quattro disegni diversi, perché il punto è **capire cosa è successo senza
 guardare**. E uno solo si ripete: il cambio penna è l'unico in cui la macchina
 sta **aspettando te**, e un suono che squilla una volta sola la lascia ferma
-un'ora se in quel momento eri in un'altra stanza. Gli altri due raccontano una
+un'ora se in quel momento eri in un'altra stanza. Gli altri raccontano una
 cosa già successa: ripeterli sarebbe insistere su niente.
 
 ### La batteria
@@ -245,7 +277,7 @@ attorno a questa scheda:
 **Liberi restano solo A0 e A6**, sui due connettori Grove analogici. Sono
 quelli che servirebbero al partitore della batteria.
 
-### I due vincoli che comandano la grafica
+### I tre vincoli che comandano la grafica
 
 1. **Circa un decimo di millimetro per pixel.** Una riga a 24 px è alta tre
    millimetri. Nel tondo ci stanno un simbolo, un numero e due parole: non ci
@@ -259,6 +291,15 @@ quelli che servirebbero al partitore della batteria.
    fare — apposta. L'anello sul vetro vero sarà **seghettato**: senza
    antialiasing un arco spesso undici pixel è una scaletta, e a undici pixel
    di spessore si vede poco, ma si vede.
+3. **Il vetro è tondo, quindi lo spazio utile è un cerchio, non un
+   rettangolo.** Dentro c'è l'anello (raggio 101, spesso 11), quindi per le
+   parole restano i **93 pixel** di raggio più interni — circa 25 mm, meno
+   dei 33 del vetro. E ogni parola si posa per il suo **spigolo esterno**,
+   non per il punto da cui parte a scrivere: quello che va a sbattere
+   nell'anello è sempre un angolo, e mettendo sul raggio giusto il punto di
+   appoggio l'angolo finisce comunque di fuori. E' la correzione del
+   2026-10-29: cinque parole — RIPRENDI in cima, STOP e TIENI in basso a
+   destra — toccavano l'anello o la parola in mezzo al vetro.
 
 ---
 

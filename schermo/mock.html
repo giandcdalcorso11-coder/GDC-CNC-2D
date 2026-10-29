@@ -72,8 +72,12 @@ b.v { color: var(--text-dim); }
          box-shadow: 0 0 0 3px #11141a, 0 0 0 5px #2a313d; }
 .vera { width: 33mm; height: 33mm; }
 
+/* Le colonne hanno una larghezza FISSA: lasciata libera, il blocco di
+   codice generato qui sotto (una riga lunga un metro) allargava la colonna
+   fino a mandare tutto a capo. */
 .comandi { background: var(--bg-raised); border: 1px solid var(--line);
-           border-radius: 9px; padding: 14px; min-width: 268px; }
+           border-radius: 9px; padding: 14px;
+           flex: 0 0 286px; min-width: 0; }
 .comandi h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
               color: var(--text-dim); margin: 0 0 10px; font-weight: 600; }
 .schermate { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
@@ -84,6 +88,22 @@ button.sch:hover { background: #2b3340; }
 button.sch.on { background: #2f6fc4; border-color: #2f6fc4; }
 label.riga { display: block; font-size: 12px; color: var(--text-dim); margin-top: 8px; }
 input[type=range] { width: 100%; }
+/* I suoni. Il pulsante e' tondo e grande come un dito perche' questa
+   pagina si usa per sentire, non per leggere. */
+.suono { display: grid; grid-template-columns: 26px 1fr; gap: 9px;
+         align-items: center; margin-bottom: 9px; }
+button.play { width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+              background: #2f6fc4; border: 0; color: #fff; font: inherit;
+              font-size: 11px; line-height: 1; padding: 0; }
+button.play:hover { background: #3f80d8; }
+button.play.suonando { background: var(--ok); }
+.suono .nome { font-size: 12px; color: var(--text-dim); }
+.suono .nome i { color: var(--text-mute); font-style: normal; }
+.spartito { display: block; margin-top: 2px; }
+pre.codice { margin: 10px 0 0; padding: 9px 10px; background: #0e1116; max-width: 100%;
+             border: 1px solid var(--line); border-radius: 6px; overflow-x: auto;
+             font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+             color: var(--text-dim); }
 .spiega { margin-top: 12px; font-size: 12px; color: var(--text-mute);
           border-top: 1px solid var(--line); padding-top: 10px; }
 .spiega b { color: var(--text-dim); font-weight: 600; }
@@ -121,6 +141,17 @@ input[type=range] { width: 100%; }
       <input type="range" id="bat" min="0" max="100" value="78">
     </label>
     <div class="spiega" id="spiega"></div>
+  </div>
+
+  <div class="comandi">
+    <h2>I quattro suoni</h2>
+    <div id="suoni"></div>
+    <label class="riga" style="margin-top:12px">
+      <input type="checkbox" id="fedele" checked>
+      come lo sente il cicalino vero
+    </label>
+    <div class="spiega" id="spiega-suoni"></div>
+    <pre class="codice" id="codice"></pre>
   </div>
 </div>
 
@@ -182,7 +213,7 @@ function pallino(colore, y) {
    tastierino della pagina. Un simbolo già visto non si impara due volte.
    `dy` è quanto la punta sta sopra il piano. */
 function penna(dy, colore) {
-  return '<g transform="translate(120,86) scale(1.7)">' +
+  return '<g transform="translate(120,96) scale(1.7)">' +
          '<g transform="translate(0,' + dy + ')">' +
          '<rect x="-3.5" y="-11" width="7" height="11" fill="none" stroke="' + colore +
          '" stroke-width="1.5" stroke-linejoin="round"/>' +
@@ -291,15 +322,39 @@ var POSTI = {
   altoSx:  -150     /* TOUCH1 */
 };
 
+/* QUANTO SPAZIO C'E' DAVVERO.
+ * L'anello sta a 101 ed è spesso 11, quindi il bordo interno è a 95,5: da
+ * lì in dentro è vetro libero, e `R_TESTI` tiene due millimetri e mezzo di
+ * aria perché una parola che SFIORA l'anello si legge già male.
+ *
+ * E si posa per lo SPIGOLO, non per il punto d'appoggio. E' la correzione
+ * che serviva: su un vetro tondo quello che va a sbattere nell'anello non è
+ * mai il punto da cui parte la parola, è un suo angolo — l'angolo ALTO per
+ * le etichette di sopra, quello BASSO per quelle di sotto. Mettendo sul
+ * raggio giusto il punto d'appoggio, l'angolo finiva comunque di fuori, ed
+ * è esattamente quello che si vedeva con RIPRENDI in cima.
+ */
+var R_TESTI = 93;
+var LAB = 14;             // corpo delle etichette
+var CAP = 10;             // quanto è alta una maiuscola a quel corpo
+
 function etichetta(posto, parola, colore) {
-  var a = POSTI[posto] * Math.PI / 180;
-  var r = 86;
-  var x = 120 + r * Math.cos(a), y = 120 + r * Math.sin(a) + 5;
-  /* In alto e in basso il testo è centrato; ai lati si appoggia al bordo. */
-  var anc = Math.abs(Math.cos(a)) < 0.35 ? 'middle' : (Math.cos(a) > 0 ? 'end' : 'start');
+  var x, y, anc;
+  if (posto === 'alto') {
+    /* In cima lo spigolo è doppio (destro e sinistro) e la parola è
+       centrata: scesa a 46 ci sta comodamente anche RIPRENDI, che è la più
+       lunga, e resta sopra a qualunque simbolo. */
+    x = 120; y = 46; anc = 'middle';
+  } else {
+    var a = POSTI[posto] * Math.PI / 180;
+    var dx = R_TESTI * Math.cos(a), dy = R_TESTI * Math.sin(a);
+    x = 120 + dx;
+    anc = dx > 0 ? 'end' : 'start';
+    y = 120 + dy + (dy < 0 ? CAP : 0);
+  }
   return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + anc +
          '" fill="' + colore + '" font-family="system-ui, sans-serif" ' +
-         'font-size="15" font-weight="700">' + parola + '</text>';
+         'font-size="' + LAB + '" font-weight="700">' + parola + '</text>';
 }
 
 /* ================================================================== *
@@ -355,8 +410,8 @@ var SCHERMATE = [
       return anello(st.pc, '#4c9aff') +
         testo(st.pc + '%', 140, 54, '#e6eaf0', 700) +
         (st.pc > 6
-          ? testo('~' + Math.max(1, Math.round((100 - st.pc) * 0.38)) + ' min', 170, 17, '#97a1b0', 400)
-          : testo('misuro il ritmo', 170, 15, '#6b7686', 400)) +
+          ? testo('~' + Math.max(1, Math.round((100 - st.pc) * 0.38)) + ' min', 173, 17, '#97a1b0', 400)
+          : testo('misuro', 173, 15, '#6b7686', 400)) +
         pallino('#1a1a1a', 78);
     }
   },
@@ -370,8 +425,8 @@ var SCHERMATE = [
       return anello(st.pc, '#e0a63a') +
         '<g fill="#e0a63a"><rect x="105" y="98" width="10" height="30" rx="2"/>' +
         '<rect x="125" y="98" width="10" height="30" rx="2"/></g>' +
-        testo('IN PAUSA', 158, 23, '#e6eaf0') +
-        testo(st.pc + '%', 180, 15, '#6b7686', 400);
+        testo('IN PAUSA', 146, 23, '#e6eaf0') +
+        testo(st.pc + '%', 172, 15, '#6b7686', 400);
     }
   },
   {
@@ -409,7 +464,7 @@ var SCHERMATE = [
       return anello(st.pc, '#e0a63a') +
         penna(0, '#43b581') +
         testo('MONTA', 140, 24, '#e6eaf0') +
-        pallino('#c0392b', 166);
+        pallino('#c0392b', 172);
     }
   },
   {
@@ -425,12 +480,16 @@ var SCHERMATE = [
     tasti: { alto: ['ANNULLA', '#43b581'], bassoDx: ['TIENI', '#e05252'] },
     disegna: function (st) {
       return anello(st.pc, '#e05252') +
-        '<g transform="translate(120,96)">' +
+        '<g transform="translate(120,92)">' +
         '<circle cx="0" cy="0" r="24" fill="none" stroke="#e05252" stroke-width="5"/>' +
         '<line x1="-17" y1="-17" x2="17" y2="17" stroke="#e05252" stroke-width="5" ' +
         'stroke-linecap="round"/></g>' +
-        testo('FERMARE?', 148, 25, '#e6eaf0') +
-        testo('tieni premuto', 172, 15, '#97a1b0', 400);
+        /* «TIENI» e «tieni premuto» erano la stessa parola due volte a due
+           centimetri di distanza, e la seconda finiva addosso alla prima.
+           Si toglie quella sul vetro: l'istruzione sta bene dove sta il
+           dito. Stesso motivo per cui qui sotto, alla prova della penna,
+           c'è un tasto solo. */
+        testo('FERMARE?', 146, 23, '#e6eaf0');
     }
   },
   {
@@ -446,7 +505,7 @@ var SCHERMATE = [
          sul vetro vorrebbe dire scriverla due volte a due centimetri di
          distanza. Lo spicchio che cresce e' tutto quello che serve sapere. */
       return anello(100, '#e05252') +
-        spicchio(st.pc, 120, 120, 48, '#e05252');
+        spicchio(st.pc, 120, 110, 46, '#e05252');
     }
   },
   {
@@ -459,7 +518,7 @@ var SCHERMATE = [
         '<path d="M98 118 L113 134 L143 100" fill="none" stroke="#43b581" ' +
         'stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>' +
         testo('FATTO', 168, 25, '#e6eaf0') +
-        testo('18 min', 190, 15, '#6b7686', 400);
+        testo('18 min', 186, 15, '#6b7686', 400);
     }
   },
   {
@@ -498,6 +557,192 @@ var SCHERMATE = [
     }
   }
 ];
+
+/* ================================================================== *
+ * I SUONI
+ *
+ * Il cicalino M1 è un ABT-461-RC: un trasduttore magnetico A COMANDO
+ * ESTERNO. Non ha l'oscillatore dentro, quindi non suona perché gli dai
+ * tensione — suona finché gli fai commutare il piedino. E non ha volume:
+ * o commuta o non commuta. L'unica cosa che cambia quanto si sente è la
+ * FREQUENZA, perché ha una risonanza: intorno ai 4 kHz grida, lontano da
+ * lì è un soffio.
+ *
+ * Per questo la prova qui dentro passa per un filtro centrato sulla
+ * risonanza invece di suonare tutte le note allo stesso volume. Una prova
+ * che le pareggia direbbe una bugia comoda, e la bugia si scoprirebbe in
+ * officina: un motivetto scelto qui e poi inudibile dall'altra stanza.
+ * L'interruttore sotto le toglie il filtro, per sentire la differenza.
+ *
+ * DUE ALLARMI E DUE MOTIVETTI, e la differenza non è estetica.
+ * Cambio penna e problema devono arrivare DALL'ALTRA STANZA: stanno su una
+ * nota sola, quella della risonanza, dove il coso è più forte, e si
+ * distinguono per il ritmo — due colpi contro uno lungo.
+ * Partenza e fine le senti da vicino (la partenza l'hai appena fatta
+ * partire tu), quindi possono permettersi delle note, che costano un po' di
+ * volume. Restano comunque nell'ottava in cui il trasduttore parla — A7-D8,
+ * cioè 3,5-4,7 kHz, l'ultima ottava di un pianoforte — e la fine ATTACCA
+ * sulla nota più forte, così la prima cosa che senti arriva lontano anche
+ * se il resto è più piano.
+ * ================================================================== */
+
+var RISONANZA = 4000;     // dove l'ABT-461 è più forte, da confermare a orecchio
+var LARGHEZZA = 2.5;      // quanto è stretta la campana (Q del filtro)
+
+/* L'ultima ottava: sopra il D8 si perde troppo, sotto il G7 pure. */
+var NOTE = { G7: 3136, A7: 3520, B7: 3951, C8: 4186, D8: 4699 };
+
+var SUONI = [
+  {
+    k: 'partenza', nome: 'Partenza', quando: 'quando parte la stampa',
+    note: [['A7', 55], ['C8', 55], ['D8', 85]],
+    perche: 'Tre note che <b>salgono</b>, corte. Non deve essere bello: deve ' +
+            'dire che il via è arrivato fin lì, cioè che il telecomando e la ' +
+            'macchina si stanno parlando. Sei a mezzo metro, quindi può ' +
+            'permettersi delle note.'
+  },
+  {
+    k: 'penna', nome: 'Cambio penna', quando: 'ogni 20 s finch\u00e9 non premi',
+    note: [['C8', 70], ['-', 70], ['C8', 70]],
+    perche: '<b>Due colpi sulla nota più forte</b>, e l\'unico che si ripete. ' +
+            'Qui la macchina sta <b>aspettando te</b>: se suona una volta ' +
+            'sola e in quel momento eri di là, resta ferma un\'ora. Una nota ' +
+            'sola e non un motivetto perché questo deve attraversare un muro.'
+  },
+  {
+    k: 'fine', nome: 'Finita', quando: 'a stampa finita',
+    note: [['C8', 80], ['A7', 80], ['C8', 80], ['D8', 95], ['-', 55], ['D8', 300]],
+    perche: 'Il motivetto vero: scende e torna su, e l\'ultima resta. ' +
+            '<b>Attacca sulla nota della risonanza</b> — la più forte — così ' +
+            'la prima cosa che senti arriva anche da lontano, e il resto è la ' +
+            'frase. Non si ripete: racconta una cosa già successa.'
+  },
+  {
+    k: 'errore', nome: 'Problema', quando: 'quando si ferma per un errore',
+    note: [['C8', 450]],
+    perche: '<b>Uno lungo</b>, sulla stessa nota del cambio penna. Due colpi ' +
+            'contro uno lungo si distinguono senza pensarci, anche mezzi ' +
+            'sentiti: è la differenza che regge quando il suono arriva ' +
+            'attutito, mentre due altezze diverse, attutite, diventano la ' +
+            'stessa cosa.'
+  }
+];
+
+/* Quanto esce forte una nota, da 0 a 1: è la campana di un passa-banda del
+   second'ordine, la stessa curva che il filtro qui sotto applica davvero.
+   Serve anche al disegno: un blocchetto più pallido è una nota che sulla
+   macchina si sentirà meno. */
+function resa(f) {
+  var d = f / RISONANZA - RISONANZA / f;
+  return 1 / Math.sqrt(1 + LARGHEZZA * LARGHEZZA * d * d);
+}
+
+var audio = null;
+
+function suona(s, bottone) {
+  audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === 'suspended') audio.resume();
+  var t = audio.currentTime + 0.03, fedele = document.getElementById('fedele').checked;
+
+  for (var i = 0; i < s.note.length; i++) {
+    var ms = s.note[i][1] / 1000;
+    if (s.note[i][0] !== '-') {
+      var o = audio.createOscillator();
+      /* Onda quadra, non sinusoide: un piedino che commuta è un'onda quadra,
+         e il timbro stridulo che ne esce è metà di come suona il coso vero. */
+      o.type = 'square';
+      o.frequency.value = NOTE[s.note[i][0]];
+      var g = audio.createGain();
+      /* Attacco e stacco in due millesimi: non per addolcire — il piedino
+         stacca di netto — ma perché un taglio esatto nel browser fa un
+         "toc" che sulla scheda non c'è. */
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.09, t + 0.002);
+      g.gain.setValueAtTime(0.09, t + ms - 0.002);
+      g.gain.linearRampToValueAtTime(0, t + ms);
+      var ultimo = g;
+      if (fedele) {
+        var f = audio.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.value = RISONANZA;
+        f.Q.value = LARGHEZZA;
+        g.connect(f);
+        ultimo = f;
+      }
+      o.connect(g);
+      ultimo.connect(audio.destination);
+      o.start(t);
+      o.stop(t + ms);
+    }
+    t += ms;
+  }
+
+  if (bottone) {
+    bottone.classList.add('suonando');
+    var durata = s.note.reduce(function (a, n) { return a + n[1]; }, 0);
+    setTimeout(function () { bottone.classList.remove('suonando'); }, durata + 40);
+  }
+}
+
+/* IL DISEGNO DEL SUONO: il tempo in orizzontale, l'altezza in verticale, e
+   il pallore dice quanto esce forte. Serve a vedere a colpo d'occhio che i
+   due allarmi sono una riga sola e i due motivetti si muovono. */
+function spartito(s) {
+  var W = 196, H = 26, tot = s.note.reduce(function (a, n) { return a + n[1]; }, 0);
+  var lo = 3000, hi = 4900, x = 0, out = '';
+  for (var i = 0; i < s.note.length; i++) {
+    var w = s.note[i][1] / tot * W;
+    if (s.note[i][0] !== '-') {
+      var f = NOTE[s.note[i][0]];
+      var y = H - 5 - (f - lo) / (hi - lo) * (H - 11);
+      out += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' +
+             Math.max(2, w - 1.5).toFixed(1) + '" height="5" rx="2" fill="#4c9aff" ' +
+             'opacity="' + resa(f).toFixed(2) + '"/>';
+    }
+    x += w;
+  }
+  return '<svg class="spartito" width="' + W + '" height="' + H + '" ' +
+         'viewBox="0 0 ' + W + ' ' + H + '">' + out + '</svg>';
+}
+
+/* Il pezzo di sketch, già scritto: una tabella di coppie {hertz, millesimi},
+   zero hertz = silenzio. Copiarla a mano dal disegno sarebbe il modo più
+   sciocco di sbagliare un suono scelto bene. */
+function codice() {
+  var out = '/* generato da mock.html — frequenza in Hz, durata in ms, 0 = pausa */\n';
+  for (var i = 0; i < SUONI.length; i++) {
+    var s = SUONI[i];
+    out += 'const uint16_t SUONO_' + s.k.toUpperCase() + '[][2] = { ' +
+      s.note.map(function (n) {
+        return '{' + (n[0] === '-' ? 0 : NOTE[n[0]]) + ',' + n[1] + '}';
+      }).join(', ') + ' };\n';
+  }
+  return out;
+}
+
+function montaSuoni() {
+  var box = document.getElementById('suoni'), html = '';
+  for (var i = 0; i < SUONI.length; i++) {
+    html += '<div class="suono"><button class="play" data-s="' + i + '">▶</button>' +
+            '<div><div class="nome">' + SUONI[i].nome +
+            ' <i>· ' + SUONI[i].quando + '</i></div>' + spartito(SUONI[i]) + '</div></div>';
+  }
+  box.innerHTML = html;
+  var b = box.querySelectorAll('button.play');
+  for (var j = 0; j < b.length; j++) {
+    b[j].addEventListener('click', function () {
+      var s = SUONI[+this.getAttribute('data-s')];
+      suona(s, this);
+      document.getElementById('spiega-suoni').innerHTML = s.perche;
+    });
+  }
+  document.getElementById('codice').textContent = codice();
+  document.getElementById('spiega-suoni').innerHTML =
+    'Quattro suoni. <b>I due allarmi</b> (cambio penna, problema) stanno ' +
+    'sulla nota della risonanza e si distinguono per il ritmo, perché devono ' +
+    'passare un muro. <b>I due motivetti</b> (partenza, fine) li senti da ' +
+    'vicino. Premi per sentirli.';
+}
 
 /* ================================================================== *
  * IL DISCO: vetro al centro, tasti e LED intorno
@@ -547,7 +792,7 @@ function schermo(s) {
      è occupato da una domanda a cui si deve rispondere adesso — una pila
      rossa accanto a «FERMARE?» è rumore nel momento sbagliato. */
   if (stato.bat < 20 && s.k !== 'pronta' && s.k.indexOf('stop') !== 0) {
-    out += pila(stato.bat, 120, 206, 11, '#e05252');
+    out += pila(stato.bat, 120, 202, 11, '#e05252');
   }
   for (var p in s.tasti) out += etichetta(p, s.tasti[p][0], s.tasti[p][1]);
   return out;
@@ -597,6 +842,7 @@ document.getElementById('bat').addEventListener('input', function () {
 });
 
 render();
+montaSuoni();
 </script>
 </body>
 </html>
