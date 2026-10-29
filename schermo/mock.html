@@ -271,10 +271,12 @@ function testo(s, y, px, colore, peso) {
 /* ================================================================== *
  * I CINQUE TASTI
  *
- * Stanno fisicamente intorno al vetro, a settantadue gradi uno dall'altro.
- * Le posizioni qui sono quelle; i NUMERI invece no: quale pad sia lo 00 e
- * quale il 04 si vede premendoli sulla scheda vera. Il firmware mappa
- * numero → posizione una volta sola, e la grafica non se ne accorge.
+ * Stanno intorno al vetro a SESSANTA gradi uno dall'altro, non a settantadue:
+ * sono cinque posti su sei, e quello che manca è in basso, dove sul retro
+ * c'è la fessura della SD. Le posizioni E i numeri vengono dagli schemi
+ * Altium del carrier, letti il 2026-10-29, non dal premerli: in alto c'è il
+ * pad 2, a sinistra l'1 e lo 0 scendendo, a destra il 3 e il 4. Accanto a
+ * ogni pad c'è il suo LED, e l'ordine è lo stesso: LED n al pad n.
  *
  * L'etichetta sta DENTRO al vetro ma dalla parte del suo tasto, e compare
  * solo quando quel tasto fa qualcosa: cinque etichette fisse intorno a un
@@ -282,11 +284,11 @@ function testo(s, y, px, colore, peso) {
  * ================================================================== */
 
 var POSTI = {
-  alto:     -90,
-  altoDx:   -18,
-  bassoDx:   54,
-  bassoSx:  126,
-  altoSx:   198
+  alto:     -90,    /* TOUCH2 */
+  altoDx:   -30,    /* TOUCH3 */
+  bassoDx:   30,    /* TOUCH4 */
+  bassoSx:  150,    /* TOUCH0 */
+  altoSx:  -150     /* TOUCH1 */
 };
 
 function etichetta(posto, parola, colore) {

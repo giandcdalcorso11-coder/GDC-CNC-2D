@@ -16,7 +16,14 @@ montato. Si disegna lì e si porta sul vetro quando è giusta.
 **MKR IoT Carrier Rev2** (ABX00073) con dentro un **MKR WiFi 1010**. Era già
 in casa, quindi non c'è niente da comprare e niente da saldare.
 
-Numeri dal **datasheet ABX00073**, letto il 2026-10-28:
+Numeri dal **datasheet ABX00073**, letto il 2026-10-28. Piedini, posizioni
+e componenti dagli **schemi Altium del carrier** (`MKR`, `DISPLAY`,
+`CAPACITIVE_SENSOR`, `BUZZER` e il `.PcbDoc`), letti il **2026-10-29** con
+`leggi-schemi.py`, che sta qui accanto perché una tabella copiata a mano, fra
+un mese, non si distingue da una tabella indovinata: da lì viene tutto quello
+che qui sotto è detto con un numero di componente (M1, Q1, R33, DL4…), e da lì vengono le tre cose che hanno cambiato il progetto —
+**i numeri dei pad**, **come suona il cicalino** e **che cos'è la
+retroilluminazione**.
 
 | Cosa | Perché conta qui |
 |---|---|
@@ -40,9 +47,23 @@ nessuno la fissa.
 
 | Momento | Suono | Si ripete? |
 |---|---|---|
-| **cambio penna** | due note alte, corte | **sì, ogni 20 s finché non premi** |
-| **fine stampa** | tre note che scendono | no |
-| **errore** | tre note basse | no |
+| **cambio penna** | due colpi corti, staccati | **sì, ogni 20 s finché non premi** |
+| **fine stampa** | tre colpi corti di seguito | no |
+| **errore** | uno lungo | no |
+
+**Tre ritmi, non tre altezze** — e questo lo ha deciso lo schema. M1 è un
+**ABT-461-RC**, un trasduttore magnetico **a comando esterno**: dentro non ha
+un oscillatore, quindi non suona perché gli dai tensione, suona solo
+finché gli fai commutare il piedino (D7, che accende Q1, un 2N7002K, sul
+lato basso; il trasduttore sta sul 3V3 e R8 fra i due è uno zero ohm). E ha
+una **risonanza**: intorno ai 4 kHz grida, un'ottava sotto è un soffio.
+Quindi tre suoni che si distinguono per l'altezza sarebbero stati uno forte e
+due che non si sentono dall'altra stanza, che è esattamente il caso per cui
+esiste il cicalino. Si tiene **una sola frequenza**, quella dove il coso è
+più forte, e si cambia il **ritmo**: due colpi, tre colpi, uno lungo.
+*Supera i tre suoni scritti il 2026-10-28* («due note alte», «tre note che
+scendono», «tre note basse»), che erano scritti pensando a un cicalino con
+l'oscillatore dentro.
 
 Tre disegni diversi, perché il punto è **capire cosa è successo senza
 guardare**. E uno solo si ripete: il cambio penna è l'unico in cui la macchina
@@ -58,7 +79,11 @@ molto meno.
 
 **Come si legge la carica.** Il pinout dice che il 18650 va **diritto al VBAT
 del MKR** (cavetto fra i due connettori) e che sul carrier non passa da nessun
-partitore verso un piedino analogico. Quindi, in ordine di costo:
+partitore verso un piedino analogico. **Il rame lo conferma**: nella netlist
+del PcbDoc la rete `VBAT` tocca soltanto il contatto del portabatteria (J8) e
+il connettore del cavetto (J11) — **nello zoccolo del MKR non entra**. Non è
+una svista da aggirare con un piedino nascosto: la tensione della batteria non
+arriva da nessuna parte dove un ADC la possa vedere. Quindi, in ordine di costo:
 
 1. **`analogRead(ADC_BATTERY)`** — se la variante del MKR WiFi 1010 definisce
    quel nome, c'è già un partitore sulla scheda e il lavoro è finito. **Una
@@ -85,7 +110,15 @@ compare accanto allo stato della macchina, **solo quando il telecomando c'è**.
 ### Perché il vetro deve dormire
 
 **D3 è `DISP_BL`**, la retroilluminazione, ed è un piedino comandabile: il
-vetro si spegne davvero, non si limita a diventare nero. Quindi **si spegne da
+vetro si spegne davvero, non si limita a diventare nero. Lo schema dice
+*quanto* davvero: dietro a quel piedino c'è un **alimentatore a innalzamento**
+(U3/U6, con l'induttanza L6 da 10 µH, alimentato dal 3V3) che tira la fila di
+LED del pannello. Due conseguenze buone: spegnere **ferma il convertitore**,
+quindi risparmia corrente vera e non solo luce; e un'onda quadra su D3 lo
+**attenua**, quindi «è acceso ma piano» esiste e costa meno di «acceso». Una
+terza, da sapere: R19 tiene quel piedino **a terra a riposo**, quindi il vetro
+all'accensione è **nero finché non è il firmware ad alzarlo** — uno schermo
+spento appena dato corrente non è un guasto. Quindi **si spegne da
 solo quando non c'è niente in corso** e si riaccende quando succede qualcosa —
 o quando lo prendi in mano, perché la IMU LSM6DSOX ha la funzione di risveglio
 e qui ha un motivo per esistere invece di essere un ninnolo. Durante una
@@ -200,14 +233,14 @@ attorno a questa scheda:
 
 | | |
 |---|---|
-| A1, A2, A3, A4, A5 | i cinque tasti (TOUCH2, 3, 4, 5, 1 — **in quest'ordine**) |
+| A1, A2, A3, A4, A5 | i cinque tasti, nell'ordine `TOUCH1`, `2`, `3`, `4`, **`0`** — l'ultimo non è un errore di battitura, vedi «I cinque tasti» |
 | D0 | SD_CS · D1, D2 i due relè |
 | **D3** | **DISP_BL**, la retroilluminazione |
 | D4, D5 | LED_CKI, LED_SDI — i cinque RGB sono APA102, clock e dati |
 | D6 | interrupt di APDS e IMU · **D7 il cicalino** |
 | D8, D9, D10 | SPI, condivisa fra display e SD |
 | D11, D12 | I²C dei sensori |
-| D13, D14, RESET | DISP_CS, DISP_DC, DISP_RST |
+| D13, D14 | DISP_CS, DISP_DC · **RESET**: il reset del pannello è attaccato (R9) alla linea di reset del MKR, quindi non è un piedino a parte — il vetro si azzera solo azzerando la scheda |
 
 **Liberi restano solo A0 e A6**, sui due connettori Grove analogici. Sono
 quelli che servirebbero al partitore della batteria.
@@ -304,9 +337,37 @@ Due cose da non sbagliare:
 
 ## I cinque tasti
 
-Le **posizioni** sono fisse (a 72° uno dall'altro); i **numeri** no — quale
-pad sia lo 00 e quale il 04 si vede premendoli sulla scheda. Il firmware mappa
-numero → posizione una volta sola.
+**Posizioni e numeri vengono dagli schemi**, non dal premerli. I cinque pad
+stanno a **60° uno dall'altro**, non a 72: sono cinque posti su sei, e il
+sesto — quello in basso — è vuoto. E il numero di ciascuno sta nel rame:
+
+| pad | dove sta | piedino | resistenza | LED |
+|---|---|---|---|---|
+| **TOUCH0** | in basso a sinistra | **A5** (`PA06`) | R33 | DL4 |
+| **TOUCH1** | in alto a sinistra | **A1** (`PB02`) | R34 | DL5 |
+| **TOUCH2** | **in alto** | **A2** (`PB03`) | R35 | DL6 |
+| **TOUCH3** | in alto a destra | **A3** (`PA04`) | R36 | DL7 |
+| **TOUCH4** | in basso a destra | **A4** (`PA05`) | R37 | DL8 |
+
+Dal pad al piedino c'è solo una resistenza da **zero ohm** (R33…R37 sono
+ponticelli) e **nessun condensatore**: niente fra il dito e l'ADC, niente da
+tarare. I numeri qui sono quelli della libreria, `TOUCH0`…`TOUCH4`; il
+datasheet chiama gli stessi pad `TOUCH1`…`TOUCH5`, cioè uno in più ciascuno,
+ed è il tipo di scarto che si paga con un tasto che fa la cosa del vicino.
+
+**I LED seguono i pad, senza conversioni.** Nella catena APA102 il dato entra
+in DL4 e passa di LED in LED fino a DL8, e sul rame DL4 sta accanto a TOUCH0,
+DL5 accanto a TOUCH1, e così via: **il LED n è il LED del pad n**. Girano sul
+**5 V**, che sul carrier è generato a bordo: la luminosità costa più di
+quanto sembri, quindi accesi **piano** — non per eleganza.
+
+**Una cosa sola resta da confermare con la scheda in mano: destra e
+sinistra.** I pad sono rame sulla faccia del vetro (sull'altra ci stanno
+zoccolo del MKR, portabatteria, SD e relè: tutto il resto), e guardare quella
+faccia **specchia la sinistra con la destra**. Quello che non cambia,
+perché l'insieme delle cinque posizioni è simmetrico: **TOUCH2 è il pad in
+alto**, 0 e 4 sono i due in basso, e in basso in mezzo non c'è niente. Se
+guardandolo risultasse specchiato si scambia 0 con 4 e 1 con 3, e basta.
 
 | Schermata | Tasti vivi |
 |---|---|
@@ -327,9 +388,10 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
 
 ## Quello che manca
 
-1. **La corrispondenza numero ↔ posizione dei pad**, che si vede premendoli
-   sulla scheda: le posizioni nel mock sono giuste, i numeri li mappa il
-   firmware una volta sola.
+1. ~~La corrispondenza numero ↔ posizione dei pad~~ — **chiusa il 2026-10-29**
+   dagli schemi Altium: la tabella è in «I cinque tasti», e il mock disegna
+   quelle posizioni. Resta solo da guardare la scheda per sapere da che parte
+   si guarda (destra/sinistra), che è un'occhiata, non una prova.
 2. **Il colore della penna corrente** nel messaggio: il SLICER lo sa (è la
    tinta del livello), va solo spedito.
 3. ~~Il lato SLICER~~ — **fatto il 2026-10-28**, `webui/js/telecomando.js`.
