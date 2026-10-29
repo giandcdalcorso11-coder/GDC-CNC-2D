@@ -427,6 +427,74 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
 
 ---
 
+## Il firmware
+
+Sta in `telecomando/telecomando.ino`, un file solo. È **scritto ma non
+provato sulla scheda**: da dentro la sessione non si compila —
+`downloads.arduino.cc` è bloccato come lo era `docs.arduino.cc`, quindi niente
+`arduino-cli` e niente core SAMD. Quello che si è potuto fare è **togliere di
+mezzo gli errori che non c'entrano con la scheda**:
+
+- l'API è quella **vera**, letta dai sorgenti della libreria presi da GitHub
+  (`arduino-libraries/Arduino_MKRIoTCarrier` 2.1.0), non ricordata;
+- lo sketch **compila pulito** (`-Wall -Wextra`, zero avvisi) contro delle
+  intestazioni finte che dichiarano quello che la libreria espone: non prova
+  che funzioni, prova che non ci sono refusi, nomi sbagliati o funzioni usate
+  prima di esistere;
+- la **geometria del vetro è verificata leggendo il sorgente**: uno script
+  ricava le parole di ogni schermata e le etichette dei tasti, rifà il conto
+  con le misure del font di Adafruit_GFX e chiede che ognuna stia nel cerchio
+  libero e non ne tocchi un'altra. Ha già trovato un difetto — in pausa la
+  parola grossa arrivava addosso a STOP.
+
+### Come si carica
+
+1. **`arduino_secrets.h`**: la tua rete. Dev'essere la stessa del portatile, e
+   a **2,4 GHz** — il MKR WiFi 1010 i 5 GHz non li fa.
+2. **Gestore librerie:** *Arduino MKRIoTCarrier* (2.0.0 o successiva), che si
+   tira dietro tutto il resto, e *WiFiNINA* se non c'è già.
+3. **Scheda:** Arduino MKR WiFi 1010. Carica.
+4. All'accensione il vetro scrive il proprio **indirizzo IP**: quello va
+   copiato nelle impostazioni del SLICER. Senza, il SLICER non sa a chi
+   parlare. Lo stesso indirizzo resta scritto sulla schermata «in attesa»,
+   che è quella che vedi quando il portatile non c'è — cioè proprio quando
+   lo devi copiare.
+
+### Le tre cose che restano da tarare sulla scheda vera
+
+| Cosa | Come | Dove si cambia |
+|---|---|---|
+| **La risonanza del cicalino** | una spazzata da 1 a 6 kHz: si sente dove grida | `RISONANZA`, un numero solo — l'ottava dei suoni lo segue |
+| **Il partitore della batteria** | misura la 18650 col tester e confronta col grezzo che lo sketch stampa sul monitor seriale all'avvio | `K_PARTITORE` |
+| **Destra e sinistra dei pad** | un'occhiata alla scheda | `padDi()`: si scambia 0 con 4 e 1 con 3, il 2 resta in alto comunque |
+
+### Tre cose che lo schema ha cambiato nel codice
+
+- **`carrier.begin()` torna `false` se un sensore qualsiasi non risponde** —
+  qualità dell'aria, pressione, luce. Al telecomando i sensori non servono:
+  un telecomando che non parte per via del sensore di qualità dell'aria
+  sarebbe una sciocchezza. Si guarda il valore, si scrive sul seriale e si
+  tira dritto.
+- **Il «preflight» del CORS non è una riga.** Prima di un POST con corpo JSON
+  il browser manda un `OPTIONS` per chiedere il permesso, e se non gli si
+  risponde **il POST non parte nemmeno**. Senza, il telecomando sembra morto
+  pur essendo acceso e collegato.
+- **Lo stop in due tempi collassava in uno.** Il dito che arma la domanda è
+  ancora sul pad, quindi il secondo tempo cominciava a contare nello stesso
+  istante del primo: «tocca e tieni» invece di «tocca, poi tieni», cioè
+  esattamente la sicurezza che si voleva. Adesso aspetta il rilascio.
+
+### Quello che si vedrà e che non si può sapere da qui
+
+Il font di Adafruit_GFX è a **larghezza fissa, 6 × 8 px per unità di corpo**:
+più largo di un font da schermo. Le parole sono state **accorciate** per
+questo — «PAUSA» invece di «IN PAUSA» — e non per ripensamento. Sul vetro
+vero saranno più squadrate che nel banco di prova, e l'anello sarà
+**seghettato**: senza antialiasing un arco spesso undici pixel è una scaletta.
+A undici pixel si vede poco, ma si vede.
+
+---
+
 ## Quello che manca
 
 1. ~~La corrispondenza numero ↔ posizione dei pad~~ — **chiusa il 2026-10-29**
@@ -477,8 +545,9 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
      cento messaggi in più per stampa, per dire una cosa che il battito
      racconta comunque due decimi dopo. Trovato dal collaudo, che contava le
      chiamate.
-4. **Il firmware**: `Arduino_MKRIoTCarrier` per vetro, tasti e LED;
-   `WiFiNINA` per la rete.
+4. ~~Il firmware~~ — **scritto il 2026-10-29**, `telecomando/telecomando.ino`:
+   vedi «Il firmware» qui sopra. Resta da **compilarlo e caricarlo**, che è
+   l'unica cosa che da dentro la sessione non si può fare.
 5. **La grafica va confermata sul vetro vero.** Finché non c'è, `mock.html` è
    il meglio che si possa fare, ma non è la stessa cosa.
 
