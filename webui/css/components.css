@@ -1347,6 +1347,32 @@ code {
   white-space: nowrap;
 }
 
+/* IL PALLINO DELLA TINTA. Il colore con cui quel livello e' disegnato, cioe'
+   la penna che va montata per stamparlo. Il contorno chiaro non e'
+   decorazione: la tinta piu' comune e' il nero, e un disco nero su fondo
+   scuro non e' un pallino, e' niente. Lo stesso segno sta sul vetro del
+   telecomando, per lo stesso motivo. */
+.tinta {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: -1px;
+  box-shadow: 0 0 0 1px var(--text-mute);
+}
+
+/* La riga che apre il secondo passo del cambio penna: e' la risposta alla
+   sola domanda che uno si fa aprendo quella finestra, quindi sta in cima e
+   si vede prima del testo. */
+.quale-penna {
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+}
+
 /* L'etichetta delle modifiche. Accesa quando le modifiche si vedono, spenta
    quando si sta guardando l'originale: la stessa etichetta dice tutt'e due le
    cose, perche' sono due stati della stessa domanda. */

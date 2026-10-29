@@ -329,7 +329,7 @@ quel POST riporta indietro il tasto premuto**. Un canale, due versi, nessuna
 seconda connessione, e il telecomando non comincia mai lui una conversazione.
 
 ```
-POST /stato    { stato, percento, rimanente, colore, passo }
+POST /stato    { stato, percento, rimanente, penna, passo }
   → 200        { tasto: "riprendi", batteria: 78 }
 ```
 
@@ -433,8 +433,20 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
    dagli schemi Altium: la tabella è in «I cinque tasti», e il mock disegna
    quelle posizioni. Resta solo da guardare la scheda per sapere da che parte
    si guarda (destra/sinistra), che è un'occhiata, non una prova.
-2. **Il colore della penna corrente** nel messaggio: il SLICER lo sa (è la
-   tinta del livello), va solo spedito.
+2. ~~Il colore della penna corrente nel messaggio~~ — **fatto il 2026-10-29**.
+   Non è bastato spedirlo: il colore stava solo nella pagina, e un programma
+   salvato e riaperto un altro giorno non se lo portava dietro. Adesso viaggia
+   **dentro al G-code**, in un commento `;PENNA <colore> <nome del livello>`
+   che il generatore scrive all'inizio di ogni livello e che il Sender legge
+   come legge già `;PAUSA`. È scritto **prima** della pausa, non dopo: al
+   cambio penna il Sender si ferma sul segno e non legge più niente, quindi un
+   colore scritto dopo arriverebbe solo alla ripresa — cioè quando non serve
+   più. Scritto prima, al momento in cui si chiede «quale monto?» la risposta
+   è già arrivata. Si vede in tre posti: il pallino nell'elenco dei livelli,
+   la riga in cima al secondo passo del cambio penna, e il campo `penna` nel
+   messaggio. Un livello disegnato a mano nell'editor non ha tinta: lì il
+   colore è `null` e non si mostra niente, che è meglio di un nero inventato
+   — vorrebbe dire «monta la penna nera». `colore-test.js`, 22 asserzioni.
 3. ~~Il lato SLICER~~ — **fatto il 2026-10-28**, `webui/js/telecomando.js`.
    Indirizzo nelle impostazioni (vuoto = spento), `POST /stato` col suo
    ritmo, pila in alto solo quando il telecomando ha risposto, e i tasti che
@@ -445,11 +457,14 @@ tasto che a volte non fa niente senza dirlo insegna a non fidarsi dei tasti.
 
    ```
    POST /stato
-   { v:1, stato, nome, percento, rimanente, passo, macchina, azzerata, data }
+   { v:1, stato, nome, percento, rimanente, penna, passo, macchina,
+     azzerata, data }
      → 200  { tasto, batteria }
    ```
 
    `tasto` vale `pausa`, `riprendi`, `stop`, `avanti`, `prova`, o niente.
+   `penna` è `{colore, nome}` oppure null, e al cambio penna è già quella
+   **nuova** — è la risposta alla sola domanda che ci si fa in quel momento.
    `passo` è 0 o 1 durante il cambio penna, altrimenti null. `rimanente` è in
    millisecondi e **null finché il Sender non l'ha misurato**.
 

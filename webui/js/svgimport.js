@@ -510,6 +510,7 @@ var SvgImport = (function () {
   }
 
   return { parse: parse, parseForme: parseForme, toSheet: toSheet, toRect: toRect, fitRect: fitRect,
+           esadecimale: colore,
            ritaglia: ritaglia, senzaDoppioni: senzaDoppioni,
            percentuali: percentuali, simplify: simplify, bbox: bbox,
            dist: dist, scartate: function () { return scarti; } };

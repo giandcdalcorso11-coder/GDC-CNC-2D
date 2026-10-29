@@ -39,10 +39,28 @@ var Sender = (function () {
      file scritto a mano con «; PAUSA» funziona lo stesso. */
   var RE_PAUSA = /^\s*;\s*PAUSA\s*$/i;
 
+  /* QUALE PENNA È MONTATA. Stessa storia della pausa: un commento che
+     scrive il generatore (SEGNO_PENNA, in gcode.js) e che qui si riconosce
+     per forma invece che per costante importata. La differenza è che
+     questo porta un dato, quindi la sentinella se lo porta dietro: colore e
+     nome separati da un carattere nullo, che in un nome non può esserci.
+     Non è una riga di G-code e non parte mai, come la pausa.
+     IL COLORE DEVE ESSERE UN COLORE («#rgb» o un trattino), e non è
+     pignoleria: l'intestazione dei nostri file contiene già una riga
+     «; penna alzata Z-18.33, abbassata Z-21.27», che con una forma larga
+     verrebbe letta come un cambio penna di colore «alzata». */
+  var RE_PENNA = /^\s*;\s*PENNA\s+(#[0-9a-f]{3,8}|-)\s*(.*?)\s*$/i;
+  var PENNA = '\u0000penna:';
+
   var righe = [];      // il programma, ripulito
   var i = 0;           // prossima riga da affidare ad Api
   var fatte = 0;       // righe confermate dalla macchina
   var stato = 'fermo'; // fermo | invio | pausa | cambio | fine | errore
+  /* La penna montata adesso: {colore, nome}, o null finché il programma non
+     lo dice. Al cambio penna è già quella NUOVA — vedi SEGNO_PENNA in
+     gcode.js, che la scrive prima della pausa apposta: è la risposta alla
+     domanda «quale monto?», che è l'unica che si fa in quel momento. */
+  var penna = null;
   var t0 = 0;
   var nome = '';
 
@@ -71,6 +89,11 @@ var Sender = (function () {
         out.push(PAUSA);
         continue;
       }
+      var mp = RE_PENNA.exec(l);
+      if (mp) {
+        out.push(PENNA + mp[1] + '\u0000' + mp[2]);
+        continue;
+      }
       var p = l.indexOf(';');
       if (p >= 0) l = l.slice(0, p);
       l = l.trim();
@@ -89,7 +112,7 @@ var Sender = (function () {
       Log.add('err', 'Il programma non contiene nessun comando.');
       return false;
     }
-    i = 0; fatte = 0; t0 = Date.now();
+    i = 0; fatte = 0; t0 = Date.now(); penna = null;
     altezzaUsata = State.data.altezzaContatto;
     nome = etichetta || 'programma';
     stato = 'invio';
@@ -104,6 +127,18 @@ var Sender = (function () {
   function alimenta() {
     while (stato === 'invio' && i < righe.length && Api.inCoda() < SCORTA) {
       var riga = righe[i++];
+      if (riga.indexOf(PENNA) === 0) {
+        /* Conta come riga fatta, per lo stesso motivo del segno di pausa:
+           sta dentro `righe`, e se non si contasse l'avanzamento non
+           arriverebbe mai a cento. */
+        fatte++;
+        var d = riga.slice(PENNA.length).split('\u0000');
+        penna = { colore: d[0] === '-' ? null : d[0], nome: d[1] || '' };
+        Log.add('msg', 'Penna: ' + (penna.nome || penna.colore || '?') + '.');
+        aggiorna();
+        continue;
+      }
+
       if (riga === PAUSA) {
         /* Il segno conta come riga fatta: se no l'avanzamento non arriverebbe
            mai a cento, e la percentuale mentirebbe di poco ma per sempre. */
@@ -300,7 +335,8 @@ var Sender = (function () {
       fatte: fatte,
       totale: righe.length,
       percento: percento(),
-      rimanente: rimanente()
+      rimanente: rimanente(),
+      penna: penna
     });
   }
 
@@ -313,6 +349,7 @@ var Sender = (function () {
     riprendiCambio: riprendiCambio,
     inCorso: inCorso, prepara: prepara, durata: durata,
     stato: function () { return stato; },
+    penna: function () { return penna; },
     /* Serve a chi deve decidere se chiedere la rimisurazione: senza una
        quota di partenza non c'è nessuna differenza da calcolare. */
     altezzaUsata: function () { return altezzaUsata; },

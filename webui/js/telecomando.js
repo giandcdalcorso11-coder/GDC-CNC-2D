@@ -69,6 +69,12 @@ var Telecomando = (function () {
          abbastanza, e null deve restare: una stima su dieci righe è un numero
          inventato, e sul vetro del telecomando al suo posto non c'è niente. */
       rimanente: s.rimanente,
+      /* Il colore della penna: il telecomando lo disegna come un pallino,
+         perché su tre centimetri di vetro un pallino si vede e la parola
+         «nero» no. Può essere null — un livello disegnato a mano non ha
+         tinta — e allora sul vetro non c'è nessun pallino: meglio di uno
+         nero inventato, che vorrebbe dire «monta la penna nera». */
+      penna: s.penna || null,
       passo: (window.Popup && Popup.passoPenna) ? Popup.passoPenna() : null,
       macchina: State.data.machine,
       azzerata: !!State.data.azzerata,
@@ -84,7 +90,13 @@ var Telecomando = (function () {
      dire una cosa che il battito racconta comunque fra due decimi di
      secondo. Qui dentro c'è quello che cambia la FACCIA del telecomando —
      lo stato, il passo del cambio penna, la macchina — e quelli sì che non
-     possono aspettare. */
+     possono aspettare.
+     E non ci sta nemmeno la PENNA, che pure cambia la faccia: cambia solo
+     all'inizio di un livello, e il livello che chiede una penna diversa
+     comincia subito dopo una pausa — cioè insieme a un cambio di `stato`,
+     che è già qui dentro e porta con sé anche il colore nuovo. Metterla
+     anche qui vorrebbe dire un messaggio in più per dire la stessa cosa un
+     decimo di secondo prima. */
   function impronta(m) {
     return [m.stato, m.passo, m.macchina, m.azzerata].join('|');
   }

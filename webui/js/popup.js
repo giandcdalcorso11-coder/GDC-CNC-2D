@@ -168,6 +168,12 @@ var Popup = (function () {
     ];
   }
 
+  /* Il nome di un livello arriva dal nome di un file: può contenere di
+     tutto, e qui diventa HTML. */
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   /* ------------------------- il cambio penna -------------------------- */
 
   /* DUE PASSI, e in mezzo ai due il servo si muove.
@@ -236,7 +242,24 @@ var Popup = (function () {
         sezioni: { posizione: true, homing: false, assi: false, penna: false },
         testo: function () {
           var z = quotaContatto();
-          return 'Il servo è fermo alla <b>quota di contatto</b> del programma, ' +
+          /* QUALE PENNA, prima di tutto il resto. È la sola domanda che uno
+             si fa aprendo questa finestra, e fino a oggi la risposta era
+             nella sua testa: si guardava l'elenco dei livelli e si contava.
+             Adesso la porta il programma — vedi SEGNO_PENNA in gcode.js —
+             quindi vale anche per un file salvato e riaperto fra una
+             settimana, quando quell'elenco non c'è più. */
+          var p = Sender.penna();
+          /* Il nome viene dal nome del file, quindi da fuori: passa da esc()
+             prima di diventare HTML. Il colore no — quello il Sender lo
+             accetta solo se è un «#rgb», vedi RE_PENNA. */
+          return (p
+            ? '<p class="quale-penna">Adesso va montata: ' +
+              (p.colore
+                 ? '<span class="tinta" style="background:' + p.colore + '"></span> '
+                 : '') +
+              '<b>' + esc(p.nome || p.colore || 'la prossima penna') + '</b></p>'
+            : '') +
+            'Il servo è fermo alla <b>quota di contatto</b> del programma, ' +
                  'Z' + (z === null ? '—' : z.toFixed(2)) + ': <b>non si muove più ' +
                  'da sola</b>.<br><br>' +
                  'Infila la penna nuova nei morsetti finché la <b>punta tocca il ' +

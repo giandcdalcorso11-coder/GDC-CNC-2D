@@ -22,6 +22,19 @@ var Gcode = (function () {
      scritto a mano, qui si emette sempre nella forma stretta. */
   var SEGNO_PAUSA = ';PAUSA';
 
+  /* LA RIGA CHE DICE QUALE PENNA. Come quella della pausa è un commento, e
+     per lo stesso motivo: il file resta eseguibile da chiunque, che la
+     ignora. La legge il Sender, che da lì sa qual è la penna montata in
+     ogni momento — un dato che altrimenti esiste solo nella pagina e non
+     sopravvive a un file salvato e riaperto un altro giorno.
+     Viene PRIMA della pausa, non dopo: al cambio penna il Sender si ferma
+     sul segno di pausa e non legge più niente, quindi un colore scritto
+     dopo arriverebbe solo alla ripresa, cioè quando non serve più. Scritto
+     prima, al momento della domanda «quale monto?» la risposta è già lì.
+     Forma: «;PENNA <colore> <nome del livello>», e il colore è un trattino
+     quando il livello non ne ha uno — disegnato a mano, non importato. */
+  var SEGNO_PENNA = ';PENNA';
+
   /* Zeri in coda tolti: "93.000" diventa "93". Non si perde niente — un passo
      del motore vale 0,0295 mm, quindi il millesimo è già tre volte più fine di
      quanto la macchina sappia fare. */
@@ -44,6 +57,13 @@ var Gcode = (function () {
        lascerebbe comunque una macchia. */
     var pausaA = {};
     (opt.pause || []).forEach(function (k) { pausaA[k] = true; });
+    var penneA = {};
+    (opt.penne || []).forEach(function (p) {
+      /* Niente «;» e niente a capo nel nome: finirebbero per troncare la
+         riga o per farne due, e il nome lo scrive chi carica il file. */
+      penneA[p.i] = (p.colore || '-') + ' ' +
+                    String(p.nome || '').replace(/[;\r\n]+/g, ' ').trim();
+    });
 
     /* Il programma deve stare nella flash dell'ESP32, e dopo FluidNC e la
        WebUI restano ~64 kB. Si recupera sfruttando la modalità del G-code,
@@ -108,6 +128,8 @@ var Gcode = (function () {
 
     for (var i = 0; i < polys.length; i++) {
       var p = polys[i];
+
+      if (penneA[i]) L.push(SEGNO_PENNA + ' ' + penneA[i]);
 
       if (pausaA[i]) {
         L.push(SEGNO_PAUSA);

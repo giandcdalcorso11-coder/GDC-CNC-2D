@@ -535,9 +535,37 @@ var Artwork = (function () {
     refit();
   }
 
+  /* IL COLORE DI UN LIVELLO è la tinta delle sue forme, non un dato a parte.
+     Un livello nasce da una tinta — è così che l'importazione divide i
+     file — quindi il colore c'è già e tenerne una copia vorrebbe dire
+     averne due che a un certo punto non coincidono più.
+     Si contano le tinte invece di prendere la prima perché taglia-e-incolla
+     fra livelli può averne portata dentro un'altra: in quel caso il colore
+     del livello è quello della maggioranza, che è anche la penna con cui
+     quel livello si stampa.
+     Un livello disegnato a mano nell'editor non ha nessuna tinta, e allora
+     non ha colore: null, e chi lo mostra non mostra niente. Meglio di un
+     nero inventato, che sul telecomando vorrebbe dire «monta la penna
+     nera». */
+  function tintaDi(l) {
+    if (!l || !l.forme || !l.forme.length) return null;
+    var conta = {}, best = null;
+    for (var i = 0; i < l.forme.length; i++) {
+      var t = l.forme[i].tinta;
+      if (!t) continue;
+      conta[t] = (conta[t] || 0) + 1;
+      if (!best || conta[t] > conta[best]) best = t;
+    }
+    if (!best) return null;
+    /* La chiave è «t:» o «p:» più il colore, vedi perTinta(). */
+    return SvgImport.esadecimale(best.replace(/^[tp]:/, ''));
+  }
+
+  function coloreLivello(id) { return tintaDi(trova(id)); }
+
   function elenco() {
     return livelli.map(function (l, i) {
-      return { id: l.id, nome: l.nome, visibile: l.visibile,
+      return { id: l.id, nome: l.nome, visibile: l.visibile, colore: tintaDi(l),
                cambioPenna: l.cambioPenna, attivo: l.cambioPenna && i > 0,
                primo: i === 0,
                tratti: l.art.length,
@@ -1094,9 +1122,17 @@ var Artwork = (function () {
              '" title="' + (preso ? 'Toglilo dalla selezione' : 'Scegli questo livello') +
              '">' + (preso ? SEGNI.spunta : SEGNI.quadro) + '</button>' +
 
+             (function (c) {
+                return c
+                  ? '<span class="tinta" style="background:' + esc(c) +
+                    '" title="Penna ' + esc(c) + '"></span>'
+                  : '';
+             })(tintaDi(l)) +
+
              '<button type="button" class="liv-nome" data-nome="' + l.id +
              '" title="' + esc(l.nome) + ' — ' + l.art.length +
-             ' tratti. Doppio clic: riquadro di selezione sul foglio">' +
+             ' tratti' + (tintaDi(l) ? ', penna ' + esc(tintaDi(l)) : '') +
+             '. Doppio clic: riquadro di selezione sul foglio">' +
              esc(l.nome) + '</button>' +
 
              (l.origine
@@ -1323,10 +1359,16 @@ var Artwork = (function () {
     /* Il percorso riordinato diventa quello mostrato: l'anteprima deve far
        vedere quello che la macchina farà davvero, non quello che avrebbe
        fatto prima del riordino. */
-    var art = [], di = [], auto = [];
+    var art = [], di = [], auto = [], penne = [];
     gruppi.forEach(function (g, i) {
       var l = g.id ? trova(g.id) : null;
       if (i > 0 && l && l.cambioPenna) auto.push(art.length);
+      /* Dove comincia ogni livello, con che penna. Serve al generatore, che
+         lo scrive nel file, e da lì al Sender, che mentre stampa sa sempre
+         quale penna è montata — e al cambio penna sa quale mostrare. */
+      if (l && g.polys.length) {
+        penne.push({ i: art.length, colore: tintaDi(l), nome: l.nome });
+      }
       g.polys.forEach(function (p) { art.push(p); di.push(g.id); });
     });
 
@@ -1386,6 +1428,7 @@ var Artwork = (function () {
     ultima = {
       machine: machine,
       auto: auto,
+      penne: penne,
       opt: {
         penUp: contatto + alzata,
         penDown: contatto,
@@ -1418,6 +1461,7 @@ var Artwork = (function () {
     }).sort(function (a, b) { return a - b; });
 
     opt.pause = tutte;
+    opt.penne = ultima.penne;
     prep = Gcode.build(ultima.machine, opt);
     showStats(ultima.r, ultima.ms, tutte.length);
     /* Il pulsante del cambio penna si accende solo quando un programma c'è:
@@ -1609,7 +1653,8 @@ var Artwork = (function () {
     percentuali: percentuali,
 
     scalaMm: scalaMm,
-    livelli: elenco, seleziona: seleziona, sceltoId: sceltoId, quale: quale,
+    livelli: elenco, coloreLivello: coloreLivello,
+    seleziona: seleziona, sceltoId: sceltoId, quale: quale,
     deseleziona: deseleziona, scelti: scelti, segnaOrigine: segnaOrigine,
     principale: principale, daFoglio: daFoglio, sfondoPer: sfondoPer,
     commutaOrigine: commutaOrigine,
