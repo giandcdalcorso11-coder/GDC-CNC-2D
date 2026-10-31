@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 62
-**Ultimo aggiornamento:** 2026-10-29 16:20
+**Versione:** 63
+**Ultimo aggiornamento:** 2026-10-29 18:20
 
 ## Regole di co-editing
 
@@ -692,8 +692,37 @@ mano a mano che le misure arrivano):
 
 **Note (cronologia dello step):**
 - [2026-10-29] Step aperto. Visto dalla foto della lavagna lo schema colori/parametri; mancano lista esercizi e misure dei magneti.
+- [2026-10-29] **Primo progetto vero: il biglietto A5 per il cliente Feffi** (portaoggetti husky «Kira», da `.3mf`). Da un modello 3D a un SVG a due penne (nero + grigio) da mettere nella scatola. Provati tre stili; è stato scelto e rifinito dall'utente quello a **linee di livello**, e battezzato **«Rilievo»** (vedi `stampe/README.md`). I magneti della lavagna restano in attesa di lista esercizi e misure.
 
 ## Storico sessioni
+
+### [2026-10-29 18:20] (stampe) Il biglietto per Feffi, e lo stile «Rilievo»
+
+**Riepilogo:** primo progetto da stampare consegnato — un biglietto A5 per il cliente Feffi con il suo portaoggetti husky «Kira» disegnato a linee di livello in due penne — e lo stile viene battezzato **«Rilievo»** per ripeterlo in fretta sui prossimi oggetti.
+
+**Cosa è stato fatto:**
+- Ricevuto il `.3mf` del portaoggetti. Letto il modello (mesh e anteprime), generate tre bozze A5: tratteggio, isoipse, tecnico.
+- Rifatto lo stile a linee di livello, dopo la richiesta di renderlo meno caotico: le linee seguono la **quota vera del modello** (una ogni 3 mm), non la profondità dalla camera. Vista dal lato del muso, testi «KIRA» e «PER FEFFI».
+- L'utente ha approvato e ritoccato il disegno nello SLICER; il file definitivo è salvato.
+
+**Bug: le prime isoipse erano un groviglio**
+
+**Sintomo:** muso illeggibile, linee a macchia su pelo e zampe, puntini sul fondo della ciotola.
+**Causa:** le isoipse erano a profondità costante dalla camera, che in una vista obliqua diventano onde, e il pelo del modello è geometria vera ma sotto il tratto della penna.
+**Fix applicato:** curve a quota costante (Z del modello) su mappa levigata; verificato sull'anteprima e approvato dall'utente.
+
+**Decisioni prese:**
+- Contesto: l'utente vuole poter dire «fai come quello» su oggetti futuri.
+- Decisione: lo stile si chiama **«Rilievo»**: sagoma nera, curve di livello ogni 3 mm in grigio, font a tratto singolo, un solo SVG con due colori (= due livelli nello SLICER). Ricetta in `stampe/README.md`.
+- Decisione: **nei prossimi progetti non si inserisce il logo GDC**, lo aggiunge l'utente dallo SLICER.
+- Alternative scartate: tratteggio con ombre (bello ma più rumoroso sul pelo), vista tecnica alto+fianco (sagoma con buchi).
+- Da rivedere se: un oggetto con superfici molto piatte o molto fini non rende con passo 3 mm.
+
+**File consegnati/modificati:** `stampe/README.md`; `stampe/portaoggetti-feffi/` (`viste.py`, `componi.js`, `viste.json`, `bozze/`, `finale/biglietto-feffi-kira.cnc2d.svg`); `.gitignore` (`__pycache__/`); questo documento (v63). I file di stampa stanno sul branch `claude/quirky-bohr-u9ktwd`.
+
+**Impatto su Vision/Pipeline:** Vision invariata. Step 10 aggiornato con la nota di oggi.
+
+---
 
 ### [2026-10-29 15:03] (meccanica/firmware) Gli schemi del carrier chiudono tre domande, i suoni diventano quattro, e il colore della penna entra nel G-code
 
