@@ -288,9 +288,14 @@ quelli che servirebbero al partitore della batteria.
    vuole 115: **non esiste un buffer**. Si disegna direttamente sul vetro, per
    forme, una regione alla volta. Tutto quello che c'è nel mock è fatto di
    archi, rettangoli, cerchi e testo — cioè di quello che Adafruit_GFX sa
-   fare — apposta. L'anello sul vetro vero sarà **seghettato**: senza
-   antialiasing un arco spesso undici pixel è una scaletta, e a undici pixel
-   di spessore si vede poco, ma si vede.
+   fare — apposta. *Era* scritto qui che l'anello sarebbe stato
+   **seghettato**, «e a undici pixel di spessore si vede poco, ma si vede»:
+   si vedeva eccome, ed è la prima cosa segnalata dalla prova sul vetro vero.
+   Niente buffer non vuol dire niente antialiasing: l'anello adesso si
+   disegna **per pixel**, e il pixel di bordo si accende a metà se è mezzo
+   dentro e mezzo fuori. Si può perché il fondo è **nero sia dentro sia
+   fuori**, quindi «mezzo acceso» è semplicemente il colore smorzato a metà —
+   non c'è nessun fondo da rileggere, e senza buffer non si potrebbe.
 3. **Il vetro è tondo, quindi lo spazio utile è un cerchio, non un
    rettangolo.** Dentro c'è l'anello (raggio 101, spesso 11), quindi per le
    parole restano i **93 pixel** di raggio più interni — circa 25 mm, meno
@@ -378,17 +383,20 @@ Due cose da non sbagliare:
 
 ## I cinque tasti
 
-**Posizioni e numeri vengono dagli schemi**, non dal premerli. I cinque pad
-stanno a **60° uno dall'altro**, non a 72: sono cinque posti su sei, e il
-sesto — quello in basso — è vuoto. E il numero di ciascuno sta nel rame:
+I cinque pad stanno a **60° uno dall'altro**, non a 72: sono cinque posti su
+sei, e il sesto — **quello in alto**, dove stanno i sensori — è vuoto.
 
 | pad | dove sta | piedino | resistenza | LED |
 |---|---|---|---|---|
-| **TOUCH0** | in basso a sinistra | **A5** (`PA06`) | R33 | DL4 |
-| **TOUCH1** | in alto a sinistra | **A1** (`PB02`) | R34 | DL5 |
-| **TOUCH2** | **in alto** | **A2** (`PB03`) | R35 | DL6 |
-| **TOUCH3** | in alto a destra | **A3** (`PA04`) | R36 | DL7 |
-| **TOUCH4** | in basso a destra | **A4** (`PA05`) | R37 | DL8 |
+| **TOUCH0** | in alto a destra | **A5** (`PA06`) | R33 | DL4 |
+| **TOUCH1** | in basso a destra | **A1** (`PB02`) | R34 | DL5 |
+| **TOUCH2** | **in basso** | **A2** (`PB03`) | R35 | DL6 |
+| **TOUCH3** | in basso a sinistra | **A3** (`PA04`) | R36 | DL7 |
+| **TOUCH4** | in alto a sinistra | **A4** (`PA05`) | R37 | DL8 |
+
+I numeri girano **in senso orario partendo da destra**, e sono quelli
+serigrafati accanto a ogni pad: `00` in alto a destra, `04` in alto a
+sinistra.
 
 Dal pad al piedino c'è solo una resistenza da **zero ohm** (R33…R37 sono
 ponticelli) e **nessun condensatore**: niente fra il dito e l'ADC, niente da
@@ -402,13 +410,37 @@ DL5 accanto a TOUCH1, e così via: **il LED n è il LED del pad n**. Girano sul
 **5 V**, che sul carrier è generato a bordo: la luminosità costa più di
 quanto sembri, quindi accesi **piano** — non per eleganza.
 
-**Una cosa sola resta da confermare con la scheda in mano: destra e
-sinistra.** I pad sono rame sulla faccia del vetro (sull'altra ci stanno
-zoccolo del MKR, portabatteria, SD e relè: tutto il resto), e guardare quella
-faccia **specchia la sinistra con la destra**. Quello che non cambia,
-perché l'insieme delle cinque posizioni è simmetrico: **TOUCH2 è il pad in
-alto**, 0 e 4 sono i due in basso, e in basso in mezzo non c'è niente. Se
-guardandolo risultasse specchiato si scambia 0 con 4 e 1 con 3, e basta.
+**Il colore del LED non è quello della scritta.** I colori del vetro sono
+scelti per un fondo nero — un rosso chiaro, un ambra tenue — e hanno tutti e
+tre i canali accesi: `#E05252` è rosso solo accanto a qualcos'altro. Su un
+LED grosso come una capocchia di spillo tre canali accesi fanno **bianco
+rosato**, ed è la seconda cosa segnalata dalla prova sul vetro vero: «i LED
+non hanno un colore ben definito». Il vetro vuole colori morbidi, il LED li
+vuole **puri**, e si tengono bassi con un numero solo (`LUCE_LED`) invece di
+dividere il colore: dividere abbassa anche la *differenza* fra i canali, e a
+un sedicesimo un rosso e un ambra diventano lo stesso arancione sbiadito.
+
+**Questa tabella era girata di mezzo giro, ed è il difetto più istruttivo
+del progetto.** Fino al 2026-10-31 diceva «TOUCH2 è il pad in alto», e lo
+diceva con sicurezza perché veniva dagli schemi Altium: letta nel rame, la
+posizione di ogni pad era quella. Ma i pad sono rame sulla faccia **di
+sotto**, e di sotto alto e basso, destra e sinistra sono il contrario — era
+scritto anche qui, come cosa «da confermare con un'occhiata», insieme alla
+rassicurazione che l'insieme delle posizioni è simmetrico e quindi al
+massimo si scambia destra con sinistra. La simmetria c'era, il mezzo giro
+no.
+
+Risultato alla prima prova con la scheda in mano: **le parole da una parte
+del vetro e il LED acceso dall'altra**. Nessun allarme, nessun errore: il
+telecomando faceva esattamente quello che gli era stato detto.
+
+La lezione non è «gli schemi sbagliano». È che **una cosa a cui si può
+rispondere premendo un pad e guardando non va dedotta**: la deduzione era
+giusta nel suo mondo e il controllo costava dieci secondi. Adesso la tabella
+viene dalla scheda, il mock disegna i numeri serigrafati accanto ai pad per
+poterla ricontrollare a occhio, e `mock-test.js` confronta la tabella del
+banco con quella del firmware — che non le rende giuste, ma impedisce che
+una venga corretta e l'altra no.
 
 | Schermata | Tasti vivi |
 |---|---|
@@ -466,7 +498,7 @@ mezzo gli errori che non c'entrano con la scheda**:
 |---|---|---|
 | **La risonanza del cicalino** | una spazzata da 1 a 6 kHz: si sente dove grida | `RISONANZA`, un numero solo — l'ottava dei suoni lo segue |
 | **Il partitore della batteria** | misura la 18650 col tester e confronta col grezzo che lo sketch stampa sul monitor seriale all'avvio | `K_PARTITORE` |
-| **Destra e sinistra dei pad** | un'occhiata alla scheda | `padDi()`: si scambia 0 con 4 e 1 con 3, il 2 resta in alto comunque |
+| ~~**Destra e sinistra dei pad**~~ | ~~un'occhiata alla scheda~~ | **fatto il 2026-10-31**, e non era una specchiatura: era mezzo giro |
 
 ### Tre cose che lo schema ha cambiato nel codice
 
@@ -524,23 +556,63 @@ stampa, non della macchina. E al cambio penna la finestra le chiama **col nome
 che hai dato loro** — «monta la rossa» si capisce senza guardare, «#c8102e»
 no. Al telecomando arriva il colore, che sul vetro è un pallino.
 
-### Quello che si vedrà e che non si può sapere da qui
+### Il vetro disegnato qui dentro: `vetro/`
 
-Il font di Adafruit_GFX è a **larghezza fissa, 6 × 8 px per unità di corpo**:
-più largo di un font da schermo. Le parole sono state **accorciate** per
-questo — «PAUSA» invece di «IN PAUSA» — e non per ripensamento. Sul vetro
-vero saranno più squadrate che nel banco di prova, e l'anello sarà
-**seghettato**: senza antialiasing un arco spesso undici pixel è una scaletta.
-A undici pixel si vede poco, ma si vede.
+`mock.html` è il banco di **disegno**: SVG, quindi curve lisce e font veri.
+Il vetro è un'altra cosa — pixel interi, un font 6 × 8 e nessun antialiasing
+— e fra le due cose ci stanno esattamente i difetti che si sono visti alla
+prima accensione. Per vederli *prima*, `vetro/` compila **il firmware vero**
+con un finto display che scrive in memoria e salva una immagine per
+schermata:
+
+```
+cd schermo/vetro && ./vetro.sh        # un PPM per schermata + confronto.png
+```
+
+Non emula tutto: le lettere sono **blocchi** larghi quanto la lettera vera,
+perché il font di Adafruit_GFX qui non c'è. Per la geometria è abbastanza — è
+la stessa misura che fa `fw-geometria.py` sul sorgente, ma guardabile — e per
+l'anello, lo spicchio e i rettangoli che cancellano è **esatto**: quei pixel
+li calcola il firmware, non il banco.
+
+È così che si sono visti, senza riaccendere la scheda: i buchi dentro
+all'anello disegnato a raggi, la banda nera che lo tagliava in basso, e
+l'etichetta TIENI che finiva **sopra** allo spicchio rosso — rossa su rosso,
+cioè invisibile, un difetto che nessuno aveva ancora notato perché per
+vederlo bisogna tenere premuto lo stop.
+
+### La prima prova sul vetro vero, 2026-10-31
+
+Cinque cose, e nessuna era un errore di calcolo:
+
+1. **L'anello seghettato.** Era previsto in questo file come inevitabile. Non
+   lo era: vedi «I tre vincoli che comandano la grafica».
+2. **L'anello spezzato in basso.** Non dall'anello: dal **rettangolo nero**
+   che cancella il tempo che resta prima di riscriverlo. Gli angoli di un
+   rettangolo stanno più in là dei suoi lati, e quell'angolo cadeva a 106
+   pixel dal centro, cioè dentro all'anello, che comincia a 95,5. Adesso
+   quanto si cancella a una certa altezza lo decide il cerchio (`pulisci()`),
+   non il testo.
+3. **I LED senza un colore definito.** Vedi «I cinque tasti».
+4. **I tasti dalla parte sbagliata.** Mezzo giro. Vedi «I cinque tasti».
+5. **«C'è una scritta PROVA che non capisco».** PROVA è un tasto — abbassa e
+   rialza la penna appena montata — ma stava sulla stessa riga del pallino
+   del colore, e i due letti di fila diventavano una didascalia: «pallino
+   PROVA». Col LED acceso dalla parte opposta del vetro (difetto 4) non
+   restava niente che lo facesse sembrare un tasto. Adesso il pallino sta
+   **accanto alla parola MONTA**, dove dice quello che deve dire — di che
+   colore è la penna da montare — e la riga in basso torna a essere dei
+   tasti.
 
 ---
 
 ## Quello che manca
 
 1. ~~La corrispondenza numero ↔ posizione dei pad~~ — **chiusa il 2026-10-29**
-   dagli schemi Altium: la tabella è in «I cinque tasti», e il mock disegna
-   quelle posizioni. Resta solo da guardare la scheda per sapere da che parte
-   si guarda (destra/sinistra), che è un'occhiata, non una prova.
+   dagli schemi Altium, e **sbagliata**: girata di mezzo giro, perché i pad
+   stanno sul rame di sotto. Chiusa davvero il **2026-10-31**, premendo i pad
+   e guardando i LED. La storia per intero è in «I cinque tasti»: è il
+   difetto da cui questo progetto ha imparato di più.
 2. ~~Il colore della penna corrente nel messaggio~~ — **fatto il 2026-10-29**.
    Non è bastato spedirlo: il colore stava solo nella pagina, e un programma
    salvato e riaperto un altro giorno non se lo portava dietro. Adesso viaggia
@@ -588,8 +660,12 @@ A undici pixel si vede poco, ma si vede.
 4. ~~Il firmware~~ — **scritto il 2026-10-29**, `telecomando/telecomando.ino`:
    vedi «Il firmware» qui sopra. Resta da **compilarlo e caricarlo**, che è
    l'unica cosa che da dentro la sessione non si può fare.
-5. **La grafica va confermata sul vetro vero.** Finché non c'è, `mock.html` è
-   il meglio che si possa fare, ma non è la stessa cosa.
+5. ~~La grafica va confermata sul vetro vero~~ — **confermata il 2026-10-31**,
+   e ha detto cinque cose: vedi «La prima prova sul vetro vero». Quattro
+   erano difetti veri, la quinta una parola che non si capiva. Da allora
+   `vetro/` disegna le schermate **come le disegna il firmware**, quindi la
+   prossima volta la scheda serve per quello che solo lei può dire: come si
+   legge da un metro, con la luce di casa, con le dita vere.
 
 ### Una strada scartata, per memoria
 

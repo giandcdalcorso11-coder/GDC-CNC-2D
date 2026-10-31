@@ -91,7 +91,7 @@ const unsigned long SCADENZA = 6000;
 enum Schermata { PRONTA, STAMPA, IN_PAUSA, PENNA1, PENNA2,
                  STOP_ARMATO, STOP_TIENI, FINE, ERRORE, ATTESA, NESSUNA };
 
-enum Posto { ALTO, ALTO_SX, ALTO_DX, BASSO_SX, BASSO_DX, NESSUNO };
+enum Posto { BASSO, ALTO_SX, ALTO_DX, BASSO_SX, BASSO_DX, NESSUNO };
 
 struct Tasto { Posto dove; const char* parola; uint16_t colore; const char* manda; };
 const int MAX_TASTI = 2;
@@ -188,24 +188,34 @@ Schermata quale() {
 }
 
 /* ===================================================================
- * I CINQUE TASTI
+ * I CINQUE TASTI, DOVE SONO DAVVERO
  *
- * Numeri e posizioni vengono dagli schemi Altium del carrier, non dal
- * premerli: TOUCH2 è quello IN ALTO, 1 e 0 scendono a sinistra, 3 e 4 a
- * destra. Stanno a 60° uno dall'altro — cinque posti su sei, il vuoto in
- * basso — e il LED n è il LED del pad n.
+ * Stanno a 60° uno dall'altro — cinque posti su sei — e IL VUOTO E' IN
+ * ALTO, dove sulla scheda ci sono i sensori. Girando in senso orario a
+ * partire da destra: 00 in alto a destra, 01 in basso a destra, 02 IN
+ * BASSO, 03 in basso a sinistra, 04 in alto a sinistra. Il LED n sta
+ * accanto al pad n.
  *
- * Se guardando la scheda i lati risultassero specchiati, si scambiano
- * qui dentro 0 con 4 e 1 con 3: il 2 resta in alto comunque, perché
- * l'insieme delle posizioni è simmetrico.
+ * QUESTA TABELLA ERA RUOTATA DI MEZZO GIRO, ed è il difetto visto alla
+ * prima prova sul banco il 2026-10-31: le parole comparivano da una
+ * parte del vetro e si accendeva il LED dalla parte opposta. Veniva da
+ * una lettura degli schemi Altium — i pad stanno sul rame di SOTTO, e di
+ * sotto destra e sinistra, alto e basso, sono il contrario — presa per
+ * buona senza il controllo che costava dieci secondi: premere un pad con
+ * la scheda in mano e guardare quale LED si accende.
+ *
+ * Il modo di ricontrollarla resta quello: si preme, si guarda. Se un
+ * giorno il vetro venisse montato girato, qui dentro si gira di
+ * conseguenza — e nient'altro va toccato, perché tutto il resto parla di
+ * POSTI e non di numeri di pad.
  * =================================================================== */
 touchButtons padDi(Posto p) {
   switch (p) {
-    case BASSO_SX: return TOUCH0;
-    case ALTO_SX:  return TOUCH1;
-    case ALTO:     return TOUCH2;
-    case ALTO_DX:  return TOUCH3;
-    default:       return TOUCH4;   // BASSO_DX
+    case ALTO_DX:  return TOUCH0;
+    case BASSO_DX: return TOUCH1;
+    case BASSO:    return TOUCH2;
+    case BASSO_SX: return TOUCH3;
+    default:       return TOUCH4;   // ALTO_SX
   }
 }
 
@@ -224,14 +234,14 @@ int tastiDi(Schermata s, Tasto* out) {
       out[1] = { BASSO_DX, "STOP",     ROSSO, "" };
       return 2;
     case PENNA1:
-      out[0] = { ALTO,     "FATTO",    AMBRA, "avanti" };
+      out[0] = { BASSO,    "FATTO",    AMBRA, "avanti" };
       return 1;
     case PENNA2:
-      out[0] = { ALTO,     "RIPRENDI", AMBRA, "riprendi" };
+      out[0] = { BASSO,    "RIPRENDI", AMBRA, "riprendi" };
       out[1] = { BASSO_DX, "PROVA",    VERDE, "prova" };
       return 2;
     case STOP_ARMATO:
-      out[0] = { ALTO,     "ANNULLA",  VERDE, "" };
+      out[0] = { BASSO,    "ANNULLA",  VERDE, "" };
       out[1] = { BASSO_DX, "TIENI",    ROSSO, "" };
       return 2;
     case STOP_TIENI:
@@ -267,9 +277,9 @@ void manda(const char* t) { if (!daMandare[0]) strncpy(daMandare, t, sizeof(daMa
  * parla.
  *
  * RISONANZA È DA CONFERMARE A ORECCHIO: lo schema dice che tipo di
- * cicalino è, non a che frequenza grida. Una spazzata da 1 a 6 kHz la
- * trova in dieci secondi (tieni premuto il pad in alto all'accensione).
- * Se cade altrove, si sposta QUESTO numero e l'ottava lo segue.
+ * cicalino è, non a che frequenza grida. Si trova con una spazzata da 1
+ * a 6 kHz — il banco di prova la fa fare al computer, qui dentro non
+ * c'è. Se cade altrove, si sposta QUESTO numero e l'ottava lo segue.
  * =================================================================== */
 const int RISONANZA = 4000;
 
@@ -312,22 +322,154 @@ bool richiamaAncora = false;
  * DISEGNARE
  * =================================================================== */
 
-/* L'ANELLO. Adafruit_GFX non sa fare archi: si fa a raggi, uno ogni
-   0,4°, che all'esterno distano meno di un pixel — quindi nessun buco.
-   Gira dalle dodici in senso orario, come un orologio: è il verso in cui
-   si legge un tempo che passa, e nessuno deve pensarci. */
-void settore(float da, float a, uint16_t c) {
-  if (a <= da) return;
-  for (float g = da; g < a; g += 0.4) {
-    float r = (g - 90.0) * DEG_TO_RAD;
-    float co = cos(r), si = sin(r);
-    carrier.display.drawLine(CX + R_INT * co, CY + R_INT * si,
-                             CX + R_EST * co, CY + R_EST * si, c);
+/* ===================================================================
+ * ARCHI E SPICCHI, SENZA SCALETTE
+ *
+ * Adafruit_GFX non sa fare archi. Prima li si faceva A RAGGI: una riga
+ * dal bordo interno a quello esterno ogni 0,4°, che all'esterno distano
+ * meno di un pixel, quindi niente buchi. Riempiva, ma i due bordi tondi
+ * venivano SEGHETTATI, ed è quello che si è visto al banco il
+ * 2026-10-31: ogni raggio finisce su un pixel intero, e mentre l'angolo
+ * gira il pixel intero più vicino al cerchio salta avanti e indietro di
+ * uno. Su un vetro da 33 mm un pixel è un decimo di millimetro: si vede.
+ *
+ * Adesso si va PER PIXEL, e il pixel di bordo si accende A META' se è
+ * mezzo dentro e mezzo fuori. È antialiasing fatto a mano, e qui costa
+ * poco per un motivo preciso: il fondo è NERO sia dentro sia fuori
+ * dall'anello, quindi «mezzo acceso» vuol dire semplicemente il colore
+ * smorzato a metà. Non c'è nessun fondo da leggere — e non si potrebbe:
+ * senza buffer il vetro non si rilegge.
+ *
+ * I DUE TAGLI DI UN SETTORE RESTANO NETTI, e non è una rinuncia: un
+ * taglio sta sempre fra due pezzi tutti e due accesi — il colore e lo
+ * SPENTO — e sfumarlo verso il nero lascerebbe in mezzo una riga scura
+ * che adesso non c'è.
+ *
+ * Da che parte di un taglio sta un pixel lo dice un PRODOTTO
+ * VETTORIALE, non un atan2: su un Cortex-M0+ senza virgola mobile atan2
+ * è caro, e qui si guardano migliaia di pixel a ogni ridisegno. Un
+ * prodotto vettoriale però sa dire «da che parte della riga» e non
+ * «quanto in là», quindi un settore più largo di mezzo giro si spezza
+ * in due.
+ *
+ * Si scorre per RIGHE, e di ogni riga si calcolano i due tratti che
+ * l'anello occupa: così si toccano solo i pixel dell'anello invece di
+ * tutto il quadrato che lo contiene.
+ * =================================================================== */
+
+/* Il colore smorzato. Il fondo è nero, quindi smorzare è mescolare. */
+uint16_t smorza(uint16_t c, float f) {
+  if (f >= 0.996) return c;
+  int r = (int)(((c >> 11) & 0x1F) * f + 0.5);
+  int g = (int)(((c >> 5) & 0x3F) * f + 0.5);
+  int b = (int)((c & 0x1F) * f + 0.5);
+  return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
+/* Mezzo giro al massimo. Gradi a partire dalle dodici, in senso orario:
+   è il verso in cui si legge un tempo che passa. `tutto` salta la prova
+   dell'angolo, perché un anello intero di tagli non ne ha. */
+void mezzoSettore(int cx, int cy, float rInt, float rEst,
+                  float da, float a, uint16_t c, bool tutto) {
+  float r1 = rInt - 0.5, r2 = rEst + 0.5;
+  /* Le direzioni dei due tagli. Sul vetro la y cresce verso il basso,
+     quindi l'angolo che cresce gira in senso orario. */
+  float dax = sin(da * DEG_TO_RAD), day = -cos(da * DEG_TO_RAD);
+  float aax = sin(a * DEG_TO_RAD),  aay = -cos(a * DEG_TO_RAD);
+  float r1q = r1 * r1, r2q = r2 * r2;
+  float dentro = (r1 + 1) * (r1 + 1), fuori = (r2 - 1) * (r2 - 1);
+
+  /* SOLO LE RIGHE CHE IL SETTORE TOCCA DAVVERO. Un settore sottile ne
+     tocca due o tre, e scorrere tutto l'anello per accenderne venti
+     pixel costerebbe quanto rifarlo intero: il conto alla rovescia dello
+     stop si aggiorna cento volte, e cento volte tutto l'anello vuol dire
+     un telecomando che non risponde più. Gli estremi in altezza stanno
+     sui due tagli, più i quarti di giro che cascano dentro al settore —
+     è lì che l'arco tocca il suo punto più alto o più basso. */
+  float su = 1e9, giu = -1e9;
+  float ang[8]; int quanti = 0;
+  ang[quanti++] = da; ang[quanti++] = a;
+  for (float t = 0; t <= 720; t += 90) if (t > da && t < a && quanti < 8) ang[quanti++] = t;
+  for (int i = 0; i < quanti; i++) {
+    float co = cos(ang[i] * DEG_TO_RAD);
+    float ya = cy - r1 * co, yb = cy - r2 * co;
+    if (ya < su) su = ya;
+    if (yb < su) su = yb;
+    if (ya > giu) giu = ya;
+    if (yb > giu) giu = yb;
   }
+  if (tutto) { su = cy - r2; giu = cy + r2; }
+  int y0 = (int)floor(su) - 1, y1 = (int)ceil(giu) + 1;
+  if (y0 < (int)ceil(cy - r2)) y0 = (int)ceil(cy - r2);
+  if (y1 > (int)floor(cy + r2)) y1 = (int)floor(cy + r2);
+
+  for (int y = y0; y <= y1; y++) {
+    if (y < 0 || y > 239) continue;
+    float dy = y - cy;
+    float q = r2q - dy * dy;
+    if (q <= 0) continue;
+    float wo = sqrt(q);
+    float wi = (fabs(dy) < r1) ? sqrt(r1q - dy * dy) : -1;
+
+    for (int meta = 0; meta < 2; meta++) {
+      int x0, x1;
+      if (wi < 0) {                       // la riga non passa dal buco
+        if (meta) break;
+        x0 = (int)ceil(cx - wo); x1 = (int)floor(cx + wo);
+      } else if (meta == 0) {             // il tratto di sinistra
+        x0 = (int)ceil(cx - wo); x1 = (int)floor(cx - wi);
+      } else {                            // quello di destra
+        x0 = (int)ceil(cx + wi); x1 = (int)floor(cx + wo);
+      }
+      if (x0 < 0) x0 = 0;
+      if (x1 > 239) x1 = 239;
+
+      for (int x = x0; x <= x1; x++) {
+        float dx = x - cx;
+        if (!tutto) {
+          if (dax * dy - day * dx < 0) continue;   // prima del taglio d'inizio
+          if (aax * dy - aay * dx > 0) continue;   // dopo quello di fine
+        }
+        float dq = dx * dx + dy * dy;
+        if (dq <= r1q || dq >= r2q) continue;
+        float cop = 1;
+        /* La radice si paga solo sui due bordi: in mezzo è tutto pieno. */
+        if (dq < dentro || dq > fuori) {
+          float d = sqrt(dq);
+          float a1 = r2 - d, a2 = d - r1;
+          cop = a1 < a2 ? a1 : a2;
+          if (cop > 1) cop = 1;
+          if (cop <= 0) continue;
+        }
+        carrier.display.drawPixel(x, y, smorza(c, cop));
+      }
+    }
+  }
+}
+
+void settoreTondo(int cx, int cy, float rInt, float rEst,
+                  float da, float a, uint16_t c) {
+  if (a <= da) return;
+  if (a - da >= 359.9) { mezzoSettore(cx, cy, rInt, rEst, 0, 360, c, true); return; }
+  while (a - da > 180.0) {
+    mezzoSettore(cx, cy, rInt, rEst, da, da + 180.0, c, false);
+    da += 180.0;
+  }
+  mezzoSettore(cx, cy, rInt, rEst, da, a, c, false);
+}
+
+void settore(float da, float a, uint16_t c) {
+  settoreTondo(CX, CY, R_INT, R_EST, da, a, c);
 }
 
 float anelloDisegnato = -1;
 uint16_t anelloColore = 0;
+
+/* Meno di questo, in percento, non muove nemmeno un pixel di arco: un
+   grado e mezzo a raggio 101 sono due pixel e mezzo. Sotto, non si
+   disegna E NON SI SPOSTA IL CONFINE — spostarlo senza disegnare
+   lascerebbe indietro per sempre il pezzetto saltato. */
+const float PASSO_ANELLO = 0.4;
 
 void anello(float pc, uint16_t c, bool rifai) {
   if (pc < 0) pc = 0;
@@ -335,15 +477,17 @@ void anello(float pc, uint16_t c, bool rifai) {
   if (rifai || c != anelloColore) {
     settore(0, 360, SPENTO);
     settore(0, pc * 3.6, c);
-  } else if (pc < anelloDisegnato) {
+  } else if (pc < anelloDisegnato - PASSO_ANELLO) {
     /* Torna indietro: è il conto alla rovescia dello stop. Si spegne solo
        il pezzo che se n'è andato — ridisegnare tutto l'anello venti volte
        al secondo vorrebbe dire un anello che tremola invece di svuotarsi. */
     settore(pc * 3.6, anelloDisegnato * 3.6, SPENTO);
-  } else if (pc > anelloDisegnato) {
+  } else if (pc > anelloDisegnato + PASSO_ANELLO) {
     /* Solo il pezzo nuovo: ridisegnare tutto l'anello a ogni punto
        percentuale sarebbe un lampo ogni venti secondi, per niente. */
     settore(anelloDisegnato * 3.6, pc * 3.6, c);
+  } else {
+    return;        // niente da disegnare: e allora niente si sposta
   }
   anelloDisegnato = pc;
   anelloColore = c;
@@ -352,14 +496,27 @@ void anello(float pc, uint16_t c, bool rifai) {
 /* LO SPICCHIO del tocco lungo. È un oggetto DIVERSO dall'anello apposta:
    l'anello sta sul bordo e dice a che punto è la stampa, questo sta in
    mezzo e dice a che punto è il tuo dito. Confonderli vorrebbe dire far
-   sembrare che la stampa stia tornando indietro. */
-void spicchio(float f, int cx, int cy, int r, uint16_t c) {
-  carrier.display.drawCircle(cx, cy, r + 5, c);
-  if (f <= 0) return;
-  for (float g = 0; g < f * 360.0; g += 0.5) {
-    float a = (g - 90.0) * DEG_TO_RAD;
-    carrier.display.drawLine(cx, cy, cx + r * cos(a), cy + r * sin(a), c);
-  }
+   sembrare che la stampa stia tornando indietro.
+
+   SI DISEGNA SOLO LA FETTA NUOVA. Prima si rifaceva tutto lo spicchio a
+   ogni aggiornamento — venti volte al secondo, un ventaglio di
+   settecento righe — e per quel secondo il telecomando non faceva
+   nient'altro. Quello che c'è già non ha bisogno di essere rifatto: è
+   la stessa regola dell'anello. */
+/* Il centro è a 100 e non a 110: a 110 il disco arrivava a sfiorare
+   l'angolo dell'etichetta TIENI, che sta in basso a destra, e una parola
+   rossa su un disco rosso non è una parola. */
+const int SPIC_CX = 120, SPIC_CY = 100, SPIC_R = 46;
+
+void spicchioCornice(uint16_t c) {
+  settoreTondo(SPIC_CX, SPIC_CY, SPIC_R + 4, SPIC_R + 5.5, 0, 360, c);
+  /* La punta: lì le due righe del taglio si toccano e un settore sottile
+     non copre nemmeno un pixel intero. Un dischetto e non ci si pensa. */
+  carrier.display.fillCircle(SPIC_CX, SPIC_CY, 3, c);
+}
+
+void spicchio(float da, float a, uint16_t c) {
+  settoreTondo(SPIC_CX, SPIC_CY, -1, SPIC_R, da * 360.0, a * 360.0, c);
 }
 
 /* Il corpo più grande con cui una riga ci sta ancora nel cerchio libero.
@@ -372,6 +529,26 @@ int corpoCheCiSta(const char* s, int y, int massimo) {
     if (mezza * mezza + dy * dy <= R_TESTI * R_TESTI) return k;
   }
   return 1;
+}
+
+/* CANCELLARE SU UN VETRO TONDO.
+ *
+ * Un rettangolo nero largo a piacere TAGLIA L'ANELLO, perché gli angoli
+ * di un rettangolo stanno più in là dei suoi lati e a quell'altezza il
+ * cerchio libero è già finito. È il difetto visto al banco il
+ * 2026-10-31 — l'anello spezzato in basso a destra e in basso a
+ * sinistra, dove si riscrive il tempo che resta — e veniva da un
+ * `fillRect(40, 174, 160, 16)`: l'angolo in basso a destra cade a 106
+ * pixel dal centro, cioè dentro all'anello, che comincia a 95,5.
+ *
+ * Quanto si può cancellare a una certa altezza non lo decide il testo:
+ * lo decide il cerchio. */
+void pulisci(int y, int h) {
+  float dy = max(abs(y - CY), abs(y + h - CY));
+  float q = R_TESTI * R_TESTI - dy * dy;
+  if (q <= 0) return;
+  int mezza = (int)sqrt(q);
+  carrier.display.fillRect(CX - mezza, y, 2 * mezza, h, NERO);
 }
 
 void scrivi(const char* s, int y, int k, uint16_t c) {
@@ -391,9 +568,11 @@ void scrivi(const char* s, int y, int k, uint16_t c) {
 void etichetta(Posto p, const char* parola, uint16_t c) {
   int w = largo(parola, 2), h = alto(2);
   int x, y;
-  if (p == ALTO) {
+  if (p == BASSO) {
+    /* In basso lo spigolo che va a sbattere è quello DI SOTTO, quindi è
+       il bordo inferiore della parola che si posa sul raggio. */
     x = CX - w / 2;
-    y = CY - (int)sqrt(R_TESTI * R_TESTI - (w / 2.0) * (w / 2.0));
+    y = CY + (int)sqrt(R_TESTI * R_TESTI - (w / 2.0) * (w / 2.0)) - h;
   } else {
     bool destra = (p == ALTO_DX || p == BASSO_DX);
     bool sotto  = (p == BASSO_SX || p == BASSO_DX);
@@ -433,6 +612,28 @@ void pallino(const char* esa, int y) {
   if (!esa[0]) return;               // livello senza tinta: non si inventa
   carrier.display.fillCircle(CX, y, 7, daEsadecimale(esa));
   carrier.display.drawCircle(CX, y, 7, SMORTO);
+}
+
+/* «MONTA ●»: la parola e il pallino sulla STESSA riga, centrati insieme.
+   Il pallino stava da solo più in basso, e a quell'altezza c'è
+   l'etichetta del tasto in basso a destra: letti di fila diventavano una
+   didascalia — «pallino PROVA» — e il tasto spariva dentro alla frase.
+   Era la domanda arrivata dal banco il 2026-10-31: «c'è una scritta
+   PROVA che non capisco». Accanto alla parola il pallino dice quello che
+   deve dire, cioè DI CHE COLORE è la penna da montare, e la riga sotto
+   torna a essere di chi è: del tasto. */
+void parolaEPallino(const char* s, const char* esa, int y, int k, uint16_t c) {
+  if (!esa[0]) { scrivi(s, y, k, c); return; }
+  const int R = 7, ARIA = 10;
+  int w = largo(s, k) + ARIA + 2 * R;
+  int x = CX - w / 2;
+  carrier.display.setTextSize(k);
+  carrier.display.setTextColor(c);
+  carrier.display.setCursor(x, y);
+  carrier.display.print(s);
+  int px = x + largo(s, k) + ARIA + R, py = y + alto(k) / 2;
+  carrier.display.fillCircle(px, py, R, daEsadecimale(esa));
+  carrier.display.drawCircle(px, py, R, SMORTO);
 }
 
 /* LA PILA. Non sta su tutte le schermate, e non è una dimenticanza: un
@@ -576,8 +777,7 @@ void disegnaTutto(Schermata s) {
     case PENNA2:
       anello(S.percento, AMBRA, true);
       simboloPenna(90, VERDE, true);
-      scrivi("MONTA", 118, 3, TESTO);
-      pallino(S.penna, 156);
+      parolaEPallino("MONTA", S.penna, 118, 3, TESTO);
       break;
 
     case STOP_ARMATO:
@@ -643,17 +843,17 @@ void aggiornaPezzi(Schermata s) {
   if (s == STAMPA) {
     anello(S.percento, BLU, false);
     if (S.percento != pcDisegnato) {
-      carrier.display.fillRect(40, 96, 160, 48, NERO);
+      pulisci(96, 48);
       snprintf(n, sizeof(n), "%d%%", S.percento < 0 ? 0 : S.percento);
       scrivi(n, 96, 6, TESTO);
-      carrier.display.fillRect(40, 174, 160, 16, NERO);
+      pulisci(174, 16);
       scriviRimanente(174);
       pcDisegnato = S.percento;
     }
   } else if (s == IN_PAUSA) {
     anello(S.percento, AMBRA, false);
     if (S.percento != pcDisegnato) {
-      carrier.display.fillRect(60, 174, 120, 16, NERO);
+      pulisci(174, 16);
       snprintf(n, sizeof(n), "%d%%", S.percento < 0 ? 0 : S.percento);
       scrivi(n, 174, 2, FIOCO);
       pcDisegnato = S.percento;
@@ -669,28 +869,54 @@ void aggiornaPezzi(Schermata s) {
   } else if (s == STOP_TIENI) {
     float f = (float)(millis() - tenutoDa) / TENUTA_MS;
     if (f > 1) f = 1;
-    if (f - tenutaDisegnata > 0.03) {
-      spicchio(f, CX, 110, 46, ROSSO);
+    if (tenutaDisegnata < 0) { spicchioCornice(ROSSO); tenutaDisegnata = 0; }
+    if (f - tenutaDisegnata > 0.02) {
+      spicchio(tenutaDisegnata, f, ROSSO);
       tenutaDisegnata = f;
     }
   }
 }
 
 /* I LED: quello accanto a un tasto vivo si accende del colore di quello
-   che il tasto fa. Piano — girano sul 5 V generato a bordo, quindi la
-   luminosità costa più di quanto sembri, e questo coso sta a batteria. */
+ * che il tasto fa. Piano — girano sul 5 V generato a bordo, quindi la
+ * luminosità costa più di quanto sembri, e questo coso sta a batteria.
+ *
+ * IL COLORE DEL LED NON È QUELLO DEL VETRO. È il difetto visto al banco
+ * il 2026-10-31: «i LED non hanno un colore ben definito». I colori
+ * delle scritte sono scelti per un vetro nero — un rosso chiaro, un
+ * ambra tenue — e hanno tutti e tre i canali accesi: #E05252 è rosso
+ * solo accanto a qualcos'altro. Su un LED grosso come una capocchia di
+ * spillo tre canali accesi fanno BIANCO ROSATO, ed è esattamente quello
+ * che si vedeva. Il vetro vuole colori morbidi, il LED li vuole PURI.
+ *
+ * E si tiene basso con un numero solo, LUCE_LED, invece di dividere il
+ * colore: dividere abbassa anche la DIFFERENZA fra i canali, e a un
+ * sedicesimo un rosso e un ambra diventano lo stesso arancione sbiadito
+ * — un'altra metà dello stesso difetto. */
+const uint8_t LUCE_LED = 40;        // su 255. Più in alto abbaglia al buio.
+
+void tintaLed(uint16_t c, uint8_t* v) {
+  int r, g, b;
+  if      (c == ROSSO) { r = 255; g = 0;   b = 0;   }
+  else if (c == BLU)   { r = 0;   g = 40;  b = 255; }
+  else if (c == AMBRA) { r = 255; g = 60;  b = 0;   }
+  else if (c == VERDE) { r = 0;   g = 255; b = 40;  }
+  else                 { r = 255; g = 255; b = 255; }
+  v[0] = r * LUCE_LED / 255;
+  v[1] = g * LUCE_LED / 255;
+  v[2] = b * LUCE_LED / 255;
+}
+
 void accendiLed(Schermata s) {
   Tasto t[MAX_TASTI];
   int q = tastiDi(s, t);
-  uint8_t r[5] = {0}, g[5] = {0}, b[5] = {0};
+  uint8_t acceso[5][3] = {{0}};
   for (int i = 0; i < q; i++) {
     int k = (int)padDi(t[i].dove);
-    uint16_t c = t[i].colore;
-    r[k] = ((c >> 11) & 0x1F) << 1;     // da RGB565 a qualcosa di fioco
-    g[k] = ((c >> 5) & 0x3F);
-    b[k] = (c & 0x1F) << 1;
+    tintaLed(t[i].colore, acceso[k]);
   }
-  for (int k = 0; k < 5; k++) carrier.leds.setPixelColor(k, r[k] / 4, g[k] / 4, b[k] / 4);
+  for (int k = 0; k < 5; k++)
+    carrier.leds.setPixelColor(k, acceso[k][0], acceso[k][1], acceso[k][2]);
   carrier.leds.show();
 }
 
@@ -980,7 +1206,7 @@ void leggiTasti(Schermata s) {
   /* Lo stop in due tempi. Il primo tocco non ferma niente: chiede. */
   if (armato) {
     bool giuTieni = carrier.Buttons.getTouch(padDi(BASSO_DX));
-    if (s == STOP_ARMATO && carrier.Buttons.onTouchDown(padDi(ALTO))) {
+    if (s == STOP_ARMATO && carrier.Buttons.onTouchDown(padDi(BASSO))) {
       armato = false; tenendo = false; attesaRilascio = false; sveglia();
       return;
     }

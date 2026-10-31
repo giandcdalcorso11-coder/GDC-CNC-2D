@@ -196,9 +196,11 @@ function anello(pc, colore, vuoto) {
    registro no: quale penna deve esserci dentro ADESSO.
    Il contorno chiaro non è decorazione — la penna nera è il caso normale, e
    un disco nero su fondo nero non è un pallino, è niente. */
-function pallino(colore, y) {
-  return '<circle cx="120" cy="' + y + '" r="7" fill="' + colore +
-         '" stroke="#97a1b0" stroke-width="1.5"/>';
+/* `x` serve quando il pallino sta ACCANTO a una parola invece che da
+   solo: senza, resta in mezzo. */
+function pallino(colore, y, x) {
+  return '<circle cx="' + (x === undefined ? 120 : x) + '" cy="' + y +
+         '" r="7" fill="' + colore + '" stroke="#97a1b0" stroke-width="1.5"/>';
 }
 
 /* I DUE PUNTINI DEL «1 DI 2» SONO STATI TOLTI. Erano la cosa giusta su uno
@@ -293,8 +295,8 @@ function rigaPila(pc, y, h, px) {
     '" font-weight="600">' + pc + '%</text>';
 }
 
-function testo(s, y, px, colore, peso) {
-  return '<text x="120" y="' + y + '" text-anchor="middle" fill="' + colore +
+function testo(s, y, px, colore, peso, dx) {
+  return '<text x="' + (120 + (dx || 0)) + '" y="' + y + '" text-anchor="middle" fill="' + colore +
          '" font-family="system-ui, sans-serif" font-size="' + px +
          '" font-weight="' + (peso || 600) + '">' + s + '</text>';
 }
@@ -303,11 +305,18 @@ function testo(s, y, px, colore, peso) {
  * I CINQUE TASTI
  *
  * Stanno intorno al vetro a SESSANTA gradi uno dall'altro, non a settantadue:
- * sono cinque posti su sei, e quello che manca è in basso, dove sul retro
- * c'è la fessura della SD. Le posizioni E i numeri vengono dagli schemi
- * Altium del carrier, letti il 2026-10-29, non dal premerli: in alto c'è il
- * pad 2, a sinistra l'1 e lo 0 scendendo, a destra il 3 e il 4. Accanto a
- * ogni pad c'è il suo LED, e l'ordine è lo stesso: LED n al pad n.
+ * sono cinque posti su sei, e QUELLO CHE MANCA È IN ALTO, dove sulla scheda
+ * stanno i sensori. Girando in senso orario da destra: 00 in alto a destra,
+ * 01 in basso a destra, 02 in basso, 03 in basso a sinistra, 04 in alto a
+ * sinistra. Accanto a ogni pad c'è il suo LED, e l'ordine è lo stesso.
+ *
+ * QUESTA TABELLA ERA GIRATA DI MEZZO GIRO fino al 2026-10-31. Veniva dagli
+ * schemi Altium, letti il 29 ottobre: i pad stanno sul rame DI SOTTO, e di
+ * sotto alto e basso, destra e sinistra sono il contrario. Sul banco non si
+ * vedeva — qui il disco lo disegniamo noi, e lo disegnavamo con gli stessi
+ * numeri sbagliati — e si è visto alla prima prova con la scheda in mano:
+ * le parole da una parte del vetro, il LED acceso dall'altra. Adesso i
+ * numeri vengono dalla scheda vera, premuta e guardata.
  *
  * L'etichetta sta DENTRO al vetro ma dalla parte del suo tasto, e compare
  * solo quando quel tasto fa qualcosa: cinque etichette fisse intorno a un
@@ -315,12 +324,29 @@ function testo(s, y, px, colore, peso) {
  * ================================================================== */
 
 var POSTI = {
-  alto:     -90,    /* TOUCH2 */
-  altoDx:   -30,    /* TOUCH3 */
-  bassoDx:   30,    /* TOUCH4 */
-  bassoSx:  150,    /* TOUCH0 */
-  altoSx:  -150     /* TOUCH1 */
+  altoDx:   -30,    /* TOUCH0 */
+  bassoDx:   30,    /* TOUCH1 */
+  basso:     90,    /* TOUCH2 */
+  bassoSx:  150,    /* TOUCH3 */
+  altoSx:  -150     /* TOUCH4 */
 };
+
+/* Il numero serigrafato accanto a ogni pad: è quello che si legge sulla
+   scheda, ed è l'unico modo di controllare questa tabella senza fidarsi. */
+var PAD = { altoDx: 0, bassoDx: 1, basso: 2, bassoSx: 3, altoSx: 4 };
+
+/* IL COLORE DEL LED NON È QUELLO DELLA SCRITTA. I colori del vetro hanno
+   tutti e tre i canali accesi — su fondo nero ci vogliono morbidi — e su un
+   LED grosso come una capocchia di spillo tre canali accesi fanno bianco
+   rosato. Il firmware accende i LED con tinte PURE, e qui si fa uguale: se
+   no il banco mostrerebbe una cosa e la scheda un'altra. */
+var TINTE_LED = {
+  '#e05252': '#ff0000',   // rosso
+  '#4c9aff': '#0028ff',   // blu
+  '#e0a63a': '#ff3c00',   // ambra
+  '#43b581': '#00ff28'    // verde
+};
+function tintaLed(c) { return TINTE_LED[c] || c; }
 
 /* QUANTO SPAZIO C'E' DAVVERO.
  * L'anello sta a 101 ed è spesso 11, quindi il bordo interno è a 95,5: da
@@ -340,11 +366,11 @@ var CAP = 10;             // quanto è alta una maiuscola a quel corpo
 
 function etichetta(posto, parola, colore) {
   var x, y, anc;
-  if (posto === 'alto') {
-    /* In cima lo spigolo è doppio (destro e sinistro) e la parola è
-       centrata: scesa a 46 ci sta comodamente anche RIPRENDI, che è la più
-       lunga, e resta sopra a qualunque simbolo. */
-    x = 120; y = 46; anc = 'middle';
+  if (posto === 'basso') {
+    /* In basso lo spigolo è doppio (destro e sinistro) e la parola è
+       centrata: a 194 ci sta comodamente anche RIPRENDI, che è la più
+       lunga, e resta sotto a qualunque simbolo. */
+    x = 120; y = 194; anc = 'middle';
   } else {
     var a = POSTI[posto] * Math.PI / 180;
     var dx = R_TESTI * Math.cos(a), dy = R_TESTI * Math.sin(a);
@@ -435,7 +461,7 @@ var SCHERMATE = [
             'telecomando.</b> La macchina è ferma al punto home e aspetta te, ' +
             'che sei lì davanti con le mani sulla penna. Oggi, per saperlo e ' +
             'per dire che hai finito, torni al portatile.',
-    tasti: { alto: ['FATTO', '#e0a63a'] },
+    tasti: { basso: ['FATTO', '#e0a63a'] },
     disegna: function (st) {
       return anello(st.pc, '#e0a63a') +
         penna(-14, '#e0a63a') +
@@ -459,12 +485,17 @@ var SCHERMATE = [
        scende, premi e sale, e lo vedi sullo schermo e sulla macchina. Due
        tasti che fanno il contrario l'uno dell'altro, quando lo stato è già
        sotto gli occhi, sono un tasto di troppo. */
-    tasti: { alto: ['RIPRENDI', '#e0a63a'], bassoDx: ['PROVA', '#43b581'] },
+    tasti: { basso: ['RIPRENDI', '#e0a63a'], bassoDx: ['PROVA', '#43b581'] },
     disegna: function (st) {
       return anello(st.pc, '#e0a63a') +
         penna(0, '#43b581') +
-        testo('MONTA', 140, 24, '#e6eaf0') +
-        pallino('#c0392b', 172);
+        /* IL PALLINO ACCANTO ALLA PAROLA e non da solo più in basso: là
+           sotto c'è l'etichetta del tasto in basso a destra, e letti di
+           fila diventavano una didascalia — «pallino PROVA» — invece di un
+           colore e un tasto. Chiesto dal banco vero il 2026-10-31: «c'è una
+           scritta PROVA che non capisco». */
+        testo('MONTA', 140, 24, '#e6eaf0', 700, -12) +
+        pallino('#c0392b', 132, 168);
     }
   },
   {
@@ -477,7 +508,7 @@ var SCHERMATE = [
             'va al contrario di come andava un attimo fa, quindi non lo si ' +
             'scambia per l\'avanzamento. Gli altri tasti sono spenti: armato lo ' +
             'stop, non si preme altro per sbaglio.',
-    tasti: { alto: ['ANNULLA', '#43b581'], bassoDx: ['TIENI', '#e05252'] },
+    tasti: { basso: ['ANNULLA', '#43b581'], bassoDx: ['TIENI', '#e05252'] },
     disegna: function (st) {
       return anello(st.pc, '#e05252') +
         '<g transform="translate(120,92)">' +
@@ -769,9 +800,16 @@ function disco(s) {
            '<path d="M-8 9 A 8 8 0 0 1 8 9"/>' +
            '<path d="M-3 12 A 3 3 0 0 1 3 12"/></g>';
 
+    /* Il numero serigrafato, come sulla scheda: è quello che permette di
+       controllare la tabella dei pad guardando il disco vero. */
+    out += '<text x="' + (CC + (R_PAD + 22) * Math.cos(a)).toFixed(1) + '" y="' +
+           (CC + (R_PAD + 22) * Math.sin(a) + 4).toFixed(1) + '" text-anchor="middle" ' +
+           'fill="#4a5260" font-family="system-ui, sans-serif" font-size="11">0' +
+           PAD[p] + '</text>';
+
     /* Il LED accanto al pad, del colore di quello che il tasto fa. */
     var lx = CC + R_LED * Math.cos(a), ly = CC + R_LED * Math.sin(a);
-    var col = vivo ? s.tasti[p][1] : null;
+    var col = vivo ? tintaLed(s.tasti[p][1]) : null;
     if (col) {
       out += '<circle cx="' + lx.toFixed(1) + '" cy="' + ly.toFixed(1) +
              '" r="12" fill="' + col + '" opacity=".16"/>';
