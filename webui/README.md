@@ -93,6 +93,35 @@ si scopre tardi e a foglio rovinato.
 millimetro per via della viewBox: uno `stroke-width: 1` sarebbe un tratto da
 un millimetro, non da un pixel, e cambierebbe aspetto a ogni formato di foglio.
 
+**Cambiare foglio non riadatta il disegno: lo sposta.** I rettangoli dei
+livelli sono in millimetri dal bordo del foglio, e un millimetro vale un
+millimetro anche su un foglio di un'altra misura. Quando il formato cambia,
+tutte le collocazioni si spostano della stessa quantità — metà della
+differenza fra i due fogli, cioè il foglio cresce o si stringe attorno al
+proprio centro — e taglie, proporzioni, rotazioni, ritagli e distanze
+reciproche restano quelle di prima. Fino al 31 ottobre qui si buttavano via
+rettangolo e ritaglio di *ogni* livello e si riadattava ciascuno al foglio
+nuovo per conto suo: due livelli larghi diversi tornavano larghi uguali, ogni
+pezzo tornava in mezzo al foglio, e il disegno si smontava. Adattare al foglio
+nuovo è un gesto, e si fa dopo: col campo Scala o col riquadro.
+
+**La scala di più livelli scala il gruppo, non ognuno per conto suo.** Con la
+spunta «Scala i livelli scelti insieme» il numero scritto nel campo vale per
+tutti: si scala il rettangolo che li contiene, e ciascuno ci resta dentro nella
+stessa frazione di prima. Scalare ogni livello della stessa percentuale ma
+attorno al proprio centro — la cosa che sembra uguale — li allontanerebbe l'uno
+dall'altro. La rotazione resta di un livello solo anche con la spunta: ruotare
+il gruppo vorrebbe dire ruotare ogni disegno attorno a un centro che non è il
+suo.
+
+**Un livello nuovo nasce con la mappa di quello accanto.** «+ livello nuovo»,
+nella colonna dell'editor, crea un livello vuoto che copia rettangolo,
+ingombro e rotazione di quello che si sta modificando. Senza quella mappa
+l'editor non avrebbe coordinate in cui portare gli altri livelli da disegnare
+dietro, e la tela resterebbe vuota proprio mentre si guarda dove incollare.
+L'ingombro copiato non va corretto dopo: `refit()` salta i livelli vuoti e non
+lo tocca, e al primo contenuto `rigenera()` lo usa come ancora.
+
 ## L'importazione e l'ottimizzazione
 
 **L'appiattimento delle curve lo fa il browser.** Ogni forma vettoriale espone

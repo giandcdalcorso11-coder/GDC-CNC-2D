@@ -1598,15 +1598,29 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
    riordinare, cancellare e cambiare penna sono gesti della tab Disegno, e
    averli in due posti vorrebbe dire tenerli d'accordo. */
 .ed-centro { display: flex; gap: 8px; flex: 1 1 auto; min-height: 0; }
-.ed-livelli {
+/* La colonna dei livelli: l'elenco che scorre e, sotto, il pulsante che ne
+   crea uno. Il pulsante sta sempre in fondo e non scorre con l'elenco. */
+.ed-colonna {
   flex: 0 0 auto;
   width: 190px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ed-livelli {
+  /* Alta quanto le righe che ha, non quanto la colonna: il pulsante deve
+     stare SOTTO l'elenco, non in fondo alla tela. Si stringe solo quando le
+     righe non ci stanno piu', e allora scorre. */
+  flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 .ed-livelli:empty { display: none; }
+.ed-liv-piu { flex: 0 0 auto; width: 100%; font-size: 11px; }
 .ed-liv {
   display: flex;
   align-items: center;

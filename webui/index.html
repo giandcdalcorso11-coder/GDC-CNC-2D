@@ -112,6 +112,13 @@
             <label>Rotazione (°) <input type="number" id="art-rot" value="0" min="0" max="359" step="15"></label>
           </div>
           <p class="hint" id="art-deform" hidden></p>
+          <!-- Compare solo con piu' livelli scelti: con uno solo non
+               cambierebbe niente, e una spunta che non cambia niente insegna
+               a non leggere le spunte. Vedi insieme() in js/artwork.js. -->
+          <label class="chk" id="art-ins-riga" hidden>
+            <input type="checkbox" id="art-insieme">
+            Scala i livelli scelti insieme
+          </label>
           <!-- Il cambio penna si clicca dal simbolo sulla riga del livello: era
                una spunta quaggiu, lontana dalla riga di cui parlava. -->
           <p class="hint" id="art-gruppo" hidden></p>
@@ -328,7 +335,19 @@
          toccabili: serve a vedere il disegno intero mentre se ne corregge un
          pezzo, che e' esattamente il caso di un isometrico da ripulire. -->
     <div class="ed-centro">
-      <div class="ed-livelli" id="ed-livelli"></div>
+      <!-- L'elenco e il pulsante stanno in due contenitori: il pulsante non
+           e' una riga dell'elenco, e tenerlo dentro vorrebbe dire contarlo
+           fra i livelli. -->
+      <div class="ed-colonna">
+        <div class="ed-livelli" id="ed-livelli"></div>
+        <!-- UN LIVELLO NUOVO DA QUI, perche' e' qui che si scopre di
+             volerlo: si sta modificando un disegno, se ne vuole lavorare un
+             pezzo da solo - i testi di un biglietto - e per staccarlo serve
+             un livello dove metterlo. Vedi nuovoLivello() in js/editor.js. -->
+        <button type="button" class="btn btn-ghost btn-small ed-liv-piu"
+                id="ed-liv-nuovo"
+                title="Crea un livello vuoto e passa a modificare quello: poi taglia da qui (Ctrl+X) e incolla la' (Ctrl+V), e sul foglio non si muove niente">+ livello nuovo</button>
+      </div>
       <div class="ed-tela" id="ed-tela">
         <svg id="ed-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="ed-aiuto" id="ed-aiuto"></div>

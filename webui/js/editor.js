@@ -1736,7 +1736,13 @@ var Editor = (function () {
     var box = document.getElementById('ed-livelli');
     if (!box || !window.Artwork) return;
     var ls = Artwork.livelli();
-    if (ls.length < 2) { box.innerHTML = ''; return; }
+    /* L'ELENCO SI VEDE ANCHE CON UN LIVELLO SOLO. Prima no: con meno di due
+       non c'era niente da scegliere e la colonna rubava spazio alla tela.
+       Adesso da qui ne nascono — il pulsante «+ livello nuovo» sta sotto
+       all'elenco — e il livello che diventerà «quello di prima» va visto
+       prima, non dopo: altrimenti l'elenco compare nel momento in cui si
+       passa all'altro, e sembra che il primo sia nato adesso. */
+    if (!ls.length) { box.innerHTML = ''; return; }
 
     var out = '';
     for (var i = 0; i < ls.length; i++) {
@@ -1787,6 +1793,52 @@ var Editor = (function () {
     renderLivelli();
     disegna();
     scriviPiede();
+  }
+
+  /* UN LIVELLO NUOVO, DA QUI.
+   *
+   * A CHE COSA SERVE: un file importato è diviso per tinte, e la tinta è il
+   * modo in cui chi l'ha fatto ha detto cosa va insieme. Modificandolo si
+   * scopre di volere un'altra divisione — i testi di un biglietto da
+   * sistemare senza toccare la cornice — e per averla serve un livello dove
+   * mettere quello che si stacca. Prima l'unico modo di farne uno era
+   * svuotare la selezione nella tab Disegno e premere «Crea», che apre una
+   * tela vuota: si usciva dal disegno per poterlo dividere.
+   *
+   * NASCE VUOTO E ACCANTO A QUELLO CHE SI STA MODIFICANDO, da cui copia la
+   * mappa (vedi Artwork.nuovo): così la tela continua a mostrare il disegno
+   * intero dietro, e quello che ci si incolla dentro resta dov'era sul
+   * foglio. Diventa subito quello che si modifica, perché il gesto dopo è
+   * sempre un Ctrl+V.
+   *
+   * IL NOME è «livello N» e non il nome del file: un livello fatto a mano non
+   * viene da nessun file, e chiamarlo come il file direbbe una cosa falsa a
+   * chi lo rilegge domani. Si rinomina dalla tab Disegno.
+   */
+  function nuovoLivello() {
+    if (!window.Artwork) return;
+    var ls = Artwork.livelli() || [];
+    var n = ls.length + 1;
+    /* Un nome già usato non è un errore ma è una confusione: due righe
+       identiche nell'elenco e nessun modo di sapere quale è quale. */
+    while (ls.some(function (x) { return x.nome === 'livello ' + n; })) n++;
+
+    var id = Artwork.nuovo('livello ' + n, Artwork.sceltoId());
+    attivo = id;
+    storia = storie[id] || (storie[id] = []);
+    rifare = rifari[id] || (rifari[id] = []);
+    nessunaForma();
+    costruendo = null;
+    aggiornaStorici();
+    renderLivelli();
+    if (titolo) titolo.textContent = 'livello ' + n;
+    disegna();
+    scriviPiede();
+    aggiornaBarra();
+    Log.add('msg', 'Livello «livello ' + n + '» creato, vuoto, e adesso si ' +
+            'modifica lui. Per portarci dentro un pezzo dell\'altro: torna ' +
+            'sull\'altro, scegli i tratti, Ctrl+X, torna qui, Ctrl+V — sul ' +
+            'foglio non si muove niente, cambia solo la penna che li disegna.');
   }
 
   /* ------------------------------- avvio ------------------------------- */
@@ -1918,6 +1970,9 @@ var Editor = (function () {
         }
       });
     }
+
+    var piu = document.getElementById('ed-liv-nuovo');
+    if (piu) piu.addEventListener('click', nuovoLivello);
 
     if (window.ResizeObserver && tela) new ResizeObserver(function () { disegna(); }).observe(tela);
 

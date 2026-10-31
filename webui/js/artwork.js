@@ -45,6 +45,13 @@ var Artwork = (function () {
      aggiungere o togliere una pausa cambia il programma, non il percorso. */
   var ultima = null;
 
+  /* IL FOGLIO CON CUI SONO STATE MISURATE LE COLLOCAZIONI DI ADESSO.
+     I rettangoli dei livelli sono in millimetri dal bordo del foglio, quindi
+     un foglio di un'altra misura sposta il bordo da cui si contano. Qui si
+     tiene quello di prima per sapere DI QUANTO: vedi il gestore di `paper`
+     in init(). */
+  var foglioUsato = null;
+
   function esc(s) {
     return String(s).replace(/[&<>"]/g, function (c) {
       return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
@@ -453,10 +460,33 @@ var Artwork = (function () {
     refit();
   }
 
-  /* Un livello che nasce vuoto: è il «Crea» dell'editor. Senza forme non ha
-     un ingombro, quindi non ha nemmeno un rettangolo; li prende tutti e due
-     appena dentro ci finisce il primo tratto. */
-  function nuovo(nome) {
+  /* Un livello che nasce vuoto: è il «Crea» dell'editor, ed è anche il
+   * «livello nuovo» con cui nell'editor si separa un pezzo di un disegno —
+   * i testi di un biglietto, per dire — per poterlo modificare da solo.
+   * Senza forme non ha un ingombro, quindi non ha nemmeno un rettangolo; li
+   * prende tutti e due appena dentro ci finisce il primo tratto.
+   *
+   * SE NASCE ACCANTO A UN ALTRO, GLI COPIA LA MAPPA: rettangolo, ingombro,
+   * rotazione e tolleranza di quello da cui lo si sta staccando. Non è una
+   * comodità, sono due cose che senza mappa non funzionano:
+   *
+   *   — l'editor disegna gli altri livelli dietro a quello che si modifica
+   *     portandoli nelle SUE coordinate (sfondoPer → daFoglio), e un livello
+   *     senza mappa non ha coordinate in cui portarli: la tela resterebbe
+   *     nera finché non ci si incolla dentro qualcosa, cioè proprio mentre si
+   *     guarda dove incollare;
+   *   — le forme che arrivano con un Ctrl+V vengono scritte nelle coordinate
+   *     del livello di partenza, e con la stessa mappa ci restano identiche
+   *     invece di passare per una ricostruzione.
+   *
+   * L'ingombro copiato non è un'invenzione che poi va corretta: refit() salta
+   * i livelli vuoti e non lo tocca, e al primo contenuto rigenera() lo usa
+   * come ancora — stessa scala, stessa origine — e ricava il rettangolo vero
+   * di quello che è arrivato. È lo stesso meccanismo per cui spostare un nodo
+   * non sposta tutto il resto del disegno.
+   */
+  function nuovo(nome, daId) {
+    var m = daId ? trova(daId) : null;
     var l = {
       id: 'liv' + (++seq),
       nome: nome || 'nuovo disegno',
@@ -470,6 +500,14 @@ var Artwork = (function () {
       cambioPenna: livelli.length > 0,
       art: []
     };
+    if (m && m.box && m.bb && m.bb.w > 0 && m.bb.h > 0 &&
+        isFinite(m.bb.x0) && isFinite(m.bb.y1)) {
+      l.box = { x: m.box.x, y: m.box.y, w: m.box.w, h: m.box.h };
+      l.bb = { x0: m.bb.x0, y0: m.bb.y0, x1: m.bb.x1, y1: m.bb.y1,
+               w: m.bb.w, h: m.bb.h };
+      l.rot = m.rot || 0;
+      l.tol = m.tol || l.tol;
+    }
     livelli.push(l);
     scelto = l.id;
     selezionati = [l.id];
@@ -924,6 +962,54 @@ var Artwork = (function () {
     return SvgImport.percentuali(ruotate(l), State.data.paper, l.box);
   }
 
+  /* LA SPUNTA «INSIEME»: quando il campo Scala parla di tutti.
+   *
+   * Con più livelli scelti il numero scritto nel campo può voler dire due
+   * cose, e nessuna delle due è sbagliata: «porta QUESTO livello a questa
+   * percentuale», che è quello che serve per rimettere in proporzione un
+   * pezzo solo, e «scala TUTTO di questo tanto», che è quello che serve
+   * quando i livelli sono un disegno unico diviso per penne — i testi di un
+   * biglietto, i suoi riquadri, la sua cornice.
+   *
+   * Si scala il GRUPPO, non ogni livello per conto suo: il rettangolo che li
+   * contiene tutti si stringe attorno al proprio centro e ciascuno ci resta
+   * dentro nella stessa frazione di prima. Scalare ogni livello attorno al
+   * proprio centro della stessa percentuale, che è la cosa che sembra uguale,
+   * avvicinerebbe ogni pezzo al suo centro e non al centro del disegno: i
+   * pezzi resterebbero in proporzione fra loro e si allontanerebbero l'uno
+   * dall'altro. È la stessa ragione per cui il riquadro sul foglio, che vale
+   * per tutti da sempre, distribuisce in proporzione invece di ripetersi.
+   *
+   * La ROTAZIONE resta di un livello solo anche con la spunta: ruotare il
+   * gruppo vuol dire ruotare ogni disegno attorno a un centro che non è il
+   * suo, e questo qui non lo sa fare — un rettangolo non ha un verso
+   * obliquo. Detto nel pannello, non lasciato indovinare.
+   *
+   * La spunta nasce spenta: con un livello solo non cambia niente, e per chi
+   * stava scalando un pezzo per volta il campo continua a fare quello che
+   * faceva ieri.
+   */
+  function insieme() {
+    var c = document.getElementById('art-insieme');
+    return !!(c && c.checked) && selezionati.length > 1;
+  }
+
+  /* Il fattore viene dal RAPPORTO fra la percentuale scritta e quella che il
+     livello principale ha adesso: il campo dice una percentuale del livello,
+     e il gruppo non ne ha una sua — i livelli sono stati adattati con
+     ingombri diversi, e «il 60% del gruppo» non vorrebbe dire niente.
+     Il rapporto invece sì, ed è la stessa cosa per tutti. */
+  function scalaGruppo(pc) {
+    var pv = percentuali();
+    var u = unione(vista);
+    if (!pv || !(pv.x > 0) || !u || !(u.w > 0) || !(u.h > 0)) return false;
+    var f = pc / pv.x;
+    if (!(f > 0) || !isFinite(f)) return false;
+    collocaA({ x: u.x + u.w * (1 - f) / 2, y: u.y + u.h * (1 - f) / 2,
+               w: u.w * f, h: u.h * f });
+    return true;
+  }
+
   /* Scrivere nel campo vuol dire «questa percentuale, in proporzione»: il
      disegno torna regolare ma NON torna al centro. Ricentrarlo butterebbe via
      un trascinamento fatto apposta, e per rimetterlo in mezzo c'è il foglio. */
@@ -931,6 +1017,8 @@ var Artwork = (function () {
     var l = corrente();
     if (!l) return;
     var pc = +document.getElementById('art-scale').value || 100;
+    /* Col gruppo si passa per collocaA, che rifà già il percorso. */
+    if (insieme() && scalaGruppo(pc)) return;
     var nuovo = SvgImport.fitRect(ruotate(l), State.data.paper, pc);
     if (l.box) {
       nuovo.x = l.box.x + l.box.w / 2 - nuovo.w / 2;
@@ -1591,15 +1679,23 @@ var Artwork = (function () {
 
     rot.value = l.rot;
 
-    /* CON PIU' LIVELLI SCELTI i campi non parlano di tutti: scala e rotazione
-       sono proprietà di un livello solo, e applicarle al gruppo vorrebbe dire
-       ruotare ogni disegno attorno a un centro che non è il suo. Il riquadro
-       sul foglio invece vale per tutti. Detto, non lasciato indovinare. */
+    /* CON PIU' LIVELLI SCELTI i campi non parlano tutti di tutti, e quale fa
+       che cosa va scritto. La rotazione è di un livello solo per forza (vedi
+       insieme()); la scala vale per tutti se la spunta è accesa; il riquadro
+       sul foglio vale per tutti da sempre. */
+    var rigaIns = document.getElementById('art-ins-riga');
+    if (rigaIns) rigaIns.hidden = selezionati.length < 2;
     if (gruppo) {
       gruppo.hidden = selezionati.length < 2;
       if (!gruppo.hidden) {
-        gruppo.innerHTML = selezionati.length + ' livelli scelti: questi due campi ' +
-          'valgono per <b>' + esc(l.nome) + '</b>, il riquadro sul foglio per tutti.';
+        gruppo.innerHTML = selezionati.length + ' livelli scelti: ' + (insieme()
+          ? '<b>Scala</b> li scala tutti insieme, attorno al centro del gruppo ' +
+            'e senza cambiare le distanze fra loro; la <b>rotazione</b> resta ' +
+            'di <b>' + esc(l.nome) + '</b>, come il riquadro sul foglio vale ' +
+            'per tutti.'
+          : 'questi due campi valgono per <b>' + esc(l.nome) + '</b>, il ' +
+            'riquadro sul foglio per tutti. Con la spunta qui sopra, la scala ' +
+            'vale per tutti e li tiene insieme.');
       }
     }
 
@@ -1892,6 +1988,10 @@ var Artwork = (function () {
 
   function init() {
     document.getElementById('art-scale').addEventListener('change', scalaDalCampo);
+    /* La spunta non scala niente da sola: cambia che cosa vuol dire il
+       prossimo numero scritto nel campo, e la nota sotto lo dice subito. */
+    var ins = document.getElementById('art-insieme');
+    if (ins) ins.addEventListener('change', mostraCampi);
     document.getElementById('art-rot').addEventListener('change', ruotaDalCampo);
     document.getElementById('btn-generate').addEventListener('click', prepare);
     document.getElementById('btn-download').addEventListener('click', download);
@@ -1952,11 +2052,55 @@ var Artwork = (function () {
       sample.hidden = true;
     }
 
-    /* Foglio nuovo, collocazioni nuove: i rettangoli di prima erano misurati
-       su un foglio che non c'è più. */
+    /* IL FOGLIO CAMBIA ATTORNO AL SUO CENTRO, E IL DISEGNO RESTA QUELLO.
+     *
+     * IL CASO VERO, 2026-10-31: un biglietto disegnato su un A5 perché le
+     * misure del foglio vero non si sapevano ancora. Misurate, salvate come
+     * foglio nuovo, scelte — e il disegno si è smontato. Non per un errore di
+     * calcolo: qui c'era scritto di buttare via rettangolo e ritaglio di OGNI
+     * livello, e refit() senza rettangolo ne rifà uno adattando il livello al
+     * foglio, ognuno per conto suo. Due livelli larghi diversi tornano larghi
+     * uguali, i testi tornano grandi come i disegni, ogni pezzo torna in mezzo
+     * al foglio — e la composizione, che è l'unica cosa costruita a mano, non
+     * c'è più. Era scritto come una scelta: «i rettangoli di prima erano
+     * misurati su un foglio che non c'è più». Ma erano misurati in
+     * MILLIMETRI, e un millimetro vale un millimetro anche sul foglio nuovo.
+     *
+     * Adesso le collocazioni restano quelle che sono e si spostano tutte
+     * della stessa quantità: metà della differenza fra i due fogli, cioè il
+     * foglio cresce o si stringe attorno al proprio centro. È una traslazione
+     * rigida, quindi taglie, proporzioni, rotazioni, ritagli e distanze
+     * reciproche sono quelli di prima al millesimo; un disegno che stava in
+     * mezzo resta in mezzo, e uno messo di proposito in un angolo resta a
+     * quella distanza dal centro invece di tornare al centro.
+     *
+     * CAMBIARE FOGLIO NON ADATTA IL DISEGNO AL FOGLIO, ed è voluto: adattare
+     * è un gesto, si fa col campo Scala o col riquadro, e farlo qui vorrebbe
+     * dire farlo anche quando non si vuole — cioè il guaio di prima. Quello
+     * che cambia da solo è la PERCENTUALE scritta nel campo: è la frazione
+     * del più grande che entra nel foglio, e il foglio è un altro.
+     *
+     * Il foglio che non cambia misura non muove niente, e nemmeno questo è un
+     * dettaglio: `Paper.apply()` manda questo segnale anche quando cambia
+     * solo l'area percorribile — una corsa, un margine, un rapporto dalla tab
+     * Impostazioni —, e fino a oggi toccare un margine della macchina
+     * rifaceva da zero la collocazione di tutti i livelli. */
+    foglioUsato = { w: State.data.paper.w, h: State.data.paper.h };
+
     State.on('paper', function () {
+      var p = State.data.paper;
+      var prima = foglioUsato;
+      foglioUsato = { w: p.w, h: p.h };
       if (!livelli.length) return;
-      livelli.forEach(function (l) { l.box = null; l.ritaglio = null; });
+      if (!prima) { refit(); return; }
+
+      var dx = (p.w - prima.w) / 2, dy = (p.h - prima.h) / 2;
+      if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005) return;
+
+      livelli.forEach(function (l) {
+        if (l.box) { l.box.x += dx; l.box.y += dy; }
+        if (l.ritaglio) { l.ritaglio.x += dx; l.ritaglio.y += dy; }
+      });
       refit();
     });
 
