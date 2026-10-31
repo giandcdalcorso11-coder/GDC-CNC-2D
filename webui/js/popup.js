@@ -249,6 +249,15 @@ var Popup = (function () {
              quindi vale anche per un file salvato e riaperto fra una
              settimana, quando quell'elenco non c'è più. */
           var p = Sender.penna();
+          /* Se quel colore è una delle penne in cassetto, la finestra la
+             chiama col nome che le ha dato l'utente: «monta la rossa» si
+             capisce senza guardare, «#c8102e» no. */
+          var inCassetto = null;
+          if (p && p.colore && window.Artwork && Artwork.tavolozza) {
+            Artwork.tavolozza().forEach(function (q) {
+              if (q.colore === p.colore) inCassetto = q.nome;
+            });
+          }
           /* Il nome viene dal nome del file, quindi da fuori: passa da esc()
              prima di diventare HTML. Il colore no — quello il Sender lo
              accetta solo se è un «#rgb», vedi RE_PENNA. */
@@ -257,7 +266,10 @@ var Popup = (function () {
               (p.colore
                  ? '<span class="tinta" style="background:' + p.colore + '"></span> '
                  : '') +
-              '<b>' + esc(p.nome || p.colore || 'la prossima penna') + '</b></p>'
+              '<b>' + esc(inCassetto || p.nome || p.colore || 'la prossima penna') +
+              '</b>' +
+              (inCassetto && p.nome ? ' <span class="muted">per ' + esc(p.nome) + '</span>' : '') +
+              '</p>'
             : '') +
             'Il servo è fermo alla <b>quota di contatto</b> del programma, ' +
                  'Z' + (z === null ? '—' : z.toFixed(2)) + ': <b>non si muove più ' +

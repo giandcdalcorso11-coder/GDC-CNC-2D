@@ -493,7 +493,7 @@ var Artwork = (function () {
         return {
           nome: l.nome, tol: l.tol, forme: l.forme,
           box: l.box, ritaglio: l.ritaglio, rot: l.rot,
-          visibile: l.visibile, cambioPenna: l.cambioPenna,
+          visibile: l.visibile, cambioPenna: l.cambioPenna, penna: l.penna || null,
           origine: l.origine || null, mostraOrigine: !!l.mostraOrigine
         };
       }),
@@ -520,6 +520,7 @@ var Artwork = (function () {
         rot: d.rot || 0,
         visibile: d.visibile !== false,
         cambioPenna: !!d.cambioPenna,
+        penna: d.penna || undefined,
         origine: d.origine || null,
         mostraOrigine: !!d.mostraOrigine,
         art: []
@@ -535,6 +536,75 @@ var Artwork = (function () {
     refit();
   }
 
+  /* LA TAVOLOZZA: le penne che l'utente ha in cassetto.
+   *
+   * Sta nel browser e non nel profilo della macchina, come l'indirizzo del
+   * telecomando: sono le penne di CHI STAMPA, non una proprietà della
+   * macchina, e esportando il profilo non ci si vuole portare dietro il
+   * contenuto di un cassetto.
+   *
+   * I quattro di partenza sono i Tratto Pen che l'utente ha adesso. I
+   * valori sono **nominali**: un inchiostro vero non ha un esadecimale, e
+   * questi servono a riconoscere la penna a colpo d'occhio sul foglio, non
+   * a riprodurla. Si cambiano dal «+» come tutti gli altri. */
+  var PENNE_DI_SERIE = [
+    { nome: 'nero',  colore: '#1d1d1b' },
+    { nome: 'blu',   colore: '#1f4fa8' },
+    { nome: 'rosso', colore: '#c8102e' },
+    { nome: 'grigio', colore: '#8a8a8a' }
+  ];
+  var CHIAVE_PENNE = 'cnc2d-penne';
+  var penne = null;
+
+  function tavolozza() {
+    if (penne) return penne;
+    try {
+      var s = localStorage.getItem(CHIAVE_PENNE);
+      penne = s ? JSON.parse(s) : null;
+    } catch (e) { penne = null; }
+    if (!penne || !penne.length) penne = PENNE_DI_SERIE.slice();
+    return penne;
+  }
+
+  function aggiungiPenna(colore, nome) {
+    var p = tavolozza();
+    for (var i = 0; i < p.length; i++) if (p[i].colore === colore) return p[i];
+    var nuova = { nome: nome || colore, colore: colore };
+    p.push(nuova);
+    try { localStorage.setItem(CHIAVE_PENNE, JSON.stringify(p)); } catch (e) { /* privata */ }
+    return nuova;
+  }
+
+  function togliPenna(colore) {
+    var p = tavolozza();
+    for (var i = 0; i < p.length; i++) {
+      if (p[i].colore === colore) { p.splice(i, 1); break; }
+    }
+    try { localStorage.setItem(CHIAVE_PENNE, JSON.stringify(p)); } catch (e) { /* privata */ }
+  }
+
+  /* LA PENNA SCELTA VINCE SULLA TINTA DEDOTTA.
+   *
+   * Fino al 2026-10-29 il colore di un livello era SOLO la tinta delle sue
+   * forme, e il commento diceva che tenerne una copia vorrebbe dire averne
+   * due che a un certo punto non coincidono più. Resta vero, ed è per
+   * questo che la scelta non sostituisce la tinta ma la **copre**: la
+   * tinta rimane quella del file, intatta, e `l.penna` dice «per questo
+   * livello monto quest'altra». Toglierla fa riapparire la tinta, che è
+   * l'unico modo di non perdere il dato di partenza.
+   *
+   * Serve perché il colore con cui un disegno è stato fatto e la penna con
+   * cui lo si stampa sono due cose diverse: un logo nero nel file si può
+   * voler stampare in rosso, e un livello disegnato a mano non ha nessuna
+   * tinta da cui dedurre niente.
+   */
+  function scegliPenna(id, colore) {
+    var l = trova(id);
+    if (!l) return;
+    if (colore) l.penna = colore; else delete l.penna;
+    refit();
+  }
+
   /* IL COLORE DI UN LIVELLO è la tinta delle sue forme, non un dato a parte.
      Un livello nasce da una tinta — è così che l'importazione divide i
      file — quindi il colore c'è già e tenerne una copia vorrebbe dire
@@ -547,7 +617,9 @@ var Artwork = (function () {
      non ha colore: null, e chi lo mostra non mostra niente. Meglio di un
      nero inventato, che sul telecomando vorrebbe dire «monta la penna
      nera». */
-  function tintaDi(l) {
+  /* La tinta come sta nel FILE, senza guardare la penna scelta: serve a
+     poter tornare indietro, cioè a dire «rimetti il colore del disegno». */
+  function tintaSoloDalFile(l) {
     if (!l || !l.forme || !l.forme.length) return null;
     var conta = {}, best = null;
     for (var i = 0; i < l.forme.length; i++) {
@@ -561,11 +633,17 @@ var Artwork = (function () {
     return SvgImport.esadecimale(best.replace(/^[tp]:/, ''));
   }
 
+  function tintaDi(l) {
+    if (!l) return null;
+    return l.penna || tintaSoloDalFile(l);
+  }
+
   function coloreLivello(id) { return tintaDi(trova(id)); }
 
   function elenco() {
     return livelli.map(function (l, i) {
       return { id: l.id, nome: l.nome, visibile: l.visibile, colore: tintaDi(l),
+               pennaScelta: l.penna || null, tinta: tintaSoloDalFile(l),
                cambioPenna: l.cambioPenna, attivo: l.cambioPenna && i > 0,
                primo: i === 0,
                tratti: l.art.length,
@@ -1122,12 +1200,19 @@ var Artwork = (function () {
              '" title="' + (preso ? 'Toglilo dalla selezione' : 'Scegli questo livello') +
              '">' + (preso ? SEGNI.spunta : SEGNI.quadro) + '</button>' +
 
-             (function (c) {
-                return c
-                  ? '<span class="tinta" style="background:' + esc(c) +
-                    '" title="Penna ' + esc(c) + '"></span>'
-                  : '';
-             })(tintaDi(l)) +
+             /* IL PALLINO C'È SEMPRE, anche vuoto: è da lì che si sceglie la
+                penna, e un livello senza tinta — disegnato a mano — è
+                proprio quello che ne ha più bisogno. Vuoto, è un cerchietto
+                tratteggiato: si vede che manca qualcosa. */
+             (function (c, scelta) {
+                return '<button type="button" class="tinta' + (c ? '' : ' vuota') +
+                  (scelta ? ' scelta' : '') + '" data-pen="' + l.id + '"' +
+                  (c ? ' style="background:' + esc(c) + '"' : '') +
+                  ' title="' + (c
+                    ? 'Penna ' + esc(c) + (scelta ? ' — scelta a mano' : ' — dal file')
+                    : 'Nessuna penna: passaci sopra per sceglierla') +
+                  '"></button>';
+             })(tintaDi(l), !!l.penna) +
 
              '<button type="button" class="liv-nome" data-nome="' + l.id +
              '" title="' + esc(l.nome) + ' — ' + l.art.length +
@@ -1220,6 +1305,176 @@ var Artwork = (function () {
     }
     el.hidden = !dice.length;
     el.innerHTML = dice.join(' ');
+  }
+
+  /* ===================== LA TAVOLOZZA A COMPARSA =====================
+   *
+   * Si apre passando sopra al pallino della penna, e da lì si sceglie fra
+   * le penne che si hanno in cassetto. Il «+» ne aggiunge una.
+   *
+   * Compare al PASSAGGIO e non al clic perché scegliere la penna è una
+   * cosa che si fa guardando il foglio, non navigando un menu: il
+   * movimento che serve è «passa, guarda, premi». Ma si chiude solo
+   * quando il mouse ha lasciato SIA il pallino SIA il riquadro — se no
+   * sparirebbe nel mezzo centimetro che c'è fra i due, che è il difetto
+   * classico dei menu che si aprono al passaggio.
+   */
+  var tav = null, tavPer = null, tavChiudi = null;
+
+  function tavolozzaChiudi() {
+    if (tavChiudi) { clearTimeout(tavChiudi); tavChiudi = null; }
+    if (tav) { tav.remove(); tav = null; tavPer = null; }
+  }
+
+  function tavolozzaFraPoco() {
+    if (tavChiudi) clearTimeout(tavChiudi);
+    tavChiudi = setTimeout(tavolozzaChiudi, 260);
+  }
+
+  function tavolozzaResta() {
+    if (tavChiudi) { clearTimeout(tavChiudi); tavChiudi = null; }
+  }
+
+  function tavolozzaApri(bottone, id) {
+    if (tavPer === id && tav) { tavolozzaResta(); return; }
+    tavolozzaChiudi();
+    var l = trova(id);
+    if (!l) return;
+    tavPer = id;
+
+    var ora = tintaDi(l), dalFile = tintaSoloDalFile(l);
+    var html = '<div class="tav-titolo">Penna del livello</div><div class="tav-righe">';
+    tavolozza().forEach(function (p) {
+      html += '<button type="button" class="tav-pen' + (p.colore === ora ? ' ora' : '') +
+              '" data-tav="' + esc(p.colore) + '" title="' + esc(p.nome) + '">' +
+              '<span class="tinta" style="background:' + esc(p.colore) + '"></span>' +
+              '<span class="tav-nome">' + esc(p.nome) + '</span></button>';
+    });
+    html += '<button type="button" class="tav-pen tav-piu" data-tav-piu="1" ' +
+            'title="Aggiungi una penna"><span class="tinta vuota">+</span>' +
+            '<span class="tav-nome">aggiungi</span></button>';
+    html += '</div>';
+    /* Tornare indietro deve essere possibile: la tinta del file non è stata
+       cancellata, è solo coperta. */
+    if (l.penna) {
+      html += '<button type="button" class="tav-torna" data-tav-torna="1">' +
+              (dalFile ? 'Rimetti il colore del file (' + esc(dalFile) + ')'
+                       : 'Togli la penna scelta') + '</button>';
+    }
+
+    tav = document.createElement('div');
+    tav.className = 'tavolozza';
+    tav.innerHTML = html;
+    document.body.appendChild(tav);
+
+    /* FUORI DALLA COLONNA, all'altezza della sua riga.
+       Sotto coprirebbe le righe degli altri livelli, e di fianco al
+       pallino coprirebbe i nomi: la prima cosa che si fa dopo aver scelto
+       una penna è guardare quella del livello accanto, e per guardarla
+       bisogna vederla. A destra della colonna c'è il foglio, che per
+       qualche secondo si può coprire. Se a destra non ci sta, va a
+       sinistra. */
+    var r = bottone.getBoundingClientRect();
+    var colonna = (document.getElementById('livelli') || bottone).getBoundingClientRect();
+    var w = tav.offsetWidth, h = tav.offsetHeight;
+    var x = colonna.right + 12;
+    if (x + w > window.innerWidth - 8) x = Math.max(8, colonna.left - w - 12);
+    var y = Math.max(8, Math.min(window.innerHeight - h - 8,
+                                 r.top + r.height / 2 - h / 2));
+    tav.style.left = x + 'px';
+    tav.style.top = y + 'px';
+
+    tav.addEventListener('pointerenter', tavolozzaResta);
+    tav.addEventListener('pointerleave', tavolozzaFraPoco);
+    tav.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.tav) { scegliPenna(id, b.dataset.tav); tavolozzaChiudi(); }
+      else if (b.dataset.tavTorna) { scegliPenna(id, null); tavolozzaChiudi(); }
+      else if (b.dataset.tavPiu) { pennaNuova(id); }
+    });
+  }
+
+  /* IL SELETTORE: due cursori, tinta e chiarezza.
+   *
+   * Non è una tavola completa ed è apposta. Serve a dire «ho comprato una
+   * penna di questo colore», e per quello bastano l'arcobaleno e quanto è
+   * chiaro o scuro. Due cursori invece del solo arcobaleno perché il
+   * GRIGIO — che è una delle quattro penne — dall'arcobaleno non esce:
+   * è una tinta qualunque con la saturazione a zero, e senza il secondo
+   * cursore non ci si arriva.
+   */
+  function pennaNuova(id) {
+    tavolozzaChiudi();
+    var box = document.createElement('div');
+    box.className = 'tavolozza scelta-colore';
+    box.innerHTML =
+      '<div class="tav-titolo">Una penna nuova</div>' +
+      '<div class="sc-prova" id="sc-prova"></div>' +
+      '<label class="sc-riga">Tinta<input type="range" id="sc-h" min="0" max="360" value="210"></label>' +
+      '<label class="sc-riga">Chiarezza<input type="range" id="sc-l" min="0" max="100" value="45"></label>' +
+      '<label class="sc-riga">Vivezza<input type="range" id="sc-s" min="0" max="100" value="70"></label>' +
+      '<label class="sc-riga sc-nome">Nome<input type="text" id="sc-nome" placeholder="verde chiaro" maxlength="18"></label>' +
+      '<div class="sc-fondo"><code id="sc-hex">#000000</code>' +
+      '<button type="button" class="btn btn-small" id="sc-no">Lascia</button>' +
+      '<button type="button" class="btn btn-small btn-primary" id="sc-si">Aggiungi</button></div>';
+    document.body.appendChild(box);
+    box.style.left = Math.max(8, (window.innerWidth - box.offsetWidth) / 2) + 'px';
+    box.style.top = Math.max(8, (window.innerHeight - box.offsetHeight) / 3) + 'px';
+
+    var h = box.querySelector('#sc-h'), s = box.querySelector('#sc-s'),
+        lu = box.querySelector('#sc-l'), prova = box.querySelector('#sc-prova'),
+        hex = box.querySelector('#sc-hex'), nome = box.querySelector('#sc-nome');
+
+    function aggiorna() {
+      var c = hslEsa(+h.value, +s.value / 100, +lu.value / 100);
+      prova.style.background = c;
+      hex.textContent = c;
+      /* L'arcobaleno del cursore della tinta segue la vivezza e la
+         chiarezza scelte: un arcobaleno fisso mentirebbe su che cosa si
+         sta per ottenere. */
+      h.style.background = 'linear-gradient(to right,' +
+        [0, 60, 120, 180, 240, 300, 360].map(function (g) {
+          return hslEsa(g, +s.value / 100, +lu.value / 100);
+        }).join(',') + ')';
+      lu.style.background = 'linear-gradient(to right,' +
+        [0, 50, 100].map(function (v) {
+          return hslEsa(+h.value, +s.value / 100, v / 100);
+        }).join(',') + ')';
+      s.style.background = 'linear-gradient(to right,' +
+        [0, 100].map(function (v) {
+          return hslEsa(+h.value, v / 100, +lu.value / 100);
+        }).join(',') + ')';
+    }
+    [h, s, lu].forEach(function (c) { c.addEventListener('input', aggiorna); });
+    aggiorna();
+
+    function chiudi() { box.remove(); }
+    box.querySelector('#sc-no').addEventListener('click', chiudi);
+    box.querySelector('#sc-si').addEventListener('click', function () {
+      var c = hex.textContent;
+      aggiungiPenna(c, (nome.value || '').trim() || c);
+      scegliPenna(id, c);
+      chiudi();
+    });
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') chiudi();
+      if (e.key === 'Enter') box.querySelector('#sc-si').click();
+    });
+    nome.focus();
+  }
+
+  /* Da tinta/vivezza/chiarezza a esadecimale. Sta qui e non in una
+     libreria perché sono otto righe, e una libreria per otto righe è una
+     dipendenza da aggiornare per sempre. */
+  function hslEsa(h, s, l) {
+    var c = (1 - Math.abs(2 * l - 1)) * s;
+    var x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    var m = l - c / 2;
+    var r = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(h / 60) % 6];
+    return '#' + r.map(function (v) {
+      return ('0' + Math.round((v + m) * 255).toString(16)).slice(-2);
+    }).join('');
   }
 
   /* RIORDINARE TRASCINANDO.
@@ -1655,7 +1910,8 @@ var Artwork = (function () {
         /* La spunta COMMUTA, il nome sceglie quello e basta: due gesti per
            due intenzioni diverse, e la spunta è l'unico modo di arrivare a
            non aver scelto niente. */
-        if (d.sel) seleziona(d.sel, 'aggiungi');
+        if (d.pen) tavolozzaApri(b, d.pen);   // il pallino: anche al clic
+        else if (d.sel) seleziona(d.sel, 'aggiungi');
         else if (d.nome) seleziona(d.nome);
         else if (d.penna) commutaCambioPenna(d.penna);
         else if (d.edit) commutaOrigine(d.edit);
@@ -1673,6 +1929,16 @@ var Artwork = (function () {
         seleziona(r.dataset.liv);
         if (window.Selezione) Selezione.apri();
       });
+
+      /* Il passaggio del mouse sul pallino apre la tavolozza. Delegato,
+         perché l'elenco si ridisegna tutto a ogni modifica e dei
+         gestori attaccati riga per riga ne resterebbero in giro. */
+      box.addEventListener('pointerover', function (e) {
+        var b = e.target.closest('button[data-pen]');
+        if (b) tavolozzaApri(b, b.dataset.pen);
+        else if (!e.target.closest('.tavolozza')) tavolozzaFraPoco();
+      });
+      box.addEventListener('pointerleave', tavolozzaFraPoco);
 
       riordinabile(box);
     }
@@ -1710,6 +1976,8 @@ var Artwork = (function () {
 
     scalaMm: scalaMm,
     livelli: elenco, coloreLivello: coloreLivello,
+    tavolozza: tavolozza, aggiungiPenna: aggiungiPenna, togliPenna: togliPenna,
+    scegliPenna: scegliPenna,
     seleziona: seleziona, sceltoId: sceltoId, quale: quale,
     deseleziona: deseleziona, scelti: scelti, segnaOrigine: segnaOrigine,
     principale: principale, daFoglio: daFoglio, sfondoPer: sfondoPer,

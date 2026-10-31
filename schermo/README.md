@@ -508,6 +508,22 @@ indirizzo non parte perché non c'è nessuno a cui recitare. `prova-test.js`, 24
 asserzioni, di cui una sola conta davvero: che per tutta la recita il Sender
 non si sia mosso.
 
+### La penna si sceglie, non si deduce soltanto
+
+Dal 2026-10-31 il colore di un livello si può **scegliere**: nell'elenco dei
+livelli il pallino della penna si apre passandoci sopra, e dà le penne che hai
+in cassetto — nero, blu, rosso, grigio — più un «+» per aggiungerne. La
+scelta **copre** la tinta del file senza cancellarla: «rimetti il colore del
+file» la fa riapparire. Serve perché il colore con cui un disegno è stato
+fatto e la penna con cui lo stampi sono due cose diverse — un logo nero si
+può voler stampare in rosso — e perché un livello disegnato a mano non ha
+nessuna tinta da cui dedurre niente.
+
+Le penne stanno nel **browser**, non nel profilo della macchina: sono di chi
+stampa, non della macchina. E al cambio penna la finestra le chiama **col nome
+che hai dato loro** — «monta la rossa» si capisce senza guardare, «#c8102e»
+no. Al telecomando arriva il colore, che sul vetro è un pallino.
+
 ### Quello che si vedrà e che non si può sapere da qui
 
 Il font di Adafruit_GFX è a **larghezza fissa, 6 × 8 px per unità di corpo**:

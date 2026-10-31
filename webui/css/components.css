@@ -1354,13 +1354,134 @@ code {
    telecomando, per lo stesso motivo. */
 .tinta {
   flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   display: inline-block;
   vertical-align: -1px;
+  padding: 0;
+  border: 0;
+  background: none;
   box-shadow: 0 0 0 1px var(--text-mute);
 }
+button.tinta { cursor: pointer; }
+button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
+
+/* Il pallino VUOTO: tratteggiato, perche' si veda che manca una scelta
+   invece che sembrare una penna di colore niente. */
+.tinta.vuota {
+  box-shadow: none;
+  border: 1px dashed var(--text-mute);
+  color: var(--text-mute);
+  font-size: 9px;
+  line-height: 9px;
+  text-align: center;
+}
+
+/* La penna SCELTA a mano porta un anello: dal pallino e basta non si
+   distinguerebbe da quella dedotta dal file, e sono due cose diverse --
+   una la cambi tu, l'altra la cambia il file che ricarichi. */
+.tinta.scelta { box-shadow: 0 0 0 1px var(--bg), 0 0 0 2px var(--accent); }
+
+/* IL RIQUADRO A COMPARSA della tavolozza. Sta attaccato al <body> e non
+   dentro alla riga: dentro, l'elenco che scorre lo taglierebbe. */
+.tavolozza {
+  position: fixed;
+  z-index: 60;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 10px 30px #0009;
+  min-width: 152px;
+}
+.tav-titolo {
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-bottom: 6px;
+}
+.tav-righe { display: flex; flex-direction: column; gap: 2px; }
+.tav-pen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  padding: 5px 6px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+.tav-pen:hover { background: var(--bg); }
+.tav-pen.ora { background: var(--bg); outline: 1px solid var(--accent-dim); }
+.tav-nome { white-space: nowrap; }
+.tav-torna {
+  margin-top: 6px;
+  width: 100%;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 5px 6px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.tav-torna:hover { color: var(--text); border-color: var(--text-mute); }
+
+/* IL SELETTORE. Tre cursori: tinta, chiarezza, vivezza. Ognuno si colora
+   di quello che si otterrebbe muovendolo, perche' un cursore grigio su
+   un colore non dice niente. */
+.scelta-colore { min-width: 250px; }
+.sc-prova {
+  height: 42px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  margin-bottom: 10px;
+}
+.sc-riga {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+.sc-riga input[type=range] {
+  flex: 1;
+  height: 12px;
+  border-radius: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--line);
+}
+.sc-riga input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #0008;
+  cursor: pointer;
+}
+.sc-riga input[type=text] {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+.sc-fondo { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.sc-fondo code { flex: 1; font-size: 11px; color: var(--text-mute); }
 
 /* La riga che apre il secondo passo del cambio penna: e' la risposta alla
    sola domanda che uno si fa aprendo quella finestra, quindi sta in cima e
