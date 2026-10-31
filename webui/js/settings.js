@@ -455,6 +455,41 @@ var Settings = (function () {
       pv.addEventListener('click', function () { Telecomando.prova(); });
     }
 
+    /* I PULSANTI DELLE SCHERMATE LI FA L'ELENCO DEL TELECOMANDO, non questa
+       pagina: l'elenco delle schermate è roba sua, e due copie — una nel
+       modulo e una nell'HTML — divergerebbero alla prima schermata nuova,
+       con un pulsante che manda uno stato che non esiste più. */
+    var box = document.getElementById('tele-prove');
+    if (box && window.Telecomando) {
+      var h = '';
+      Telecomando.pose().forEach(function (s) {
+        h += '<button type="button" class="btn btn-small" data-posa="' + s.k +
+             '" disabled>' + s.nome + '</button>';
+      });
+      h += '<button type="button" class="btn btn-small" data-posa="" disabled>' +
+           'Basta prove</button>';
+      box.innerHTML = h;
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-posa]');
+        if (!b) return;
+        /* Ripremere la schermata che è già su la toglie: così lo stesso
+           pulsante accende e spegne, come fa la prova in bianco. */
+        var k = b.dataset.posa;
+        Telecomando.posa(k && Telecomando.stato().posa === k ? '' : k);
+      });
+    }
+
+    var spia = document.getElementById('set-tele-spia');
+    if (spia && window.Telecomando) {
+      spia.checked = Telecomando.stato().spia;
+      spia.addEventListener('change', function () { Telecomando.spia(this.checked); });
+    }
+
+    var md = document.getElementById('btn-tele-manda');
+    if (md && window.Telecomando) {
+      md.addEventListener('click', function () { Telecomando.manda(); });
+    }
+
     mock.addEventListener('change', function () {
       State.set('mock', this.checked);
       Api.disconnect();
@@ -467,15 +502,48 @@ var Settings = (function () {
     State.on('paper', aggiorna);
   }
 
+  /* Come sta messo con la corrente, detto in italiano. `null` è il
+     telecomando vecchio, che la spina non la racconta: non si inventa «a
+     batteria», si tace. */
+  var SPINA = {
+    carica: ' — in carica',
+    piena:  ' — attaccato alla corrente, carica finita',
+    ferma:  ' — ATTACCATO MA NON CARICA: vedi schermo/README.md',
+    batteria: ''
+  };
+
   function notaTele() {
     var p = document.getElementById('set-tele-stato');
     var pv = document.getElementById('btn-tele-prova');
     var t = State.data.telecomando;
+
+    /* L'INDIRIZZO SI RIMETTE NEL CAMPO OGNI VOLTA. Le impostazioni si
+       accendono PRIMA del telecomando (app.js), quindi al primo giro il
+       campo si riempiva con un indirizzo che il modulo non aveva ancora
+       letto dal browser: campo vuoto e, due righe sotto, «Collegato». */
+    var box = document.getElementById('set-tele');
+    if (box && window.Telecomando && document.activeElement !== box) {
+      box.value = Telecomando.stato().indirizzo;
+    }
     if (pv) {
       pv.disabled = !t || !t.attivo;
       pv.textContent = (t && t.prova) ? 'Ferma la prova' : 'Prova in bianco';
       pv.classList.toggle('btn-primary', !!(t && t.prova));
     }
+
+    /* I pulsanti delle schermate: spenti senza indirizzo — senza non c'è
+       nessuno a cui mandarle — e quello della schermata che è su adesso resta
+       acceso, perché «che cosa sto guardando» è l'unica cosa che non si vede
+       dalla pagina: si vede sul vetro, che è dall'altra parte della stanza. */
+    var bs = document.querySelectorAll('#tele-prove button[data-posa]');
+    for (var i = 0; i < bs.length; i++) {
+      var k = bs[i].dataset.posa;
+      bs[i].disabled = !t || !t.attivo || (!k && !(t && t.posa));
+      bs[i].classList.toggle('btn-primary', !!(k && t && t.posa === k));
+    }
+    var md = document.getElementById('btn-tele-manda');
+    if (md) md.disabled = !t || !t.attivo;
+
     if (!p) return;
     if (!t || !t.attivo) {
       p.textContent = 'Spento: senza indirizzo non si manda niente, e la ' +
@@ -484,8 +552,11 @@ var Settings = (function () {
     }
     p.textContent = (t.prova ? 'PROVA IN BIANCO in corso: il telecomando recita ' +
                                 'una stampa, la macchina non si muove. ' : '') +
+      (t.posa ? 'SCHERMATA FERMA per prova: quello che vedi sul vetro non è ' +
+                'quello che sta facendo la macchina. ' : '') +
       (t.visto
-      ? 'Collegato' + (t.batteria === null ? '.' : ', batteria al ' + t.batteria + '%.')
+      ? 'Collegato' + (t.batteria === null ? '.' : ', batteria al ' + t.batteria +
+          '%' + (SPINA[t.carica] || '') + '.')
       : 'Non raggiungibile. La stampa non ne risente: il telecomando guarda e ' +
         'comanda, non è sulla strada dei comandi.');
   }

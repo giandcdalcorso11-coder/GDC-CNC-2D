@@ -756,18 +756,56 @@
         <input type="text" id="set-host" value="cnc2d.local" spellcheck="false">
       </label>
       <label class="chk"><input type="checkbox" id="set-mock" checked> Modalità finta (nessuna macchina collegata)</label>
-      <label class="stack">Indirizzo del telecomando
+      <p class="muted small">L'indirizzo sta nel browser e non nel profilo:
+        esportando il profilo non voglio portarmi dietro l'indirizzo di rete né
+        il fatto che stavo lavorando a vuoto.</p>
+    </section>
+
+    <!-- ===================== IL TELECOMANDO =====================
+         Tutto in una scheda sua, e non sparso fra «Connessione» e il resto:
+         è una scatola a parte, con una rete sua, un collaudo suo e un modo
+         suo di rompersi. Chi non ce l'ha lascia l'indirizzo vuoto e questa
+         scheda non chiede altro. Il progetto per esteso: schermo/README.md. -->
+    <section class="card card-due" id="card-telecomando">
+      <h2>Telecomando</h2>
+      <label class="stack">Indirizzo
         <input type="text" id="set-tele" value="" spellcheck="false"
                placeholder="cnc2d-telecomando.local — vuoto: spento">
       </label>
       <p class="muted small" id="set-tele-stato"></p>
+
       <!-- La prova in bianco: il telecomando recita una stampa intera senza
            che la macchina si muova. E' il modo di collaudarlo appena montato
            senza spendere venti minuti e un foglio. -->
+      <h3>Il collaudo</h3>
       <button type="button" class="btn" id="btn-tele-prova" disabled>Prova in bianco</button>
-      <p class="muted small">Sta nel browser e non nel profilo: esportando il
-        profilo non voglio portarmi dietro l'indirizzo di rete né il fatto che
-        stavo lavorando a vuoto.</p>
+      <p class="muted small">Recita una stampa intera — partenza, avanzamento,
+        cambio penna in due passi, fine, errore, silenzio — e va avanti da sola.
+        I tasti premuti durante la prova restano dentro alla prova: non arrivano
+        né alla macchina né al Sender.</p>
+
+      <!-- Una schermata per volta, ferma. Con la recita bisognava aspettare il
+           momento giusto: per GUARDARE una schermata serve che stia ferma. -->
+      <h3>Una schermata per volta</h3>
+      <div class="tele-prove" id="tele-prove"></div>
+      <p class="muted small">Sono gli stessi stati che manda una stampa vera, e
+        il telecomando non sa che è una prova. Restano fermi finché non cambi:
+        «Niente SLICER» invece smette di mandare, e dopo sei secondi è il
+        telecomando a dirlo da sé. Un tasto premuto mentre una schermata è
+        ferma finisce nel registro e basta — che è il modo di vedere se il pad
+        risponde.</p>
+
+      <!-- Il dialogo, scritto. Normalmente nel registro finiscono solo i
+           fatti: i messaggi sono due e mezzo al secondo. -->
+      <h3>Che cosa si dicono</h3>
+      <label class="chk"><input type="checkbox" id="set-tele-spia">
+        Scrivi nel log ogni messaggio (→ esce, ← torna)</label>
+      <button type="button" class="btn btn-small" id="btn-tele-manda" disabled>Manda adesso</button>
+      <p class="muted small">Da tenere spenta quando non serve: a stampa in
+        corso sono due messaggi e mezzo al secondo, e il registro diventa
+        illeggibile. Accesa, dice da che parte sta il guasto — se esce e non
+        torna niente è la rete, se torna un tasto che la pagina non capisce è
+        il firmware.</p>
     </section>
 
     <section class="card">

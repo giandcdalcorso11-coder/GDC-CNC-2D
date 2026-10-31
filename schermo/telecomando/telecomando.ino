@@ -20,7 +20,7 @@
  *
  *   POST /stato  { v, stato, nome, percento, rimanente, penna, passo,
  *                  macchina, azzerata, data }
- *     → 200      { "tasto": "riprendi", "batteria": 78 }
+ *     → 200      { "tasto": "riprendi", "batteria": 78, "carica": "carica" }
  *
  * `tasto` è quello premuto da quando è arrivato il messaggio precedente,
  * e si consuma: una pressione, un messaggio, una volta sola.
@@ -1410,11 +1410,19 @@ void serviCliente() {
   /* LA RISPOSTA PORTA INDIETRO IL TASTO. È l'unico verso che il
      telecomando ha per parlare, ed è il motivo per cui non gli serve
      conoscere nessun indirizzo. */
-  char risposta[64];
+  /* E anche la spina, con la stessa parola che il telecomando stampa sul
+     monitor seriale: il SLICER non la deduce dalla percentuale — che mentre
+     carica è gonfia — e può dirlo accanto alla pila. */
+  const char* comeVa = spina == A_BATTERIA ? "batteria" :
+                       spina == IN_CARICA  ? "carica"   :
+                       spina == PIENA      ? "piena"    : "ferma";
+  char risposta[96];
   if (daMandare[0]) snprintf(risposta, sizeof(risposta),
-                             "{\"tasto\":\"%s\",\"batteria\":%d}", daMandare, batteria);
+                             "{\"tasto\":\"%s\",\"batteria\":%d,\"carica\":\"%s\"}",
+                             daMandare, batteria, comeVa);
   else              snprintf(risposta, sizeof(risposta),
-                             "{\"tasto\":null,\"batteria\":%d}", batteria);
+                             "{\"tasto\":null,\"batteria\":%d,\"carica\":\"%s\"}",
+                             batteria, comeVa);
   daMandare[0] = 0;
 
   c.println("HTTP/1.1 200 OK");

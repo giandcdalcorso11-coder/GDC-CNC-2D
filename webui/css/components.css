@@ -1776,3 +1776,38 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
+
+/* ===================== LA SCHEDA DEL TELECOMANDO =====================
+   Tre cose che si fanno in momenti diversi — l'indirizzo, il collaudo, il
+   dialogo scritto nel registro — e dentro a una scheda sola servono dei
+   sottotitoli: stessa voce del titolo, un po' più piano, con un filo di
+   aria e una riga sopra. */
+.card h3 {
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 3px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Larga due colonne: dentro ci sono dieci pulsanti di schermata, e su una
+   colonna sola andrebbero a capo uno per riga. Sotto i 1000px le colonne
+   sono una e la regola si toglie da sé. */
+.card-due { grid-column: span 2; }
+@media (max-width: 1000px) { .card-due { grid-column: auto; } }
+
+.tele-prove {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tele-pila.is-carica { color: var(--ok, #43b581); }
+/* Il fulmine è del colore dello sfondo, non del contorno: dentro alla pila
+   sta per metà sopra al pieno — che è pieno di currentColor — e per metà
+   sopra al vuoto. Un fulmine dello stesso colore sparirebbe nel pieno. */
+.tele-pila .fulmine { fill: var(--bg-raised); stroke: var(--bg-raised); stroke-width: .7; }
+/* Il pulsante che manda un messaggio adesso non deve essere largo come la
+   scheda: è un gesto piccolo, e un pulsante largo sembra importante. */
+#btn-tele-manda { align-self: flex-start; }

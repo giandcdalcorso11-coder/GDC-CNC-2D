@@ -51,6 +51,16 @@ var Telecomando = (function () {
   var firma = '';            // lo stato dell'ultima volta, per mandare subito se cambia
   var visto = false;         // il telecomando ha risposto almeno una volta
   var batteria = null;
+  /* Come sta messo con la corrente, con la parola che manda lui:
+     `batteria`, `carica`, `piena`, `ferma` (attaccato ma non carica). */
+  var carica = null;
+  /* LA SPIA. Normalmente nel registro finiscono solo i fatti — un tasto, un
+     collegamento che cade — e non i messaggi, che a stampa in corso sono due
+     e mezzo al secondo e seppellirebbero tutto il resto. Quando però si sta
+     collaudando il dialogo, vedere QUELLO CHE ESCE e QUELLO CHE TORNA è
+     l'unico modo di capire da che parte sta il guasto. Quindi c'è, ma si
+     accende a mano e parte spenta. */
+  var spiona = false;
 
   /* ---------------------------- il messaggio ---------------------------- */
 
@@ -109,6 +119,7 @@ var Telecomando = (function () {
     var m = messaggio();
     firma = impronta(m);
     inVolo = true;
+    if (spiona) Log.add('cmd', '→ telecomando ' + JSON.stringify(m));
 
     fetch(url('/stato'), {
       method: 'POST',
@@ -127,7 +138,12 @@ var Telecomando = (function () {
         visto = true;
         Log.add('msg', 'Telecomando collegato su ' + indirizzo + '.');
       }
+      if (spiona) Log.add('msg', '← telecomando ' + JSON.stringify(risposta));
       batteria = (typeof risposta.batteria === 'number') ? risposta.batteria : null;
+      /* Il telecomando vecchio (prima del 2026-10-31) non manda `carica`, e
+         deve continuare a funzionare: null vuol dire «non lo dice», che è
+         diverso da «è a batteria». */
+      carica = typeof risposta.carica === 'string' ? risposta.carica : null;
       segnala();
       if (risposta.tasto) premuto(String(risposta.tasto));
     }).catch(function (e) {
@@ -136,10 +152,12 @@ var Telecomando = (function () {
       /* Si dice una volta sola, quando si smette di crederci: un messaggio di
          rete fallita ogni due secondi riempirebbe il registro di righe che
          raccontano tutte la stessa cosa. */
+      if (spiona) Log.add('err', '× telecomando ' + e.message);
       if (falliti === PAZIENZA) {
         if (visto) Log.add('err', 'Telecomando non raggiungibile: ' + e.message);
         visto = false;
         batteria = null;
+        carica = null;
         segnala();
       }
     });
@@ -162,6 +180,14 @@ var Telecomando = (function () {
        punto della prova. Se «riprendi» finisse al Sender mentre si sta
        recitando una stampa che non esiste, la prova in bianco sarebbe
        l'unica cosa al mondo capace di far partire una stampa vera. */
+    /* FERMO SU UNA SCHERMATA: il tasto non deve fare niente, e il fatto che
+       si veda nel registro È il collaudo — da qui si capisce se il pad
+       risponde e se manda quello che dovrebbe. */
+    if (posaOra) {
+      Log.add('msg', 'Prova schermate: il tasto è arrivato, e qui non fa ' +
+                     'altro — la schermata resta ferma.');
+      return;
+    }
     if (finta) { provaTasto(tasto); return; }
 
     if (tasto === 'pausa') { Sender.pausa(); return; }
@@ -314,9 +340,9 @@ var Telecomando = (function () {
   }
 
   function prova(acceso) {
-    if (acceso === undefined) acceso = !finta;
+    if (acceso === undefined) acceso = !timerProva;
     if (acceso) {
-      if (finta) return true;
+      if (timerProva) return true;
       if (!indirizzo) {
         Log.add('err', 'Per la prova serve l\'indirizzo del telecomando.');
         return false;
@@ -326,6 +352,7 @@ var Telecomando = (function () {
                        'macchina ferma.');
         return false;
       }
+      posaOra = '';
       finta = vuoto();
       timerProva = setInterval(provaTick, RITMO_PROVA);
       Log.add('msg', 'Prova in bianco del telecomando: recita una stampa intera. ' +
@@ -333,13 +360,115 @@ var Telecomando = (function () {
       provaAvanti(0);
     } else {
       if (timerProva) clearInterval(timerProva);
-      timerProva = null; finta = null; muto = false; firma = '';
+      timerProva = null; finta = null; muto = false; firma = ''; posaOra = '';
       Log.add('msg', 'Prova del telecomando finita.');
       manda();
       battito();
       segnala();
     }
     return true;
+  }
+
+
+  /* --------------------- una schermata sola, ferma --------------------- */
+
+  /* LA PROVA IN BIANCO RECITA TUTTA LA STAMPA e va avanti da sola: è quello
+   * che serve per collaudare il telecomando appena montato. Per GUARDARE una
+   * schermata — i colori, le parole, il fulmine della carica, dove cascano le
+   * etichette dei tasti — serve il contrario: una schermata sola, ferma,
+   * finché non la cambi tu. Con la recita bisognava aspettare il momento
+   * giusto e fotografarlo prima che passasse.
+   *
+   * Sono gli STESSI stati che manda una stampa vera, non schermate inventate
+   * per la prova: provare una cosa che la macchina non produce mai vorrebbe
+   * dire collaudare un oggetto che non esiste. E il telecomando non sa che è
+   * una prova — non c'è nessun campo che glielo dica — quindi quello che fa
+   * qui è esattamente quello che farà in stampa.
+   */
+  var NERA  = { colore: '#000000', nome: 'prova · tratto nero' };
+  var ROSSA = { colore: '#c0392b', nome: 'prova · tratto rosso' };
+
+  var POSE = [
+    { k: 'azzerare', nome: 'Da azzerare', fa: function (f) {
+        f.stato = 'fermo'; f.azzerata = false; } },
+    { k: 'pronta', nome: 'Pronta', fa: function (f) {
+        f.stato = 'fermo'; f.azzerata = true; } },
+    { k: 'stampa', nome: 'In stampa', fa: function (f) {
+        f.stato = 'invio'; f.macchina = 'Run'; f.azzerata = true;
+        f.percento = 47; f.rimanente = 8 * 60000; f.penna = NERA; } },
+    { k: 'pausa', nome: 'In pausa', fa: function (f) {
+        f.stato = 'pausa'; f.macchina = 'Idle'; f.azzerata = true;
+        f.percento = 47; f.rimanente = 8 * 60000; f.penna = NERA; } },
+    { k: 'penna1', nome: 'Penna: togli', fa: function (f) {
+        f.stato = 'cambio'; f.passo = 0; f.macchina = 'Idle'; f.azzerata = true;
+        f.percento = 48; f.penna = ROSSA; } },
+    { k: 'penna2', nome: 'Penna: monta', fa: function (f) {
+        f.stato = 'cambio'; f.passo = 1; f.macchina = 'Idle'; f.azzerata = true;
+        f.percento = 48; f.penna = ROSSA; } },
+    { k: 'fine', nome: 'Finita', fa: function (f) {
+        f.stato = 'fine'; f.percento = 100; f.rimanente = 0;
+        f.macchina = 'Idle'; f.azzerata = true; f.penna = ROSSA; } },
+    { k: 'errore', nome: 'Errore', fa: function (f) {
+        f.stato = 'errore'; f.percento = 62; f.macchina = 'Alarm'; } },
+    /* IL SILENZIO NON SI MANDA: si smette di mandare. È l'unica schermata che
+       nasce dal non ricevere niente, e dopo sei secondi il telecomando la
+       tira fuori da sé. Mentre dura, i tasti non si possono nemmeno leggere:
+       la risposta viaggia dentro al messaggio che non stiamo mandando. */
+    { k: 'silenzio', nome: 'Niente SLICER', fa: function () { muto = true; } }
+  ];
+
+  var posaOra = '';
+
+  function posa(k) {
+    k = String(k || '');
+    if (k && !indirizzo) {
+      Log.add('err', 'Per le prove serve l\'indirizzo del telecomando.');
+      return false;
+    }
+    if (k && window.Sender && Sender.inCorso && Sender.inCorso()) {
+      Log.add('err', 'C\'è una stampa in corso: le prove delle schermate si ' +
+                     'fanno a macchina ferma.');
+      return false;
+    }
+    /* Una prova per volta: la recita e una schermata ferma si
+       contenderebbero lo stesso finto stato. */
+    if (timerProva) { clearInterval(timerProva); timerProva = null; }
+
+    if (!k) {
+      posaOra = ''; finta = null; muto = false; firma = '';
+      Log.add('msg', 'Prove delle schermate finite.');
+    } else {
+      var p = null;
+      for (var i = 0; i < POSE.length; i++) if (POSE[i].k === k) p = POSE[i];
+      if (!p) { Log.add('err', 'Schermata che non conosco: ' + k); return false; }
+      finta = finta || vuoto();
+      muto = false;
+      posaOra = k;
+      p.fa(finta);
+      firma = '';
+      Log.add('msg', 'Prova schermate: ' + p.nome +
+                     (k === 'silenzio' ? ' — smetto di mandare, fra sei secondi ' +
+                                         'lo dice da sé.' : '.'));
+    }
+    manda();
+    battito();
+    segnala();
+    return true;
+  }
+
+  /* ------------------------------- la spia ------------------------------- */
+
+  function spia(v) {
+    if (v !== undefined) {
+      spiona = !!v;
+      Log.add('msg', spiona
+        ? 'Spia del telecomando accesa: nel registro ogni messaggio che esce ' +
+          '(→) e ogni risposta che torna (←). A stampa in corso sono due e ' +
+          'mezzo al secondo.'
+        : 'Spia del telecomando spenta.');
+      segnala();
+    }
+    return spiona;
   }
 
   /* --------------------------- lo stato per la UI --------------------------- */
@@ -349,7 +478,10 @@ var Telecomando = (function () {
       attivo: !!indirizzo,
       visto: visto,
       batteria: batteria,
-      prova: !!finta
+      carica: carica,
+      prova: !!timerProva,
+      posa: posaOra,
+      spia: spiona
     });
   }
 
@@ -377,6 +509,17 @@ var Telecomando = (function () {
      errore e la fine della stampa sono i tre momenti in cui mezzo secondo di
      ritardo si nota. */
   function subito() {
+    /* UNA STAMPA VERA SPEGNE LA PROVA, qualunque prova. Il controllo che si
+       fa accendendola non basta: quello guarda il momento in cui si preme,
+       e se la stampa parte dopo il telecomando resterebbe a raccontare una
+       recita — o una schermata ferma — mentre la macchina disegna davvero.
+       Peggio: sul vetro ci sarebbe scritto «pronta» con la penna che va. */
+    if (finta && window.Sender && Sender.inCorso && Sender.inCorso()) {
+      Log.add('msg', 'È partita una stampa vera: le prove del telecomando si ' +
+                     'fermano qui.');
+      if (posaOra) posa(''); else prova(false);
+      return;
+    }
     if (!indirizzo || inVolo) return;
     if (impronta(messaggio()) === firma) return;
     manda();
@@ -401,7 +544,8 @@ var Telecomando = (function () {
 
   function stato() {
     return { indirizzo: indirizzo, visto: visto, batteria: batteria,
-             prova: !!finta };
+             carica: carica, prova: !!timerProva, posa: posaOra,
+             spia: spiona };
   }
 
   function init() {
@@ -415,5 +559,8 @@ var Telecomando = (function () {
   }
 
   return { init: init, dove: dove, stato: stato, manda: manda, premuto: premuto,
-           prova: prova, inProva: function () { return !!finta; } };
+           prova: prova, inProva: function () { return !!finta; },
+           pose: function () { return POSE.map(function (p) {
+                   return { k: p.k, nome: p.nome }; }); },
+           posa: posa, spia: spia };
 })();

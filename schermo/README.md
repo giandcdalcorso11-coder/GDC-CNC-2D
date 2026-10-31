@@ -427,11 +427,16 @@ seconda connessione, e il telecomando non comincia mai lui una conversazione.
 
 ```
 POST /stato    { stato, percento, rimanente, penna, passo }
-  → 200        { tasto: "riprendi", batteria: 78 }
+  → 200        { tasto: "riprendi", batteria: 78, carica: "carica" }
 ```
 
 La carica viaggia nella **risposta** e non in una chiamata sua: è un dato del
-telecomando, e il telecomando parla solo quando gli si chiede qualcosa.
+telecomando, e il telecomando parla solo quando gli si chiede qualcosa. Con
+lei viaggia `carica` — `batteria`, `carica`, `piena`, `ferma` —, che è la
+spina e non la percentuale: sotto carica la tensione è gonfia e il numero
+mente di qualche punto, mentre quella parola viene dal registro del
+caricabatterie. Un telecomando vecchio non la manda, e il SLICER non la
+inventa: senza quel campo non dice niente invece di dire «a batteria».
 
 Due cose da non sbagliare:
 
@@ -608,9 +613,45 @@ mezzo gli errori che non c'entrano con la scheda**:
   istante del primo: «tocca e tieni» invece di «tocca, poi tieni», cioè
   esattamente la sicurezza che si voleva. Adesso aspetta il rilascio.
 
+### Tutto il telecomando in una scheda sua
+
+Dal 2026-10-31, nel SLICER, **Impostazioni → Telecomando**: l'indirizzo, il
+collaudo e il dialogo stanno insieme invece che sparsi dentro a «Connessione».
+È una scatola a parte — rete sua, collaudo suo, modi suoi di rompersi — e chi
+non ce l'ha lascia l'indirizzo vuoto e non legge altro. Dentro ci sono tre
+cose:
+
+1. **La prova in bianco** (qui sotto): la recita intera, che va avanti da sola.
+2. **Una schermata per volta**: un pulsante per ognuna delle dieci schermate,
+   che la manda e **la tiene ferma** finché non ne premi un'altra. Serve a
+   guardarla — i colori, le parole, il fulmine della carica, dove cascano le
+   etichette — mentre con la recita bisognava aspettare il momento giusto e
+   fotografarlo prima che passasse. Sono gli **stessi stati** che manda una
+   stampa vera, e il telecomando non sa che è una prova: non c'è nessun campo
+   che glielo dica. Un tasto premuto mentre una schermata è ferma **non fa
+   niente e finisce nel registro**, che è il modo di vedere se quel pad
+   risponde e che cosa manda. «Niente SLICER» non manda una schermata: **smette
+   di mandare**, e dopo sei secondi è il telecomando a dirlo da sé.
+3. **La spia del dialogo**: una spunta che scrive nel registro **ogni messaggio
+   che esce (→) e ogni risposta che torna (←)**, più un «Manda adesso» per non
+   aspettare il battito. Parte spenta e va tenuta spenta: a stampa in corso
+   sono due messaggi e mezzo al secondo e il registro diventa illeggibile.
+   Accesa, dice da che parte sta il guasto — se esce e non torna niente è la
+   rete, se torna un tasto che la pagina non conosce è il firmware.
+
+**Una stampa vera spegne qualunque prova.** Il controllo che si fa premendo
+non basta: guarda il momento in cui premi, e se la stampa parte dopo il vetro
+resterebbe a raccontare una recita mentre la macchina disegna davvero — con
+scritto «pronta» e la penna che va.
+
+E la riga di stato, sotto all'indirizzo, dice anche **come sta messo con la
+corrente**, perché il telecomando lo manda insieme alla carica: «in carica»,
+«carica finita», oppure «ATTACCATO MA NON CARICA», che è la cosa che da soli
+non si scoprirebbe mai.
+
 ### La prova in bianco
 
-Impostazioni → **Prova in bianco**, accanto all'indirizzo del telecomando. Il
+Impostazioni → Telecomando → **Prova in bianco**. Il
 SLICER **recita una stampa intera** — pronta ma da azzerare, pronta, in stampa
 con la penna nera, cambio penna in due passi con la penna rossa, di nuovo in
 stampa, finita, errore — e in fondo **smette di chiamare**, perché «senza
@@ -770,7 +811,7 @@ Cinque cose, e nessuna era un errore di calcolo:
    POST /stato
    { v:1, stato, nome, percento, rimanente, penna, passo, macchina,
      azzerata, data }
-     → 200  { tasto, batteria }
+     → 200  { tasto, batteria, carica }
    ```
 
    `tasto` vale `pausa`, `riprendi`, `stop`, `avanti`, `prova`, o niente.

@@ -103,23 +103,39 @@
     var pc = t && t.visto ? t.batteria : null;
     el.hidden = !(t && t.visto);
     if (el.hidden) return;
-    el.classList.toggle('is-ko', pc !== null && pc < 20);
-    el.classList.toggle('is-warn', pc !== null && pc >= 20 && pc < 40);
-    el.innerHTML = pila(pc) + (pc === null ? '' : '<b>' + pc + '%</b>');
+    /* ALLA SPINA IL COLORE SMETTE DI PARLARE DELLA CARICA: il 12% di una
+       cella che sta caricando non è un avviso. È la stessa regola del vetro
+       del telecomando, e due pile che per la stessa batteria dicono cose
+       diverse si guardano due volte. */
+    var sp = t ? t.carica : null;
+    var inSpina = sp === 'carica' || sp === 'piena';
+    el.classList.toggle('is-carica', inSpina);
+    el.classList.toggle('is-ko', !inSpina && pc !== null && pc < 20);
+    el.classList.toggle('is-warn', (sp === 'ferma') ||
+                                   (!inSpina && pc !== null && pc >= 20 && pc < 40));
+    el.innerHTML = pila(pc, inSpina) + (pc === null ? '' : '<b>' + pc + '%</b>');
     el.title = 'Telecomando collegato' +
                (pc === null ? ': la carica non la sa dire.'
-                            : ', batteria al ' + pc + '%.');
+                            : ', batteria al ' + pc + '%.') +
+               (sp === 'carica' ? ' In carica: il numero sotto carica è gonfio.'
+                : sp === 'piena' ? ' Attaccato alla corrente, carica finita.'
+                : sp === 'ferma' ? ' Attaccato alla corrente ma NON sta caricando.'
+                : '');
   }
 
   /* Il segno della pila: lo stesso disegno del vetro del telecomando, perché
      due pile diverse per la stessa batteria si guardano due volte. */
-  function pila(pc) {
+  function pila(pc, spina) {
     var w = pc === null ? 0 : Math.max(0, Math.min(1, pc / 100)) * 9;
     return '<svg viewBox="0 0 17 10" aria-hidden="true">' +
            '<rect x="1" y="1" width="13" height="8" rx="1.6"></rect>' +
            '<rect class="tappo" x="15" y="3.4" width="1.6" height="3.2" rx=".6"></rect>' +
            (w > 0 ? '<rect class="carica" x="2.5" y="2.5" width="' + w.toFixed(1) +
                     '" height="5" rx=".6"></rect>' : '') +
+           /* Il fulmine, come sul vetro: dentro alla pila e del colore dello
+              sfondo, così si vede sia sopra al pieno sia sopra al vuoto. */
+           (spina ? '<path class="fulmine" d="M8.6 1.6 L5.4 5.4 L7.4 5.4 ' +
+                    'L6.4 8.4 L9.6 4.6 L7.6 4.6 Z"></path>' : '') +
            '</svg>';
   }
 
