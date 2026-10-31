@@ -374,11 +374,16 @@ var Popup = (function () {
   }
 
   /* L'ingresso dal telecomando. Non reimplementa niente: apre la finestra se
-     era stata rimandata, e poi preme gli stessi pulsanti. */
+     era stata rimandata, e poi preme gli stessi pulsanti.
+
+     C'era anche un `'apri'`, che apriva e si fermava lì: lo usava il tasto
+     RIPRENDI del telecomando, che però arriva quando la finestra è GIA'
+     aperta al secondo passo. Era un tasto che non faceva niente, e adesso
+     «riprendi» da un cambio penna entra qui come «avanti» — che la finestra
+     la apre lo stesso, se era stata rimandata. */
   function daTelecomando(tasto) {
     if (Sender.stato() !== 'cambio') return false;
     if (box.hidden || modo !== 'penna') cambioPenna();
-    if (tasto === 'apri') return true;
     if (tasto === 'prova') { provaPenna(); return true; }
     if (tasto === 'avanti') {
       var p = passi[corrente];

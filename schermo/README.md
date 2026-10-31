@@ -450,7 +450,7 @@ una venga corretta e l'altra no.
 | Stop, primo tocco | ANNULLA · TIENI |
 | Stop, tocco lungo | TIENI |
 | Cambio penna, togli | FATTO |
-| Cambio penna, monta | RIPRENDI · PROVA |
+| Cambio penna, monta | RIPRENDI · ABBASSA/E ALZA |
 | Finita, errore, in attesa | nessuno |
 
 Un tasto che in una schermata non fa niente **non ha etichetta e ha il LED
@@ -555,6 +555,45 @@ Le penne stanno nel **browser**, non nel profilo della macchina: sono di chi
 stampa, non della macchina. E al cambio penna la finestra le chiama **col nome
 che hai dato loro** — «monta la rossa» si capisce senza guardare, «#c8102e»
 no. Al telecomando arriva il colore, che sul vetro è un pallino.
+
+### La prima stampa vera, 2026-10-31
+
+Il biglietto, due colori, portato a termine **senza toccare il portatile**:
+è il criterio di completamento dello Step 9, ed è passato. Tre cose da
+sistemare, e nessuna fermava la stampa.
+
+1. **RIPRENDI dopo il cambio penna non faceva niente.** Non era il tasto né
+   il pad: era il SLICER. `premuto('riprendi')` durante un cambio penna
+   chiamava `Popup.telecomando('apri')` — che la finestra la *apre* — ma
+   quando il telecomando mostra RIPRENDI la finestra è già aperta al secondo
+   passo: è proprio da lì che sa di doverlo mostrare. Riapriva una finestra
+   aperta. Adesso entra come `'avanti'`, che è la stessa strada del pulsante
+   della pagina (e la finestra la apre lo stesso, se era stata rimandata).
+
+   **La prova in bianco non poteva prenderlo**, ed è la cosa da ricordare:
+   lì «avanti» e «riprendi» finiscono tutti e due nello stesso posto, perché
+   la recita deve solo avanzare. Era giusto per la prova e sbagliato come
+   garanzia. Il collaudo nuovo (`riprendi-test.js`, 15 asserzioni) passa
+   dalla strada vera, quella di un tasto arrivato dalla rete, e con il
+   codice di prima fallisce.
+
+2. **PROVA non si capiva.** Adesso l'etichetta è su due righe —
+   **ABBASSA / E ALZA** — che è quello che fa: il servo scende alla quota di
+   contatto e risale. Il comando che viaggia resta `prova`, perché è il
+   protocollo. Per fare spazio alle due righe, in quella schermata il
+   simbolo e la parola MONTA salgono di quattordici pixel: la parte alta del
+   vetro lì è vuota, perché il sesto posto — quello in alto — non ha pad.
+
+3. **Sfarfallio premendo STOP**, «come se prima di far uscire la schermata
+   dello stop passasse per altre». Passava davvero: il giro del `loop()`
+   decideva la schermata **prima** di leggere i tasti, quindi la pressione
+   arrivava dopo e nel frattempo si ridisegnava per intero la schermata
+   della stampa — anello compreso — e solo al giro dopo quella dello stop.
+   Due schermate intere una dietro l'altra. Adesso il dito si legge prima.
+   Nello stesso punto: l'anello non si disegna più due volte (prima tutto
+   spento, poi la parte accesa sopra), e i pixel pieni si scrivono di fila
+   invece che uno per uno — undici byte di indirizzo per due di colore erano
+   il grosso del tempo.
 
 ### Il vetro disegnato qui dentro: `vetro/`
 

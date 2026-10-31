@@ -21,7 +21,10 @@ R, C = 93.0, 120
 
 largo = lambda s, k: len(s) * 6 * k - k
 alto = lambda k: 8 * k
-centrata = lambda s, y, k: (s, C - largo(s, k) // 2, y, C - largo(s, k) // 2 + largo(s, k), y + alto(k))
+# Ogni casella porta anche un GRUPPO: due righe della stessa etichetta si
+# toccano per forza - sono una sotto l'altra - e non e' un guaio.
+centrata = lambda s, y, k: (s, C - largo(s, k) // 2, y, C - largo(s, k) // 2 + largo(s, k),
+                            y + alto(k), None)
 
 def blocco(funzione):
     i = SRC.index(funzione)
@@ -36,18 +39,30 @@ def casi(testo):
         out[nome] = corpo
     return out
 
-def etichetta(parola, posto):
-    w, h = largo(parola, 2), alto(2)
+def etichetta(parola, posto, sotto=''):
+    """Una casella per riga: un'etichetta puo' averne due."""
+    righe = [parola] + ([sotto] if sotto else [])
+    w = max(largo(r, 2) for r in righe)
+    h = alto(2) * len(righe)
+    destra = posto.endswith('_DX')
     if posto == 'BASSO':
         # lo spigolo che tocca l'anello e' quello di SOTTO
         x, y = C - w // 2, C + int(math.sqrt(R * R - (w / 2.0) ** 2)) - h
     else:
         dx, dy = int(R * math.cos(math.radians(30))), int(R * math.sin(math.radians(30)))
-        x = (C + dx) - w if posto.endswith('_DX') else C - dx
+        x = (C + dx) - w if destra else C - dx
         y = (C + dy) - h if posto.startswith('BASSO') else C - dy
-    return (parola, x, y, x + w, y + h)
+    fuori = []
+    for i, r in enumerate(righe):
+        wr = largo(r, 2)
+        xr = (C - wr // 2) if posto == 'BASSO' else ((x + w - wr) if destra else x)
+        yr = y + i * alto(2)
+        fuori.append((r, xr, yr, xr + wr, yr + alto(2), posto + parola))
+    return fuori
 
-TASTI = {n: re.findall(r'\{\s*(\w+),\s*"([^"]*)"', c) for n, c in casi(TASTIDI).items()}
+# posto, parola, e la seconda riga se c'e'
+TASTI = {n: re.findall(r'\{\s*(\w+),\s*"([^"]*)",\s*\w+,\s*"[^"]*"(?:,\s*"([^"]*)")?\s*\}', c)
+         for n, c in casi(TASTIDI).items()}
 ko = 0
 
 for nome, c in casi(DISEGNA).items():
@@ -77,7 +92,7 @@ for nome, c in casi(DISEGNA).items():
     for t, y, k in re.findall(r'parolaEPallino\("([^"]*)",\s*S\.penna,\s*(\d+),\s*(\d+)', piatto):
         y, k = int(y), int(k)
         w = largo(t, k) + 10 + 14
-        fisse.append((t + ' ●', C - w // 2, y, C - w // 2 + w, y + alto(k)))
+        fisse.append((t + ' ●', C - w // 2, y, C - w // 2 + w, y + alto(k), None))
 
     if 'snprintf(n, sizeof(n), "%d%%"' in piatto:   # il peggiore e' "100%"
         k, y = (6, 96) if nome == 'STAMPA' else (2, 174)
@@ -87,18 +102,20 @@ for nome, c in casi(DISEGNA).items():
     if m:
         fisse.append(centrata('~999 min', int(m.group(1)), 2))
 
-    for posto, parola in TASTI.get(nome, []):
-        fisse.append(etichetta(parola, posto))
+    for posto, parola, sotto in TASTI.get(nome, []):
+        fisse.extend(etichetta(parola, posto, sotto))
 
     quante = 0
     for scelta in itertools.product(*alternative) if alternative else [()]:
         caselle = fisse + list(scelta)
         quante = max(quante, len(caselle))
-        for (t, x0, y0, x1, y1) in caselle:
+        for (t, x0, y0, x1, y1, _g) in caselle:
             r = max(math.hypot(a - C, b - C) for a in (x0, x1) for b in (y0, y1))
             if r > R + 0.7:
                 print('KO  %-12s «%s» esce dal cerchio libero: r=%.1f' % (nome, t, r)); ko += 1
         for A, B in itertools.combinations(caselle, 2):
+            if A[5] is not None and A[5] == B[5]:
+                continue        # due righe della stessa etichetta
             if A[1] - 2 < B[3] and B[1] - 2 < A[3] and A[2] - 2 < B[4] and B[2] - 2 < A[4]:
                 print('KO  %-12s «%s» e «%s» si toccano' % (nome, A[0], B[0])); ko += 1
     # LO SPICCHIO del tocco lungo e' un disco pieno: una parola che ci
@@ -108,7 +125,7 @@ for nome, c in casi(DISEGNA).items():
         cx = int(re.search(r'SPIC_CX = (\d+)', SRC).group(1))
         cy = int(re.search(r'SPIC_CY = (\d+)', SRC).group(1))
         rr = int(re.search(r'SPIC_R = (\d+)', SRC).group(1)) + 6
-        for (t, x0, y0, x1, y1) in fisse:
+        for (t, x0, y0, x1, y1, _g) in fisse:
             vx = max(x0 - cx, 0, cx - x1)
             vy = max(y0 - cy, 0, cy - y1)
             if math.hypot(vx, vy) < rr:

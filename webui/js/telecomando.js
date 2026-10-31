@@ -167,10 +167,19 @@ var Telecomando = (function () {
     if (tasto === 'pausa') { Sender.pausa(); return; }
 
     if (tasto === 'riprendi') {
-      /* Riprendere da un CAMBIO PENNA non è riprendere da una pausa: in mezzo
-         c'è una penna diversa. Si passa dalla procedura, come fa il pulsante
-         della pagina. */
-      if (Sender.stato() === 'cambio') Popup.telecomando('apri');
+      /* RIPRENDERE DA UN CAMBIO PENNA NON È RIPRENDERE DA UNA PAUSA: in
+         mezzo c'è una penna diversa, e la procedura va PORTATA A TERMINE,
+         non riaperta.
+         Qui c'era `'apri'`, che la finestra la apre e basta. Ma quando il
+         telecomando mostra RIPRENDI la finestra è già aperta al secondo
+         passo — è proprio da lì che sa di doverlo mostrare — quindi quel
+         tasto riapriva una finestra aperta, cioè non faceva niente. Alla
+         prima stampa vera, il 2026-10-31: «il pulsante riprendi dopo che ho
+         cambiato la penna non ha funzionato».
+         La prova in bianco non poteva prenderlo: lì «avanti» e «riprendi»
+         finiscono tutti e due nello stesso posto, ed era giusto per la
+         prova e sbagliato come garanzia. */
+      if (Sender.stato() === 'cambio') Popup.telecomando('avanti');
       else Sender.riprendi();
       return;
     }
@@ -299,7 +308,7 @@ var Telecomando = (function () {
       prova(false);
       return;
     } else if (tasto === 'prova') {
-      Log.add('msg', 'Prova: il tasto PROVA, qui, non muove il servo.');
+      Log.add('msg', 'Prova: il tasto ABBASSA/ALZA, qui, non muove il servo.');
     }
     firma = '';
   }

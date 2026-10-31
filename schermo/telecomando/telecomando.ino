@@ -93,7 +93,11 @@ enum Schermata { PRONTA, STAMPA, IN_PAUSA, PENNA1, PENNA2,
 
 enum Posto { BASSO, ALTO_SX, ALTO_DX, BASSO_SX, BASSO_DX, NESSUNO };
 
-struct Tasto { Posto dove; const char* parola; uint16_t colore; const char* manda; };
+/* `sotto` è la SECONDA RIGA, quando una parola sola non basta a dire che
+   cosa fa il tasto. Sta in fondo apposta: le etichette di una riga si
+   scrivono come prima e il campo resta vuoto da sé. */
+struct Tasto { Posto dove; const char* parola; uint16_t colore;
+               const char* manda; const char* sotto; };
 const int MAX_TASTI = 2;
 
 struct Nota { int hz; int ms; };    // hz = 0: silenzio
@@ -238,7 +242,12 @@ int tastiDi(Schermata s, Tasto* out) {
       return 1;
     case PENNA2:
       out[0] = { BASSO,    "RIPRENDI", AMBRA, "riprendi" };
-      out[1] = { BASSO_DX, "PROVA",    VERDE, "prova" };
+      /* Si chiamava PROVA e non si capiva: «prova» è anche il nome della
+         prova in bianco, e la parola non dice che cosa succede. Adesso lo
+         dice. Il comando che va al SLICER resta `prova`: è il protocollo,
+         e cambiarlo vorrebbe dire cambiare le due parti insieme per
+         guadagnare niente. */
+      out[1] = { BASSO_DX, "ABBASSA", VERDE, "prova", "E ALZA" };
       return 2;
     case STOP_ARMATO:
       out[0] = { BASSO,    "ANNULLA",  VERDE, "" };
@@ -424,24 +433,45 @@ void mezzoSettore(int cx, int cy, float rInt, float rEst,
       if (x0 < 0) x0 = 0;
       if (x1 > 239) x1 = 239;
 
-      for (int x = x0; x <= x1; x++) {
-        float dx = x - cx;
-        if (!tutto) {
-          if (dax * dy - day * dx < 0) continue;   // prima del taglio d'inizio
-          if (aax * dy - aay * dx > 0) continue;   // dopo quello di fine
+      /* I PIXEL PIENI SI SCRIVONO DI FILA. Mandare un pixel per volta
+         vuol dire, per ognuno, dire al vetro dove sta prima di dirgli di
+         che colore è: undici byte di indirizzo per due byte di colore.
+         Una riga intera di indirizzo ne vuole uno solo, e dentro
+         all'anello i pixel pieni sono la gran parte. Solo i due bordi
+         sfumati vanno uno per uno, perché ognuno ha il suo colore.
+         Il giro arriva a x1+1 apposta: l'ultimo passaggio, che non
+         disegna niente, è quello che chiude il tratto rimasto aperto. */
+      int tratto = -1;
+      for (int x = x0; x <= x1 + 1; x++) {
+        float cop = 0;
+        if (x <= x1) {
+          float dx = x - cx;
+          bool dentroSettore = true;
+          if (!tutto) {
+            if (dax * dy - day * dx < 0) dentroSettore = false;        // prima del taglio d'inizio
+            else if (aax * dy - aay * dx > 0) dentroSettore = false;   // dopo quello di fine
+          }
+          if (dentroSettore) {
+            float dq = dx * dx + dy * dy;
+            if (dq > r1q && dq < r2q) {
+              cop = 1;
+              /* La radice si paga solo sui due bordi: in mezzo è pieno. */
+              if (dq < dentro || dq > fuori) {
+                float d = sqrt(dq);
+                float a1 = r2 - d, a2 = d - r1;
+                cop = a1 < a2 ? a1 : a2;
+                if (cop > 1) cop = 1;
+                if (cop < 0) cop = 0;
+              }
+            }
+          }
         }
-        float dq = dx * dx + dy * dy;
-        if (dq <= r1q || dq >= r2q) continue;
-        float cop = 1;
-        /* La radice si paga solo sui due bordi: in mezzo è tutto pieno. */
-        if (dq < dentro || dq > fuori) {
-          float d = sqrt(dq);
-          float a1 = r2 - d, a2 = d - r1;
-          cop = a1 < a2 ? a1 : a2;
-          if (cop > 1) cop = 1;
-          if (cop <= 0) continue;
+        if (cop >= 1) { if (tratto < 0) tratto = x; continue; }
+        if (tratto >= 0) {
+          carrier.display.drawFastHLine(tratto, y, x - tratto, c);
+          tratto = -1;
         }
-        carrier.display.drawPixel(x, y, smorza(c, cop));
+        if (cop > 0) carrier.display.drawPixel(x, y, smorza(c, cop));
       }
     }
   }
@@ -475,7 +505,13 @@ void anello(float pc, uint16_t c, bool rifai) {
   if (pc < 0) pc = 0;
   if (pc > 100) pc = 100;
   if (rifai || c != anelloColore) {
-    settore(0, 360, SPENTO);
+    /* OGNI PIXEL UNA VOLTA SOLA. Prima si faceva tutto l'anello spento e
+       poi ci si ridisegnava sopra la parte accesa: a disegno per pixel
+       sono due passate intere invece di una, cioè il doppio del tempo in
+       cui si vede il vetro cambiare sotto gli occhi. Sulla schermata
+       dello stop, dove l'anello è tutto rosso, la prima passata era
+       interamente sprecata. */
+    settore(pc * 3.6, 360, SPENTO);
     settore(0, pc * 3.6, c);
   } else if (pc < anelloDisegnato - PASSO_ANELLO) {
     /* Torna indietro: è il conto alla rovescia dello stop. Si spegne solo
@@ -565,8 +601,12 @@ void scrivi(const char* s, int y, int k, uint16_t c) {
    giusto il punto di appoggio l'angolo finisce comunque di fuori. È il
    difetto trovato sul banco di prova il 2026-10-29, e qui la regola
    nasce già giusta. */
-void etichetta(Posto p, const char* parola, uint16_t c) {
-  int w = largo(parola, 2), h = alto(2);
+void etichetta(Posto p, const char* parola, const char* sotto, uint16_t c) {
+  int righe = sotto ? 2 : 1;
+  int w = largo(parola, 2);
+  if (sotto && largo(sotto, 2) > w) w = largo(sotto, 2);
+  int h = alto(2) * righe;
+  bool destra = (p == ALTO_DX || p == BASSO_DX);
   int x, y;
   if (p == BASSO) {
     /* In basso lo spigolo che va a sbattere è quello DI SOTTO, quindi è
@@ -574,19 +614,27 @@ void etichetta(Posto p, const char* parola, uint16_t c) {
     x = CX - w / 2;
     y = CY + (int)sqrt(R_TESTI * R_TESTI - (w / 2.0) * (w / 2.0)) - h;
   } else {
-    bool destra = (p == ALTO_DX || p == BASSO_DX);
-    bool sotto  = (p == BASSO_SX || p == BASSO_DX);
+    bool inBasso = (p == BASSO_SX || p == BASSO_DX);
     /* Troncati VERSO il centro: mezzo pixel in dentro non si vede, mezzo
        pixel in fuori finisce nell'anello. */
     int dx = (int)(R_TESTI * cos(30.0 * DEG_TO_RAD));   // 80
     int dy = (int)(R_TESTI * sin(30.0 * DEG_TO_RAD));   // 46
     x = destra ? (CX + dx) - w : (CX - dx);
-    y = sotto  ? (CY + dy) - h : (CY - dy);
+    y = inBasso ? (CY + dy) - h : (CY - dy);
   }
   carrier.display.setTextSize(2);
   carrier.display.setTextColor(c);
-  carrier.display.setCursor(x, y);
-  carrier.display.print(parola);
+  /* Le due righe si allineano DALLA PARTE DEL TASTO: a destra per i tasti
+     di destra, a sinistra per quelli di sinistra, centrate in basso. Una
+     colonna di parole allineata dalla parte sbagliata sembra un elenco, non
+     un'etichetta. */
+  for (int i = 0; i < righe; i++) {
+    const char* r = i ? sotto : parola;
+    int wr = largo(r, 2);
+    int xr = (p == BASSO) ? (CX - wr / 2) : (destra ? (x + w - wr) : x);
+    carrier.display.setCursor(xr, y + i * alto(2));
+    carrier.display.print(r);
+  }
 }
 
 /* IL PALLINO DEL COLORE: di che penna si sta parlando. Un pallino e non
@@ -776,8 +824,11 @@ void disegnaTutto(Schermata s) {
 
     case PENNA2:
       anello(S.percento, AMBRA, true);
-      simboloPenna(90, VERDE, true);
-      parolaEPallino("MONTA", S.penna, 118, 3, TESTO);
+      /* Tutto più in alto che nelle altre schermate: qui l'etichetta del
+         tasto in basso a destra è di DUE righe, e il posto da cui prenderlo
+         è la parte alta del vetro, che in questa schermata è vuota. */
+      simboloPenna(76, VERDE, true);
+      parolaEPallino("MONTA", S.penna, 104, 3, TESTO);
       break;
 
     case STOP_ARMATO:
@@ -819,7 +870,8 @@ void disegnaTutto(Schermata s) {
 
   Tasto t[MAX_TASTI];
   int q = tastiDi(s, t);
-  for (int i = 0; i < q; i++) etichetta(t[i].dove, t[i].parola, t[i].colore);
+  for (int i = 0; i < q; i++)
+    etichetta(t[i].dove, t[i].parola, t[i].sotto, t[i].colore);
 }
 
 /* Quello che si muove senza rifare la schermata: l'anello, la
@@ -1336,8 +1388,15 @@ void loop() {
     }
   }
 
+  /* IL DITO SI LEGGE PRIMA DI DECIDERE CHE SCHERMATA MOSTRARE.
+     Premendo STOP la schermata cambia dentro a questo stesso giro:
+     leggendo i tasti dopo aver deciso, si ridisegnava per intero la
+     schermata di PRIMA — quella della stampa, anello compreso — e solo
+     al giro dopo quella dello stop. Due schermate intere una dietro
+     l'altra: è lo «sfarfallio, come se passasse prima per altre
+     schermate» visto alla prima stampa vera, il 2026-10-31. */
+  leggiTasti(quale());
   schermoOra = quale();
-  leggiTasti(schermoOra);
   suoni();
   leggiCarica(false);
   gestisciLuce(schermoOra);

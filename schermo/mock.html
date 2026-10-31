@@ -364,7 +364,23 @@ var R_TESTI = 93;
 var LAB = 14;             // corpo delle etichette
 var CAP = 10;             // quanto è alta una maiuscola a quel corpo
 
+/* UN'ETICHETTA PUO' AVERE DUE RIGHE: «ABBASSA / E ALZA» non sta su una riga
+   sola a questo corpo, e una riga sola che ci stesse sarebbe larga mezzo
+   vetro. Le righe si scrivono una sopra l'altra e l'ULTIMA si posa dove si
+   posava la parola singola, perché lo spigolo che va a sbattere nell'anello
+   è sempre quello di sotto. */
 function etichetta(posto, parola, colore) {
+  var righe = String(parola).split('\n');
+  if (righe.length > 1) {
+    var out = '';
+    for (var i = 0; i < righe.length; i++) {
+      out += etichetta(posto, righe[i], colore)
+             .replace(/y="([-\d.]+)"/, function (_, v) {
+               return 'y="' + (parseFloat(v) - (righe.length - 1 - i) * 17).toFixed(1) + '"';
+             });
+    }
+    return out;
+  }
   var x, y, anc;
   if (posto === 'basso') {
     /* In basso lo spigolo è doppio (destro e sinistro) e la parola è
@@ -474,7 +490,7 @@ var SCHERMATE = [
     perche: 'Il servo è sceso alla quota di contatto e non si muove più: la ' +
             'penna nuova si infila finché tocca il piano e si stringe lì. Il ' +
             'pallino dice <b>quale</b> montare — il colore del livello che ' +
-            'viene dopo, che il SLICER sa. <b>PROVA</b> alterna contatto e ' +
+            'viene dopo, che il SLICER sa. <b>ABBASSA / E ALZA</b> alterna contatto e ' +
             'alzata, e il disegno della penna segue: è l\'unico movimento che ' +
             'il telecomando comanda, e lo stai guardando da venti centimetri ' +
             'con la penna in mano.',
@@ -485,17 +501,21 @@ var SCHERMATE = [
        scende, premi e sale, e lo vedi sullo schermo e sulla macchina. Due
        tasti che fanno il contrario l'uno dell'altro, quando lo stato è già
        sotto gli occhi, sono un tasto di troppo. */
-    tasti: { basso: ['RIPRENDI', '#e0a63a'], bassoDx: ['PROVA', '#43b581'] },
+    tasti: { basso: ['RIPRENDI', '#e0a63a'], bassoDx: ['ABBASSA\nE ALZA', '#43b581'] },
     disegna: function (st) {
       return anello(st.pc, '#e0a63a') +
-        penna(0, '#43b581') +
+        /* TUTTO PIU' IN ALTO che nelle altre schermate: qui l'etichetta del
+           tasto in basso a destra è di DUE righe, e il posto da cui prendere
+           lo spazio è la parte alta del vetro, che in questa schermata è
+           vuota (il sesto posto, quello in alto, non ha pad). */
+        penna(-16, '#43b581') +
         /* IL PALLINO ACCANTO ALLA PAROLA e non da solo più in basso: là
            sotto c'è l'etichetta del tasto in basso a destra, e letti di
            fila diventavano una didascalia — «pallino PROVA» — invece di un
            colore e un tasto. Chiesto dal banco vero il 2026-10-31: «c'è una
            scritta PROVA che non capisco». */
-        testo('MONTA', 140, 24, '#e6eaf0', 700, -12) +
-        pallino('#c0392b', 132, 168);
+        testo('MONTA', 124, 24, '#e6eaf0', 700, -12) +
+        pallino('#c0392b', 116, 168);
     }
   },
   {
