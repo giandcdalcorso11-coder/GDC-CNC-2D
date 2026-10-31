@@ -46,6 +46,7 @@
  */
 
 #include <Arduino_MKRIoTCarrier.h>
+#include <Wire.h>
 #include <WiFiNINA.h>
 #include <SD.h>
 #include "arduino_secrets.h"
@@ -92,6 +93,11 @@ enum Schermata { PRONTA, STAMPA, IN_PAUSA, PENNA1, PENNA2,
                  STOP_ARMATO, STOP_TIENI, FINE, ERRORE, ATTESA, NESSUNA };
 
 enum Posto { BASSO, ALTO_SX, ALTO_DX, BASSO_SX, BASSO_DX, NESSUNO };
+
+/* Che cosa dice il caricabatterie della spina. `FERMA` non è un doppione
+   di `A_BATTERIA`: vuol dire che la corrente c'è e la cella NON sta
+   caricando, che è il guasto da far vedere invece di nasconderlo. */
+enum Spina { A_BATTERIA, IN_CARICA, PIENA, FERMA };
 
 /* `sotto` è la SECONDA RIGA, quando una parola sola non basta a dire che
    cosa fa il tasto. Sta in fondo apposta: le etichette di una riga si
@@ -688,11 +694,38 @@ void parolaEPallino(const char* s, const char* esa, int y, int k, uint16_t c) {
    indicatore sempre acceso è un numero che si smette di guardare dopo due
    giorni. Compare sulla schermata Pronta — quella che hai davanti quando
    lo prendi in mano — e sotto al 20% dappertutto, in rosso, perché lì non
-   è un dato ma un avviso. */
-int batteria = -1;
+   è un dato ma un avviso. Più un terzo posto: sulla schermata in attesa,
+   ma solo attaccato alla corrente, perché quella è la schermata che resta
+   su mentre lo carichi.
 
+   Attenzione al numero MENTRE CARICA: la percentuale viene dalla tensione,
+   e sotto carica la tensione è più alta di quella che la cella avrà dopo.
+   Un 100% col fulminetto acceso può essere un 95% vero. Il fulmine conta
+   più del numero. */
+int batteria = -1;
+Spina spina = A_BATTERIA;
+
+bool allaSpina() { return spina != A_BATTERIA; }
+
+/* IL COLORE DICE PRIMA DEL NUMERO, e attaccato alla corrente dice
+   un'altra cosa: il 12% di una cella che sta caricando non è un
+   allarme, è una cella che sta caricando, e lasciarlo rosso
+   insegnerebbe a non fidarsi del rosso. */
 uint16_t coloreCarica(int pc) {
+  if (spina == FERMA) return AMBRA;      // la spina c'è ma non entra niente
+  if (spina != A_BATTERIA) return VERDE;
   return pc < 20 ? ROSSO : pc < 40 ? AMBRA : SMORTO;
+}
+
+/* IL FULMINE, BIANCO E NON VERDE. Sta dentro alla pila, quindi per metà
+   finisce sopra al pieno — che è verde — e per metà sopra al nero di
+   quello che manca. Il bianco è l'unico colore che si vede su entrambi;
+   un fulmine verde sparirebbe dentro al pieno proprio quando la carica
+   sale, cioè quando serve guardarlo. */
+void fulmine(int cx, int y, int h, uint16_t c) {
+  int m = y + h / 2;
+  carrier.display.fillTriangle(cx + 2, y,     cx - 3, m + 1, cx + 1, m + 1, c);
+  carrier.display.fillTriangle(cx - 2, y + h, cx + 3, m - 1, cx - 1, m - 1, c);
 }
 
 void pila(int pc, int y, bool colNumero) {
@@ -706,6 +739,7 @@ void pila(int pc, int y, bool colNumero) {
   carrier.display.fillRect(x + w + 1, y + 4, 3, 5, c);
   int pieno = (w - 6) * pc / 100;
   if (pieno > 0) carrier.display.fillRect(x + 3, y + 3, pieno, h - 6, c);
+  if (allaSpina()) fulmine(x + w / 2, y + 1, h - 2, TESTO);
   if (colNumero) {
     carrier.display.setTextSize(2);
     carrier.display.setTextColor(c);
@@ -845,14 +879,14 @@ void disegnaTutto(Schermata s) {
       anello(100, VERDE, true);
       simboloSpunta(84, VERDE);
       scrivi("FATTO", 126, 3, TESTO);
-      if (batteria >= 0 && batteria < 20) pila(batteria, 196, false);
+      if (batteria >= 0 && batteria < 20 && !allaSpina()) pila(batteria, 196, false);
       break;
 
     case ERRORE:
       anello(100, ROSSO, true);
       simboloAllarme(84, ROSSO);
       scrivi("FERMA", 126, 3, TESTO);
-      if (batteria >= 0 && batteria < 20) pila(batteria, 196, false);
+      if (batteria >= 0 && batteria < 20 && !allaSpina()) pila(batteria, 196, false);
       break;
 
     case ATTESA:
@@ -862,6 +896,13 @@ void disegnaTutto(Schermata s) {
       /* L'indirizzo è l'unica cosa utile da guardare qui: è quello da
          copiare nelle impostazioni del SLICER. */
       scrivi(ipTesto, 152, corpoCheCiSta(ipTesto, 152, 2), FIOCO);
+      /* QUI LA PILA COMPARE SOLO ALLA SPINA, e non è un'eccezione alla
+         regola: è la regola. Questa è la schermata che il telecomando
+         tiene su mentre lo carichi col portatile chiuso, e in quel
+         momento «sta caricando?» è l'unica domanda che ha una risposta
+         utile. A batteria, invece, qui un numero non serve a niente:
+         non c'è nessuna stampa da far reggere. */
+      if (allaSpina()) pila(batteria, 184, true);
       break;
 
     case NESSUNA:
@@ -878,6 +919,7 @@ void disegnaTutto(Schermata s) {
    percentuale e lo spicchio del dito. */
 int pcDisegnato = -999;
 int caricaDisegnata = -999;
+Spina spinaDisegnata = A_BATTERIA;
 /* NON BASTA SAPERE QUALE schermata c'è sul vetro: bisogna sapere anche
    che cosa ci era scritto sopra. Una macchina che viene azzerata resta
    sulla schermata PRONTA — cambia solo la riga sotto, da «da azzerare» a
@@ -1034,6 +1076,144 @@ void leggiCarica(bool subito) {
     Serial.print("  con K="); Serial.print(K_PARTITORE);
     Serial.print(" fa "); Serial.print(v); Serial.println(" V");
   }
+}
+
+/* ===================================================================
+ * LA SPINA
+ *
+ * IL CARICABATTERIE NON STA SUL CARRIER: STA SUL MKR. È il BQ24195L,
+ * lo stesso che dal 3,7 V della cella tira su il 3V3 di tutto e il 5 V
+ * dei LED. Il cavetto a due pin fra il carrier e il connettore batteria
+ * del MKR non è un accessorio: è l'unica strada che la cella ha per
+ * arrivargli, e senza quel cavetto non si carica nulla. Il rame lo dice
+ * (`schermo/README.md`, «La batteria»): la rete VBAT tocca il
+ * portabatteria e quel connettore, e nello zoccolo del MKR non entra.
+ *
+ * Quindi sì: USB attaccata, cella che carica. Ma solo se i registri del
+ * caricabatterie dicono la cosa giusta, e all'accensione non è detto:
+ *
+ *   - il core di Arduino (`variants/mkrwifi1010/variant.cpp`) accende la
+ *     carica solo se all'avvio vede una batteria — `analogRead(ADC_BATTERY)
+ *     > 600` — e se non la vede STACCA la cella dal resto. Accendere con
+ *     il cavetto scollegato e attaccarlo dopo vorrebbe dire USB che
+ *     alimenta e cella che non carica, fino al riavvio;
+ *   - il limite di corrente in ingresso vale 100 mA di suo, perché sul
+ *     MKR i fili D+/D− non arrivano al caricabatterie e la trattativa con
+ *     il caricatore non si fa. Il telecomando col vetro accesso mangia
+ *     più di 100 mA: a quel limite la cella non carica, al massimo dà una
+ *     mano all'USB a tenere su la scheda;
+ *   - `carrier.begin()` accende la boost mode — è lei che fa il 5 V dei
+ *     LED quando si va a batteria — e tocca lo stesso registro della
+ *     carica.
+ *
+ * Quindi non si spera: si scrivono. E poi SI LEGGE LO STATO e si disegna
+ * quello che c'è, non quello che dovrebbe esserci: un fulmine disegnato
+ * perché «l'USB è attaccata, quindi starà caricando» è la bugia che si
+ * scopre con la cella scarica in mano.
+ * =================================================================== */
+const uint8_t CARICATORE  = 0x6B;   // il BQ24195L, sullo stesso bus dei sensori
+const uint8_t R_INGRESSO  = 0x00;   // quanta corrente si può prendere dall'USB
+const uint8_t R_MODO      = 0x01;   // carica sì/no, boost sì/no
+const uint8_t R_CORRENTE  = 0x02;   // quanta ne va nella cella
+const uint8_t R_TIMER     = 0x05;   // il guardiano e il timer di sicurezza
+const uint8_t R_CELLA     = 0x07;   // la cella attaccata o staccata
+const uint8_t R_STATO     = 0x08;   // che cosa sta succedendo davvero
+
+bool caricatoreScrivi(uint8_t reg, uint8_t v) {
+  Wire.beginTransmission(CARICATORE);
+  Wire.write(reg);
+  Wire.write(v);
+  return Wire.endTransmission() == 0;
+}
+
+bool caricatoreLeggi(uint8_t reg, uint8_t* v) {
+  Wire.beginTransmission(CARICATORE);
+  Wire.write(reg);
+  /* `false`: si tiene il bus e si legge di seguito, che è il modo in cui
+     il BQ24195L vuole essere letto. */
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom(CARICATORE, (uint8_t)1) != 1) return false;
+  *v = Wire.read();
+  return true;
+}
+
+void impostaCaricatore() {
+  Wire.begin();
+
+  /* 0x32 — ingresso fino a 500 mA, che è quello che una porta USB dà per
+     contratto senza chiedere niente a nessuno; soglia di tensione 4,36 V
+     (se l'USB cede sotto, il caricabatterie si tira indietro da sé invece
+     di far cadere la scheda); HIZ spento. */
+  caricatoreScrivi(R_INGRESSO, 0x32);
+
+  /* 0x3B — CARICA ACCESA E BOOST ACCESA INSIEME. Non litigano, e non è
+     una scommessa: il BQ24195L carica quando l'ingresso c'è e fa il 5 V
+     quando l'ingresso non c'è, perché la boost chiede l'ingresso assente
+     per partire. Scriverlo qui vuol dire che il telecomando non dipende
+     da che cosa ha lasciato nel registro `carrier.begin()`. Minimo di
+     sistema 3,5 V, come lo mette il core di Arduino. */
+  caricatoreScrivi(R_MODO, 0x3B);
+
+  /* 0x00 — 512 mA, il minimo che il registro sappia dire (di suo
+     sarebbero 2048, che su questa catena non ha senso: in serie alla
+     cella, sul MKR, c'è un fusibile da mezzo ampere). Quelli veri sono
+     meno: dai 500 mA dell'ingresso bisogna togliere quello che la scheda
+     si mangia mentre carica, quindi stiamo sui 350. Una 18650 da 3000 mAh
+     a 350 mA è un decimo di C: lenta, dieci ore da vuota, e mite — che su
+     una cella senza circuito di protezione proprio è la scelta giusta. */
+  caricatoreScrivi(R_CORRENTE, 0x00);
+
+  /* 0x8C — il guardiano SPENTO e il timer di sicurezza a 12 ore.
+     Il guardiano, se acceso, rimette i registri come li trova di fabbrica
+     dopo 40 secondi senza che nessuno gli scriva: vorrebbe dire boost
+     spenta (LED morti a batteria) e ingresso di nuovo a 100 mA, ogni 40
+     secondi. Il timer invece resta acceso ma a 12 ore e non a 8: a 350 mA
+     una cella da 3000 non ce la fa in otto ore, e un timer che scade
+     mentre la carica va bene è un guasto che non c'è. */
+  caricatoreScrivi(R_TIMER, 0x8C);
+
+  /* 0x0B — cella attaccata, niente trattativa D+/D− (se la facesse,
+     riscriverebbe il limite che abbiamo appena messo), interrupt sui
+     guasti. È il valore che scrive il core di Arduino quando la batteria
+     la vede: lo rimettiamo noi perché noi la cella ce l'abbiamo sempre,
+     anche quando all'avvio il convertitore non l'ha vista. */
+  caricatoreScrivi(R_CELLA, 0x0B);
+
+  /* Riletti e stampati: è il modo di accorgersi che il bus non risponde
+     senza aspettare che lo dica la cella scarica. */
+  Serial.print("Caricatore:");
+  uint8_t v;
+  const uint8_t quali[] = { R_INGRESSO, R_MODO, R_CORRENTE, R_TIMER, R_CELLA, R_STATO };
+  for (int i = 0; i < 6; i++) {
+    Serial.print(" 0x"); Serial.print(quali[i], HEX); Serial.print('=');
+    if (caricatoreLeggi(quali[i], &v)) { Serial.print("0x"); Serial.print(v, HEX); }
+    else Serial.print("muto");
+  }
+  Serial.println();
+}
+
+unsigned long ultimaSpina = 0;
+
+void leggiSpina(bool subito) {
+  /* Due secondi e non dieci come la carica: la percentuale si muove in
+     mezz'ora, la spina si muove quando la infili, e aspettare dieci
+     secondi per vedere comparire il fulmine sembra un fulmine rotto. */
+  if (!subito && millis() - ultimaSpina < 2000) return;
+  ultimaSpina = millis();
+
+  uint8_t r;
+  if (!caricatoreLeggi(R_STATO, &r)) { spina = A_BATTERIA; return; }
+  bool corrente = (r & 0x04) != 0;        // l'ingresso è buono
+  uint8_t c = (r >> 4) & 0x03;            // 0 ferma, 1 pre-carica, 2 carica, 3 finita
+  Spina ora = !corrente ? A_BATTERIA : c == 0 ? FERMA : c == 3 ? PIENA : IN_CARICA;
+  if (ora != spina || subito) {
+    Serial.print("Spina: ");
+    Serial.println(ora == A_BATTERIA ? "a batteria" :
+                   ora == IN_CARICA  ? "in carica" :
+                   ora == PIENA      ? "carica finita" :
+                                       "attaccata ma non carica");
+  }
+  spina = ora;
 }
 
 /* ===================================================================
@@ -1336,7 +1516,11 @@ void setup() {
   carrier.display.setRotation(2);
   carrier.display.fillScreen(NERO);
 
+  /* Dopo `carrier.begin()`, che la boost mode l'ha già accesa: qui si
+     rimette in chiaro tutto il resto. Vedi «LA SPINA». */
+  impostaCaricatore();
   leggiCarica(true);
+  leggiSpina(true);
 
   mostraAvvio("collego", SEGRETO_SSID);
   WiFi.begin(SEGRETO_SSID, SEGRETO_PASSWORD);
@@ -1399,6 +1583,7 @@ void loop() {
   schermoOra = quale();
   suoni();
   leggiCarica(false);
+  leggiSpina(false);
   gestisciLuce(schermoOra);
 
   /* Il richiamo del cambio penna, finché non premi. */
@@ -1411,9 +1596,19 @@ void loop() {
   /* La carica cambia senza che cambi schermata, e dove si vede va
      rinfrescata: sulla Pronta sempre, altrove solo quando è un avviso. */
   if (batteria != caricaDisegnata &&
-      (schermoOra == PRONTA || batteria < 20 || caricaDisegnata < 20)) {
+      (schermoOra == PRONTA || batteria < 20 || caricaDisegnata < 20 ||
+       (schermoOra == ATTESA && allaSpina()))) {
     caricaDisegnata = batteria;
     schermoDisegnato = NESSUNA;
+  }
+
+  /* E la spina cambia da sé, mentre guardi: il fulmine deve comparire
+     quando la infili e andarsene quando la togli, senza che si debba
+     cambiare schermata per vederlo. */
+  if (spina != spinaDisegnata) {
+    spinaDisegnata = spina;
+    if (schermoOra == PRONTA || schermoOra == ATTESA || batteria < 20)
+      schermoDisegnato = NESSUNA;
   }
 
   if (S.azzerata != azzerataDisegnata || strcmp(S.penna, pennaDisegnata)) {

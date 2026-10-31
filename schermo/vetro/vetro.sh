@@ -14,5 +14,6 @@ g++ -std=c++17 -O2 -w -I finto -I fuori -o fuori/vetro vetro.cpp
 python3 ppm2png.py fuori/schermate.png x2 \
   fuori/stampa.ppm fuori/pausa.ppm fuori/penna1.ppm fuori/penna2.ppm \
   fuori/pronta.ppm fuori/armato.ppm fuori/tieni.ppm fuori/fine.ppm \
-  fuori/attesa.ppm fuori/errore.ppm fuori/stampa-94.ppm fuori/armato-meta.ppm
+  fuori/attesa.ppm fuori/errore.ppm fuori/stampa-94.ppm fuori/armato-meta.ppm \
+  fuori/pronta-carica.ppm fuori/attesa-carica.ppm
 echo "le schermate: schermo/vetro/fuori/schermate.png"

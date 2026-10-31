@@ -120,10 +120,11 @@ arriva da nessuna parte dove un ADC la possa vedere. Quindi, in ordine di costo:
 1. **`analogRead(ADC_BATTERY)`** — se la variante del MKR WiFi 1010 definisce
    quel nome, c'è già un partitore sulla scheda e il lavoro è finito. **Una
    riga di sketch risponde**, ed è la prima cosa da provare.
-2. **Il PMIC** (BQ24195L, via `Arduino_PMIC`): dà di sicuro lo **stato** — in
-   carica, carica, in scarica, guasto — ma non ha un misuratore di carica a
-   bordo, quindi una percentuale probabilmente no. Lo stato è comunque utile e
-   si prende gratis.
+2. **Il PMIC** (BQ24195L): dà di sicuro lo **stato** — in carica, carica, in
+   scarica, guasto — ma non ha un misuratore di carica a bordo, quindi una
+   percentuale probabilmente no. Lo stato è comunque utile e si prende gratis.
+   **Fatto il 2026-10-31**, leggendogli il registro direttamente invece di
+   passare da `Arduino_PMIC`: vedi «Sì, attaccandolo all'USB si ricarica».
 3. **Un partitore su A0**, se i primi due non bastano: due resistenze uguali
    (100 k va bene) dal più della batteria, e il centro sul **Grove A0**, che è
    libero. Niente da saldare sul carrier — basta un cavetto Grove.
@@ -138,6 +139,97 @@ in rosso, perché lì non è un dato ma un avviso. Non sulle due schermate dello
 stop: in mezzo a una domanda a cui devi rispondere adesso, una pila rossa è
 rumore. Nel SLICER la percentuale arriva con la risposta del telecomando e
 compare accanto allo stato della macchina, **solo quando il telecomando c'è**.
+
+### Sì, attaccandolo all'USB si ricarica — ma i registri vanno scritti
+
+Il caricabatterie **non sta sul carrier: sta sul MKR**. È il BQ24195L, lo
+stesso che dal 3,7 V della cella tira su il 3V3 di tutto e il 5 V dei LED.
+Quindi il cavetto a due pin fra il carrier e il connettore batteria del MKR
+non è un accessorio: è l'unica strada che la cella ha per arrivargli, nei due
+versi. Senza cavetto il telecomando a batteria non si accende **e** la cella
+non si carica.
+
+Attaccare l'USB del MKR quindi ricarica la 18650. Ma all'accensione tre cose
+possono mettersi di mezzo, e tutte e tre sono vere su questa scheda:
+
+1. **Il core di Arduino accende la carica solo se all'avvio vede la
+   batteria.** In `variants/mkrwifi1010/variant.cpp`, `initVariant()` legge
+   `analogRead(ADC_BATTERY)`: sopra 600 scrive «carica sì», sotto **stacca la
+   cella** dal resto. Accendere col cavetto scollegato e attaccarlo dopo vuol
+   dire USB che alimenta e cella che non carica, **fino al riavvio**.
+2. **Il limite di corrente in ingresso vale 100 mA.** Sul MKR i fili D+/D−
+   non arrivano al caricabatterie, quindi la trattativa con il caricatore non
+   si fa e resta il minimo di fabbrica. Il telecomando col vetro acceso ne
+   mangia più di 100: a quel limite la cella **non carica**, al massimo dà una
+   mano all'USB a tenere su la scheda.
+3. **`carrier.begin()` accende la boost mode** — è lei che fa il 5 V dei LED
+   quando si va a batteria — e tocca lo stesso registro della carica.
+
+Quindi il firmware non spera: **scrive**. Cinque registri, una volta sola in
+`setup()`, e li rilegge sul monitor seriale (`impostaCaricatore()`, sezione
+«LA SPINA»):
+
+| registro | valore | perché |
+|---|---|---|
+| `0x00` ingresso | `0x32` | 500 mA, quello che una porta USB dà per contratto; sotto i 4,36 V il caricabatterie si tira indietro da sé invece di far cadere la scheda |
+| `0x01` modo | `0x3B` | **carica e boost accese insieme**: il BQ24195L carica quando l'ingresso c'è e fa il 5 V quando non c'è, perché la boost parte solo a ingresso assente |
+| `0x02` corrente | `0x00` | 512 mA, il minimo che il registro sappia dire (di suo sarebbero 2048, e in serie alla cella c'è un fusibile da mezzo ampere). Quelli veri sono ~350: dai 500 dell'ingresso va tolto quello che la scheda mangia mentre carica |
+| `0x05` timer | `0x8C` | guardiano **spento** (acceso, dopo 40 s senza scritture rimette tutto di fabbrica: boost giù, LED morti) e timer di sicurezza a 12 ore, perché a 350 mA una cella da 3000 mAh in otto ore non ce la fa |
+| `0x07` cella | `0x0B` | cella attaccata comunque, e **niente trattativa D+/D−**, che riscriverebbe il limite appena messo |
+
+Una 18650 da 3000 mAh a ~350 mA è **un decimo di C**: dieci ore da vuota,
+lenta e mite — che su una cella senza circuito di protezione proprio è la
+scelta giusta, non un ripiego.
+
+**E sul vetro si vede.** Ogni due secondi il firmware legge il registro
+`0x08` del caricabatterie — quello che dice com'è andata davvero, non come
+dovrebbe andare — e ne ricava quattro stati: a batteria, in carica, carica
+finita, **attaccato ma non carica**. L'ultimo non è un doppione del primo: è
+il guasto, e va fatto vedere invece che nascosto. Sul vetro:
+
+- un **fulmine bianco dentro alla pila** quando la corrente c'è. Bianco e non
+  verde perché sta per metà sopra al pieno e per metà sopra al nero di quello
+  che manca: il bianco è l'unico colore che si vede su tutti e due;
+- la pila **verde** mentre carica o a carica finita, **ambra** se la spina c'è
+  e non entra niente;
+- **sotto al 20% alla spina l'allarme rosso non compare**: il 12% di una cella
+  che sta caricando non è un allarme, e lasciarlo rosso insegnerebbe a non
+  fidarsi del rosso;
+- la pila compare **anche sulla schermata in attesa, ma solo alla spina** —
+  quella è la schermata che resta su mentre lo carichi col portatile chiuso, e
+  lì «sta caricando?» è l'unica domanda che ha una risposta utile.
+
+Una cosa da sapere sul numero: **mentre carica è gonfio**. La percentuale
+viene dalla tensione, e sotto carica la tensione è più alta di quella che la
+cella avrà dopo. Un 100% col fulmine acceso può essere un 95% vero. Il
+fulmine conta più del numero.
+
+### L'interruttore non c'è, e metterlo costa la ricarica
+
+Sul MKR IoT Carrier Rev2 **non c'è nessun interruttore**: cella dentro al
+portabatteria e cavetto attaccato vuol dire telecomando acceso, finché non si
+scarica. Niente pulsante di spegnimento, né sul carrier né sul MKR.
+
+Metterlo si può, ma bisogna sapere che cosa si paga. L'unica strada della
+cella è quella coppia di fili, e la corrente ci passa **nei due versi**: in
+uscita per accendere, in entrata per caricare. Un interruttore lì dentro —
+sul filo positivo del cavetto a due pin, senza toccare nulla sul carrier —
+spegne davvero, ma **a interruttore aperto non si carica nemmeno**.
+
+Non è la stessa situazione della macchina, dove il 2026-09-19 l'interruttore
+è finito sulla linea 5 V e non sulla batteria, proprio per poter caricare a
+macchina spenta: lì il modulo aveva una porta per caricare e una per uscire,
+due strade diverse. Qui la strada è una sola, e un interruttore su una strada
+sola taglia tutto.
+
+Quindi, in ordine di buon senso:
+
+- **niente interruttore**, e per i periodi lunghi si tira fuori la cella dal
+  portabatteria: è dietro, si prende con due dita, e una Li-ion lasciata
+  attaccata per settimane si scarica sotto la soglia e muore;
+- **interruttore sul positivo del cavetto** se spegnerlo deve essere un
+  gesto da una mano: si carica solo con l'interruttore chiuso, e va bene,
+  perché mentre carica è attaccato all'USB e tanto vale lasciarlo acceso.
 
 ### Perché il vetro deve dormire
 

@@ -140,6 +140,10 @@ pre.codice { margin: 10px 0 0; padding: 9px 10px; background: #0e1116; max-width
     <label class="riga">Batteria del telecomando <b id="bat-val">78%</b>
       <input type="range" id="bat" min="0" max="100" value="78">
     </label>
+    <label class="riga" style="flex-direction:row; align-items:center; gap:8px">
+      <input type="checkbox" id="carica">
+      attaccato alla corrente (si sta ricaricando)
+    </label>
     <div class="spiega" id="spiega"></div>
   </div>
 
@@ -265,11 +269,15 @@ function spicchio(pc, cx, cy, r, colore) {
  * Il colore è l'informazione prima del numero: sopra il 40 è smorto, fra 20
  * e 40 ambra, sotto rosso. Da tre metri il numero non si legge e il colore sì.
  */
-function coloreBatteria(pc) {
+function coloreBatteria(pc, carica) {
+  /* Alla spina il colore smette di parlare della carica e parla della
+     spina: il 12% di una cella che sta caricando non è un allarme, e
+     lasciarlo rosso insegnerebbe a non fidarsi del rosso. */
+  if (carica) return '#43b581';
   return pc < 20 ? '#e05252' : pc < 40 ? '#e0a63a' : '#97a1b0';
 }
 
-function pila(pc, cx, cy, h, colore) {
+function pila(pc, cx, cy, h, colore, carica) {
   var w = h * 1.9, x = cx - w / 2, y = cy - h / 2;
   var pieno = Math.max(0, Math.min(1, pc / 100)) * (w - 5);
   return '<g>' +
@@ -281,15 +289,28 @@ function pila(pc, cx, cy, h, colore) {
       ? '<rect x="' + (x + 2.5).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) + '" width="' +
         pieno.toFixed(1) + '" height="' + (h - 5) + '" rx="1" fill="' + colore + '"/>'
       : '') +
+    /* IL FULMINE È BIANCO, non verde: sta dentro alla pila, quindi per
+       metà finisce sopra al pieno e per metà sopra al nero di quello che
+       manca. Il bianco si vede su tutti e due; un fulmine verde sparirebbe
+       dentro al pieno proprio mentre la carica sale. */
+    (carica
+      ? '<path d="M' + (cx + 1.2).toFixed(1) + ' ' + (y + 1).toFixed(1) +
+        ' L' + (cx - 2.6).toFixed(1) + ' ' + (cy + 0.6).toFixed(1) +
+        ' L' + (cx - 0.2).toFixed(1) + ' ' + (cy + 0.6).toFixed(1) +
+        ' L' + (cx - 1.2).toFixed(1) + ' ' + (y + h - 1).toFixed(1) +
+        ' L' + (cx + 2.6).toFixed(1) + ' ' + (cy - 0.6).toFixed(1) +
+        ' L' + (cx + 0.2).toFixed(1) + ' ' + (cy - 0.6).toFixed(1) +
+        ' Z" fill="#e6eaf0"/>'
+      : '') +
     '</g>';
 }
 
 /* Pila e numero, in riga e centrati. */
-function rigaPila(pc, y, h, px) {
-  var col = coloreBatteria(pc);
+function rigaPila(pc, y, h, px, carica) {
+  var col = coloreBatteria(pc, carica);
   var wPila = h * 1.9 + 4, wTesto = String(pc).length * px * 0.62 + px * 0.6;
   var tot = wPila + 6 + wTesto, x0 = 120 - tot / 2;
-  return pila(pc, x0 + wPila / 2, y, h, col) +
+  return pila(pc, x0 + wPila / 2, y, h, col, carica) +
     '<text x="' + (x0 + wPila + 6).toFixed(1) + '" y="' + (y + px * 0.36).toFixed(1) +
     '" fill="' + col + '" font-family="system-ui, sans-serif" font-size="' + px +
     '" font-weight="600">' + pc + '%</text>';
@@ -438,7 +459,7 @@ var SCHERMATE = [
         '</g>' +
         testo('PRONTA', 154, 25, '#e6eaf0') +
         testo('al punto home', 174, 14, '#6b7686', 400) +
-        rigaPila(stato.bat, 198, 13, 15);
+        rigaPila(stato.bat, 198, 13, 15, stato.carica);
     }
   },
   {
@@ -604,7 +625,12 @@ var SCHERMATE = [
         '<path d="M-14 6 A 20 20 0 0 1 14 6"/></g>' +
         '<circle cx="120" cy="122" r="4" fill="#6b7686"/>' +
         testo('IN ATTESA', 162, 22, '#97a1b0') +
-        testo('apri il SLICER', 184, 14, '#6b7686', 400);
+        testo('apri il SLICER', 184, 14, '#6b7686', 400) +
+        /* QUI LA PILA SOLO ALLA SPINA, e non è un'eccezione alla regola: è
+           la regola. Questa è la schermata che resta su mentre lo carichi
+           col portatile chiuso, e in quel momento «sta caricando?» è
+           l'unica domanda che ha una risposta utile. */
+        (stato.carica ? rigaPila(stato.bat, 200, 11, 13, stato.carica) : '');
     }
   }
 ];
@@ -849,7 +875,7 @@ function schermo(s) {
      dentro: sulla schermata Pronta c'è già, e sulle due dello stop il vetro
      è occupato da una domanda a cui si deve rispondere adesso — una pila
      rossa accanto a «FERMARE?» è rumore nel momento sbagliato. */
-  if (stato.bat < 20 && s.k !== 'pronta' && s.k.indexOf('stop') !== 0) {
+  if (stato.bat < 20 && !stato.carica && s.k !== 'pronta' && s.k.indexOf('stop') !== 0) {
     out += pila(stato.bat, 120, 202, 11, '#e05252');
   }
   for (var p in s.tasti) out += etichetta(p, s.tasti[p][0], s.tasti[p][1]);
@@ -858,7 +884,7 @@ function schermo(s) {
 
 /* ================================================================== */
 
-var stato = { k: 'stampa', pc: 47, bat: 78 };
+var stato = { k: 'stampa', pc: 47, bat: 78, carica: false };
 
 function render() {
   var s = null;
@@ -896,6 +922,10 @@ document.getElementById('pc').addEventListener('input', function () {
 });
 document.getElementById('bat').addEventListener('input', function () {
   stato.bat = +this.value;
+  render();
+});
+document.getElementById('carica').addEventListener('change', function () {
+  stato.carica = this.checked;
   render();
 });
 

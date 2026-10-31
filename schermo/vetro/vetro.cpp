@@ -117,6 +117,7 @@ void SerialeFinta::print(const char*) {} void SerialeFinta::print(int) {}
 void SerialeFinta::print(long) {} void SerialeFinta::print(float) {} void SerialeFinta::print(char) {}
 void SerialeFinta::println(const char*) {} void SerialeFinta::println(int) {}
 void SerialeFinta::println(long) {} void SerialeFinta::println(float) {} void SerialeFinta::println() {}
+void SerialeFinta::print(int, int) {} void SerialeFinta::println(int, int) {}
 SerialeFinta::operator bool() const { return false; }
 WiFiClient::operator bool() const { return false; }
 bool WiFiClient::connected() { return false; }
@@ -137,6 +138,21 @@ void File::print(const char*) {} void File::print(int) {} void File::print(char)
 void File::println(int) {} void File::close() {}
 bool SDFinta::begin(int) { return false; }
 File SDFinta::open(const char*, int) { return File(); }
+/* IL CARICABATTERIE FINTO: un registro, quello dello stato, e lo decide
+   la prova. Il firmware ci arriva passando per il suo vero codice di
+   lettura, quindi quello che si guarda nelle immagini e' il fulmine
+   disegnato DOPO aver decodificato i bit, non uno acceso a mano. */
+uint8_t PMIC_STATO_FINTO = 0x00;
+static uint8_t REG_CHIESTO = 0;
+void WireFinto::begin() {}
+void WireFinto::beginTransmission(uint8_t) {}
+void WireFinto::write(uint8_t v) { REG_CHIESTO = v; }
+uint8_t WireFinto::endTransmission(bool) { return 0; }
+uint8_t WireFinto::requestFrom(uint8_t, uint8_t n) { return n; }
+int WireFinto::available() { return 1; }
+uint8_t WireFinto::read() { return REG_CHIESTO == R_STATO ? PMIC_STATO_FINTO : 0; }
+WireFinto Wire;
+
 SerialeFinta Serial; SDFinta SD; WiFiFinta WiFi;
 
 static void salva(const char* nome) {
@@ -158,6 +174,18 @@ static void schermata(Schermata s, const char* nome) {
   salva(nome);
 }
 
+/* I BIT DEL REGISTRO DELLO STATO, provati facendoli leggere al firmware
+   invece di mettere a mano la variabile: bit 2 = la corrente c'e',
+   bit 5-4 = 0 ferma, 1 pre-carica, 2 carica, 3 finita. */
+static void spinaFinta(uint8_t reg, Spina atteso, const char* chi) {
+  PMIC_STATO_FINTO = reg;
+  leggiSpina(true);
+  if (spina != atteso) {
+    fprintf(stderr, "KO lo stato 0x%02X doveva dire %s\n", reg, chi);
+    exit(1);
+  }
+}
+
 int main() {
   strcpy(S.stato, "invio");
   S.percento = 67; S.rimanente = 190000; S.passo = 1;
@@ -175,6 +203,20 @@ int main() {
   schermata(FINE, "fine");
   schermata(ERRORE, "errore");
   schermata(ATTESA, "attesa");
+
+  /* LA SPINA. Prima i bit, poi le due schermate dove il fulmine si vede:
+     la Pronta (sempre) e l'Attesa (solo alla spina), con la carica a meta'
+     cosi' si guarda il fulmine bianco mezzo sopra al pieno e mezzo sopra
+     al nero - che e' il motivo per cui e' bianco. */
+  spinaFinta(0x00, A_BATTERIA, "a batteria");
+  spinaFinta(0x04, FERMA,      "attaccata ma non carica");
+  spinaFinta(0x34, PIENA,      "carica finita");
+  spinaFinta(0x24, IN_CARICA,  "in carica");
+  batteria = 46;
+  schermata(PRONTA, "pronta-carica");
+  schermata(ATTESA, "attesa-carica");
+  batteria = 76;
+  spinaFinta(0x00, A_BATTERIA, "a batteria");
 
   /* Lo stop che si tiene premuto: la cornice e lo spicchio a tre quarti,
      disegnato a fette come fa il firmware venti volte al secondo. */

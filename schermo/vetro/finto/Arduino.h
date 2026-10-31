@@ -30,6 +30,8 @@ struct SerialeFinta {
   void print(const char*); void print(int); void print(long); void print(float); void print(char);
   void println(const char*); void println(int); void println(long); void println(float);
   void println();
+  /* Con la base: `Serial.print(v, HEX)` dei registri del caricabatterie. */
+  void print(int, int); void println(int, int);
   operator bool() const;
 };
 extern SerialeFinta Serial;
