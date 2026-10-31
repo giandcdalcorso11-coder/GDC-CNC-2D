@@ -1156,7 +1156,9 @@ void impostaCaricatore() {
 
   /* 0x00 — 512 mA, il minimo che il registro sappia dire (di suo
      sarebbero 2048, che su questa catena non ha senso: in serie alla
-     cella, sul MKR, c'è un fusibile da mezzo ampere). Quelli veri sono
+     cella, sul MKR, dovrebbe esserci un fusibile da mezzo ampere — lo
+     dicono gli sviluppatori del core, sul rame non è verificato).
+     Quelli veri sono
      meno: dai 500 mA dell'ingresso bisogna togliere quello che la scheda
      si mangia mentre carica, quindi stiamo sui 350. Una 18650 da 3000 mAh
      a 350 mA è un decimo di C: lenta, dieci ore da vuota, e mite — che su

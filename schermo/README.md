@@ -173,7 +173,7 @@ Quindi il firmware non spera: **scrive**. Cinque registri, una volta sola in
 |---|---|---|
 | `0x00` ingresso | `0x32` | 500 mA, quello che una porta USB dà per contratto; sotto i 4,36 V il caricabatterie si tira indietro da sé invece di far cadere la scheda |
 | `0x01` modo | `0x3B` | **carica e boost accese insieme**: il BQ24195L carica quando l'ingresso c'è e fa il 5 V quando non c'è, perché la boost parte solo a ingresso assente |
-| `0x02` corrente | `0x00` | 512 mA, il minimo che il registro sappia dire (di suo sarebbero 2048, e in serie alla cella c'è un fusibile da mezzo ampere). Quelli veri sono ~350: dai 500 dell'ingresso va tolto quello che la scheda mangia mentre carica |
+| `0x02` corrente | `0x00` | 512 mA, il minimo che il registro sappia dire (di suo sarebbero 2048; in serie alla cella **dovrebbe** esserci un fusibile da mezzo ampere, detto dagli sviluppatori del core e non verificato sul rame). Quelli veri sono ~350: dai 500 dell'ingresso va tolto quello che la scheda mangia mentre carica |
 | `0x05` timer | `0x8C` | guardiano **spento** (acceso, dopo 40 s senza scritture rimette tutto di fabbrica: boost giù, LED morti) e timer di sicurezza a 12 ore, perché a 350 mA una cella da 3000 mAh in otto ore non ce la fa |
 | `0x07` cella | `0x0B` | cella attaccata comunque, e **niente trattativa D+/D−**, che riscriverebbe il limite appena messo |
 
