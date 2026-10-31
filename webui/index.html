@@ -102,6 +102,9 @@
           <button class="btn btn-ghost btn-small" id="btn-clear-file">Svuota</button>
         </div>
         <div class="livelli" id="livelli" hidden></div>
+        <!-- L'avviso sulle penne: due livelli della stessa penna lontani
+             fra loro costano due fermate in piu' del necessario. -->
+        <p class="hint" id="liv-penne" hidden></p>
 
         <div id="art-campi" hidden>
           <div class="field-row">
@@ -113,7 +116,16 @@
                una spunta quaggiu, lontana dalla riga di cui parlava. -->
           <p class="hint" id="art-gruppo" hidden></p>
         </div>
-        <button class="btn btn-ghost full" id="btn-sample">Carica il disegno di esempio</button>
+        <!-- NON E' UN DISEGNO DI PROVA: e' il logo che l'utente mette
+             davvero nelle stampe, e il nome del pulsante adesso lo dice.
+             L'identificatore resta `btn-sample` perche' cambiarlo non
+             cambierebbe niente a chi guarda e romperebbe il collaudo.
+             Quando ci sara' il logo della macchina, qui accanto ne nasce un
+             secondo: per questo il pulsante sta gia' dentro a una riga. -->
+        <div class="loghi">
+          <button class="btn btn-ghost full" id="btn-sample"
+                  title="Inserisce il logo GDC Stuff come livello nuovo, sopra a quello che c'e' gia'">Inserisci il logo GDC Stuff</button>
+        </div>
 
         <!-- Un pulsante solo con due mestieri: con un disegno caricato lo
              apre per modificarlo, senza disegno ne apre uno nuovo. La scritta

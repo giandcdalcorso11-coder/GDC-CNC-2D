@@ -456,12 +456,35 @@ var Paper = (function () {
     State.emit('path');
   }
 
+  /* IL COLORE DEI TRATTI SUL FOGLIO è quello della penna di quel livello,
+     non una tinta decisa qui: l'anteprima deve somigliare al foglio che
+     uscirà dalla macchina, e con due penne un'anteprima tutta di un colore
+     non dice quale tratto viene fatto con quale.
+     I colori si prendono UNA VOLTA per livello e non per tratto: ricavarli
+     dalle forme costa, e un disegno ha migliaia di tratti e tre livelli.
+     Gli spostamenti a penna alzata restano come sono: non sono inchiostro. */
+  function coloriDeiLivelli() {
+    var m = {}, di = State.data.artDi || [];
+    if (!window.Artwork || !Artwork.coloreLivello) return m;
+    for (var i = 0; i < di.length; i++) {
+      if (di[i] && !(di[i] in m)) m[di[i]] = Artwork.coloreLivello(di[i]) || '';
+    }
+    return m;
+  }
+
   function renderPath() {
     var seg = State.data.path, out = '';
+    var col = coloriDeiLivelli(), di = State.data.artDi || [];
     for (var i = 0; i < seg.length; i++) {
       var s = seg[i];
+      var c = s.draw ? (col[di[s.poly]] || '') : '';
+      /* STILE e non attributo `stroke`: la regola `.trace-draw` nel foglio
+         di stile vince su un attributo di presentazione, e i tratti
+         sarebbero rimasti grigi — con l'attributo scritto giusto dentro
+         all'HTML, che è il modo peggiore di sbagliare. */
       out += '<line class="' + (s.draw ? 'trace-draw' : 'trace-move') +
-             '" x1="' + s.x1 + '" y1="' + s.y1 +
+             '"' + (c ? ' style="stroke:' + c + '"' : '') +
+             ' x1="' + s.x1 + '" y1="' + s.y1 +
              '" x2="' + s.x2 + '" y2="' + s.y2 + '"></line>';
     }
     layerTrace.innerHTML = out;

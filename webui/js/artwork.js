@@ -1164,6 +1164,62 @@ var Artwork = (function () {
              '</div>';
     }
     box.innerHTML = out;
+    notaPenne();
+  }
+
+  /* DUE LIVELLI DELLA STESSA PENNA, LONTANI FRA LORO, COSTANO DUE FERMATE.
+   *
+   * L'ordine dei livelli è l'ordine di stampa, e ogni livello che chiede
+   * una penna diversa è una fermata in cui si sta lì a smontare e montare.
+   * Nero, rosso, nero vuol dire due cambi penna; nero, nero, rosso ne vuole
+   * uno, e disegna esattamente le stesse righe. Il riordino lo fa l'utente
+   * trascinando — qui non si tocca niente da soli, perché l'ordine dei
+   * livelli decide anche che cosa finisce SOPRA a che cosa, e spostare un
+   * livello per risparmiare una fermata può cambiare il disegno.
+   *
+   * Si contano i BLOCCHI di colore: quanti gruppi di livelli vicini della
+   * stessa penna ci sono. Se i blocchi sono più dei colori diversi, vuol
+   * dire che un colore è spezzato in due pezzi lontani, e la differenza è
+   * esattamente quante fermate si risparmierebbero.
+   */
+  function notaPenne() {
+    var el = document.getElementById('liv-penne');
+    if (!el) return;
+    var vis = livelli.filter(function (l) { return l.visibile; });
+    var seq = vis.map(function (l) { return tintaDi(l); });
+
+    var blocchi = 0, distinti = {}, quanti = 0;
+    for (var i = 0; i < seq.length; i++) {
+      if (!seq[i]) continue;                       // senza tinta non si raggruppa
+      if (!(seq[i] in distinti)) { distinti[seq[i]] = 0; quanti++; }
+      distinti[seq[i]]++;
+      if (i === 0 || seq[i - 1] !== seq[i]) blocchi++;
+    }
+
+    /* L'altra metà: una fermata messa FRA DUE LIVELLI DELLA STESSA PENNA
+       è una fermata per montare la penna che c'è già. */
+    var inutili = 0;
+    for (var j = 1; j < vis.length; j++) {
+      if (vis[j].cambioPenna && seq[j] && seq[j] === seq[j - 1]) inutili++;
+    }
+
+    var dice = [];
+    if (blocchi > quanti) {
+      var n = blocchi - quanti;
+      dice.push('<b>' + (n > 1 ? n + ' cambi penna evitabili' : 'Un cambio penna evitabile') +
+                '</b>: ci sono livelli della stessa penna che non stanno ' +
+                'vicini. Trascinandoli uno dopo l\'altro la macchina si ferma ' +
+                (n > 1 ? n + ' volte in meno' : 'una volta in meno') +
+                ', e il disegno è lo stesso.');
+    }
+    if (inutili) {
+      dice.push('<b>' + (inutili > 1 ? inutili + ' fermate' : 'Una fermata') +
+                ' fra livelli della stessa penna</b>: si smonta e si rimonta ' +
+                'la penna che è già dentro. Il simbolo della penna su quella ' +
+                'riga la toglie.');
+    }
+    el.hidden = !dice.length;
+    el.innerHTML = dice.join(' ');
   }
 
   /* RIORDINARE TRASCINANDO.

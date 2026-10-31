@@ -626,6 +626,16 @@ void disegnaTutto(Schermata s) {
    percentuale e lo spicchio del dito. */
 int pcDisegnato = -999;
 int caricaDisegnata = -999;
+/* NON BASTA SAPERE QUALE schermata c'è sul vetro: bisogna sapere anche
+   che cosa ci era scritto sopra. Una macchina che viene azzerata resta
+   sulla schermata PRONTA — cambia solo la riga sotto, da «da azzerare» a
+   «al punto home» — e senza questo il vetro continuerebbe a dire quella
+   vecchia finché non cambia schermata per altri motivi. Stessa storia per
+   il pallino del colore, che arriva un attimo dopo l'inizio della stampa:
+   il segno di penna sta nel G-code all'inizio del livello, cioè qualche
+   millisecondo dopo che lo stato è diventato «invio». */
+bool azzerataDisegnata = false;
+char pennaDisegnata[10] = "";
 float tenutaDisegnata = -1;
 
 void aggiornaPezzi(Schermata s) {
@@ -1121,10 +1131,17 @@ void loop() {
     schermoDisegnato = NESSUNA;
   }
 
+  if (S.azzerata != azzerataDisegnata || strcmp(S.penna, pennaDisegnata)) {
+    schermoDisegnato = NESSUNA;
+  }
+
   if (schermoOra != schermoDisegnato) {
     disegnaTutto(schermoOra);
     accendiLed(schermoOra);
     schermoDisegnato = schermoOra;
+    azzerataDisegnata = S.azzerata;
+    strncpy(pennaDisegnata, S.penna, sizeof(pennaDisegnata) - 1);
+    pennaDisegnata[sizeof(pennaDisegnata) - 1] = 0;
     pcDisegnato = -999;
     tenutaDisegnata = -1;
   } else {
