@@ -445,6 +445,9 @@ var Settings = (function () {
         notaTele();
       });
       State.on('telecomando', notaTele);
+      /* Anche la modalità finta cambia che cosa si può premere qui: le prove
+         ci vivono dentro. */
+      State.on('mock', notaTele);
       notaTele();
     }
 
@@ -525,8 +528,15 @@ var Settings = (function () {
     if (box && window.Telecomando && document.activeElement !== box) {
       box.value = Telecomando.stato().indirizzo;
     }
+    /* LE PROVE SOLO IN MODALITÀ FINTA. Il motivo sta in js/telecomando.js,
+       `sePuoFingere`: qui si spengono soltanto i pulsanti, e si dice perché —
+       un pulsante spento senza una ragione scritta sembra un guasto. */
+    var puo = !!(t && t.attivo && State.data.mock);
+    var perche = document.getElementById('set-tele-finta');
+    if (perche) perche.hidden = !!State.data.mock;
+
     if (pv) {
-      pv.disabled = !t || !t.attivo;
+      pv.disabled = !puo && !(t && t.prova);
       pv.textContent = (t && t.prova) ? 'Ferma la prova' : 'Prova in bianco';
       pv.classList.toggle('btn-primary', !!(t && t.prova));
     }
@@ -538,7 +548,7 @@ var Settings = (function () {
     var bs = document.querySelectorAll('#tele-prove button[data-posa]');
     for (var i = 0; i < bs.length; i++) {
       var k = bs[i].dataset.posa;
-      bs[i].disabled = !t || !t.attivo || (!k && !(t && t.posa));
+      bs[i].disabled = k ? !puo : !(t && t.posa);
       bs[i].classList.toggle('btn-primary', !!(k && t && t.posa === k));
     }
     var md = document.getElementById('btn-tele-manda');

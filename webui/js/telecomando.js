@@ -240,6 +240,36 @@ var Telecomando = (function () {
    * di far partire una stampa vera.
    */
   var finta = null, muto = false;
+
+  /* SI FINGE SOLO IN MODALITÀ FINTA. Le prove mandano al telecomando una
+   * stampa che non esiste: finché la macchina è scollegata è esattamente
+   * quello che si vuole, ma con la macchina accesa e comandabile diventano
+   * due bugie in una. Sul vetro ci sarebbe scritto «in stampa» mentre la
+   * macchina è ferma — o peggio «pronta» mentre disegna — e il telecomando
+   * è l'oggetto che si guarda proprio quando NON si guarda il portatile:
+   * una schermata inventata lì sopra è una cosa su cui qualcuno agisce.
+   * E i tasti: durante le prove restano dentro alle prove, quindi premere
+   * STOP sul telecomando mentre la macchina va non fermerebbe niente, e
+   * quello è il tasto che deve funzionare sempre.
+   *
+   * La modalità finta è il modo in cui la pagina dice «qui non c'è niente
+   * di vero»: le prove ci stanno dentro, e fuori no. Il controllo sta qui
+   * dentro e non nei pulsanti, perché un controllo che vive nell'interfaccia
+   * lo si aggira chiamando la funzione da un'altra parte. */
+  function sePuoFingere() {
+    if (!State.data.mock) {
+      Log.add('err', 'Le prove del telecomando si fanno solo in modalità finta: ' +
+                     'con la macchina collegata il vetro deve raccontare quello ' +
+                     'che sta succedendo davvero.');
+      return false;
+    }
+    if (window.Sender && Sender.inCorso && Sender.inCorso()) {
+      Log.add('err', 'C\'è una stampa in corso: le prove del telecomando si ' +
+                     'fanno a macchina ferma.');
+      return false;
+    }
+    return true;
+  }
   var passoProva = 0, daQuando = 0, timerProva = null;
   var RITMO_PROVA = 200;
 
@@ -347,11 +377,7 @@ var Telecomando = (function () {
         Log.add('err', 'Per la prova serve l\'indirizzo del telecomando.');
         return false;
       }
-      if (window.Sender && Sender.inCorso && Sender.inCorso()) {
-        Log.add('err', 'C\'è una stampa in corso: la prova in bianco si fa a ' +
-                       'macchina ferma.');
-        return false;
-      }
+      if (!sePuoFingere()) return false;
       posaOra = '';
       finta = vuoto();
       timerProva = setInterval(provaTick, RITMO_PROVA);
@@ -425,11 +451,7 @@ var Telecomando = (function () {
       Log.add('err', 'Per le prove serve l\'indirizzo del telecomando.');
       return false;
     }
-    if (k && window.Sender && Sender.inCorso && Sender.inCorso()) {
-      Log.add('err', 'C\'è una stampa in corso: le prove delle schermate si ' +
-                     'fanno a macchina ferma.');
-      return false;
-    }
+    if (k && !sePuoFingere()) return false;
     /* Una prova per volta: la recita e una schermata ferma si
        contenderebbero lo stesso finto stato. */
     if (timerProva) { clearInterval(timerProva); timerProva = null; }
@@ -556,6 +578,17 @@ var Telecomando = (function () {
     State.on('stampa', subito);
     State.on('machine', subito);
     State.on('azzerata', subito);
+
+    /* USCIRE DALLA MODALITÀ FINTA SPEGNE LE PROVE. Il controllo che si fa
+       premendo guarda il momento in cui premi: se la macchina viene
+       collegata dopo, il vetro resterebbe a raccontare una stampa che non
+       esiste proprio mentre ne comincia una vera. */
+    State.on('mock', function () {
+      if (!finta || State.data.mock) return;
+      Log.add('msg', 'Modalità finta spenta: le prove del telecomando si ' +
+                     'fermano qui.');
+      if (posaOra) posa(''); else prova(false);
+    });
   }
 
   return { init: init, dove: dove, stato: stato, manda: manda, premuto: premuto,

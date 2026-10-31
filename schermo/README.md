@@ -639,10 +639,24 @@ cose:
    Accesa, dice da che parte sta il guasto — se esce e non torna niente è la
    rete, se torna un tasto che la pagina non conosce è il firmware.
 
-**Una stampa vera spegne qualunque prova.** Il controllo che si fa premendo
-non basta: guarda il momento in cui premi, e se la stampa parte dopo il vetro
-resterebbe a raccontare una recita mentre la macchina disegna davvero — con
-scritto «pronta» e la penna che va.
+**Le prove si fanno SOLO IN MODALITÀ FINTA**, e i pulsanti fuori di lì sono
+spenti con scritto il perché. Una prova manda al telecomando una stampa che
+non esiste: finché la macchina è scollegata è esattamente quello che si vuole,
+ma con la macchina accesa e comandabile diventano due bugie in una. Sul vetro
+ci sarebbe scritto «in stampa» a macchina ferma — o «pronta» mentre disegna —
+e il telecomando è l'oggetto che si guarda **proprio quando non si guarda il
+portatile**: una schermata inventata lì sopra è una cosa su cui qualcuno
+agisce. E i tasti, durante una prova, restano dentro alla prova: premere STOP
+non fermerebbe niente, e quello è il tasto che deve funzionare sempre. La
+modalità finta è il modo in cui la pagina dice «qui non c'è niente di vero»:
+le prove ci stanno dentro, e fuori no.
+
+Il controllo sta **dentro al modulo** e non nei pulsanti — un controllo che
+vive nell'interfaccia lo si aggira chiamando la funzione da un'altra parte — e
+vale anche **dopo**: spegnere la modalità finta, o far partire una stampa
+vera, **ferma la prova da sé**. Il controllo che si fa premendo non basta:
+guarda il momento in cui premi, e se la macchina viene collegata dopo il vetro
+resterebbe a raccontare una recita mentre lei disegna davvero.
 
 E la riga di stato, sotto all'indirizzo, dice anche **come sta messo con la
 corrente**, perché il telecomando lo manda insieme alla carica: «in carica»,
@@ -668,8 +682,9 @@ premerlo non si vedrebbe, perché un attimo dopo la stampa finta sarebbe andata
 avanti lo stesso. Il tasto PROVA, che sulla macchina muove il servo, qui dice
 soltanto che non lo muove.
 
-La prova **si rifiuta di partire** se c'è una stampa in corso, e senza
-indirizzo non parte perché non c'è nessuno a cui recitare. `prova-test.js`, 24
+La prova **si rifiuta di partire** fuori dalla modalità finta o se c'è una
+stampa in corso, e senza indirizzo non parte perché non c'è nessuno a cui
+recitare. `prova-test.js`, 24
 asserzioni, di cui una sola conta davvero: che per tutta la recita il Sender
 non si sia mosso.
 
