@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 65
-**Ultimo aggiornamento:** 2026-10-31 11:40
+**Versione:** 66
+**Ultimo aggiornamento:** 2026-10-31 09:33
 
 ## Regole di co-editing
 
@@ -646,7 +646,8 @@ mano a mano che le misure arrivano):
 
 ### Step 9 — Il telecomando della macchina
 
-**Stato:** in corso — **manca solo il firmware.** Il lato SLICER c'è e gira (`webui/js/telecomando.js`, collaudato contro un telecomando finto) e il protocollo è completo: dal 2026-10-29 porta anche il **colore della penna**. La grafica del vetro è disegnata, misurata e approvata nel banco di prova `schermo/mock.html`, dove si **sentono** anche i quattro suoni. Piedini, numeri dei pad e componenti sono verificati sugli **schemi Altium del carrier**. Il firmware non è scritto e **non è compilabile da dentro la sessione**: `downloads.arduino.cc` è bloccato come `docs.arduino.cc`, quindi niente `arduino-cli`, niente core SAMD, niente `Arduino_MKRIoTCarrier` — servirà una tornata di compilazione sulla macchina dell'utente
+**Stato:** in corso — **il telecomando è acceso e parla col SLICER; manca la prova sul campo.** Il firmware è caricato sulla scheda, il SLICER lo trova, e la **prova in bianco** (Impostazioni → *Prova in bianco*) fa recitare al telecomando una stampa intera senza la macchina. Il lato SLICER è collaudato contro un telecomando finto e il protocollo è completo: porta anche il **colore della penna**. Grafica, suoni, piedini e numeri dei pad sono verificati. Restano **tre tarature sulla scheda vera** (la risonanza del cicalino, il rapporto del partitore della batteria, destra/sinistra dei pad) e soprattutto il criterio di completamento, che non è ancora stato messo alla prova: **una stampa a due colori senza toccare il portatile**.
+*Supera lo stato scritto il 2026-10-29* («manca solo il firmware»). **Il firmware resta non compilabile da dentro la sessione** — `downloads.arduino.cc` è bloccato — quindi ogni modifica richiede una tornata di compilazione sulla macchina dell'utente; quello che si può fare da qui è scritto in `schermo/README.md`
 
 **Obiettivo:** sapere che cos'è successo alla stampa **senza guardare il portatile**, e poter chiudere il cambio penna **stando alla macchina** — con le mani sulla penna, che è dove la procedura si svolge
 
@@ -701,6 +702,42 @@ mano a mano che le misure arrivano):
 - [2026-10-29] **Primo progetto vero: il biglietto A5 per il cliente Feffi** (portaoggetti husky «Kira», da `.3mf`). Da un modello 3D a un SVG a due penne (nero + grigio) da mettere nella scatola. Provati tre stili; è stato scelto e rifinito dall'utente quello a **linee di livello**, e battezzato **«Rilievo»** (vedi `stampe/README.md`). I magneti della lavagna restano in attesa di lista esercizi e misure.
 
 ## Storico sessioni
+
+### [2026-10-31 09:33] (meccanica/firmware) La penna si sceglie, e il pulsante dice quello che fa
+
+**Riepilogo:** seconda metà della stessa giornata, dopo la voce delle 09:20: il colore di un livello smette di essere solo dedotto dal file e si può **scegliere** da una tavolozza che si apre passando sopra al pallino, con le quattro penne in cassetto e un «+» per aggiungerne; il pulsante del disegno di prova diventa «Inserisci il logo GDC Stuff», che è quello che fa davvero.
+
+**Cosa è stato fatto:**
+
+- **La tavolozza a comparsa** sul pallino della penna, nell'elenco dei livelli: nero, blu, rosso, grigio e un «+». Il pallino adesso **c'è sempre**, anche vuoto — tratteggiato — perché è da lì che si sceglie, e un livello disegnato a mano è quello che ne ha più bisogno: prima restava senza colore e **senza modo di dargliene uno**.
+- **Il selettore** per una penna nuova: tre cursori, tinta, chiarezza e vivezza, ognuno colorato di quello che si otterrebbe muovendolo. Le penne aggiunte restano in cassetto.
+- **Al cambio penna la finestra chiama la penna col nome che le hai dato** — «monta la rossa» si capisce senza guardare, «#c8102e» no.
+- **Il pulsante del disegno di prova** è diventato «Inserisci il logo GDC Stuff» (richiesta dell'utente: non è una prova, è il logo che mette davvero nelle stampe). Sta dentro a una riga perché quando ci sarà il logo della macchina gliene nasce uno accanto.
+- **Collaudo:** `tavolozza-test.js`, 23 asserzioni, dalla scelta fino al G-code, al foglio, al progetto salvato e riaperto e alla finestra del cambio penna. Suite: **985 asserzioni, 0 KO** su 29 file. Pagina compilata: **v78**, 635.186 byte.
+
+**Decisioni prese:**
+
+- Contesto: il colore di un livello era **solo** la tinta delle sue forme, e il commento nel codice diceva che tenerne una copia vorrebbe dire averne due che a un certo punto non coincidono più. Ma il colore con cui un disegno è stato fatto e la penna con cui lo si stampa sono due cose diverse — un logo nero si può voler stampare in rosso — e un livello disegnato a mano non ha nessuna tinta.
+  Decisione: la penna scelta **copre** la tinta senza sostituirla. La tinta del file resta intatta, `l.penna` dice «per questo livello monto quest'altra», e togliere la scelta la fa riapparire.
+  *Integra la decisione del 2026-10-29* (il colore dedotto dalle tinte), senza annullarla: la deduzione resta il valore di partenza.
+  Alternative scartate: sostituire la tinta con la scelta — il dato di partenza si perderebbe al primo ripensamento, e non ci sarebbe modo di tornare indietro.
+  Da rivedere se: servisse una penna diversa per **parti** di uno stesso livello; allora la scelta non sarebbe più una proprietà del livello.
+
+- Contesto: dove far vivere l'elenco delle penne possedute.
+  Decisione: **nel browser**, come l'indirizzo del telecomando — sono le penne di chi stampa, non una proprietà della macchina. La scelta per livello invece sta **nel progetto**, perché è del disegno.
+  Alternative scartate: metterle nel profilo macchina (esportandolo ci si porterebbe dietro il contenuto di un cassetto) e dentro al progetto (ogni disegno riaperto riscriverebbe il cassetto).
+
+- Contesto: il selettore di colore richiesto dall'utente poteva essere il solo arcobaleno.
+  Decisione: **tre cursori**, tinta, chiarezza e vivezza.
+  Motivo: il **grigio**, che è una delle quattro penne, dall'arcobaleno non esce — è una tinta qualunque con la vivezza a zero, e con il solo arcobaleno non ci si arriva.
+
+**Problemi aperti:** i quattro colori di partenza sono **nominali** — un inchiostro vero non ha un esadecimale, e servono a riconoscere la penna sul foglio, non a riprodurla. Si correggono dal «+» guardando le penne vere.
+
+**File consegnati/modificati:** `webui/js/artwork.js`, `webui/js/popup.js`, `webui/index.html`, `webui/css/components.css`, `schermo/README.md`, `documento-sessione-cnc-2d.md`. Consegnati: la pagina **v78** in un file solo e il documento.
+
+**Impatto su Vision/Pipeline:** Vision invariata. Pipeline: **Step 9** — lo **Stato** è stato riscritto, perché diceva ancora «manca solo il firmware» mentre il firmware è caricato e gira: adesso manca la prova sul campo e restano tre tarature. **Step 4** — una nota sulla tavolozza. Corretta anche la riga «Ultimo aggiornamento» della testata, che riportava **2026-10-31 11:40**: un'ora che non corrisponde a nessuna voce ed è nel futuro rispetto all'orologio di sistema. Era un numero scritto a mano invece che letto.
+
+---
 
 ### [2026-10-31 09:20] (meccanica/firmware) Il telecomando è acceso, e quattro collaudi morivano in silenzio
 
