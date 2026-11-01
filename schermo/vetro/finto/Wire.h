@@ -7,6 +7,7 @@
 #include "Arduino.h"
 #define HEX 16
 extern uint8_t PMIC_STATO_FINTO;
+extern uint8_t PMIC_REG[16];     /* quello che il firmware ci ha scritto */
 struct WireFinto {
   void begin();
   void beginTransmission(uint8_t);

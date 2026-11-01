@@ -1029,9 +1029,16 @@ void tintaLed(uint16_t c, uint8_t* v) {
   v[2] = b * LUCE_LED / 255;
 }
 
+/* VERO SE UN LED È ACCESO ADESSO. Non è un vezzo: la prova della spina
+   (vedi «LA SPINA») toglie il 5 V per ottanta millisecondi, e ottanta
+   millisecondi di buio su un LED spento non si vedono, su un LED acceso
+   sì. Serve a decidere quanto spesso si può provare. */
+bool ledAccesi = false;
+
 void accendiLed(Schermata s) {
   Tasto t[MAX_TASTI];
   int q = tastiDi(s, t);
+  ledAccesi = q > 0;
   uint8_t acceso[5][3] = {{0}};
   for (int i = 0; i < q; i++) {
     int k = (int)padDi(t[i].dove);
@@ -1141,6 +1148,23 @@ float vFiltrata = -1;
 void leggiCarica(bool subito) {
   unsigned long ora = millis();
 
+  /* ALLA SPINA NON SI MISURA QUI, SI MISURA NELLA FINESTRA.
+     Al banco, il 2026-11-01: 35% a batteria, spina attaccata e reset, e
+     il numero salta a 89. Non è un difetto del filtro — il filtro ha
+     fatto il suo lavoro — è che MENTRE CARICA LA TENSIONE NON DICE LA
+     CARICA. La corrente di carica attraversa la stessa mezz'ohm di molle
+     e contatti, ma al contrario, e invece di una caduta fa un rialzo: a
+     mezzo ampere sono due decimi e mezzo di volt, più gli ottanta
+     millivolt di caduta che spariscono, cioè una trentina di punti
+     percentuali di niente. Il picco su due secondi non salva: qui il
+     picco è proprio il male.
+
+     Quindi alla spina questa funzione non assaggia nemmeno, e il numero
+     lo fa `finestra()`, che la carica la ferma per trecento millisecondi
+     e misura una cella a corrente zero. `FERMA` invece sta a batteria a
+     tutti gli effetti: la spina c'è ma non entra niente. */
+  if (allaSpina() && spina != FERMA) { piccoGrezzo = 0; return; }
+
   /* Un assaggio ogni decimo di secondo: sparsi, perché otto letture tutte
      attaccate cascherebbero tutte dentro allo stesso buco. */
   if (subito || ora - ultimoAssaggio >= 100) {
@@ -1218,6 +1242,7 @@ const uint8_t R_CORRENTE  = 0x02;   // quanta ne va nella cella
 const uint8_t R_TIMER     = 0x05;   // il guardiano e il timer di sicurezza
 const uint8_t R_CELLA     = 0x07;   // la cella attaccata o staccata
 const uint8_t R_STATO     = 0x08;   // che cosa sta succedendo davvero
+const uint8_t R_GUASTO    = 0x09;   // i guasti, che restano agganciati
 
 bool caricatoreScrivi(uint8_t reg, uint8_t v) {
   Wire.beginTransmission(CARICATORE);
@@ -1285,7 +1310,8 @@ void impostaCaricatore() {
      senza aspettare che lo dica la cella scarica. */
   Serial.print("Caricatore:");
   uint8_t v;
-  const uint8_t quali[] = { R_INGRESSO, R_MODO, R_CORRENTE, R_TIMER, R_CELLA, R_STATO };
+  const uint8_t quali[] = { R_INGRESSO, R_MODO, R_CORRENTE, R_TIMER,
+                            R_CELLA, R_STATO, R_GUASTO };
   for (int i = 0; i < 6; i++) {
     Serial.print(" 0x"); Serial.print(quali[i], HEX); Serial.print('=');
     if (caricatoreLeggi(quali[i], &v)) { Serial.print("0x"); Serial.print(v, HEX); }
@@ -1294,7 +1320,50 @@ void impostaCaricatore() {
   Serial.println();
 }
 
-unsigned long ultimaSpina = 0;
+unsigned long ultimaSpina = 0, ultimaProva = 0;
+uint8_t guasto = 0;
+
+/* ===================================================================
+ * LA PROVA DELLA SPINA: SI MOLLA LA BOOST PER GUARDARE
+ *
+ * Al banco, il 2026-11-01: alimentatore da muro attaccato, e il
+ * telecomando non se ne accorgeva — nessun fulmine, cioè PG_STAT giù,
+ * cioè «non vedo nessun ingresso buono». Premendo il reset con
+ * l'alimentatore già infilato, invece, partiva a caricare.
+ *
+ * LA CAUSA È NOSTRA. A batteria il 5 V dei LED lo fa il PMIC stesso con
+ * la boost, e la boost PILOTA IL FILO VBUS — lo stesso filo su cui arriva
+ * l'alimentatore. Un alimentatore da muro che regola a 5,0 V esatti non
+ * sovrasta un'uscita boost che sta cinque centesimi più su: il PMIC non
+ * vede niente di nuovo e resta in boost, dove PG è zero per definizione.
+ * La porta del PC invece è dura, con i suoi condensatori, e lo sovrasta.
+ * E noi peggioravamo le cose: la boost la ri-armavamo proprio quando
+ * vedevamo `A_BATTERIA`, cioè esattamente nello stato sbagliato — si
+ * teneva su da sé.
+ *
+ * L'unico modo di guardare è TOGLIERSI DI MEZZO: si molla la boost per
+ * ottanta millisecondi e si rilegge PG. Se un alimentatore c'è, in quegli
+ * ottanta millisecondi è lui a tenere su il filo e PG si alza — e il 5 V
+ * non cala nemmeno, perché ci pensa l'alimentatore. Se non c'è, il 5 V
+ * resta giù per ottanta millisecondi e si ri-arma.
+ *
+ * Il prezzo è quel buio, e si paga solo quando non c'è niente attaccato.
+ * Per questo si prova spesso (otto secondi) quando i LED sono spenti, e
+ * quasi mai (un minuto) quando sono accesi, dove si vedrebbe. E i LED
+ * vanno RISCRITTI dopo: sono LED intelligenti, il colore ce l'hanno
+ * dentro, e senza il 5 V se lo dimenticano.
+ * =================================================================== */
+bool provaSpina() {
+  caricatoreScrivi(R_MODO, 0x1B);        // carica sì, boost no: filo libero
+  delay(80);
+  uint8_t r = 0;
+  bool buono = caricatoreLeggi(R_STATO, &r) && (r & 0x04);
+  if (!buono) {
+    caricatoreScrivi(R_MODO, 0x3B);
+    if (ledAccesi) accendiLed(schermoDisegnato);
+  }
+  return buono;
+}
 
 void leggiSpina(bool subito) {
   /* Due secondi e non dieci come la carica: la percentuale si muove in
@@ -1302,6 +1371,27 @@ void leggiSpina(bool subito) {
      secondi per vedere comparire il fulmine sembra un fulmine rotto. */
   if (!subito && millis() - ultimaSpina < 2000) return;
   ultimaSpina = millis();
+
+  /* Prima di leggere lo stato, si prova: vedi sopra. Si prova solo da
+     `A_BATTERIA`, perché è l'unico stato in cui la boost è armata e
+     l'unico in cui il PMIC può avere una spina davanti senza vederla. */
+  if (spina == A_BATTERIA) {
+    unsigned long ogni = ledAccesi ? 60000 : 8000;
+    if (subito || millis() - ultimaProva >= ogni) {
+      ultimaProva = millis();
+      provaSpina();
+    }
+  }
+
+  /* I guasti stanno in un registro a parte e ci RESTANO AGGANCIATI finché
+     non lo si legge: il valore che arriva è quello di prima della lettura,
+     non quello di adesso. Si stampa solo quando cambia, e serve a capire
+     che cosa dice il PMIC quando si litiga un filo con un alimentatore. */
+  uint8_t gu;
+  if (caricatoreLeggi(R_GUASTO, &gu) && gu != guasto) {
+    guasto = gu;
+    Serial.print("Caricatore guasto: 0x"); Serial.println(gu, HEX);
+  }
 
   uint8_t r;
   if (!caricatoreLeggi(R_STATO, &r)) { spina = A_BATTERIA; return; }
@@ -1316,7 +1406,15 @@ void leggiSpina(bool subito) {
      non c'è. Ma vuol dire che staccando l'USB a telecomando acceso il 5 V
      dei LED non si riaccenderebbe da sé fino al riavvio. Costa una
      scrittura e si fa qui, nel momento esatto in cui serve. */
-  if (ora == A_BATTERIA && spina != A_BATTERIA) caricatoreScrivi(R_MODO, 0x3B);
+  if (ora == A_BATTERIA && spina != A_BATTERIA) {
+    caricatoreScrivi(R_MODO, 0x3B);
+    /* E il filtro della carica riparte da zero: quello che ha in pancia è
+       la tensione di dieci minuti di carica fa, e mescolarla alla prima
+       lettura a batteria farebbe scendere il numero a gradini per un
+       quarto di minuto. `batteria` invece si tiene: è giusto. */
+    vFiltrata = -1;
+    piccoGrezzo = 0;
+  }
 
   /* Si scrive sul seriale quando cambia QUELLO CHE SI VEDE, non a ogni
      giro di carica: vedi `pittura`. */
@@ -1328,6 +1426,107 @@ void leggiSpina(bool subito) {
                                        "attaccata ma non carica");
   }
   spina = ora;
+}
+
+/* ===================================================================
+ * LA FINESTRA A CARICA FERMA
+ *
+ * Mentre carica, la tensione sul connettore NON È la tensione della
+ * cella: è la cella più la corrente di carica per tutta la resistenza che
+ * sta in mezzo. Mezzo ampere su mezz'ohm fa due decimi e mezzo di volt, e
+ * su un fondo scala di 0,85 V sono trenta punti percentuali inventati.
+ * Misurarla meglio non si può, e filtrarla non serve: è un offset, non un
+ * disturbo. Il filtro lo segue e lo mostra, come ha fatto al banco
+ * saltando da 35 a 89.
+ *
+ * L'unico modo è SPEGNERE QUELLO CHE DISTURBA. Si ferma la carica per
+ * trecento millisecondi, si misura, si riparte. A corrente ferma non
+ * entra e non esce niente dalla cella, e quello che si legge è la
+ * tensione a vuoto — che è la misura PIÙ PULITA di tutto il sistema,
+ * meglio ancora di quella a batteria, dove il vetro e il WiFi tirano.
+ * Niente si spegne nel frattempo: il 3V3 e il 5 V li tiene l'USB.
+ *
+ * Tre decimi di secondo bastano perché il pezzo che se ne va è quello
+ * resistivo, e quello se ne va subito. Quello che resta — la cella che si
+ * rilassa piano — vale pochi millivolt e ci mette minuti: aspettarlo
+ * vorrebbe dire fermare la carica per minuti.
+ *
+ * E questa È anche lo strumento di taratura: a corrente zero, il numero
+ * stampato qui e il tester sulla cella misurano la STESSA COSA. È il
+ * punto che mancava fra 1,284 e 1,312.
+ * =================================================================== */
+unsigned long ultimaFinestra = 0;
+float vFinestra = -1;
+const unsigned long OGNI_FINESTRA = 20000;
+
+void finestra(bool subito) {
+  if (!allaSpina() || spina == FERMA) { vFinestra = -1; return; }
+  if (!subito && millis() - ultimaFinestra < OGNI_FINESTRA) return;
+  ultimaFinestra = millis();
+
+  caricatoreScrivi(R_MODO, 0x0B);        // carica ferma, boost ferma
+  delay(300);
+  int g = 0;
+  for (int i = 0; i < 8; i++) {
+    int x = analogRead(ADC_BATTERY);
+    if (x > g) g = x;
+  }
+  caricatoreScrivi(R_MODO, 0x3B);        // e si riparte
+  if (ledAccesi) accendiLed(schermoDisegnato);
+
+  float v = g * (3.3 / 1023.0) * K_PARTITORE;
+  /* Mezzo e mezzo, e la prima volta si prende per buona: qui non c'è
+     niente da filtrare via, solo il rumore del convertitore. */
+  vFinestra = (vFinestra < 0) ? v : vFinestra + (v - vFinestra) * 0.5;
+
+  int pc = (int)(100.0 * (vFinestra - V_VUOTA) / (V_PIENA - V_VUOTA));
+  batteria = pc < 0 ? 0 : (pc > 100 ? 100 : pc);
+
+  Serial.print("Finestra: grezzo "); Serial.print(g);
+  Serial.print("  cella "); Serial.print(v);
+  Serial.print(" V  -> "); Serial.print(batteria); Serial.println("%");
+}
+
+/* UNA FINESTRA LUNGA, A RICHIESTA. Trecento millisecondi sono giusti per
+   misurare e impossibili da acchiappare col tester in mano. Si scrive un
+   carattere qualsiasi nel monitor seriale e la carica si ferma per cinque
+   secondi, stampando mezzo secondo per volta: tutto il tempo di appoggiare
+   le punte sulla cella e leggere i due numeri NELLO STESSO ISTANTE, che è
+   l'unico modo di tarare — il primo tentativo, 1,233, sbagliava di quattro
+   punti proprio perché i due numeri venivano da due momenti diversi.
+
+   Vale anche a batteria, e lì fa una cosa in più: spegnendo la boost
+   spegne i LED, cioè una parte del carico, e la cella si avvicina alla
+   tensione a vuoto. Non ci arriva — il vetro e il WiFi tirano comunque —
+   ma meno di prima.
+
+   Cinque secondi di `delay` fermano i pad e le richieste del SLICER:
+   è un comando da banco e si rifiuta mentre la macchina lavora. */
+void finestraLunga() {
+  while (Serial.available()) Serial.read();
+  if (schermoOra != ATTESA && schermoOra != PRONTA) {
+    Serial.println("Non adesso: la macchina sta lavorando.");
+    return;
+  }
+  Serial.println("Carica ferma per 5 s: tester sulla cella, adesso.");
+  caricatoreScrivi(R_MODO, 0x0B);
+  for (int i = 0; i < 10; i++) {
+    delay(500);
+    int g = 0;
+    for (int k = 0; k < 8; k++) {
+      int x = analogRead(ADC_BATTERY);
+      if (x > g) g = x;
+    }
+    Serial.print("  "); Serial.print((i + 1) * 500);
+    Serial.print(" ms: grezzo "); Serial.print(g);
+    Serial.print("  con K="); Serial.print(K_PARTITORE);
+    Serial.print(" fa "); Serial.print((float)(g * (3.3 / 1023.0) * K_PARTITORE));
+    Serial.println(" V");
+  }
+  caricatoreScrivi(R_MODO, 0x3B);
+  if (ledAccesi) accendiLed(schermoDisegnato);
+  ultimaFinestra = millis();
+  Serial.println("Carica ripresa.");
 }
 
 /* ===================================================================
@@ -1653,8 +1852,13 @@ void setup() {
   /* Dopo `carrier.begin()`, che la boost mode l'ha già accesa: qui si
      rimette in chiaro tutto il resto. Vedi «LA SPINA». */
   impostaCaricatore();
-  leggiCarica(true);
+  /* LA SPINA PRIMA DELLA CARICA, e non viceversa come fino al
+     2026-11-01: `leggiCarica` deve sapere se è il caso di misurare o se
+     tocca alla finestra. Nell'ordine sbagliato, accendere con l'USB
+     infilata dava il numero gonfio della carica — gli 89% del banco. */
   leggiSpina(true);
+  if (allaSpina() && spina != FERMA) finestra(true);
+  else                               leggiCarica(true);
 
   mostraAvvio("collego", SEGRETO_SSID);
   WiFi.begin(SEGRETO_SSID, SEGRETO_PASSWORD);
@@ -1716,8 +1920,10 @@ void loop() {
   leggiTasti(quale());
   schermoOra = quale();
   suoni();
-  leggiCarica(false);
   leggiSpina(false);
+  leggiCarica(false);
+  finestra(false);
+  if (Serial.available()) finestraLunga();
   gestisciLuce(schermoOra);
 
   /* Il richiamo del cambio penna, finché non premi. */

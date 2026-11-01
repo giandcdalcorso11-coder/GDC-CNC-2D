@@ -110,7 +110,9 @@ void MKRIoTCarrier::noCase() {} void MKRIoTCarrier::withCase() {}
 unsigned long millis() { return OROLOGIO; }
 void delay(unsigned long) {}
 void pinMode(int, int) {} void digitalWrite(int, int) {} int digitalRead(int) { return 0; }
-void analogWrite(int, int) {} int analogRead(int) { return 512; }
+void analogWrite(int, int) {}
+int ADC_FINTO = 512;                 /* il grezzo della cella, a scelta */
+int analogRead(int) { return ADC_FINTO; }
 void tone(int, int) {} void noTone(int) {}
 void SerialeFinta::begin(long) {}
 void SerialeFinta::print(const char*) {} void SerialeFinta::print(int) {}
@@ -143,14 +145,28 @@ File SDFinta::open(const char*, int) { return File(); }
    lettura, quindi quello che si guarda nelle immagini e' il fulmine
    disegnato DOPO aver decodificato i bit, non uno acceso a mano. */
 uint8_t PMIC_STATO_FINTO = 0x00;
+uint8_t PMIC_REG[16] = {0};
 static uint8_t REG_CHIESTO = 0;
+static int QUANTI = 0;
 void WireFinto::begin() {}
-void WireFinto::beginTransmission(uint8_t) {}
-void WireFinto::write(uint8_t v) { REG_CHIESTO = v; }
+void WireFinto::beginTransmission(uint8_t) { QUANTI = 0; }
+/* Il primo byte e' il registro, il secondo e' il valore: una scrittura si
+   riconosce dal secondo. Senza questa distinzione non si poteva provare
+   che la finestra RIMETTE la carica quando ha finito - che e' il modo in
+   cui un bug qui lascerebbe la batteria a non caricare per sempre. */
+void WireFinto::write(uint8_t v) {
+  if (QUANTI == 0)            REG_CHIESTO = v;
+  else if (REG_CHIESTO < 16)  PMIC_REG[REG_CHIESTO] = v;
+  QUANTI++;
+}
 uint8_t WireFinto::endTransmission(bool) { return 0; }
 uint8_t WireFinto::requestFrom(uint8_t, uint8_t n) { return n; }
 int WireFinto::available() { return 1; }
-uint8_t WireFinto::read() { return REG_CHIESTO == R_STATO ? PMIC_STATO_FINTO : 0; }
+uint8_t WireFinto::read() {
+  if (REG_CHIESTO == R_STATO)  return PMIC_STATO_FINTO;
+  if (REG_CHIESTO == R_GUASTO) return 0;
+  return REG_CHIESTO < 16 ? PMIC_REG[REG_CHIESTO] : 0;
+}
 WireFinto Wire;
 
 SerialeFinta Serial; SDFinta SD; WiFiFinta WiFi;
@@ -232,6 +248,46 @@ int main() {
   schermata(ATTESA, "attesa-carica");
   batteria = 76;
   spinaFinta(0x00, A_BATTERIA, "a batteria");
+
+  /* LA PROVA DELLA SPINA. Senza ingresso buono si deve RI-ARMARE la boost
+     (altrimenti i LED restano spenti); con l'ingresso buono si deve
+     LASCIARLA GIU' (altrimenti si litiga il filo con l'alimentatore, che
+     e' il difetto del 2026-11-01: la presa a muro non veniva vista). */
+  PMIC_STATO_FINTO = 0x00; PMIC_REG[R_MODO] = 0x3B;
+  if (provaSpina()) { fprintf(stderr, "KO la prova vede una spina che non c'e'\n"); exit(1); }
+  if (PMIC_REG[R_MODO] != 0x3B) {
+    fprintf(stderr, "KO la prova non ha ri-armato la boost: 0x%02X\n", PMIC_REG[R_MODO]); exit(1);
+  }
+  PMIC_STATO_FINTO = 0x04;
+  if (!provaSpina()) { fprintf(stderr, "KO la prova non vede la spina\n"); exit(1); }
+  if (PMIC_REG[R_MODO] != 0x1B) {
+    fprintf(stderr, "KO la boost e' tornata su con la spina attaccata: 0x%02X\n", PMIC_REG[R_MODO]); exit(1);
+  }
+
+  /* LA FINESTRA A CARICA FERMA. Due cose, e la seconda e' quella che
+     lascerebbe la batteria a secco per sempre se saltasse. */
+  PMIC_STATO_FINTO = 0x24;            // in carica
+  leggiSpina(true);
+  ADC_FINTO = 893;                    // 3,69 V di cella, cioe' 46%
+  vFinestra = -1; finestra(true);
+  if (batteria != 46) {
+    fprintf(stderr, "KO la finestra ha letto %d%% invece di 46\n", batteria); exit(1);
+  }
+  if (PMIC_REG[R_MODO] != 0x3B) {
+    fprintf(stderr, "KO la finestra ha lasciato la carica ferma: 0x%02X\n", PMIC_REG[R_MODO]); exit(1);
+  }
+
+  /* E ALLA SPINA IL NUMERO NON LO FA `leggiCarica`. Col grezzo gonfio
+     della carica (1000 su 1023, cioe' il 100% finto) il numero deve
+     restare dov'e': e' il difetto del banco, 35% che saltava a 89. */
+  batteria = 46; ADC_FINTO = 1000;
+  for (int i = 0; i < 50; i++) { OROLOGIO += 100; leggiCarica(false); }
+  if (batteria != 46) {
+    fprintf(stderr, "KO la tensione di carica e' entrata nel numero: %d%%\n", batteria); exit(1);
+  }
+
+  ADC_FINTO = 512; PMIC_STATO_FINTO = 0x00; leggiSpina(true);
+  vFiltrata = -1; batteria = 76;
 
   /* Lo stop che si tiene premuto: la cornice e lo spicchio a tre quarti,
      disegnato a fette come fa il firmware venti volte al secondo. */

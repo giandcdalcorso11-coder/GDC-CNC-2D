@@ -244,27 +244,109 @@ Con 1,284 il fondo scala del piedino corrisponde a **4,24 V di cella**, cioè
 sopra una Li-ion piena: **il muro non c'è** (temevo 4,07, era un conto fatto
 col K sbagliato) e `V_PIENA` resta 4,15.
 
-**Il secondo punto si misura SENZA USB.** Attaccare l'USB per aprire il
-monitor rimette la cella in carica e alza proprio la tensione che si vuole
-misurare, quindi il grezzo stampato all'avvio non serve. Si fa al contrario,
-leggendo quello che il telecomando ha già calcolato:
+**Il secondo punto, e perché non ha chiuso la taratura.** Preso a batteria il
+1° novembre: vetro a **47%**, tester sulla cella **3,78 V**. Il telecomando
+credeva `3,30 + 0,47 × 0,85 = 3,70 V`, cioè ottanta millivolt meno del tester:
+il K che ne verrebbe è **1,312**, il 2,2% sopra a 1,284.
 
-1. telecomando a batteria, cella scesa sotto i 3,9 V (bastano un paio d'ore
-   accesso), SLICER aperto così la percentuale si legge anche dall'alto della
-   pagina;
-2. si annota la **percentuale** `pc` e si misura la cella col tester, nello
-   stesso momento;
-3. la tensione che il telecomando crede è `V = 3,30 + pc × 0,0085`, e il K
-   nuovo è `K × V_tester / V`.
+**Quei due numeri non si contraddicono: sono misurati in due posti diversi.**
+Il primo punto è stato preso con l'USB attaccata, dove la cella non erogava
+quasi niente; il secondo a batteria, dove alimenta tutto. Ottanta millivolt su
+mezz'ohm di molle e contatti fanno 160 mA, che è quello che il telecomando
+mangia col vetro acceso e il WiFi attivo — e mezz'ohm è **lo stesso numero**
+ricavato dal ballo di diciassette punti. Due misure indipendenti che danno la
+stessa resistenza non sono un errore di taratura: sono un risultato.
+
+Quindi `K_PARTITORE` **resta 1,284** e l'indicatore sbaglia di due o tre punti
+**per difetto**, che è il verso giusto per una batteria: non ti lascia a secco
+a sorpresa.
+
+Per chiuderla serve una misura a **corrente zero**, e il firmware ora la sa
+fare da sé (vedi «La finestra a carica ferma»):
+
+1. telecomando attaccato all'USB del PC, monitor seriale aperto;
+2. si scrive **un carattere qualsiasi** nel monitor: la carica si ferma per
+   cinque secondi e il grezzo viene stampato ogni mezzo secondo;
+3. in quei cinque secondi si appoggia il tester sulla cella e si legge. A
+   corrente ferma il tester e il convertitore misurano **la stessa cosa**, e
+   `K = K_vecchio × V_tester / V_stampata`.
 
 Due punti lontani fra loro dicono anche una cosa che un punto solo non può
 dire: se il K cambia fra l'uno e l'altro, nella catena c'è un **offset** e
 non basta un rapporto — ci vuole una retta.
 
-Una cosa da sapere sul numero: **mentre carica è gonfio**. La percentuale
-viene dalla tensione, e sotto carica la tensione è più alta di quella che la
-cella avrà dopo. Un 100% col fulmine acceso può essere un 95% vero. Il
-fulmine conta più del numero.
+### Quello che ha detto il banco, secondo giro
+
+**4. La presa a muro non veniva vista, e la colpa era nostra.** Alimentatore
+da rete attaccato: nessun fulmine. Stesso cavo nella porta del PC: fulmine e
+carica. Premendo il reset con l'alimentatore già infilato: carica.
+
+Nessun fulmine vuol dire `PG_STAT` giù, cioè «non vedo nessun ingresso
+buono» — non «c'è corrente ma non carico», che sul vetro si vede (pila ambra).
+La causa: **a batteria la boost pilota il filo VBUS**, lo stesso su cui arriva
+l'alimentatore. Un alimentatore da muro che regola a 5,0 V esatti non sovrasta
+un'uscita boost che sta cinque centesimi più su: il PMIC non vede niente di
+nuovo e resta in boost, dove `PG` è zero per definizione. La porta del PC
+invece è dura, con i suoi condensatori, e lo sovrasta. E il firmware
+peggiorava le cose: ri-armava la boost **proprio quando vedeva «a batteria»**,
+cioè nello stato sbagliato. Si teneva su da sé.
+
+Il rimedio è togliersi di mezzo e guardare: la boost si molla per **ottanta
+millisecondi** e si rilegge `PG`. Se un alimentatore c'è, in quegli ottanta
+millisecondi è lui a tenere su il filo e il 5 V non cala nemmeno; se non c'è,
+il 5 V resta giù per ottanta millisecondi e si ri-arma. Si paga quel buio solo
+quando non c'è niente attaccato, quindi si prova **ogni otto secondi a LED
+spenti e ogni minuto a LED accesi**, dove si vedrebbe. E i LED vanno
+riscritti dopo: sono LED intelligenti, il colore ce l'hanno dentro, e senza il
+5 V se lo dimenticano.
+
+**5. `VBUS_STAT` dice «sconosciuto» anche quando carica.** Il registro `0x08`
+letto all'avvio con l'alimentatore attaccato vale `0x34`: bit 2 alto (ingresso
+buono), ma i due bit alti a `00`. È la conferma del punto 2 di sopra — i fili
+D+/D− non arrivano al caricabatterie, quindi la trattativa non si fa mai e il
+PMIC non sa **che tipo** di sorgente ha davanti. Vuol dire che di quel
+registro **si può credere solo `PG_STAT`**, che è quello che il firmware
+guarda. Fidarsi di `VBUS_STAT` avrebbe dato «a batteria» con la spina dentro.
+
+**6. 35% che salta a 89%: mentre carica, la tensione non dice la carica.**
+Attaccata la spina e premuto il reset, il numero è passato da 35 a 89 in un
+istante, e staccando la spina è scivolato giù di mezzo punto al secondo per
+due minuti — che è il filtro che rientra, un punto per volta, come gli è stato
+chiesto di fare.
+
+Il filtro ha fatto il suo lavoro: il male era il dato. La corrente di carica
+attraversa la stessa mezz'ohm, ma **al contrario**, e invece di una caduta fa
+un rialzo: mezzo ampere su mezz'ohm sono due decimi e mezzo di volt, più gli
+ottanta millivolt di caduta che spariscono, cioè una trentina di punti
+percentuali di niente. E il picco su due secondi, che a batteria è la
+difesa giusta, qui è proprio il male: tiene il momento **peggiore**.
+
+#### La finestra a carica ferma
+
+Un offset non si filtra e non si misura meglio: **si spegne quello che lo
+fa**. Alla spina il firmware ferma la carica per **trecento millisecondi** ogni
+venti secondi, misura, e riparte. A corrente ferma non entra e non esce niente
+dalla cella, e quello che si legge è la tensione a vuoto — la misura **più
+pulita di tutto il sistema**, meglio ancora di quella a batteria, dove il vetro
+e il WiFi tirano. Niente si spegne nel frattempo: il 3V3 e il 5 V li tiene
+l'USB.
+
+Trecento millisecondi bastano perché il pezzo che se ne va è quello
+resistivo, e quello se ne va subito. Quello che resta — la cella che si rilassa
+piano — vale pochi millivolt e ci mette minuti: aspettarlo vorrebbe dire
+fermare la carica per minuti.
+
+Alla spina, quindi, `leggiCarica()` **non misura nemmeno**: il numero lo fa la
+finestra. E la finestra è anche lo strumento di taratura, perché a corrente
+zero il tester e il convertitore misurano la stessa cosa — con un carattere
+nel monitor seriale la carica si ferma per cinque secondi, il tempo di
+appoggiare le punte.
+
+Il banco finto (`schermo/vetro/`) ora tiene un vero specchio dei registri del
+caricabatterie, e due cose le prova per davvero: che la finestra **rimetta** la
+carica quando ha finito — un bug lì lascerebbe la batteria a non caricare per
+sempre, senza che niente lo dica — e che la tensione gonfia della carica non
+entri nel numero.
 
 ### L'interruttore non c'è, e metterlo costa la ricarica
 

@@ -28,6 +28,9 @@ void noTone(int);
 struct SerialeFinta {
   void begin(long);
   void print(const char*); void print(int); void print(long); void print(float); void print(char);
+  /* Al banco nessuno scrive nel monitor: la finestra lunga non parte. */
+  int available() { return 0; }
+  int read() { return -1; }
   void println(const char*); void println(int); void println(long); void println(float);
   void println();
   /* Con la base: `Serial.print(v, HEX)` dei registri del caricabatterie. */
