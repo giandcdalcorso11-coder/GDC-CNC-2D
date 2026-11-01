@@ -31,8 +31,18 @@ punti di margine) e mette `fill="currentColor"`, così il colore lo decide chi
 lo usa — nero su carta, chiaro sul pannello scuro.
 
 ```
-python3 pulisci.py cnc2d-illustrator.svg cnc2d.svg
+python3 pulisci.py cnc2d-illustrator.svg cnc2d.svg 67.61 195.77 472.19 158.44
 ```
+
+I quattro numeri sono il riquadro del disegno, misurato col browser
+(`getBBox()`), perché l'esportazione è grande quanto il foglio di lavoro.
+
+Non basta una maschera sola: conta **l'ordine**. Un nero disegnato DOPO un
+bianco ci passa sopra — è così che è fatto il pieno della D — e bucarlo con
+quel bianco lo cancellerebbe. Quindi i pezzi si dividono in gruppi fra un
+bianco e l'altro, e ogni gruppo viene bucato soltanto dai bianchi che gli
+stanno **sopra**. Lo script butta anche i path invisibili (`fill:none`), che
+sullo schermo non cambiano niente ma **un plotter li disegnerebbe**.
 
 **Per plottare si usa l'esportazione intatta.** Su un plotter il bianco non
 esiste: la penna segue i contorni, e i contorni del 2 e della D sono bordi
