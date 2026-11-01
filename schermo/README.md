@@ -221,20 +221,45 @@ e **ridisegnare la schermata a ogni giro sarebbero due schermate al secondo
 per non cambiare un pixel**. Il vetro adesso guarda *come si disegna* e non
 *come sta*: vedi `pittura()`.
 
-**3. `ADC_BATTERY` non ha un partitore da 1:2.** Col grezzo a **982 su 1023**
-e la cella misurata col tester intorno ai **3,9 V**, il rapporto viene
-**circa 1,23**, non 2 — infatti con `K = 2,00` lo sketch stampa 6,34 V, che
-per una cella sola è impossibile. Due conseguenze:
+**3. `ADC_BATTERY` non ha un partitore da 1:2, e adesso è tarato.** Con
+`K = 2,00` lo sketch stampava **6,34 V**: per una cella sola non esiste, e
+tanto bastava a sapere che il numero di partenza era inventato.
 
-- `K_PARTITORE` **va tarato e il numero scenderà di parecchio**; con lui
-  scenderà la percentuale, che adesso dice 100% perché il conto è gonfio.
-  Non è un peggioramento: è il primo numero vero.
-- con un rapporto del genere il piedino arriva a 3,3 V — il fondo scala —
-  intorno ai **4,1 V di cella**, quindi **la cima della carica è piatta**: da
-  lì in su si legge 1023 e basta. Per tarare serve una cella **più scarica**,
-  dove il convertitore non è contro il muro, e i due numeri — grezzo stampato
-  e tester — vanno presi **nello stesso momento**, perché sotto carica la
-  tensione è più alta di quella vera.
+La misura buona, presa **nello stesso istante** — reset premuto, tester sulla
+cella mentre il monitor stampava — dà: grezzo **982,37 su 1023**, cioè 3,169 V
+sul piedino, con la cella a **4,07 V**. Quindi **K = 1,284**.
+
+Il primo tentativo (1,233) veniva da un tester letto in un altro momento, a
+spina staccata, e sbagliava di quattro punti percentuali. È esattamente il
+motivo per cui i due numeri vanno presi insieme: fra una misura e l'altra il
+caricabatterie alza e abbassa la tensione della cella di un decimo di volt
+buono.
+
+**Quel K non è il partitore**: è tutta la catena, le due resistenze **e** la
+tensione vera del riferimento del convertitore, che non è esattamente 3,3 V.
+Per questo non viene un numero tondo, e per questo si misura invece di
+leggerlo da uno schema.
+
+Con 1,284 il fondo scala del piedino corrisponde a **4,24 V di cella**, cioè
+sopra una Li-ion piena: **il muro non c'è** (temevo 4,07, era un conto fatto
+col K sbagliato) e `V_PIENA` resta 4,15.
+
+**Il secondo punto si misura SENZA USB.** Attaccare l'USB per aprire il
+monitor rimette la cella in carica e alza proprio la tensione che si vuole
+misurare, quindi il grezzo stampato all'avvio non serve. Si fa al contrario,
+leggendo quello che il telecomando ha già calcolato:
+
+1. telecomando a batteria, cella scesa sotto i 3,9 V (bastano un paio d'ore
+   accesso), SLICER aperto così la percentuale si legge anche dall'alto della
+   pagina;
+2. si annota la **percentuale** `pc` e si misura la cella col tester, nello
+   stesso momento;
+3. la tensione che il telecomando crede è `V = 3,30 + pc × 0,0085`, e il K
+   nuovo è `K × V_tester / V`.
+
+Due punti lontani fra loro dicono anche una cosa che un punto solo non può
+dire: se il K cambia fra l'uno e l'altro, nella catena c'è un **offset** e
+non basta un rapporto — ci vuole una retta.
 
 Una cosa da sapere sul numero: **mentre carica è gonfio**. La percentuale
 viene dalla tensione, e sotto carica la tensione è più alta di quella che la
