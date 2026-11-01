@@ -273,8 +273,11 @@ int main() {
   if (batteria != 46) {
     fprintf(stderr, "KO la finestra ha letto %d%% invece di 46\n", batteria); exit(1);
   }
-  if (PMIC_REG[R_MODO] != 0x3B) {
-    fprintf(stderr, "KO la finestra ha lasciato la carica ferma: 0x%02X\n", PMIC_REG[R_MODO]); exit(1);
+  /* 0x1B e NON 0x3B: con la spina dentro la boost deve restare giu'.
+     Chiederla e' il difetto del 1'' novembre - la carica si fermava e il
+     vetro diceva "attaccata ma non carica". */
+  if (PMIC_REG[R_MODO] != 0x1B) {
+    fprintf(stderr, "KO la finestra ha lasciato il modo a 0x%02X\n", PMIC_REG[R_MODO]); exit(1);
   }
 
   /* E ALLA SPINA IL NUMERO NON LO FA `leggiCarica`. Col grezzo gonfio

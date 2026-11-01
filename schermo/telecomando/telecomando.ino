@@ -1107,12 +1107,18 @@ void gestisciLuce(Schermata s) {
    Fondo scala: 3,3 × 1,284 = 4,24 V di cella, cioè SOPRA una Li-ion piena.
    Il muro che temevo a 4,07 non c'è, e V_PIENA può restare 4,15.
 
-   Da confermare con un SECONDO punto a cella più scarica — vedi
-   `schermo/README.md`, «La batteria»: la seconda misura si fa SENZA USB,
-   leggendo la percentuale sul vetro, perché attaccare l'USB per aprire il
-   monitor rimette la cella in carica e alza la tensione che si vuole
-   misurare. */
-const float K_PARTITORE = 1.284;     // misurato, da confermare col secondo punto
+   CONFERMATO con un secondo punto, lo stesso giorno, a corrente ferma: la
+   finestra lunga stampava 3,70 V col grezzo a 893 e il tester sulla cella
+   diceva 3,70 V. I due punti stanno 0,37 V lontani e danno K = 1,2843 e
+   K = 1,2844: si accordano meglio di quanto il tester sappia risolvere.
+
+   Due punti lontani dicono una cosa che un punto solo non può dire: se il
+   K non cambia fra l'uno e l'altro, nella catena NON c'è un offset e un
+   rapporto solo basta — non serve una retta. Qui non cambia.
+
+   E in quei cinque secondi il grezzo è stato fermo fra 893 e 894: a
+   corrente zero il ballo di diciassette punti non c'è. Era il carico. */
+const float K_PARTITORE = 1.284;     // misurato e confermato su due punti
 const float V_VUOTA = 3.30, V_PIENA = 4.15;
 
 /* ===================================================================
@@ -1320,7 +1326,7 @@ void impostaCaricatore() {
   Serial.println();
 }
 
-unsigned long ultimaSpina = 0, ultimaProva = 0;
+unsigned long ultimaSpina = 0, ultimaProva = 0, ultimoRiscritto = 0;
 uint8_t guasto = 0;
 
 /* ===================================================================
@@ -1353,6 +1359,18 @@ uint8_t guasto = 0;
  * vanno RISCRITTI dopo: sono LED intelligenti, il colore ce l'hanno
  * dentro, e senza il 5 V se lo dimenticano.
  * =================================================================== */
+/* IL MODO GIUSTO ADESSO, e sta in un posto solo perché sbagliarlo costa
+   la carica. Con la spina dentro: carica sì, boost NO — chiedere la boost
+   con un alimentatore attaccato vuol dire chiedere al PMIC di pilotare lo
+   stesso filo da cui gli arriva la corrente. Senza spina: boost sì, che è
+   l'unico modo di avere il 5 V dei LED.
+
+   Il 1° novembre la finestra rimetteva `0x3B` anche alla spina, copiato da
+   `impostaCaricatore()` dove ha senso (lì si scrive una volta, senza sapere
+   se la spina c'è). Risultato: dopo la prima finestra la carica si fermava
+   e il vetro diceva «attaccata ma non carica». */
+uint8_t modoGiusto() { return allaSpina() ? 0x1B : 0x3B; }
+
 bool provaSpina() {
   caricatoreScrivi(R_MODO, 0x1B);        // carica sì, boost no: filo libero
   delay(80);
@@ -1406,6 +1424,29 @@ void leggiSpina(bool subito) {
      non c'è. Ma vuol dire che staccando l'USB a telecomando acceso il 5 V
      dei LED non si riaccenderebbe da sé fino al riavvio. Costa una
      scrittura e si fa qui, nel momento esatto in cui serve. */
+  /* FERMA NON DEVE DURARE. «La spina c'è e la cella non carica» è giusto
+     farlo vedere, ma se DURA non è quasi mai un guasto della cella: è un
+     registro nostro rimasto storto — il 1° novembre era la finestra. Si
+     riscrive il modo, non più di una volta ogni dieci secondi, e si dice
+     sul seriale che si è fatto: se il guasto è vero, FERMA torna e quella
+     riga lo racconta invece di nasconderlo. */
+  if (ora == FERMA) {
+    if (ultimoRiscritto == 0 || millis() - ultimoRiscritto >= 10000) {
+      caricatoreScrivi(R_MODO, 0x1B);
+      uint8_t m = 0;
+      caricatoreLeggi(R_MODO, &m);
+      ultimoRiscritto = millis() | 1;
+      Serial.print("Ferma: modo riscritto, ora 0x"); Serial.println(m, HEX);
+    }
+    /* E qui la cella non eroga niente — la scheda la tiene l'USB — quindi
+       `leggiCarica` può misurare: è una lettura a corrente zero, buona
+       come quella della finestra. Ma il filtro riparte, perché quello che
+       ha in pancia viene da prima della spina. */
+    if (spina != FERMA) { vFiltrata = -1; piccoGrezzo = 0; }
+  } else {
+    ultimoRiscritto = 0;
+  }
+
   if (ora == A_BATTERIA && spina != A_BATTERIA) {
     caricatoreScrivi(R_MODO, 0x3B);
     /* E il filtro della carica riparte da zero: quello che ha in pancia è
@@ -1471,7 +1512,12 @@ void finestra(bool subito) {
     int x = analogRead(ADC_BATTERY);
     if (x > g) g = x;
   }
-  caricatoreScrivi(R_MODO, 0x3B);        // e si riparte
+  caricatoreScrivi(R_MODO, modoGiusto());
+  /* E SI RILEGGE. Qui una scrittura che non attacca non si vede sul vetro
+     per quattro secondi e costa tutta la carica: il registro si stampa
+     accanto alla misura, così la riga dice se è ripartita davvero. */
+  uint8_t m = 0;
+  caricatoreLeggi(R_MODO, &m);
   if (ledAccesi) accendiLed(schermoDisegnato);
 
   float v = g * (3.3 / 1023.0) * K_PARTITORE;
@@ -1484,7 +1530,8 @@ void finestra(bool subito) {
 
   Serial.print("Finestra: grezzo "); Serial.print(g);
   Serial.print("  cella "); Serial.print(v);
-  Serial.print(" V  -> "); Serial.print(batteria); Serial.println("%");
+  Serial.print(" V  -> "); Serial.print(batteria);
+  Serial.print("%  modo 0x"); Serial.println(m, HEX);
 }
 
 /* UNA FINESTRA LUNGA, A RICHIESTA. Trecento millisecondi sono giusti per
@@ -1523,10 +1570,12 @@ void finestraLunga() {
     Serial.print(" fa "); Serial.print((float)(g * (3.3 / 1023.0) * K_PARTITORE));
     Serial.println(" V");
   }
-  caricatoreScrivi(R_MODO, 0x3B);
+  caricatoreScrivi(R_MODO, modoGiusto());
+  uint8_t m = 0;
+  caricatoreLeggi(R_MODO, &m);
   if (ledAccesi) accendiLed(schermoDisegnato);
   ultimaFinestra = millis();
-  Serial.println("Carica ripresa.");
+  Serial.print("Carica ripresa, modo 0x"); Serial.println(m, HEX);
 }
 
 /* ===================================================================

@@ -261,19 +261,27 @@ Quindi `K_PARTITORE` **resta 1,284** e l'indicatore sbaglia di due o tre punti
 **per difetto**, che è il verso giusto per una batteria: non ti lascia a secco
 a sorpresa.
 
-Per chiuderla serve una misura a **corrente zero**, e il firmware ora la sa
-fare da sé (vedi «La finestra a carica ferma»):
+**E la misura a corrente zero l'ha chiusa.** Stessa giornata, finestra lunga
+(un carattere nel monitor seriale, la carica ferma per cinque secondi, il
+tempo di appoggiare le punte): grezzo **893**, il firmware stampa **3,70 V**,
+il tester sulla cella dice **3,70 V**.
 
-1. telecomando attaccato all'USB del PC, monitor seriale aperto;
-2. si scrive **un carattere qualsiasi** nel monitor: la carica si ferma per
-   cinque secondi e il grezzo viene stampato ogni mezzo secondo;
-3. in quei cinque secondi si appoggia il tester sulla cella e si legge. A
-   corrente ferma il tester e il convertitore misurano **la stessa cosa**, e
-   `K = K_vecchio × V_tester / V_stampata`.
+| punto | grezzo | piedino | cella (tester) | K |
+|---|---|---|---|---|
+| quasi piena, alla spina | 982,37 | 3,1689 V | 4,07 V | **1,2843** |
+| mezza scala, corrente zero | 893 | 2,8806 V | 3,70 V | **1,2844** |
 
-Due punti lontani fra loro dicono anche una cosa che un punto solo non può
-dire: se il K cambia fra l'uno e l'altro, nella catena c'è un **offset** e
-non basta un rapporto — ci vuole una retta.
+I due punti stanno **0,37 V lontani** e i due K si accordano a un
+decimillesimo — meglio di quanto il tester sappia risolvere. È la cosa che un
+punto solo non può dire: se il K **non** cambia fra l'uno e l'altro, nella
+catena **non c'è un offset** e un rapporto solo basta; non serve una retta.
+`K_PARTITORE = 1,284` è chiuso, e il 1,312 del punto a batteria era tutto
+caduta di contatti.
+
+Un'ultima cosa, nei dieci numeri di quei cinque secondi: il grezzo è stato
+fermo fra **893 e 894**. A corrente zero il ballo di diciassette punti **non
+esiste**. Non era il convertitore e non era la cella: era il carico, e adesso
+è dimostrato invece che dedotto.
 
 ### Quello che ha detto il banco, secondo giro
 
@@ -307,6 +315,15 @@ D+/D− non arrivano al caricabatterie, quindi la trattativa non si fa mai e il
 PMIC non sa **che tipo** di sorgente ha davanti. Vuol dire che di quel
 registro **si può credere solo `PG_STAT`**, che è quello che il firmware
 guarda. Fidarsi di `VBUS_STAT` avrebbe dato «a batteria» con la spina dentro.
+
+**7. I guasti del caricabatterie, letti per la prima volta.** Il registro
+`0x09` alla prima lettura dopo l'avvio dice `0x90`: bit 7 **guardiano
+scattato** e bit 5-4 a `01`, **guasto d'ingresso**. Alla seconda lettura dice
+`0x00`. Non è un guasto che va e viene: quel registro **resta agganciato**
+finché non lo si legge, quindi la prima lettura è la *storia* — il guardiano
+scaduto nella sessione precedente, prima che `0x05` lo spegnesse, e lo
+sgarro d'ingresso del momento in cui si infila la spina — e la seconda è
+l'*adesso*. Si stampa solo quando cambia, e la riga che conta è la seconda.
 
 **6. 35% che salta a 89%: mentre carica, la tensione non dice la carica.**
 Attaccata la spina e premuto il reset, il numero è passato da 35 a 89 in un
@@ -342,11 +359,28 @@ zero il tester e il convertitore misurano la stessa cosa — con un carattere
 nel monitor seriale la carica si ferma per cinque secondi, il tempo di
 appoggiare le punte.
 
+**E alla prima accensione la finestra ha fatto esattamente quel danno.**
+Rimetteva `0x3B` — carica **e** boost — copiato da `impostaCaricatore()`, dove
+ha senso perché lì si scrive una volta sola senza sapere se la spina c'è. Alla
+spina no: chiedere la boost con un alimentatore attaccato vuol dire chiedere al
+PMIC di pilotare lo stesso filo da cui gli arriva la corrente. Dopo la prima
+finestra il vetro diceva «attaccata ma non carica», e due finestre lunghe di
+fila non lo smuovevano.
+
+Il modo giusto adesso lo dice **una funzione sola** (`modoGiusto()`): `0x1B`
+con la spina, `0x3B` senza. E siccome qui una scrittura che non attacca costa
+tutta la carica e non si vede sul vetro per quattro secondi, **il registro si
+rilegge e si stampa** accanto alla misura.
+
+In più: **`FERMA` non deve durare.** Mostrarlo è giusto, ma se dura non è quasi
+mai la cella — è un registro nostro rimasto storto. Il firmware riscrive il
+modo, non più di una volta ogni dieci secondi, e lo dice sul seriale: se il
+guasto è vero, `FERMA` torna e quella riga lo racconta invece di nasconderlo.
+
 Il banco finto (`schermo/vetro/`) ora tiene un vero specchio dei registri del
-caricabatterie, e due cose le prova per davvero: che la finestra **rimetta** la
-carica quando ha finito — un bug lì lascerebbe la batteria a non caricare per
-sempre, senza che niente lo dica — e che la tensione gonfia della carica non
-entri nel numero.
+caricabatterie, e due cose le prova per davvero — provate mutando il firmware
+di proposito, per vedere che mordano: che la finestra rimetta il modo a `0x1B`
+quando ha finito, e che la tensione gonfia della carica non entri nel numero.
 
 ### L'interruttore non c'è, e metterlo costa la ricarica
 
