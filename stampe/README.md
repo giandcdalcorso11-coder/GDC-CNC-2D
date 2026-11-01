@@ -23,4 +23,8 @@ biglietto per Feffi.
 Esempio: `portaoggetti-feffi/` (`viste.py` → `viste.json` → `componi.js`; il file
 definitivo ritoccato dall'utente è in `finale/`).
 
+**Strumenti (cartella `stampe/`):**
+- `anteprima_viste.py` — foglio di anteprime ombreggiate da più viste, per scegliere da dove guardare.
+- `rilievo.py` — modello 3D → SVG Rilievo, a due modi: `quota` (fette orizzontali, per oggetti visti dall'alto, es. il portaoggetti) e `profondita` (distanza dall'osservatore, per figure viste di fronte, come `figli.svg` e l'angioletto Antei). Il motore delle linee è `portaoggetti-feffi/viste.py`.
+
 Per rifarlo su un altro oggetto: dare il file 3D, il formato del foglio, i testi e la vista.

@@ -194,12 +194,16 @@ def profondita_quota(V, Vr, T, altezza_px, margine=2):
     return prof.reshape(H, W), quota.reshape(H, W)
 
 
-def vista_quota(V, T, rz, rx, alt_px=620, passo_mm=3.0, sigma=4):
+def vista_quota(V, T, rz, rx, alt_px=620, passo_mm=3.0, sigma=4, modo='quota'):
     Vr = ruota(V, rz, rx)
     P, Zq = profondita_quota(V, Vr, T, alt_px)
     P[~np.isfinite(P)] = np.nan
     P = S.mediana3(S.mediana3(P))
     mask = S.riempi_buchi(np.isfinite(P))
+    if modo == 'profondita':
+        # figura vista di fronte: le curve che raccontano il volto sono quelle
+        # a distanza costante dall'osservatore, non le fette orizzontali
+        Zq = P.copy()
     Zq = np.where(np.isfinite(P), Zq, np.nan)
     for _ in range(3):
         Zq = S.mediana3(Zq)
@@ -216,11 +220,11 @@ def vista_quota(V, T, rz, rx, alt_px=620, passo_mm=3.0, sigma=4):
     sagoma = [q for q in (norm(p) for p in S.contorni(mask.astype(float), 0.5, salta_nan=False))
               if len(q) > 1 and S.lunghezza(q) > 0.05]
     iso = []
-    z0, z1 = np.nanmin(Zs), np.nanmax(Zs)
+    z0, z1 = (np.nanpercentile(Zs, 1), np.nanpercentile(Zs, 99)) if modo == 'profondita' else (np.nanmin(Zs), np.nanmax(Zs))
     for liv in np.arange(np.ceil(z0 / passo_mm) * passo_mm, z1, passo_mm):
         for p in S.contorni(Zs, liv):
             q = norm(p)
-            if len(q) > 2 and S.lunghezza(q) > 0.10:
+            if len(q) > 2 and S.lunghezza(q) > (0.13 if modo == 'profondita' else 0.10):
                 iso.append(q)
     return {'rapporto': (c1 - c0) * k, 'sagoma': sagoma, 'isoipse': iso}
 
