@@ -1077,7 +1077,17 @@ void gestisciLuce(Schermata s) {
  * curva di una Li-ion è piatta in mezzo: niente decimali, e si guarda il
  * colore.
  * =================================================================== */
-const float K_PARTITORE = 2.0;       // da tarare: vedi sopra
+/* 1,233 E NON 2, dal banco del 2026-11-01: grezzo 982,25 su 1023 — cioè
+   3,168 V sul piedino — con la cella misurata al tester a 3,91 V. Con
+   K = 2 lo sketch stampava 6,34 V, che per una cella sola non esiste:
+   quello bastava a sapere che il partitore non è da metà.
+   È ANCORA PROVVISORIO: vale se i due numeri sono stati presi nello stesso
+   momento. Per confermarlo: premi reset con l'USB attaccata e il monitor
+   aperto, e misura la cella col tester MENTRE stampa il grezzo.
+   Nota che ne viene: a 3,3 V di fondo scala, il piedino arriva al muro
+   intorno ai 4,07 V di cella. Se a cella piena il vetro non passa mai il
+   90%, è quello — e allora V_PIENA scende a 4,05. Una cosa per volta. */
+const float K_PARTITORE = 1.233;     // da riconfermare: vedi sopra
 const float V_VUOTA = 3.30, V_PIENA = 4.15;
 
 unsigned long ultimaCarica = 0;
