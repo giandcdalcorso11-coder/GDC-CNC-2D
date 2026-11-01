@@ -14,13 +14,26 @@ sopra, e bucarlo con quel bianco lo cancellerebbe. Quindi i pezzi si
 dividono in gruppi fra un bianco e l'altro, e ogni gruppo viene bucato
 soltanto dai bianchi che gli stanno SOPRA (cioe' dopo, nel file).
 
-Si butta anche quello che non si vede (`fill:none`): sullo schermo non
-cambia niente, ma un plotter disegnerebbe anche quello.
+Si butta anche quello che NON SI VEDE: i pezzi con `fill:none` e quelli di
+area zero (una polilinea i cui punti stanno tutti sulla stessa retta). Sullo
+schermo non cambiano niente, ma un plotter li disegnerebbe tutti e due.
+
+E si CUCIONO LE FESSURE. Due pezzi che si toccano esattamente, invece di
+sovrapporsi, lasciano una riga chiara dove il disegno dovrebbe essere pieno:
+il renderer calcola la copertura del bordo di uno e del bordo dell'altro e
+nessuno dei due arriva a coprire tutto il pixel. In Illustrator non si vede
+(lavora in vettoriale), ma si vede su qualunque schermo. La cura senza
+operazioni booleane e' un CONTORNO sottilissimo dello stesso colore su ogni
+pezzo: ogni forma cresce di mezza larghezza di contorno e i due bordi si
+sormontano. La sagoma esterna ingrassa di CUCITURA/2, cioe' lo 0,1%
+dell'altezza del logo: invisibile.
 
 Il riquadro (x y larghezza altezza) si misura col browser — `getBBox()` —
 perche' l'esportazione di Illustrator e' grande quanto il foglio di lavoro.
 """
 import io, re, sys
+
+CUCITURA = 0.3    # unita' del file: vedi sopra
 
 src = io.open(sys.argv[1], encoding='utf-8').read()
 dst = sys.argv[2]
@@ -33,12 +46,29 @@ for m in re.finditer(r'\.(\w+)\s*\{([^}]*)\}', src):
     if 'fill:#fff' in corpo:  bianche.add(m.group(1))
     if 'fill:none' in corpo:  vuote.add(m.group(1))
 
-pezzi = []
-for m in re.finditer(r'<(rect|path|polygon)\s([^>]*?)/>', src, re.S):
+def areaZero(tag, attr):
+    """Una polilinea o un poligono con tutti i punti in fila non ha area:
+       sullo schermo non si vede e il plotter ci passa sopra."""
+    if tag not in ('polyline', 'polygon'):
+        return False
+    p = re.search(r'points="([^"]*)"', attr)
+    if not p:
+        return False
+    n = [float(v) for v in re.split(r'[\s,]+', p.group(1).strip()) if v]
+    xy = list(zip(n[0::2], n[1::2]))
+    a = 0.0
+    for i in range(len(xy)):
+        q = xy[(i + 1) % len(xy)]
+        a += xy[i][0] * q[1] - q[0] * xy[i][1]
+    return abs(a) / 2.0 < 0.01
+
+pezzi, buttati = [], 0
+for m in re.finditer(r'<(rect|path|polygon|polyline)\s([^>]*?)/>', src, re.S):
     attr = m.group(2)
     cl = re.search(r'class="([^"]*)"', attr)
     cl = cl.group(1) if cl else ''
-    if cl in vuote:
+    if cl in vuote or areaZero(m.group(1), attr):
+        buttati += 1
         continue
     d = re.sub(r'\s*class="[^"]*"\s*', ' ', attr).strip()
     pezzi.append(('bianco' if cl in bianche else 'nero', m.group(1),
@@ -72,19 +102,22 @@ if any(maschere):
         out.append('<mask id="cnc2d-%d" maskUnits="userSpaceOnUse" %s>' % (n, box))
         out.append('<rect %s fill="#fff"/>' % box)
         for p in dopo:
-            out.append('<%s %s fill="#000"/>' % (p[1], p[2]))
+            out.append('<%s %s fill="#000" stroke="#000" stroke-width="%g"'
+                       ' stroke-linejoin="round"/>' % (p[1], p[2], CUCITURA))
         out.append('</mask>')
     out.append('</defs>')
 
 for n, g in enumerate(gruppi):
-    apri = '<g mask="url(#cnc2d-%d)">' % n if maschere[n] else '<g>'
-    out.append(apri)
+    cuci = ('stroke="currentColor" stroke-width="%g" stroke-linejoin="round"'
+            % CUCITURA)
+    out.append('<g %s%s>' % ('mask="url(#cnc2d-%d)" ' % n if maschere[n] else '',
+                             cuci))
     for i, p in g:
         out.append('<%s %s/>' % (p[1], p[2]))
     out.append('</g>')
 out.append('</svg>')
 
 io.open(dst, 'w', encoding='utf-8').write('\n'.join(out) + '\n')
-print('%s  %d pezzi, %d gruppi, %d controformi, %d invisibili buttati'
-      % (dst, len(pezzi), len(gruppi), len(bianchi),
-         len(re.findall(r'<(?:rect|path|polygon)\s', src)) - len(pezzi)))
+print('%s  %d pezzi, %d gruppi, %d controformi, %d invisibili buttati, '
+      'cucitura %g' % (dst, len(pezzi), len(gruppi), len(bianchi), buttati,
+                       CUCITURA))
