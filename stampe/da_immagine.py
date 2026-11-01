@@ -7,7 +7,7 @@ uguale grigio, che sul modello liscio ricalcano il rilievo, come curve di
 livello disegnate a occhio. La sagoma e' il contorno della figura staccata dallo
 sfondo (e dal pavimento del programma di slicing, che si riconosce perche' scuro).
 
-  python3 -B da_immagine.py <screenshot.png> <uscita.svg> [W H] [livelli] [levigatura_px] [essenziale]
+  python3 -B da_immagine.py <screenshot.png> <uscita.svg> [W H] [livelli] [levigatura_px] [essenziale] [senza-pavimento] [escludi=x0,y0,x1,y1 ...] [taglia=x0,y0,x1,y1 ...]
 
   essenziale: niente tratti di dettaglio, linee piu' levigate e meno numerose (la
   resa delle figure di `rilievo.py` in modo profondita')
@@ -63,9 +63,17 @@ def maschera(L):
     return S.riempi_buchi(tenute)
 
 
-def tracciati(percorso, livelli=7, levigatura=2.2, dettagli=True, minimo=0.06):
+def tracciati(percorso, livelli=7, levigatura=2.2, dettagli=True, minimo=0.06, escludi=(), taglia=()):
     L = np.asarray(Image.open(percorso).convert('L')).astype(float)
     mask = maschera(L)
+    # taglia=x0,y0,x1,y1: toglie dalla figura un pezzo che non ci deve stare
+    # (coordinate 0..1 sul rettangolo che racchiude la figura)
+    if taglia:
+        ys0, xs0 = np.nonzero(mask)
+        ya, yb, xa, xb = ys0.min(), ys0.max(), xs0.min(), xs0.max()
+        for x0, y0, x1, y1 in taglia:
+            mask[int(ya + y0 * (yb - ya)):int(ya + y1 * (yb - ya)) + 1,
+                 int(xa + x0 * (xb - xa)):int(xa + x1 * (xb - xa)) + 1] = False
     righe, colonne = np.nonzero(mask)
     r0, r1, c0, c1 = righe.min(), righe.max(), colonne.min(), colonne.max()
     k = 1.0 / (r1 - r0)
@@ -98,6 +106,16 @@ def tracciati(percorso, livelli=7, levigatura=2.2, dettagli=True, minimo=0.06):
         q = norm(p, 0.0007)
         if len(q) > 2 and S.lunghezza(q) > 0.045:
             det.append(q)
+
+    def fuori(p):
+        xs, ys = [q[0] for q in p], [q[1] for q in p]
+        r = (c1 - c0) * k
+        return any(min(xs) >= a * r and max(xs) <= c * r and min(ys) >= b and max(ys) <= d
+                   for a, b, c, d in escludi)
+    if escludi:
+        sagoma = [p for p in sagoma if not fuori(p)]
+        iso = [p for p in iso if not fuori(p)]
+        det = [p for p in det if not fuori(p)]
     return {'rapporto': (c1 - c0) * k, 'sagoma': sagoma, 'isoipse': iso, 'dettagli': det}
 
 
@@ -106,7 +124,15 @@ if __name__ == '__main__':
     H = float(sys.argv[4]) if len(sys.argv) > 4 else 148.0
     liv = int(sys.argv[5]) if len(sys.argv) > 5 else 7
     lev = float(sys.argv[6]) if len(sys.argv) > 6 else 2.2
-    essenziale = len(sys.argv) > 7 and sys.argv[7] == 'essenziale'
-    d = tracciati(sys.argv[1], liv, lev, dettagli=not essenziale, minimo=0.12 if essenziale else 0.06)
+    extra = sys.argv[7:]
+    essenziale = 'essenziale' in extra
+    if 'senza-pavimento' in extra:
+        PAVIMENTO = 0          # un render nostro non ha il piano di stampa: i bordi scuri sono figura
+    # escludi=x0,y0,x1,y1 (0..1: x sulla larghezza della figura, y sull'altezza): toglie
+    # i tracciati interamente dentro quel rettangolo
+    escludi = [tuple(float(t) for t in e.split('=')[1].split(',')) for e in extra if e.startswith('escludi=')]
+    taglia = [tuple(float(t) for t in e.split('=')[1].split(',')) for e in extra if e.startswith('taglia=')]
+    d = tracciati(sys.argv[1], liv, lev, dettagli=not essenziale,
+                  minimo=0.12 if essenziale else 0.06, escludi=escludi, taglia=taglia)
     print('rapporto %.3f, %d linee di livello' % (d['rapporto'], len(d['isoipse'])))
     open(sys.argv[2], 'w').write(rilievo.svg(d, W, H))
