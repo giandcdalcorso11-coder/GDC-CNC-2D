@@ -14,6 +14,10 @@ import rilievo
 v = rilievo.viste
 S = v.S
 
+SALTO = 2.2            # pendenza (mm di profondita' per mm sul foglio) oltre cui e' un bordo
+OSPESSIMENTO = 1
+
+
 if __name__ == '__main__':
     Vv, T = S.mesh(sys.argv[1], sys.argv[2])
     Vv = Vv - Vv.mean(axis=0)
@@ -32,10 +36,22 @@ if __name__ == '__main__':
     sh = v.liscia(np.where(m, sh, np.nan), 1)
     sh = np.nan_to_num(sh, nan=1.0)
     grigio = np.clip(75 + 175 * sh, 0, 255)
+    # i bordi di occlusione (un'ala dietro la testa, un braccio davanti al busto)
+    # sono salti di profondita': nello screenshot dello slicer si vedono come
+    # un'ombra netta, qui si disegnano scuri. Senza, le parti sembrano staccate.
+    Pn = np.where(m, np.nan_to_num(P, nan=np.nanmedian(P)), np.nanmedian(P))
+    gy, gx = np.gradient(Pn)
+    salto = np.hypot(gx, gy) / mm_px > SALTO
+    for _ in range(OSPESSIMENTO):
+        n = salto.copy()
+        n[1:, :] |= salto[:-1, :]
+        n[:, 1:] |= salto[:, :-1]
+        salto = n
+    grigio = np.where(salto, 55, grigio)
     img = np.where(m, grigio, 231).astype(np.uint8)
     rr, cc = np.nonzero(m)
     pad = 12
-    img = np.pad(img[max(rr.min() - pad, 0):rr.max() + pad, max(cc.min() - pad, 0):cc.max() + pad],
-                 0, mode='edge')
+    img = np.pad(img[rr.min():rr.max() + 1, cc.min():cc.max() + 1], pad,
+                 mode='constant', constant_values=231)
     Image.fromarray(img).convert('RGB').save(sys.argv[5])
     print(img.shape)
