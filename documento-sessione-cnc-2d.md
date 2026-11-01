@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 69
-**Ultimo aggiornamento:** 2026-11-01 16:40
+**Versione:** 70
+**Ultimo aggiornamento:** 2026-11-01 19:10
 
 ## Regole di co-editing
 
@@ -721,8 +721,36 @@ mano a mano che le misure arrivano):
 - [2026-10-29] Step aperto. Visto dalla foto della lavagna lo schema colori/parametri; mancano lista esercizi e misure dei magneti.
 - [2026-10-29] **Primo progetto vero: il biglietto A5 per il cliente Feffi** (portaoggetti husky «Kira», da `.3mf`). Da un modello 3D a un SVG a due penne (nero + grigio) da mettere nella scatola. Provati tre stili; è stato scelto e rifinito dall'utente quello a **linee di livello**, e battezzato **«Rilievo»** (vedi `stampe/README.md`). I magneti della lavagna restano in attesa di lista esercizi e misure.
 - [2026-11-01] **Secondo cliente: Antei (abbigliamento).** Due mascotte stampate in 3D dall'utente, da disegnare in stile Rilievo, più il logo dell'azienda da vettorializzare. Fatti: logo, angioletto «Starry angel kid» (dal 3MF) e seconda mascotte (da screenshot, il 3D era troppo pesante). I magneti restano in attesa.
+- [2026-11-01] **Antei, set definitivo scelto dall'utente:** `logo antei cnc2d`, `starboy cnc2d (dettagliato)` e `(essenziale)`, `starry angel kid cnc2d (dettagliato)` e `(essenziale)`, in `stampe/antei/` sul branch `claude/quirky-bohr-u9ktwd`. Tenute entrambe le coppie di stile.
 
 ## Storico sessioni
+
+### [2026-11-01 19:10] (stampe) Antei: le due coppie di stile e il dettagliato corretto a penna rossa
+
+**Riepilogo:** per Antei si tengono due stili coerenti fra le due mascotte — **dettagliato** (starboy e starry angel kid) ed **essenziale** (gli stessi due) — più il logo; l'angioletto dettagliato è stato corretto sui segni a penna rossa dell'utente ed è approvato.
+
+**Cosa è stato fatto:**
+- Nuovo strumento `stampe/render_ombra.py`: modello 3D → screenshot ombreggiato (con i bordi di occlusione scuri), da dare a `da_immagine.py`, così oggetto con modello e oggetto con solo screenshot escono nello stesso stile. `da_immagine.py` ha ora le opzioni `essenziale`, `senza-pavimento`, `escludi=` e `taglia=`.
+- Starry angel kid dettagliato rifatto due volte; la prima versione (scartata) aveva tratti mancanti, ali e testa sembravano staccate.
+- Rinominati i file: `(dettagliato)` / `(essenziale)`.
+
+**Bug: contorni mancanti nell'angioletto dettagliato**
+
+**Sintomo:** mancavano l'arco del cappellino, il contorno del viso, lati del busto e piedi (segnati dall'utente a penna rossa).
+**Causa:** nel render nostro i bordi scuri di occlusione sono sotto la soglia che, per gli screenshot dello slicer, serve a togliere il piano di stampa: venivano esclusi dalla figura e con loro il contorno.
+**Fix applicato:** opzione `senza-pavimento` per i render nostri (soglia a zero). Verificato dall'utente («perfetto»).
+
+**Decisioni prese:**
+- Contesto: l'utente voleva due mascotte coerenti fra loro nello stile.
+- Decisione: tenere entrambe le coppie (dettagliato ed essenziale); scartato l'angioletto dettagliato della prima versione.
+- Un pezzo di modello vicino al piede sinistro, segnalato come «da togliere», è stato tolto con `taglia=` e poi rimesso su richiesta: nel file definitivo c'è.
+- Da rivedere se: arriva il 3D ridotto di starboy, che darebbe un risultato più pulito dello screenshot.
+
+**File consegnati/modificati:** `stampe/antei/` (cinque SVG e anteprime PNG), `stampe/render_ombra.py`, `stampe/da_immagine.py`, `stampe/rilievo.py`; questo documento (v70).
+
+**Impatto su Vision/Pipeline:** nessuno; Step 10 aggiornato con la nota di oggi.
+
+---
 
 ### [2026-11-01 16:40] (stampe) Antei: il logo a contorni e le due mascotte in Rilievo
 
