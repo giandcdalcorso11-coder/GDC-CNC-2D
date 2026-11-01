@@ -980,6 +980,14 @@ void aggiornaPezzi(Schermata s) {
     unsigned long passato = millis() - armatoDa;
     float resta = passato >= ARMATO_MS ? 0 : 100.0 * (ARMATO_MS - passato) / ARMATO_MS;
     anello(resta, ROSSO, false);
+  } else if (s == PRONTA || s == ATTESA) {
+    /* La pila, e solo lei: il resto della schermata non si muove. */
+    int y = (s == PRONTA) ? 180 : 184;
+    if (batteria != caricaDisegnata && (s == PRONTA || allaSpina())) {
+      pulisci(y - 2, 18);
+      pila(batteria, y, true);
+      caricaDisegnata = batteria;
+    }
   } else if (s == STOP_TIENI) {
     float f = (float)(millis() - tenutoDa) / TENUTA_MS;
     if (f > 1) f = 1;
@@ -1100,19 +1108,71 @@ void gestisciLuce(Schermata s) {
 const float K_PARTITORE = 1.284;     // misurato, da confermare col secondo punto
 const float V_VUOTA = 3.30, V_PIENA = 4.15;
 
-unsigned long ultimaCarica = 0;
+/* ===================================================================
+ * E LA CARICA NON INSEGUE IL CARICO
+ *
+ * Al banco, il 2026-11-01: 73, 67, 57, 65, 67, 67, 74 — diciassette punti
+ * di ballo ogni dieci secondi, a cella ferma. Non è il convertitore che
+ * sbaglia: è la TENSIONE CHE SI MUOVE DAVVERO. Diciassette punti sono
+ * 0,145 V, ed è quello che la cella perde quando il WiFi trasmette, il
+ * vetro si riaccende o il cicalino canta: la corrente passa per la
+ * resistenza interna della cella, per le molle del portabatteria e per i
+ * due contatti del cavetto, e ogni pezzo si prende la sua caduta. Con
+ * burst da un paio di decimi di ampere, 0,145 V vuol dire mezzo ohm
+ * abbondante in giro — quasi tutto nei contatti, non nella cella.
+ *
+ * Misurare meglio non si può: la caduta è vera. Ma UN INDICATORE DI
+ * CARICA CHE BALLA NON È UN INDICATORE — è un numero che si impara a non
+ * guardare, che è il modo peggiore di perdere un dato. Quindi:
+ *
+ * 1. SI ASSAGGIA SPESSO E SI TIENE IL PICCO. La caduta tira solo in giù,
+ *    mai in su: il massimo su due secondi è il momento in cui nessuno
+ *    stava chiedendo corrente, cioè la tensione vera della cella. Una
+ *    media, fra i buchi, ci casca dentro.
+ * 2. SI FILTRA, con una media che pesa il passato tre volte il presente.
+ * 3. IL NUMERO SI MUOVE DI UN PUNTO PER VOLTA. Una batteria non salta
+ *    dieci punti in dieci secondi, e se il conto lo fa è il conto a
+ *    sbagliare: meglio arrivarci in venti secondi e non mentire mai.
+ * =================================================================== */
+unsigned long ultimaCarica = 0, ultimoAssaggio = 0;
+int piccoGrezzo = 0;
+float vFiltrata = -1;
 
 void leggiCarica(bool subito) {
-  if (!subito && millis() - ultimaCarica < 10000) return;
-  ultimaCarica = millis();
-  long somma = 0;
-  for (int i = 0; i < 8; i++) somma += analogRead(ADC_BATTERY);
-  float grezzo = somma / 8.0;
+  unsigned long ora = millis();
+
+  /* Un assaggio ogni decimo di secondo: sparsi, perché otto letture tutte
+     attaccate cascherebbero tutte dentro allo stesso buco. */
+  if (subito || ora - ultimoAssaggio >= 100) {
+    ultimoAssaggio = ora;
+    int g = analogRead(ADC_BATTERY);
+    if (g > piccoGrezzo) piccoGrezzo = g;
+  }
+
+  if (!subito && (ora - ultimaCarica < 2000 || piccoGrezzo == 0)) return;
+  ultimaCarica = ora;
+
+  /* All'accensione non c'è tempo di assaggiare: si prendono otto letture
+     di fila e si tiene il picco anche lì. */
+  if (subito)
+    for (int i = 0; i < 8; i++) {
+      int g = analogRead(ADC_BATTERY);
+      if (g > piccoGrezzo) piccoGrezzo = g;
+    }
+
+  float grezzo = piccoGrezzo;
+  piccoGrezzo = 0;
   float v = grezzo * (3.3 / 1023.0) * K_PARTITORE;
-  int pc = (int)(100.0 * (v - V_VUOTA) / (V_PIENA - V_VUOTA));
-  batteria = pc < 0 ? 0 : (pc > 100 ? 100 : pc);
+  vFiltrata = (vFiltrata < 0) ? v : vFiltrata + (v - vFiltrata) * 0.25;
+
+  int pc = (int)(100.0 * (vFiltrata - V_VUOTA) / (V_PIENA - V_VUOTA));
+  pc = pc < 0 ? 0 : (pc > 100 ? 100 : pc);
+  if (batteria < 0 || subito)   batteria = pc;
+  else if (pc > batteria)       batteria++;
+  else if (pc < batteria)       batteria--;
+
   if (subito) {
-    Serial.print("ADC_BATTERY grezzo: "); Serial.print(grezzo);
+    Serial.print("ADC_BATTERY picco: "); Serial.print(grezzo);
     Serial.print("  con K="); Serial.print(K_PARTITORE);
     Serial.print(" fa "); Serial.print(v); Serial.println(" V");
   }
@@ -1667,11 +1727,16 @@ void loop() {
     SUONA(SUONO_PENNA);
   }
 
-  /* La carica cambia senza che cambi schermata, e dove si vede va
-     rinfrescata: sulla Pronta sempre, altrove solo quando è un avviso. */
-  if (batteria != caricaDisegnata &&
-      (schermoOra == PRONTA || batteria < 20 || caricaDisegnata < 20 ||
-       (schermoOra == ATTESA && allaSpina()))) {
+  /* La carica cambia senza che cambi schermata. Dove la pila si vede per
+     intero — Pronta, e l'Attesa alla spina — si rinfresca DA SOLA, un
+     pezzo di vetro alto diciotto pixel (vedi `aggiornaPezzi`): adesso che
+     il numero si muove di un punto ogni due secondi, rifare la schermata
+     intera sarebbe uno sfarfallio ogni due secondi. Altrove la pila
+     compare solo sotto al 20%, cioè una volta per batteria, e lì rifare
+     tutto non costa niente. */
+  if (batteria != caricaDisegnata && schermoOra != PRONTA &&
+      !(schermoOra == ATTESA && allaSpina()) &&
+      (batteria < 20 || caricaDisegnata < 20)) {
     caricaDisegnata = batteria;
     schermoDisegnato = NESSUNA;
   }
@@ -1699,6 +1764,7 @@ void loop() {
     schermoDisegnato = schermoOra;
     azzerataDisegnata = S.azzerata;
     giuDisegnato = S.giu;
+    caricaDisegnata = batteria;   // appena disegnata: non ridisegnarla subito
     strncpy(pennaDisegnata, S.penna, sizeof(pennaDisegnata) - 1);
     pennaDisegnata[sizeof(pennaDisegnata) - 1] = 0;
     pcDisegnato = -999;

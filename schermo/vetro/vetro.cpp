@@ -208,6 +208,17 @@ int main() {
   schermata(ERRORE, "errore");
   schermata(ATTESA, "attesa");
 
+  /* LA PILA CHE SI MUOVE DA SOLA: la schermata non si rifa', si cancella
+     una striscia alta diciotto pixel e si ridisegna la pila. Qui si parte
+     da 90 e si scende a 73 un punto per volta, come fa il firmware: se la
+     striscia fosse stretta resterebbero i pezzi del numero di prima. */
+  batteria = 100;              // quattro caratteri: il 73 ne ha tre, e se la
+  disegnaTutto(PRONTA);        // striscia e' stretta resta un pezzo di '%'
+  caricaDisegnata = 100;
+  for (int b = 99; b >= 73; b--) { batteria = b; aggiornaPezzi(PRONTA); }
+  salva("pronta-73");
+  batteria = 76;
+
   /* LA SPINA. Prima i bit, poi le due schermate dove il fulmine si vede:
      la Pronta (sempre) e l'Attesa (solo alla spina), con la carica a meta'
      cosi' si guarda il fulmine bianco mezzo sopra al pieno e mezzo sopra
