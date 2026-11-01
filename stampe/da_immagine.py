@@ -7,7 +7,10 @@ uguale grigio, che sul modello liscio ricalcano il rilievo, come curve di
 livello disegnate a occhio. La sagoma e' il contorno della figura staccata dallo
 sfondo (e dal pavimento del programma di slicing, che si riconosce perche' scuro).
 
-  python3 -B da_immagine.py <screenshot.png> <uscita.svg> [W H] [livelli] [levigatura_px]
+  python3 -B da_immagine.py <screenshot.png> <uscita.svg> [W H] [livelli] [levigatura_px] [essenziale]
+
+  essenziale: niente tratti di dettaglio, linee piu' levigate e meno numerose (la
+  resa delle figure di `rilievo.py` in modo profondita')
 """
 import sys
 
@@ -60,7 +63,7 @@ def maschera(L):
     return S.riempi_buchi(tenute)
 
 
-def tracciati(percorso, livelli=7, levigatura=2.2):
+def tracciati(percorso, livelli=7, levigatura=2.2, dettagli=True, minimo=0.06):
     L = np.asarray(Image.open(percorso).convert('L')).astype(float)
     mask = maschera(L)
     righe, colonne = np.nonzero(mask)
@@ -81,7 +84,7 @@ def tracciati(percorso, livelli=7, levigatura=2.2):
     for liv in np.linspace(lo, hi, livelli + 2)[1:-1]:
         for p in S.contorni(G, liv):
             q = norm(p)
-            if len(q) > 2 and S.lunghezza(q) > 0.06:
+            if len(q) > 2 and S.lunghezza(q) > minimo:
                 iso.append(q)
 
     # i dettagli: avvallamenti scuri e sottili (occhi, bocca, pieghe, bottoni)
@@ -91,7 +94,7 @@ def tracciati(percorso, livelli=7, levigatura=2.2):
     Gg = np.asarray(Image.fromarray(Lm.astype(np.uint8)).filter(ImageFilter.GaussianBlur(4.5))).astype(float)
     Dk = np.where(mask, Gf - Gg, np.nan)
     det = []
-    for p in S.contorni(Dk, -DETTAGLIO):
+    for p in (S.contorni(Dk, -DETTAGLIO) if dettagli else []):
         q = norm(p, 0.0007)
         if len(q) > 2 and S.lunghezza(q) > 0.045:
             det.append(q)
@@ -103,6 +106,7 @@ if __name__ == '__main__':
     H = float(sys.argv[4]) if len(sys.argv) > 4 else 148.0
     liv = int(sys.argv[5]) if len(sys.argv) > 5 else 7
     lev = float(sys.argv[6]) if len(sys.argv) > 6 else 2.2
-    d = tracciati(sys.argv[1], liv, lev)
+    essenziale = len(sys.argv) > 7 and sys.argv[7] == 'essenziale'
+    d = tracciati(sys.argv[1], liv, lev, dettagli=not essenziale, minimo=0.12 if essenziale else 0.06)
     print('rapporto %.3f, %d linee di livello' % (d['rapporto'], len(d['isoipse'])))
     open(sys.argv[2], 'w').write(rilievo.svg(d, W, H))

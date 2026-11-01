@@ -53,7 +53,7 @@ def liscia(A, n=2):
     return A
 
 
-def ombra(P, mask, scala_mm):
+def ombra(P, mask, scala_mm, base=0.5, guadagno=0.9):
     """Lambert dalla mappa di profondita': 1 chiaro, 0 scuro. Luce da alto-sinistra."""
     Q = liscia(np.where(mask, P, np.nan), 3)
     Q = np.where(mask, np.nan_to_num(Q, nan=np.nanmedian(Q)), np.nanmedian(Q))
@@ -66,7 +66,7 @@ def ombra(P, mask, scala_mm):
     # la camera guarda verso +Y (profondita' = y): la normale verso la camera e' -Y
     nn = np.stack([n[0], n[2] * 0 - n[2], n[1]])  # placeholder non usato
     lam = -(n[0] * L[0] + n[1] * L[1] + n[2] * L[2])
-    return np.clip(0.5 + 0.9 * lam, 0, 1)
+    return np.clip(base + guadagno * lam, 0, 1)
 
 
 def tratteggio(sh, mask, passo_px, soglia, angolo=45):
