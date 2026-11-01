@@ -199,6 +199,43 @@ il guasto, e va fatto vedere invece che nascosto. Sul vetro:
   quella è la schermata che resta su mentre lo carichi col portatile chiuso, e
   lì «sta caricando?» è l'unica domanda che ha una risposta utile.
 
+### Quello che ha detto il banco, il 1° novembre
+
+Prima accensione col firmware che scrive i registri, cella quasi piena,
+USB attaccata. Tre cose, tutte e tre utili:
+
+**1. Il bit della boost non resta su con l'USB attaccata.** Il registro del
+modo, riletto subito dopo averlo scritto, dice `0x1B` e non `0x3B`: il
+caricabatterie si tiene la carica e lascia cadere l'OTG. Ha senso — la boost
+serve solo quando l'ingresso non c'è — ma vuol dire che **staccando l'USB a
+telecomando acceso il 5 V dei LED non si riaccenderebbe** fino al riavvio.
+Adesso il firmware rimette quel registro nel momento esatto in cui la spina
+se ne va. *Da provare sulla macchina: staccare l'USB mentre è acceso su una
+schermata con un tasto attivo, e guardare se il LED accanto resta acceso.*
+
+**2. A cella piena il caricabatterie fa su e giù di continuo.** Lo stato
+alterna fra «in carica» e «carica finita» due volte ogni cinque secondi:
+termina, la tensione cala di un pelo, ricomincia. È il comportamento normale
+di fine carica, non un guasto — ma sul vetro le due cose si disegnano uguali,
+e **ridisegnare la schermata a ogni giro sarebbero due schermate al secondo
+per non cambiare un pixel**. Il vetro adesso guarda *come si disegna* e non
+*come sta*: vedi `pittura()`.
+
+**3. `ADC_BATTERY` non ha un partitore da 1:2.** Col grezzo a **982 su 1023**
+e la cella misurata col tester intorno ai **3,9 V**, il rapporto viene
+**circa 1,23**, non 2 — infatti con `K = 2,00` lo sketch stampa 6,34 V, che
+per una cella sola è impossibile. Due conseguenze:
+
+- `K_PARTITORE` **va tarato e il numero scenderà di parecchio**; con lui
+  scenderà la percentuale, che adesso dice 100% perché il conto è gonfio.
+  Non è un peggioramento: è il primo numero vero.
+- con un rapporto del genere il piedino arriva a 3,3 V — il fondo scala —
+  intorno ai **4,1 V di cella**, quindi **la cima della carica è piatta**: da
+  lì in su si legge 1023 e basta. Per tarare serve una cella **più scarica**,
+  dove il convertitore non è contro il muro, e i due numeri — grezzo stampato
+  e tester — vanno presi **nello stesso momento**, perché sotto carica la
+  tensione è più alta di quella vera.
+
 Una cosa da sapere sul numero: **mentre carica è gonfio**. La percentuale
 viene dalla tensione, e sotto carica la tensione è più alta di quella che la
 cella avrà dopo. Un 100% col fulmine acceso può essere un 95% vero. Il
@@ -426,7 +463,7 @@ quel POST riporta indietro il tasto premuto**. Un canale, due versi, nessuna
 seconda connessione, e il telecomando non comincia mai lui una conversazione.
 
 ```
-POST /stato    { stato, percento, rimanente, penna, passo }
+POST /stato    { stato, percento, rimanente, penna, passo, giu }
   → 200        { tasto: "riprendi", batteria: 78, carica: "carica" }
 ```
 
@@ -547,7 +584,7 @@ una venga corretta e l'altra no.
 | Stop, primo tocco | ANNULLA · TIENI |
 | Stop, tocco lungo | TIENI |
 | Cambio penna, togli | FATTO |
-| Cambio penna, monta | RIPRENDI · ABBASSA/E ALZA |
+| Cambio penna, monta | RIPRENDI · ALZA *oppure* ABBASSA |
 | Finita, errore, in attesa | nessuno |
 
 Un tasto che in una schermata non fa niente **non ha etichetta e ha il LED
@@ -725,12 +762,28 @@ sistemare, e nessuna fermava la stampa.
    dalla strada vera, quella di un tasto arrivato dalla rete, e con il
    codice di prima fallisce.
 
-2. **PROVA non si capiva.** Adesso l'etichetta è su due righe —
-   **ABBASSA / E ALZA** — che è quello che fa: il servo scende alla quota di
-   contatto e risale. Il comando che viaggia resta `prova`, perché è il
-   protocollo. Per fare spazio alle due righe, in quella schermata il
-   simbolo e la parola MONTA salgono di quattordici pixel: la parte alta del
-   vetro lì è vuota, perché il sesto posto — quello in alto — non ha pad.
+2. **PROVA non si capiva.** È diventata **ABBASSA / E ALZA**, su due righe,
+   che è quello che fa: il servo scende alla quota di contatto e risale.
+
+   Poi, il 1° novembre, è diventata una parola sola: **l'AZIONE che farà**.
+   «ALZA» quando la penna è al contatto, «ABBASSA» quando è alzata, e la
+   parola cambia appena il servo si muove. «ABBASSA E ALZA» era giusto e
+   inutile allo stesso tempo: diceva che cosa sa fare il tasto, non che cosa
+   succede se lo premi adesso, e per saperlo bisognava **guardare la
+   macchina** — cioè girarsi, che è esattamente quello che il telecomando
+   serve a non fare.
+
+   Dove sta il servo lo sa il SLICER, che lo manda nel messaggio (`giu`,
+   vero/falso/`null`). `null` è il terzo stato e non si schiaccia su «falso»:
+   un telecomando che non sa dove sia la penna scriverebbe «ABBASSA» con
+   sicurezza, cioè una bugia. Senza quel campo — un SLICER vecchio — parte da
+   «ALZA», perché entrando nel montaggio il servo è al contatto, e al primo
+   messaggio la parola si corregge da sé. Il comando che viaggia resta
+   `prova`, perché è il protocollo.
+
+   Tornata a una riga sola, in quella schermata il simbolo e la parola MONTA
+   sono tornati alle altezze delle altre schermate: erano saliti di
+   quattordici pixel solo per fare spazio alla seconda riga.
 
 3. **Sfarfallio premendo STOP**, «come se prima di far uscire la schermata
    dello stop passasse per altre». Passava davvero: il giro del `loop()`
@@ -824,7 +877,7 @@ Cinque cose, e nessuna era un errore di calcolo:
 
    ```
    POST /stato
-   { v:1, stato, nome, percento, rimanente, penna, passo, macchina,
+   { v:1, stato, nome, percento, rimanente, penna, passo, giu, macchina,
      azzerata, data }
      → 200  { tasto, batteria, carica }
    ```

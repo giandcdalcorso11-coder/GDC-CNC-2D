@@ -87,6 +87,10 @@ var Telecomando = (function () {
       penna: s.penna || null,
       passo: finta ? finta.passo
                    : ((window.Popup && Popup.passoPenna) ? Popup.passoPenna() : null),
+      /* Dove sta il servo nel montaggio: il tasto del telecomando ci scrive
+         sopra l'AZIONE che farà, non il suo nome. `null` fuori di lì. */
+      giu: finta ? (finta.giu === undefined ? null : finta.giu)
+                 : ((window.Popup && Popup.pennaGiu) ? Popup.pennaGiu() : null),
       macchina: finta ? finta.macchina : State.data.machine,
       azzerata: finta ? !!finta.azzerata : !!State.data.azzerata,
       data: new Date().toISOString()
@@ -109,7 +113,11 @@ var Telecomando = (function () {
      anche qui vorrebbe dire un messaggio in più per dire la stessa cosa un
      decimo di secondo prima. */
   function impronta(m) {
-    return [m.stato, m.passo, m.macchina, m.azzerata].join('|');
+    /* `giu` ci sta dentro perché cambia una PAROLA sul vetro: premuto il
+       tasto, aspettare il prossimo giro vorrebbe dire leggere l'azione
+       sbagliata per un momento, proprio mentre si guarda il tasto che si è
+       appena premuto. */
+    return [m.stato, m.passo, m.macchina, m.azzerata, m.giu].join('|');
   }
 
   /* ------------------------------ il dialogo ------------------------------ */
@@ -275,7 +283,7 @@ var Telecomando = (function () {
 
   function vuoto() {
     return { stato: 'fermo', nome: 'prova in bianco', percento: 0, rimanente: null,
-             penna: null, passo: null, macchina: 'Idle', azzerata: false };
+             penna: null, passo: null, giu: null, macchina: 'Idle', azzerata: false };
   }
 
   /* Il copione. I due passi del cambio penna aspettano che tu prema — e
@@ -305,7 +313,9 @@ var Telecomando = (function () {
         f.penna = { colore: '#c0392b', nome: 'prova · tratto #c0392b' };
       } },
     { nome: 'cambio penna — monta (premi RIPRENDI)', ms: 40000,
-      entra: function (f) { f.passo = 1; } },
+      /* Entrando nel montaggio il servo è al contatto: sul vetro il tasto
+         dice «ALZA». Premendolo, nella recita, la parola cambia davvero. */
+      entra: function (f) { f.passo = 1; f.giu = true; } },
     { nome: 'in stampa, penna rossa', ms: 9000,
       entra: function (f) { f.stato = 'invio'; f.passo = null; f.macchina = 'Run'; },
       durante: function (f, k) {
@@ -364,7 +374,11 @@ var Telecomando = (function () {
       prova(false);
       return;
     } else if (tasto === 'prova') {
-      Log.add('msg', 'Prova: il tasto ABBASSA/ALZA, qui, non muove il servo.');
+      /* Il servo non si muove, ma la PAROLA sì: è quello che si sta
+         provando. */
+      if (f.passo === 1) f.giu = !f.giu;
+      Log.add('msg', 'Prova: il servo non si muove, ma il tasto adesso dice «' +
+                     (f.giu ? 'ALZA' : 'ABBASSA') + '».');
     }
     firma = '';
   }
@@ -427,10 +441,13 @@ var Telecomando = (function () {
         f.percento = 47; f.rimanente = 8 * 60000; f.penna = NERA; } },
     { k: 'penna1', nome: 'Penna: togli', fa: function (f) {
         f.stato = 'cambio'; f.passo = 0; f.macchina = 'Idle'; f.azzerata = true;
-        f.percento = 48; f.penna = ROSSA; } },
+        f.percento = 48; f.penna = ROSSA; f.giu = null; } },
     { k: 'penna2', nome: 'Penna: monta', fa: function (f) {
         f.stato = 'cambio'; f.passo = 1; f.macchina = 'Idle'; f.azzerata = true;
-        f.percento = 48; f.penna = ROSSA; } },
+        f.percento = 48; f.penna = ROSSA; f.giu = true; } },
+    { k: 'penna2su', nome: 'Penna: monta, alzata', fa: function (f) {
+        f.stato = 'cambio'; f.passo = 1; f.macchina = 'Idle'; f.azzerata = true;
+        f.percento = 48; f.penna = ROSSA; f.giu = false; } },
     { k: 'fine', nome: 'Finita', fa: function (f) {
         f.stato = 'fine'; f.percento = 100; f.rimanente = 0;
         f.macchina = 'Idle'; f.azzerata = true; f.penna = ROSSA; } },

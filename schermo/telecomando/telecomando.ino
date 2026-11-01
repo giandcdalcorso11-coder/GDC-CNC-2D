@@ -18,7 +18,7 @@
  * manda lo stato, e LA RISPOSTA A QUEL POST riporta indietro il tasto
  * premuto e la carica della batteria. Nessuna seconda connessione.
  *
- *   POST /stato  { v, stato, nome, percento, rimanente, penna, passo,
+ *   POST /stato  { v, stato, nome, percento, rimanente, penna, passo, giu,
  *                  macchina, azzerata, data }
  *     → 200      { "tasto": "riprendi", "batteria": 78, "carica": "carica" }
  *
@@ -71,6 +71,7 @@ struct Stato {
   char  penna[10];      // "#rrggbb", vuoto = il livello non ha una tinta
   char  nome[28];       // il nome del lavoro: serve solo al libro di bordo
   int   passo;          // 0 o 1 nel cambio penna, -1 fuori
+  int   giu;            // 1 penna al contatto, 0 alzata, -1 il SLICER non lo dice
   char  macchina[8];    // Idle | Run | Jog | Hold | Alarm
   bool  azzerata;
   char  data[26];       // la manda il SLICER: qui un orologio non c'è
@@ -253,7 +254,15 @@ int tastiDi(Schermata s, Tasto* out) {
          dice. Il comando che va al SLICER resta `prova`: è il protocollo,
          e cambiarlo vorrebbe dire cambiare le due parti insieme per
          guadagnare niente. */
-      out[1] = { BASSO_DX, "ABBASSA", VERDE, "prova", "E ALZA" };
+      /* E LA PAROLA DICE L'AZIONE, non il nome del tasto. «ABBASSA E ALZA»
+         costringeva a guardare la macchina per sapere che cosa sarebbe
+         successo premendo: adesso c'è scritto «ALZA» quando la penna è al
+         contatto e «ABBASSA» quando è su, e la parola cambia appena il
+         servo si muove. Dove sta il servo lo sa il SLICER, che lo manda nel
+         messaggio (`giu`); quando non lo dice — un SLICER vecchio — si parte
+         da «ALZA», perché entrando nel montaggio il servo è al contatto, e
+         al primo messaggio la parola si corregge da sé. */
+      out[1] = { BASSO_DX, S.giu == 0 ? "ABBASSA" : "ALZA", VERDE, "prova" };
       return 2;
     case STOP_ARMATO:
       out[0] = { BASSO,    "ANNULLA",  VERDE, "" };
@@ -707,6 +716,15 @@ Spina spina = A_BATTERIA;
 
 bool allaSpina() { return spina != A_BATTERIA; }
 
+/* COME SI DISEGNA, che non è come sta. «In carica» e «carica finita» sul
+   vetro sono la stessa cosa — pila verde col fulmine — e tenerle separate
+   costerebbe una schermata intera rifatta ogni volta che il caricabatterie
+   passa dall'una all'altra. A cella piena ci passa in continuazione:
+   termina la carica, la tensione cala di un pelo, ne comincia un'altra. Al
+   banco, il 2026-11-01, erano due volte ogni cinque secondi: due schermate
+   al secondo per non cambiare un pixel. */
+int pittura(Spina s) { return s == A_BATTERIA ? 0 : s == FERMA ? 2 : 1; }
+
 /* IL COLORE DICE PRIMA DEL NUMERO, e attaccato alla corrente dice
    un'altra cosa: il 12% di una cella che sta caricando non è un
    allarme, è una cella che sta caricando, e lasciarlo rosso
@@ -858,11 +876,12 @@ void disegnaTutto(Schermata s) {
 
     case PENNA2:
       anello(S.percento, AMBRA, true);
-      /* Tutto più in alto che nelle altre schermate: qui l'etichetta del
-         tasto in basso a destra è di DUE righe, e il posto da cui prenderlo
-         è la parte alta del vetro, che in questa schermata è vuota. */
-      simboloPenna(76, VERDE, true);
-      parolaEPallino("MONTA", S.penna, 104, 3, TESTO);
+      /* Stava tutto più in alto perché l'etichetta del tasto in basso a
+         destra era di DUE righe («ABBASSA / E ALZA»). Adesso è di una sola
+         — dice l'azione — e il vetro torna alle altezze delle altre
+         schermate, dove la parola grande sta in mezzo. */
+      simboloPenna(88, VERDE, true);
+      parolaEPallino("MONTA", S.penna, 116, 3, TESTO);
       break;
 
     case STOP_ARMATO:
@@ -919,7 +938,7 @@ void disegnaTutto(Schermata s) {
    percentuale e lo spicchio del dito. */
 int pcDisegnato = -999;
 int caricaDisegnata = -999;
-Spina spinaDisegnata = A_BATTERIA;
+int pitturaDisegnata = 0;
 /* NON BASTA SAPERE QUALE schermata c'è sul vetro: bisogna sapere anche
    che cosa ci era scritto sopra. Una macchina che viene azzerata resta
    sulla schermata PRONTA — cambia solo la riga sotto, da «da azzerare» a
@@ -929,6 +948,7 @@ Spina spinaDisegnata = A_BATTERIA;
    il segno di penna sta nel G-code all'inizio del livello, cioè qualche
    millisecondo dopo che lo stato è diventato «invio». */
 bool azzerataDisegnata = false;
+int giuDisegnato = -2;
 char pennaDisegnata[10] = "";
 float tenutaDisegnata = -1;
 
@@ -1208,7 +1228,19 @@ void leggiSpina(bool subito) {
   bool corrente = (r & 0x04) != 0;        // l'ingresso è buono
   uint8_t c = (r >> 4) & 0x03;            // 0 ferma, 1 pre-carica, 2 carica, 3 finita
   Spina ora = !corrente ? A_BATTERIA : c == 0 ? FERMA : c == 3 ? PIENA : IN_CARICA;
-  if (ora != spina || subito) {
+
+  /* QUANDO LA SPINA SE NE VA, SI RIMETTE LA BOOST. Al banco, il
+     2026-11-01, il registro del modo riletto subito dopo averlo scritto
+     diceva 0x1B e non 0x3B: con l'ingresso buono il bit della boost non
+     resta su — e ha senso, perché la boost serve solo quando l'ingresso
+     non c'è. Ma vuol dire che staccando l'USB a telecomando acceso il 5 V
+     dei LED non si riaccenderebbe da sé fino al riavvio. Costa una
+     scrittura e si fa qui, nel momento esatto in cui serve. */
+  if (ora == A_BATTERIA && spina != A_BATTERIA) caricatoreScrivi(R_MODO, 0x3B);
+
+  /* Si scrive sul seriale quando cambia QUELLO CHE SI VEDE, non a ogni
+     giro di carica: vedi `pittura`. */
+  if (pittura(ora) != pittura(spina) || subito) {
     Serial.print("Spina: ");
     Serial.println(ora == A_BATTERIA ? "a batteria" :
                    ora == IN_CARICA  ? "in carica" :
@@ -1283,6 +1315,17 @@ bool booleanoDa(const char* corpo, const char* chiave) {
   return p && !strncmp(p, "true", 4);
 }
 
+/* Vero, falso, oppure NON LO DICE: tre cose diverse. Un booleano che
+   schiaccia `null` su `false` farebbe scrivere «ABBASSA» a un telecomando
+   che non sa dove sia la penna, cioè una bugia detta con sicurezza. */
+int treStati(const char* corpo, const char* chiave) {
+  const char* p = trova(corpo, chiave);
+  if (!p) return -1;
+  if (!strncmp(p, "true", 4)) return 1;
+  if (!strncmp(p, "false", 5)) return 0;
+  return -1;
+}
+
 void leggiMessaggio(const char* corpo) {
   char prima[10];
   strncpy(prima, S.stato, sizeof(prima));
@@ -1296,6 +1339,7 @@ void leggiMessaggio(const char* corpo) {
   S.rimanente = numeroDa(corpo, "rimanente", -1);
   S.passo     = (int)numeroDa(corpo, "passo", -1);
   S.azzerata  = booleanoDa(corpo, "azzerata");
+  S.giu       = treStati(corpo, "giu");
 
   /* `penna` è un oggetto: si entra lì dentro e si prende il colore. */
   S.penna[0] = 0;
@@ -1557,7 +1601,7 @@ void setup() {
   }
 
   strcpy(S.stato, "fermo");
-  S.percento = -1; S.rimanente = -1; S.passo = -1;
+  S.percento = -1; S.rimanente = -1; S.passo = -1; S.giu = -1;
   schermoDisegnato = NESSUNA;
 }
 
@@ -1615,13 +1659,17 @@ void loop() {
   /* E la spina cambia da sé, mentre guardi: il fulmine deve comparire
      quando la infili e andarsene quando la togli, senza che si debba
      cambiare schermata per vederlo. */
-  if (spina != spinaDisegnata) {
-    spinaDisegnata = spina;
+  if (pittura(spina) != pitturaDisegnata) {
+    pitturaDisegnata = pittura(spina);
     if (schermoOra == PRONTA || schermoOra == ATTESA || batteria < 20)
       schermoDisegnato = NESSUNA;
   }
 
-  if (S.azzerata != azzerataDisegnata || strcmp(S.penna, pennaDisegnata)) {
+  /* `giu` cambia l'ETICHETTA di un tasto senza cambiare schermata: senza
+     questo, la parola resterebbe quella di prima fino al cambio di
+     schermata, cioè fino alla fine del cambio penna. */
+  if (S.azzerata != azzerataDisegnata || strcmp(S.penna, pennaDisegnata) ||
+      S.giu != giuDisegnato) {
     schermoDisegnato = NESSUNA;
   }
 
@@ -1630,6 +1678,7 @@ void loop() {
     accendiLed(schermoOra);
     schermoDisegnato = schermoOra;
     azzerataDisegnata = S.azzerata;
+    giuDisegnato = S.giu;
     strncpy(pennaDisegnata, S.penna, sizeof(pennaDisegnata) - 1);
     pennaDisegnata[sizeof(pennaDisegnata) - 1] = 0;
     pcDisegnato = -999;

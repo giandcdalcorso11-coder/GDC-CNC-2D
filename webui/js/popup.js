@@ -373,6 +373,17 @@ var Popup = (function () {
     return corrente;
   }
 
+  /* DOVE STA IL SERVO ADESSO, per il telecomando: il suo tasto unico deve
+     dire l'AZIONE che farà — «ALZA» se la penna è giù, «ABBASSA» se è su —
+     e per dirla deve sapere dove si trova. Prima c'era scritto «ABBASSA E
+     ALZA», che costringeva a guardare la macchina per sapere che cosa
+     sarebbe successo premendo.
+     `null` fuori dal montaggio: lì la domanda non ha senso, e un `false`
+     detto per comodità sul vetro diventa una parola sbagliata. */
+  function pennaAlContatto() {
+    return passoPenna() === 1 ? pennaGiu : null;
+  }
+
   /* L'ingresso dal telecomando. Non reimplementa niente: apre la finestra se
      era stata rimandata, e poi preme gli stessi pulsanti.
 
@@ -550,5 +561,6 @@ var Popup = (function () {
 
   return { init: init, avviaStampa: avviaStampa, chiudi: chiudi,
            cambioPenna: cambioPenna,
-           passoPenna: passoPenna, telecomando: daTelecomando };
+           passoPenna: passoPenna, pennaGiu: pennaAlContatto,
+           telecomando: daTelecomando };
 })();

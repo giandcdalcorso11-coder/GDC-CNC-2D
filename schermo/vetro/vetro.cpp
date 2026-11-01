@@ -198,7 +198,11 @@ int main() {
   schermata(STAMPA, "stampa");
   schermata(IN_PAUSA, "pausa");
   schermata(PENNA1, "penna1");
-  schermata(PENNA2, "penna2");
+  /* Le DUE facce del montaggio: il tasto dice l'azione, quindi la parola
+     cambia a seconda di dove sta il servo. */
+  S.giu = 1; schermata(PENNA2, "penna2");          // penna gia' al contatto: ALZA
+  S.giu = 0; schermata(PENNA2, "penna2-su");       // penna alzata: ABBASSA
+  S.giu = 1;
   schermata(STOP_ARMATO, "armato");
   schermata(FINE, "fine");
   schermata(ERRORE, "errore");
