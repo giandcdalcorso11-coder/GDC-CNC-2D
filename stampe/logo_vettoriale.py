@@ -6,7 +6,7 @@ squares sulla maschera levigata), e dei campi pieni grandi, volendo, un
 tratteggio. Il consumo dell'inchiostro del logo originale (la grana, i graffi)
 non si porta: macchie e fori piccoli si buttano.
 
-  python3 -B logo.py <immagine> <uscita.svg> [larghezza_mm] [tratteggio_mm]
+  python3 -B logo_vettoriale.py <immagine> <uscita.svg> [larghezza_mm] [tratteggio_mm]
 """
 import importlib.util
 import os
@@ -17,7 +17,7 @@ from PIL import Image, ImageFilter
 
 QUI = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location(
-    'viste', os.path.join(QUI, '..', 'portaoggetti-feffi', 'viste.py'))
+    'viste', os.path.join(QUI, 'portaoggetti-feffi', 'viste.py'))
 viste = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(viste)
 S = viste.S
