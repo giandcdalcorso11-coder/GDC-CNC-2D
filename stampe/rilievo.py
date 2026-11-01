@@ -45,7 +45,7 @@ def svg(d, W, H, margine=8):
         '<svg xmlns="http://www.w3.org/2000/svg" width="%gmm" height="%gmm" viewBox="0 0 %g %g">'
         % (W, H, W, H),
         gruppo(GRIGIO, 0.3, d['isoipse']),
-        gruppo(NERO, 0.35, d['sagoma']),
+        gruppo(NERO, 0.35, d['sagoma'] + d.get('dettagli', [])),
         '</svg>', ''])
 
 
