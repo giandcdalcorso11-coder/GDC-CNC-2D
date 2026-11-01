@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 67
-**Ultimo aggiornamento:** 2026-10-31 16:02
+**Versione:** 68
+**Ultimo aggiornamento:** 2026-11-01 16:40
 
 ## Regole di co-editing
 
@@ -706,8 +706,36 @@ mano a mano che le misure arrivano):
 **Note (cronologia dello step):**
 - [2026-10-29] Step aperto. Visto dalla foto della lavagna lo schema colori/parametri; mancano lista esercizi e misure dei magneti.
 - [2026-10-29] **Primo progetto vero: il biglietto A5 per il cliente Feffi** (portaoggetti husky «Kira», da `.3mf`). Da un modello 3D a un SVG a due penne (nero + grigio) da mettere nella scatola. Provati tre stili; è stato scelto e rifinito dall'utente quello a **linee di livello**, e battezzato **«Rilievo»** (vedi `stampe/README.md`). I magneti della lavagna restano in attesa di lista esercizi e misure.
+- [2026-11-01] **Secondo cliente: Antei (abbigliamento).** Due mascotte stampate in 3D dall'utente, da disegnare in stile Rilievo, più il logo dell'azienda da vettorializzare. Fatti: logo, angioletto «Starry angel kid» (dal 3MF) e seconda mascotte (da screenshot, il 3D era troppo pesante). I magneti restano in attesa.
 
 ## Storico sessioni
+
+### [2026-11-01 16:40] (stampe) Antei: il logo a contorni e le due mascotte in Rilievo
+
+**Riepilogo:** per l'azienda di abbigliamento Antei sono nati tre SVG — il logo vettorializzato a contorni, l'angioletto con il cappellino in stile Rilievo dal modello 3D, e la seconda mascotte in Rilievo ricavata da uno screenshot, perché il suo 3D era troppo pesante da ridurre.
+
+**Cosa è stato fatto:**
+- **Logo** (`stampe/antei/logo.py` → `logo-antei.svg`, 100 mm di larghezza, nero): dell'inchiostro rosso si tiene il contorno; si ingrandisce 3× prima di tracciare perché i filetti della cornice stanno in 2–3 px, e si buttano i graffi dell'originale (contorni corti e sottili). La «A» e la scritta ANTEI si leggono bene; la cornice è più frammentata dell'originale.
+- **Starry angel kid** (`stampe/rilievo.py`, modo `profondita`): linee a distanza costante dall'osservatore, vista di fronte; le fette orizzontali, che andavano bene dall'alto sul portaoggetti, qui davano solo strisce. Il volto resta poco leggibile.
+- **Seconda mascotte** (`stampe/da_immagine.py`): senza un modello, le linee di livello vengono dalla luminosità dell'ombreggiatura dello screenshot, e i dettagli (occhi, pieghe, bottoni) dalle valli scure sottili, in nero. Resa piena di dettaglio ma più «disegno» che «mappa».
+
+**Bug: la sagoma dello screenshot perdeva testa e scarpe**
+
+**Sintomo:** nella prima versione il volto sembrava sparito e il fondo era una V senza scarpe.
+**Causa:** il grigio piatto dello sfondo (231) compare anche dentro la figura nelle zone chiare, quindi non si può togliere per colore; e le scarpe si staccano dai pantaloni per una piega scura, quindi finivano fuori dalla componente scelta.
+**Fix applicato:** sfondo = grigio piatto *collegato al bordo* (riempimento dei buchi) e si tengono tutte le componenti grandi, non solo quella del baricentro. Verificato a vista sul contorno rosso.
+
+**Decisioni prese:**
+- Contesto: lo stile Rilievo con «quota» funziona per oggetti visti dall'alto, non per figure in piedi.
+- Decisione: due modi in `rilievo.py` — `quota` (oggetti dall'alto) e `profondita` (figure di fronte) — e un terzo ingresso, `da_immagine.py`, per quando c'è solo uno screenshot.
+- Alternative scartate: le linee a profondità sullo screenshot (non esiste una mappa di profondità, solo la luminosità).
+- Da rivedere se: l'utente riesce a mandare il 3D ridotto della seconda mascotte — il risultato dal modello sarebbe più pulito.
+
+**File consegnati/modificati:** `stampe/antei/` (`logo.py`, `logo-antei.svg`, `starry-angel-kid-rilievo.svg`, `mascotte-urbana-rilievo.svg`, anteprime PNG), `stampe/rilievo.py`, `stampe/da_immagine.py`, `stampe/anteprima_viste.py`, `stampe/README.md`; questo documento (v68). I file di stampa stanno sul branch `claude/quirky-bohr-u9ktwd`.
+
+**Impatto su Vision/Pipeline:** Vision invariata. Step 10 aggiornato con la nota di oggi.
+
+---
 
 ### [2026-10-31 16:02] (meccanica/firmware) La prima stampa vera, e tutto quello che ha detto il vetro
 
