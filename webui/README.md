@@ -144,25 +144,35 @@ già: un marchio piccolo si disegna, non si rimpicciolisce.
 
 ### Il marchio dentro al disegno
 
-Il pulsante **Logo** nell'editor mette il marchio nel livello acceso, largo
-**60 mm veri** e in mezzo a quello che si sta guardando — non all'origine del
-file, che su un disegno importato può stare a mezzo metro da lì.
-
-Entra come **contorni, non come pieni**: una penna non riempie, e il marchio è
-fatto di forme piene coi contrografici ritagliati dentro, quindi sulla carta
-diventa il suo **profilo**, controcampi compresi. Non è un ripiego — quello che
-su schermo è nero pieno, su carta è il giro che lo delimita.
+Il pulsante **«Inserisci il logo CNC 2D»** sta accanto a quello del logo GDC
+Stuff, sotto ai livelli, e fa la stessa cosa del suo vicino: il marchio entra
+come **livello nuovo**, importato come un file qualsiasi. Stessa strada, stesso
+gesto, nessuna regola in più da ricordare.
 
 Il disegno viene dall'**SVG che sta già nella pagina**, quello
 dell'intestazione: una copia sola, e quando il logo cambia cambiano insieme il
-marchio in alto e quello che finisce sul foglio. Il rettangolo della maschera
-non si prende: su schermo dice «qui si vede», su carta sarebbe una cornice che
-il marchio non ha.
+marchio in alto e quello che finisce sul foglio.
 
-I sessanta millimetri sono veri perché la scala del livello dice quanti
-millimetri vale un'unità del file; un livello ancora vuoto non ha una misura
-sul foglio, e allora un'unità vale un millimetro — la stessa regola del resto
-del programma, e da lì in poi decidono le maniglie.
+**Prima di darlo all'importatore si riduce a un colore solo.** Sullo schermo il
+marchio è fatto di lettere piene con dentro i contrografici **bianchi**,
+ritagliati con una maschera, più un gruppo con un bordo sottile — la cucitura
+che chiude le fessure fra forme accostate. Sono tre colori, e l'importatore
+divide per colore: dato così, il marchio arrivava spezzato in **due livelli**, e
+sul foglio si vedeva un «2 D» che galleggiava senza il resto. Ma quei colori non
+sono penne diverse: sono il modo in cui si ritaglia un buco in un'area piena. Su
+carta una penna sola traccia il contorno delle lettere **e** quello dei buchi, e
+il bianco è la carta.
+
+**E l'importatore ha imparato una cosa che gli serviva comunque.** Quello che
+sta in un **magazzino** — `<defs>`, `<symbol>`, `<marker>`, `<pattern>`, un
+gradiente — non è nel disegno: si vede solo dove qualcos'altro lo richiama, e
+disegnarlo dov'è scritto vuol dire mettere sulla carta roba che nel file non
+c'è. Ma **una maschera non è un magazzino**: il suo contenuto non è inchiostro,
+però dice *dove* il disegno si vede, e i suoi contorni sono bordi del risultato
+finale — che per una penna è esattamente la cosa da disegnare. Decide il più
+vicino dei due, così una maschera dentro a `<defs>` (cioè quasi tutte) resta
+una maschera. Il rettangolo di fondo della maschera lo scartava già la regola
+degli sfondi, che butta via quello che è grande quanto il foglio.
 
 ## I due strumenti che tagliano, e quello che ribalta
 

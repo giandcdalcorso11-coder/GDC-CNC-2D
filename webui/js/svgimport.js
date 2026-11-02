@@ -15,7 +15,7 @@
 var SvgImport = (function () {
 
   var SELECTOR = 'path,line,polyline,polygon,circle,ellipse,rect';
-  var scarti = { sfondi: 0, piene: 0 };   // forme saltate all'ultima lettura
+  var scarti = { sfondi: 0, piene: 0, nascoste: 0 };  // saltate all'ultima lettura
 
   /* LE FORME DEL FILE, con le curve ancora curve.
    *
@@ -53,11 +53,15 @@ var SvgImport = (function () {
 
       var els = svg.querySelectorAll(SELECTOR);
       var forme = [];
+      scartiNascosti = 0;
       var tinte = [], indice = {};
-      scarti = { sfondi: 0, piene: 0 };
+      scarti = { sfondi: 0, piene: 0, nascoste: 0 };
 
       for (var i = 0; i < els.length; i++) {
         var el = els[i];
+        /* Quello che sta in un magazzino non e' nel disegno; quello che sta
+           in una maschera si'. Vedi `nascosto()`. */
+        if (nascosto(el)) { scarti.nascoste++; continue; }
         var ctm = el.getScreenCTM && el.getScreenCTM();
         if (!ctm) continue;
         var m = rootInv.multiply(ctm);
@@ -207,6 +211,35 @@ var SvgImport = (function () {
    *
    * Senza viewBox non si sa quanto e' grande la tela, e li' non si salta
    * niente: meglio un rettangolo di troppo che un disegno perso. */
+  /* I MAGAZZINI NON SI DISEGNANO, LE MASCHERE SI'.
+   *
+   * Un <symbol>, un <marker>, un <pattern>, un gradiente sono magazzini:
+   * quello che contengono si vede solo dove qualcos'altro lo richiama, e
+   * disegnarlo dov'e' scritto vuol dire mettere sulla carta roba che nel
+   * file non c'e'.
+   *
+   * UNA MASCHERA NO, E QUI STA LA DIFFERENZA. Il suo contenuto non e' inchiostro,
+   * ma dice DOVE il disegno si vede: i suoi contorni sono bordi del risultato
+   * finale. E per una penna un bordo e' esattamente la cosa da disegnare — il
+   * marchio della macchina ha i contrografici dentro a una maschera, e
+   * saltarli vorrebbe dire un logo senza i suoi buchi, cioe' un altro logo.
+   * Lo stesso vale per un <clipPath>.
+   *
+   * Decide il PIU' VICINO dei due: una maschera dentro a <defs> — che e' dove
+   * stanno quasi tutte — resta una maschera. */
+  var MAGAZZINI = { defs: 1, symbol: 1, marker: 1, pattern: 1,
+                    lineargradient: 1, radialgradient: 1 };
+  var CONFINI = { mask: 1, clippath: 1 };
+
+  function nascosto(el) {
+    for (var p = el.parentNode; p && p.nodeType === 1; p = p.parentNode) {
+      var n = String(p.nodeName || '').toLowerCase();
+      if (CONFINI[n]) return false;
+      if (MAGAZZINI[n]) return true;
+    }
+    return false;
+  }
+
   function saltare(el, m, vb) {
     if (haBordo(el)) return false;
     if (!vb || !(vb.width > 0) || !(vb.height > 0)) return false;

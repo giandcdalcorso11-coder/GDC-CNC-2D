@@ -1489,109 +1489,6 @@ var Editor = (function () {
     cambiato();
   }
 
-  /* ------------------------------- il marchio -------------------------------
-   *
-   * Il logo della macchina, messo nel disegno come TRACCIATI: contorni, non
-   * aree piene. Una penna non riempie, e il marchio e' fatto di forme piene
-   * con i contrografici ritagliati dentro — quindi sulla carta diventa il
-   * suo PROFILO, controcampi compresi. Non e' un ripiego: quello che su
-   * schermo e' nero pieno, su carta e' il giro che lo delimita, ed e' il
-   * disegno giusto per un plotter.
-   *
-   * IL DISEGNO VIENE DALL'SVG CHE STA GIA' NELLA PAGINA, quello
-   * dell'intestazione. Una copia sola: quando il logo cambia, cambiano
-   * insieme il marchio in alto e quello che finisce sul foglio. Prenderlo da
-   * un secondo file vorrebbe dire due copie che prima o poi non coincidono,
-   * e la seconda e' sempre quella vecchia.
-   *
-   * Il rettangolo della maschera non si prende: su schermo dice «qui si
-   * vede», su carta sarebbe una cornice che il marchio non ha.
-   */
-  var LOGO_MM = 60;
-
-  function nodiDaPunti(testo) {
-    var n = [], v = String(testo || '').trim().split(/[\s,]+/);
-    for (var i = 0; i + 1 < v.length; i += 2) {
-      var x = parseFloat(v[i]), y = parseFloat(v[i + 1]);
-      if (isFinite(x) && isFinite(y)) n.push(Tracciato.nodo(x, y));
-    }
-    return n;
-  }
-
-  function formeDelMarchio() {
-    if (typeof SvgPath === 'undefined') return null;
-    var dentro = document.querySelector('.brand .marchio');
-    if (!dentro) return null;
-    var subs = [];
-    var pp = dentro.querySelectorAll('path');
-    for (var i = 0; i < pp.length; i++) {
-      var d = pp[i].getAttribute('d');
-      if (!d) continue;
-      SvgPath.parse(d).forEach(function (z) {
-        if (z.nodi && z.nodi.length > 1) subs.push(z);
-      });
-    }
-    var ll = dentro.querySelectorAll('polyline, polygon');
-    for (var j = 0; j < ll.length; j++) {
-      var n = nodiDaPunti(ll[j].getAttribute('points'));
-      if (n.length > 1) {
-        subs.push({ nodi: n, chiuso: ll[j].tagName.toLowerCase() === 'polygon' });
-      }
-    }
-    return subs.length ? Tracciato.tracciato(subs) : null;
-  }
-
-  function mettiMarchio() {
-    var f = forme();
-    if (!f) { Log.add('err', 'Scegli prima un livello in cui mettere il marchio.'); return; }
-    if (!attivoVisibile()) {
-      Log.add('err', 'Questo livello e\' nascosto: accendi il suo occhio prima ' +
-                     'di metterci il marchio.');
-      return;
-    }
-    var m = formeDelMarchio();
-    if (!m) {
-      Log.add('err', 'Il marchio non e\' nella pagina: senza quello non so che ' +
-                     'cosa disegnare.');
-      return;
-    }
-    var b = Tracciato.bbox([m], TOL);
-    if (!isFinite(b.w) || b.w <= 0) {
-      Log.add('err', 'Il marchio non ha una misura: non so quanto farlo grande.');
-      return;
-    }
-
-    /* Sessanta millimetri VERI: la scala del livello dice quanti millimetri
-       vale un'unita' del file. Un livello ancora vuoto non ha una misura sul
-       foglio, e allora un'unita' vale un millimetro — la stessa regola del
-       resto del programma. */
-    var k = (window.Artwork && Artwork.scalaMm) ? Artwork.scalaMm() : null;
-    var mmPerUnita = (k && k.x > 0) ? k.x : 1;
-    var s = (LOGO_MM / mmPerUnita) / b.w;
-
-    /* In mezzo a quello che si sta guardando, non all'origine del file:
-       l'origine di un disegno importato puo' stare a mezzo metro da li'. */
-    var cx = vista ? vista.x0 + vista.w / 2 : b.x0 + b.w / 2;
-    var cy = vista ? vista.y0 + vista.h / 2 : b.y0 + b.h / 2;
-    var pronto = Tracciato.trasforma(m, {
-      a: s, b: 0, c: 0, d: s,
-      e: cx - (b.x0 + b.w / 2) * s,
-      f: cy - (b.y0 + b.h / 2) * s
-    });
-
-    segna();
-    f.push(pronto);
-    var i = f.length - 1;
-    sel.forma = i; sel.forme = [i];
-    sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];
-    cambiato();
-    Log.add('msg', 'Marchio CNC 2D nel livello: ' + pronto.sub.length +
-            ' tracciati, largo ' + LOGO_MM + ' mm. E\' il PROFILO delle forme, ' +
-            'non il pieno: una penna non riempie. Su un livello che era vuoto ' +
-            'la misura e\' un punto di partenza — a decidere sono le maniglie ' +
-            'sul foglio.');
-  }
-
   /* ================= IL SELETTORE SPECIFICO, E LO SPECCHIO =================
    *
    * IL SELETTORE SPECIFICO (il lazo). Si cerchia a mano libera e si prende
@@ -2426,7 +2323,6 @@ var Editor = (function () {
         disegna();
         scriviAiuto();
       }
-      else if (b.id === 'ed-marchio') mettiMarchio();
       else if (b.id === 'ed-specchia') specchia();
       else if (b.id === 'ed-specchio-asse') {
         specchioAsse = specchioAsse === 'v' ? 'o' : 'v';
@@ -2533,7 +2429,6 @@ var Editor = (function () {
            griglia: function (v) { if (v !== undefined) griglia = +v || 0; return griglia; },
            /* Per il collaudo: il lazo e lo specchio senza passare dal mouse. */
            lazo: prendiDentro,
-           marchio: mettiMarchio,
            scegliForma: function (i) {
              sel.forma = i; sel.forme = [i];
              sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];

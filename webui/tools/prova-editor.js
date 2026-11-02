@@ -227,33 +227,41 @@ function lunghezza(punti) {
      r.presi + ' su ' + r.tratti);
 
   /* ---------- 5. il marchio nel disegno ----------
-     Non «ha messo qualcosa»: che quello che mette sia IL LOGO. Si misura il
-     rapporto fra base e altezza, che e' la firma della forma, e la larghezza
-     in millimetri, che e' la promessa del pulsante. */
+     Entra dal pulsante accanto a quello del logo GDC Stuff, come LIVELLO
+     NUOVO: la stessa strada di un file importato.
+     Il controllo che conta e' che arrivi TUTTO il logo. Il rapporto fra base
+     e altezza non basta a dirlo: il rettangolo della maschera ha esattamente
+     lo stesso rapporto, quindi un import che prendesse solo quello passerebbe.
+     Si contano le forme e i nodi: una scatola e' una forma e quattro nodi. */
   r = await page.evaluate(() => {
-    PREPARA([Tracciato.daPunti([{ x: 0, y: 0 }, { x: 100, y: 0 }], false)]);
-    const prima = Artwork.forme().length;
-    Editor.marchio();
-    const f = Artwork.forme();
-    if (f.length !== prima + 1) return { quante: f.length - prima };
-    const logo = f[f.length - 1];
-    const b = Tracciato.bbox([logo], 0.02);
-    /* Il viewBox del logo e' 487,03 x 158,49: il rapporto deve sopravvivere. */
+    const prima = (Artwork.livelli() || []).length;
+    document.getElementById('btn-logo-cnc2d').click();
+    const liv = Artwork.livelli() || [];
+    if (liv.length <= prima) return { nuovi: 0 };
+    Artwork.seleziona(liv[liv.length - 1].id);
+    const f = Artwork.forme() || [];
+    const b = Tracciato.bbox(f, 0.02);
     const svg = document.querySelector('.brand .marchio').getAttribute('viewBox').split(' ');
-    return { quante: 1, sub: logo.sub.length,
-             largo: +b.w.toFixed(3), alto: +b.h.toFixed(3),
+    const c = Tracciato.conta(f);
+    return { nuovi: liv.length - prima, forme: c.forme, nodi: c.nodi,
              rapporto: +(b.w / b.h).toFixed(4),
              atteso: +(parseFloat(svg[2]) / parseFloat(svg[3])).toFixed(4),
-             nodi: Tracciato.conta([logo]).nodi,
-             curve: Tracciato.conta([logo]).curve };
+             scarti: SvgImport.scartate() };
   });
-  ok('il marchio entra nel livello', r.quante === 1 && r.sub > 10,
-     r.sub + ' tracciati, ' + r.nodi + ' nodi, ' + r.curve + ' con una curva');
-  ok('ed e` davvero il logo, non una scatola',
-     Math.abs(r.rapporto - r.atteso) < 0.002,
-     'base su altezza ' + r.rapporto + ', il logo dice ' + r.atteso);
-  ok('largo i 60 mm promessi dal pulsante', Math.abs(r.largo - 60) < 0.01,
-     r.largo + ' x ' + r.alto);
+  /* UN livello e non due: sullo schermo il marchio e' fatto di due colori -
+     le lettere piene e i contrografici ritagliati - ma quelli non sono due
+     penne, sono il modo di ritagliare un buco in un'area piena. Importato
+     com'e', arrivava spezzato in due livelli e sul foglio si vedeva un «2 D»
+     che galleggiava senza il resto. */
+  ok('il marchio entra come UN livello solo', r.nuovi === 1,
+     r.nuovi + ' livello, ' + r.forme + ' forme, ' + r.nodi + ' nodi');
+  ok('ed e` tutto il logo, non una scatola', r.forme >= 8 && r.nodi >= 100,
+     r.forme + ' forme e ' + r.nodi + ' nodi (una scatola sarebbe 1 e 4)');
+  ok('coi contrografici, che stanno in una maschera',
+     r.scarti && r.scarti.nascoste === 0,
+     r.scarti ? r.scarti.nascoste + ' forme saltate come magazzino' : '?');
+  ok('e senza il fondo della maschera', r.scarti && r.scarti.sfondi >= 1,
+     r.scarti ? r.scarti.sfondi + ' forme saltate perche` grandi quanto il foglio' : '?');
 
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();

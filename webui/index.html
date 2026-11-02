@@ -163,6 +163,11 @@
         <div class="loghi">
           <button class="btn btn-ghost full" id="btn-sample"
                   title="Inserisce il logo GDC Stuff come livello nuovo, sopra a quello che c'e' gia'">Inserisci il logo GDC Stuff</button>
+          <!-- Il marchio della macchina, e il secondo pulsante che questa riga
+               aspettava. Entra come livello nuovo, come il suo vicino: stessa
+               strada, stesso gesto, nessuna regola in piu' da ricordare. -->
+          <button class="btn btn-ghost full" id="btn-logo-cnc2d"
+                  title="Inserisce il logo CNC 2D come livello nuovo, sopra a quello che c'e' gia'">Inserisci il logo CNC 2D</button>
         </div>
 
         <!-- Un pulsante solo con due mestieri: con un disegno caricato lo
@@ -338,10 +343,6 @@
         <input type="text" id="ed-testo" placeholder="testo da scrivere" spellcheck="false">
         <label>alt. <input type="number" id="ed-testo-alt" value="10" min="1" step="1"></label>
       </span>
-      <!-- Il marchio della macchina, dentro al disegno. Lo prende dall'SVG
-           che sta gia' nell'intestazione: una copia sola. -->
-      <button type="button" class="btn btn-ghost btn-small" id="ed-marchio"
-              title="Mette il logo CNC 2D nel livello acceso, largo 60 mm, come contorni da disegnare">Logo</button>
       <button type="button" class="btn btn-ghost btn-small" id="ed-curvo">Spigolo / curva</button>
       <!-- Lo specchio, col suo bottoncino tondo per l'asse. Ribaltare non e'
            ruotare di mezzo giro: una lettera ruotata si legge al contrario,
