@@ -126,15 +126,22 @@ section { margin: 0 0 44px }
   background: var(--scheda); border: 1px solid var(--orlo); border-radius: 10px;
   padding: 14px 16px; display: grid; gap: 10px;
 }
-.voce.suona { border-color: var(--verde) }
-.voce.scelta { border-left: 3px solid var(--ambra) }
+.voce.suona { box-shadow: inset 0 0 0 1px var(--verde) }
+.voce.st-scelta { border-left: 3px solid var(--verde) }
+.voce.st-testa  { border-left: 3px solid var(--ambra) }
+.voce.st-nuova  { border-left: 3px solid var(--blu) }
+.voce.st-vista  { opacity: 0.72 }
 .capo { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline }
 .nome { font-family: var(--display); font-weight: 700; font-size: 17px }
 .bollo {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--ambra);
   border: 1px solid var(--ambra); border-radius: 999px; padding: 2px 7px;
+  white-space: nowrap;
 }
+.bollo.verde  { color: var(--verde); border-color: var(--verde) }
+.bollo.blu    { color: var(--blu);   border-color: var(--blu) }
+.bollo.grigio { color: var(--fioco); border-color: var(--orlo) }
 .perche { color: var(--smorto); font-size: 14px; margin: 0; max-width: 62ch }
 .note { display: flex; flex-wrap: wrap; gap: 5px }
 .nota {
@@ -204,7 +211,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 
   <section class="confronto">
     <h2>Il confronto che conta</h2>
-    <p class="perche">I due allarmi devono restare distinguibili <strong>quando il suono è attutito</strong>: cambio penna e problema, uno dietro l'altro. Accendi «attutito» e «rumore dei motori» prima di premere. Se attutiti sembrano la stessa cosa, la coppia va cambiata.</p>
+    <p class="perche">Ora che il cambio penna è <strong>tre colpi da 90 ms</strong>, il problema deve avere una sagoma diversa: accendi «attutito» e «rumore dei motori», premi, e senti se li distingui ancora. Se attutiti sembrano la stessa cosa, il problema va cambiato — non il cambio penna, che è deciso. Il pulsante suona la coppia «tre colpi» più la proposta che consiglio io; per provare un'altra accoppiata, ascoltale una dietro l'altra qui sopra con l'attutito acceso.</p>
     <div class="coda">
       <button class="play" id="duePezzi" type="button">Cambio penna, poi problema</button>
       <span class="mono" id="qualiDue" style="color:var(--fioco);font-size:12px"></span>
@@ -212,7 +219,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
   </section>
 
   <footer>
-    <p>Quando hai scelto, dimmi i quattro nomi — per esempio «tre scalini, lungo-corto, la cadenza, il calante» — e ti mando il firmware con dentro quelli, più i quattro <code>SUONO_*</code> ricostruiti su 2500.</p>
+    <p>Cambio penna è deciso: <strong>tre colpi</strong>. Mancano partenza, fine e problema: dimmi i tre nomi — per esempio «la quarta, l'arpeggio che torna, il ribattuto» — e ti mando il firmware con dentro quelli, più <code>RISONANZA</code> a 2500 e i quattro <code>SUONO_*</code> ricostruiti.</p>
     <p>Qui senti <strong>la composizione</strong>, non il timbro: un altoparlante a 2500 Hz non suona come un trasduttore magnetico, e il rumore dei motori è finto. Il ritmo e gli intervalli invece sono quelli veri.</p>
   </footer>
 </div>
@@ -225,59 +232,95 @@ var SCALA = { "-5": 1873, "-4": 1984, "-3": 2102, "-2": 2227, "-1": 2360,
 
 var SUONI = [
   { id: "SUONO_PARTENZA", nome: "Partenza", ruolo: "la senti da vicino, non deve viaggiare",
-    testo: "Tre note che salgono dicono «parto» senza bisogno di essere capite. Non serve che arrivino lontano: quando parte la stampa sei lì.",
+    testo: "Non serve che arrivi lontano: quando parte la stampa sei li\u00ec. Quindi qui si pu\u00f2 scegliere col gusto, e l'unico vincolo vero \u00e8 che non sia lunga.",
     voci: [
-      { nome: "Tre scalini", scelta: true,
+      { nome: "La quarta", stato: "nuova", mia: true,
+        perche: "Due note e una quarta giusta in su: \u00e8 l'intervallo delle trombe e dei campanelli d'allarme, e il nostro orecchio lo legge come «attenzione» prima di capire che cos'\u00e8. La seconda nota \u00e8 il tetto della banda, quindi \u00e8 un po' pi\u00f9 sottile \u2014 ma qui non importa.",
+        note: [[2500,55],[3338,95]] },
+      { nome: "Il carillon", stato: "nuova",
+        perche: "Quattro semitoni di fila in salita. Una scala cromatica non suona come musica, suona come un <strong>meccanismo che prende i giri</strong>: \u00e8 la cosa pi\u00f9 somigliante a quello che la macchina sta per fare.",
+        note: [[2500,45],[2649,45],[2806,45],[2973,75]] },
+      { nome: "La chiamata", stato: "nuova",
+        perche: "Due colpi sulla nota di casa e poi il salto: «ta-ta-T\u00c0». Il ritmo fa il lavoro e l'ultima nota lo chiude \u2014 pi\u00f9 sveglio di una salita liscia.",
+        note: [[2500,45],[0,35],[2500,45],[3150,90]] },
+      { nome: "Un colpo solo", stato: "nuova",
+        perche: "Una nota, 140 ms, sulla risonanza. Il minimo che dice «sono acceso» senza dire altro. Se dopo un mese le melodiette ti stancano, questa non stanca.",
+        note: [[2500,140]] },
+      { nome: "Tre scalini", stato: "testa",
         perche: "Due toni interi che salgono dalla nota di casa: la forma di adesso, rimessa in chiave su 2500.",
-        note: [[R,55],[2806,55],[3150,85]] },
-      { nome: "Il salto",
-        perche: "Scende, salta su, e si posa sulla nota di casa tenuta: l'ultima nota è anche la più forte, quindi la coda porta.",
-        note: [[2227,50],[3150,50],[R,120]] },
-      { nome: "Due note sole",
-        perche: "Una terza maggiore in su e basta. Meno chiacchiere: all'avvio hai altro da guardare.",
-        note: [[R,60],[3150,110]] }
+        note: [[2500,55],[2806,55],[3150,85]] },
+      { nome: "Il salto", stato: "vista",
+        perche: "Scende, salta su, e si posa sulla nota di casa tenuta.",
+        note: [[2227,50],[3150,50],[2500,120]] },
+      { nome: "Due note sole", stato: "vista",
+        perche: "Una terza maggiore in su e basta.",
+        note: [[2500,60],[3150,110]] }
     ] },
 
-  { id: "SUONO_PENNA", nome: "Cambio penna", ruolo: "deve arrivare dall'altra stanza · si ripete ogni 20 s",
-    testo: "Questo è l'unico suono per cui il telecomando esiste. Tutto su <strong>una nota sola</strong>, 2500: attutito da una porta le altezze diventano tutte uguali, e quello che sopravvive è il <strong>ritmo</strong>.",
+  { id: "SUONO_PENNA", nome: "Cambio penna", ruolo: "deve arrivare dall'altra stanza \u00b7 si ripete ogni 20 s",
+    testo: "<strong>Deciso.</strong> Tre colpi sulla nota di casa: tutto su una frequenza, perch\u00e9 attutito da una porta le altezze diventano uguali e quello che sopravvive \u00e8 il ritmo. Le altre due restano qui solo per confronto.",
     voci: [
-      { nome: "Lungo-corto", scelta: true,
-        perche: "L'orecchio somma l'energia di un suono per circa due decimi di secondo: una nota da 220 ms si sente più forte di una da 70 a parità di tutto. Quindi la testa lunga porta, e «dah-dit» è un ritmo che non si confonde con niente.",
-        note: [[R,220],[0,90],[R,90]] },
-      { nome: "Due colpi",
-        perche: "Quello di adesso. Breve e discreto, ma due colpi da 70 ms sono il formato che l'orecchio penalizza di più.",
-        note: [[R,70],[0,70],[R,70]] },
-      { nome: "Tre colpi",
-        perche: "Tre battute un po' più lunghe: più insistente, e tre è un numero che si conta anche attutito.",
-        note: [[R,90],[0,70],[R,90],[0,70],[R,90]] }
+      { nome: "Tre colpi", stato: "scelta",
+        perche: "Tre battute da 90 ms. Tre \u00e8 un numero che si conta anche attutito, e nessuno degli altri suoni ha questa sagoma.",
+        note: [[2500,90],[0,70],[2500,90],[0,70],[2500,90]] },
+      { nome: "Lungo-corto", stato: "vista",
+        perche: "La testa lunga portava pi\u00f9 lontano, ma \u00e8 un ritmo meno riconoscibile di tre colpi contati.",
+        note: [[2500,220],[0,90],[2500,90]] },
+      { nome: "Due colpi", stato: "vista",
+        perche: "Quello di adesso.",
+        note: [[2500,70],[0,70],[2500,70]] }
     ] },
 
-  { id: "SUONO_FINE", nome: "Fine stampa", ruolo: "la senti da vicino · non si ripete",
-    testo: "Qui si può fare musica: la fine non è un allarme, e se la perdi lo scopri guardando il foglio.",
+  { id: "SUONO_FINE", nome: "Fine stampa", ruolo: "la senti da vicino \u00b7 non si ripete",
+    testo: "Qui si pu\u00f2 fare musica: la fine non \u00e8 un allarme, e se la perdi lo scopri guardando il foglio. Le quattro nuove partono tutte dall'arpeggio e provano a <strong>chiuderlo</strong> invece di lasciarlo in aria.",
     voci: [
-      { nome: "La cadenza", scelta: true,
-        perche: "Scende per tre gradi e si ferma sulla nota di casa, tenuta: scendere e fermarsi è il modo in cui si dice «finito». E l'ultima nota è la più forte, quindi chiude con peso.",
-        note: [[3150,90],[2973,90],[2806,90],[R,280]] },
-      { nome: "Risale e resta",
-        perche: "La forma di adesso, in chiave: va giù, torna, sale e l'ultima resta.",
-        note: [[R,80],[2227,80],[R,80],[3150,95],[0,55],[3150,300]] },
-      { nome: "L'arpeggio",
-        perche: "Quattro gradini in su, un respiro, e torna a casa. Il più lungo dei tre: va bene se vuoi accorgertene dall'altra parte del tavolo.",
-        note: [[2227,70],[R,70],[2806,70],[3150,70],[0,60],[R,320]] }
+      { nome: "L'arpeggio che torna", stato: "nuova", mia: true,
+        perche: "Il tuo arpeggio, ma invece di saltare a casa ci <strong>ritorna scendendo</strong>: sale, tocca il tetto, e rifa la strada all'indietro. Un arco che si richiude si sente come finito; un salto si sente come interrotto.",
+        note: [[2227,65],[2500,65],[2806,65],[3150,120],[2806,65],[2500,300]] },
+      { nome: "Il doppio rintocco", stato: "nuova",
+        perche: "Due coppie che scendono, come un orologio che batte: «din-don, din-d\u00f2n». Non \u00e8 una scala, \u00e8 un <strong>gesto</strong>, e i gesti si riconoscono da lontano meglio delle melodie.",
+        note: [[3150,90],[2500,90],[0,80],[3150,90],[2500,300]] },
+      { nome: "La scaletta che si siede", stato: "nuova",
+        perche: "Scende quattro gradini <strong>oltre</strong> la nota di casa e poi ci risale sopra per fermarsi. Quel piccolo gradino in su alla fine \u00e8 il modo pi\u00f9 vecchio che la musica abbia di dire «ecco, \u00e8 a posto».",
+        note: [[3338,70],[2973,70],[2649,70],[2360,70],[2500,320]] },
+      { nome: "Il respiro", stato: "nuova",
+        perche: "Tre note lunghe con l'aria in mezzo: casa, su, casa. Nessuna fretta \u2014 ed \u00e8 giusto, perch\u00e9 \u00e8 l'unico suono che arriva quando non c'\u00e8 pi\u00f9 niente da fare.",
+        note: [[2500,110],[0,90],[3150,110],[0,90],[2500,360]] },
+      { nome: "L'arpeggio", stato: "testa",
+        perche: "Quattro gradini in su, un respiro, e torna a casa.",
+        note: [[2227,70],[2500,70],[2806,70],[3150,70],[0,60],[2500,320]] },
+      { nome: "La cadenza", stato: "vista",
+        perche: "Scende per tre gradi e si ferma sulla nota di casa.",
+        note: [[3150,90],[2973,90],[2806,90],[2500,280]] },
+      { nome: "Risale e resta", stato: "vista",
+        perche: "La forma di adesso, in chiave.",
+        note: [[2500,80],[2227,80],[2500,80],[3150,95],[0,55],[3150,300]] }
     ] },
 
-  { id: "SUONO_ERRORE", nome: "Problema", ruolo: "deve arrivare dall'altra stanza · non si ripete",
-    testo: "Deve dire «fermati» e non deve somigliare al cambio penna. Il confronto in fondo alla pagina serve a controllare proprio questo.",
+  { id: "SUONO_ERRORE", nome: "Problema", ruolo: "deve arrivare dall'altra stanza \u00b7 non si ripete",
+    testo: "Adesso che il cambio penna \u00e8 <strong>tre colpi da 90 ms</strong>, il problema ha un vincolo preciso: non pu\u00f2 essere una fila di colpi uguali, o attutiti i due diventano la stessa cosa. Tutte e quattro le nuove hanno una sagoma diversa da «tre battute pari».",
     voci: [
-      { nome: "Il calante", scelta: true,
-        perche: "Tre note che scendono. Un suono che cala si legge come guasto in qualunque lingua — e qui è vero anche fisicamente: sotto 2500 il cicalino perde forza, quindi il suono si spegne mentre scende. Il difetto diventa il significato.",
-        note: [[R,200],[2227,200],[1984,260]] },
-      { nome: "Uno lungo",
-        perche: "Quello di adesso. Massima distanza dal cambio penna: una nota ferma contro una pulsata.",
-        note: [[R,450]] },
-      { nome: "Due lunghi",
-        perche: "Due note piene con una pausa in mezzo: più urgente di una sola, e il ritmo resta diverso da quello del cambio penna.",
-        note: [[R,260],[0,120],[R,260]] }
+      { nome: "Il ribattuto", stato: "nuova", mia: true,
+        perche: "Tre colpi <strong>veloci</strong> e poi una nota tenuta lunga. \u00c8 l'opposto esatto di tre battute pari: la raffica dice «subito» e la coda lunga dice «e non \u00e8 finita». Attutito resta la sagoma pi\u00f9 lontana dal cambio penna di tutte.",
+        note: [[2500,50],[0,50],[2500,50],[0,50],[2500,50],[0,50],[2500,380]] },
+      { nome: "Il gradino gi\u00f9", stato: "nuova",
+        perche: "Una nota alta e corta, poi una bassa e lunga: un <strong>tonfo</strong>. Due note sole, nessun rischio di confonderle con tre. E la seconda sta sotto la risonanza, quindi si spegne davvero mentre cade.",
+        note: [[2973,160],[0,60],[2227,420]] },
+      { nome: "La sirena", stato: "nuova",
+        perche: "Due note che si alternano: il motivo delle ambulanze, e nessuno ha bisogno che gli venga spiegato. <strong>Ma \u00e8 la pi\u00f9 rischiosa</strong> delle quattro: attutita diventa una fila di cinque colpi, e cinque colpi somigliano a tre. Provala con «attutito» acceso prima di sceglierla.",
+        note: [[2500,120],[2973,120],[2500,120],[2973,120],[2500,160]] },
+      { nome: "Il doppio lungo basso", stato: "nuova",
+        perche: "Due note piene, tenute, <strong>sotto</strong> la nota di casa. Suona cupo e un po' sordo perch\u00e9 lo \u00e8 per davvero: a 2227 Hz il cicalino rende meno. Qui lo spegnersi \u00e8 il messaggio.",
+        note: [[2227,300],[0,100],[2227,300]] },
+      { nome: "Il calante", stato: "vista",
+        perche: "Tre note che scendono, spegnendosi mentre scendono.",
+        note: [[2500,200],[2227,200],[1984,260]] },
+      { nome: "Uno lungo", stato: "vista",
+        perche: "Quello di adesso.",
+        note: [[2500,450]] },
+      { nome: "Due lunghi", stato: "vista",
+        perche: "Due note piene con una pausa in mezzo.",
+        note: [[2500,260],[0,120],[2500,260]] }
     ] }
 ];
 
@@ -399,14 +442,24 @@ function costruisci() {
     var lista = document.createElement("div"); lista.className = "voci";
     s.voci.forEach(function (v) {
       var card = document.createElement("div");
-      card.className = "voce" + (v.scelta ? " scelta" : "");
+      card.className = "voce st-" + (v.stato || "vista");
 
       var capo = document.createElement("div"); capo.className = "capo";
       var nome = document.createElement("span"); nome.className = "nome"; nome.textContent = v.nome;
       capo.appendChild(nome);
-      if (v.scelta) {
-        var b = document.createElement("span"); b.className = "bollo"; b.textContent = "la mia";
-        capo.appendChild(b);
+      var BOLLI = {
+        scelta: ["scelta tua", "verde"],
+        testa:  ["la tua preferita", ""],
+        nuova:  ["nuova", "blu"],
+        vista:  ["gia' sentita", "grigio"]
+      };
+      var bo = BOLLI[v.stato || "vista"];
+      var b1 = document.createElement("span");
+      b1.className = "bollo " + bo[1]; b1.textContent = bo[0];
+      capo.appendChild(b1);
+      if (v.mia) {
+        var b2 = document.createElement("span"); b2.className = "bollo"; b2.textContent = "la mia";
+        capo.appendChild(b2);
       }
       card.appendChild(capo);
 
@@ -487,8 +540,12 @@ document.getElementById("spegni").addEventListener("click", function () {
 
 document.getElementById("duePezzi").addEventListener("click", function () {
   avvia();
-  var penna = SUONI[1].voci.find(function (v) { return v.scelta; });
-  var err = SUONI[3].voci.find(function (v) { return v.scelta; });
+  function pesca(s) {
+    for (var i = 0; i < s.voci.length; i++)
+      if (s.voci[i].stato === "scelta" || s.voci[i].mia) return s.voci[i];
+    return s.voci[0];
+  }
+  var penna = pesca(SUONI[1]), err = pesca(SUONI[3]);
   document.getElementById("qualiDue").textContent = penna.nome + " · poi · " + err.nome;
   var fine = suona(penna.note, null);
   suona(err.note, null, fine + 0.75);
