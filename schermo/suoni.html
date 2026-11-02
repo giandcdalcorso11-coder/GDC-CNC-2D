@@ -187,12 +187,18 @@ button:focus-visible, input:focus-visible, a:focus-visible {
   <h1>Suoni del telecomando</h1>
   <p class="sommario">Quattro suoni da scegliere, tre proposte ciascuno. Qui si sentono con un'onda quadra, che è esattamente quello che <code>tone()</code> manda al cicalino.</p>
 
-  <p>Il cicalino <strong>non ha volume</strong>: o commuta o non commuta. L'unica cosa che cambia quanto si sente è la frequenza, e il massimo sta a <strong class="hz">2500 Hz</strong>. Quindi le melodie non possono andare dove vogliono: più si allontanano da 2500, più si spengono. Sono costruite <strong>in chiave sul cicalino</strong> — 2500 è la nota di casa, la più forte, e le altre sono intervalli giusti sopra e sotto.</p>
+  <p>Il cicalino <strong>non ha volume</strong>: o commuta o non commuta. L'unica cosa che cambia quanto si sente è la frequenza, e il massimo sta a <strong class="hz">2500 Hz</strong>. Quindi le melodie non possono andare dove vogliono: più si allontanano da 2500, più si spengono.</p>
+
+  <p>Sono costruite <strong>in chiave sul cicalino</strong>, con 2500 come <strong>DO</strong>. Quello che c'è sta tutto qui — dieci semitoni, e una scala maggiore dentro:</p>
+
+  <p class="mono" style="color:var(--smorto);font-size:13px;overflow-x:auto;white-space:pre">sol 1873   la 2102   si 2360   <strong style="color:var(--ambra)">DO 2500</strong>   re 2806   mi 3150   fa 3338</p>
+
+  <p>Sei gradi di scala più qualche cromatismo: abbastanza per un motivetto vero, e le melodie finiscono sul DO perché l'ultima nota è quella che deve arrivare.</p>
 
   <div class="banda">
     <svg viewBox="0 0 800 112" role="img" aria-label="Le quindici frequenze del torneo, la vincitrice a 2500 Hz, e le sei note usate dalle melodie">
       <g font-family="IBM Plex Mono, monospace" font-size="11" fill="#6B7686">
-        <text x="20" y="14">le note delle melodie</text>
+        <text x="20" y="14">la tavolozza: dieci semitoni intorno a 2500</text>
         <text x="20" y="104">le 15 frequenze del torneo</text>
       </g>
       <g id="disegnoBanda"></g>
@@ -211,7 +217,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 
   <section class="confronto">
     <h2>Il confronto che conta</h2>
-    <p class="perche">Ora che il cambio penna è <strong>tre colpi da 90 ms</strong>, il problema deve avere una sagoma diversa: accendi «attutito» e «rumore dei motori», premi, e senti se li distingui ancora. Se attutiti sembrano la stessa cosa, il problema va cambiato — non il cambio penna, che è deciso. Il pulsante suona la coppia «tre colpi» più la proposta che consiglio io; per provare un'altra accoppiata, ascoltale una dietro l'altra qui sopra con l'attutito acceso.</p>
+    <p class="perche">Tre colpi e la sirena, uno dietro l'altro. Accendi «attutito» e «rumore dei motori» e senti quanto si somigliano: <strong>molto</strong>, ed è il rischio accettato con questa coppia. Quello che li separa non è la sagoma ma la <strong>cadenza</strong> — la sirena torna ogni 10 secondi, i tre colpi ogni 20 — e quella non si sente in un ascolto come questo: si sente stando in un'altra stanza per mezzo minuto.</p>
     <div class="coda">
       <button class="play" id="duePezzi" type="button">Cambio penna, poi problema</button>
       <span class="mono" id="qualiDue" style="color:var(--fioco);font-size:12px"></span>
@@ -219,7 +225,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
   </section>
 
   <footer>
-    <p>Cambio penna è deciso: <strong>tre colpi</strong>. Mancano partenza, fine e problema: dimmi i tre nomi — per esempio «la quarta, l'arpeggio che torna, il ribattuto» — e ti mando il firmware con dentro quelli, più <code>RISONANZA</code> a 2500 e i quattro <code>SUONO_*</code> ricostruiti.</p>
+    <p>Tre su quattro sono decisi e <strong>sono già nel firmware</strong>: tre colpi, l'arpeggio che torna, la sirena ogni dieci secondi. Manca la <strong>partenza</strong>: dimmi quale dei quattro motivetti e cambio una riga. Per intanto c'è «tre scalini», il tuo preferito fra le prime tre.</p>
     <p>Qui senti <strong>la composizione</strong>, non il timbro: un altoparlante a 2500 Hz non suona come un trasduttore magnetico, e il rumore dei motori è finto. Il ritmo e gli intervalli invece sono quelli veri.</p>
   </footer>
 </div>
@@ -232,20 +238,20 @@ var SCALA = { "-5": 1873, "-4": 1984, "-3": 2102, "-2": 2227, "-1": 2360,
 
 var SUONI = [
   { id: "SUONO_PARTENZA", nome: "Partenza", ruolo: "la senti da vicino, non deve viaggiare",
-    testo: "Non serve che arrivi lontano: quando parte la stampa sei li\u00ec. Quindi qui si pu\u00f2 scegliere col gusto, e l'unico vincolo vero \u00e8 che non sia lunga.",
+    testo: "<strong>L'unica rimasta da scegliere.</strong> Non serve che arrivi lontano: quando parte la stampa sei li\u00ec, quindi qui si pu\u00f2 scegliere col gusto. Le quattro nuove sono motivetti veri, fra tre quarti di secondo e un secondo \u2014 pi\u00f9 lunghe di quelle di prima, come hai chiesto.",
     voci: [
-      { nome: "La quarta", stato: "nuova", mia: true,
-        perche: "Due note e una quarta giusta in su: \u00e8 l'intervallo delle trombe e dei campanelli d'allarme, e il nostro orecchio lo legge come «attenzione» prima di capire che cos'\u00e8. La seconda nota \u00e8 il tetto della banda, quindi \u00e8 un po' pi\u00f9 sottile \u2014 ma qui non importa.",
-        note: [[2500,55],[3338,95]] },
-      { nome: "Il carillon", stato: "nuova",
-        perche: "Quattro semitoni di fila in salita. Una scala cromatica non suona come musica, suona come un <strong>meccanismo che prende i giri</strong>: \u00e8 la cosa pi\u00f9 somigliante a quello che la macchina sta per fare.",
-        note: [[2500,45],[2649,45],[2806,45],[2973,75]] },
-      { nome: "La chiamata", stato: "nuova",
-        perche: "Due colpi sulla nota di casa e poi il salto: «ta-ta-T\u00c0». Il ritmo fa il lavoro e l'ultima nota lo chiude \u2014 pi\u00f9 sveglio di una salita liscia.",
-        note: [[2500,45],[0,35],[2500,45],[3150,90]] },
-      { nome: "Un colpo solo", stato: "nuova",
-        perche: "Una nota, 140 ms, sulla risonanza. Il minimo che dice «sono acceso» senza dire altro. Se dopo un mese le melodiette ti stancano, questa non stanca.",
-        note: [[2500,140]] },
+      { nome: "Si parte", stato: "nuova", mia: true,
+        perche: "Un motivetto vero, sette note in nove decimi di secondo: <strong>do re mi do \u2014 mi re do</strong>. Sale, gira, e torna a casa. \u00c8 la frase pi\u00f9 corta che suoni finita invece di interrotta, e finisce sulla nota pi\u00f9 forte.",
+        note: [[2500,90],[2806,90],[3150,90],[2500,90],[3150,110],[2806,170],[2500,260]] },
+      { nome: "Il campanile", stato: "nuova",
+        perche: "La prima frase dei quarti di Westminster \u2014 l'orologio \u2014 che per caso sta tutta dentro alla nostra banda: <strong>mi do re sol</strong>. Quattro note lunghe, un secondo pieno. Un difetto noto: l'ultima nota sta un quarto sotto la risonanza, quindi \u00e8 la pi\u00f9 debole delle quattro. All'avvio sei l\u00ec, e la discesa che si smorza suona anche bene.",
+        note: [[3150,210],[2500,210],[2806,210],[1873,420]] },
+      { nome: "La giostra", stato: "nuova",
+        perche: "Nove note: una cellula di tre che si ripete due volte, poi una terza che cambia e chiude. \u00c8 come lavorano le scatole musicali \u2014 e un plotter che parte a disegnare \u00e8 la stessa famiglia di macchine.",
+        note: [[2500,80],[3150,80],[2806,80],[2500,80],[3150,80],[2806,80],[3150,100],[2806,100],[2500,260]] },
+      { nome: "La fanfara", stato: "nuova",
+        perche: "<strong>sol do mi \u2014 do mi \u2014 do</strong>: una quarta, una terza, e il rimbalzo. \u00c8 la forma delle trombe militari, che esiste perch\u00e9 usa solo le note che uno strumento senza tasti sa fare \u2014 e il nostro cicalino \u00e8 esattamente uno strumento senza tasti.",
+        note: [[1873,90],[2500,90],[3150,140],[2500,90],[3150,90],[2500,260]] },
       { nome: "Tre scalini", stato: "testa",
         perche: "Due toni interi che salgono dalla nota di casa: la forma di adesso, rimessa in chiave su 2500.",
         note: [[2500,55],[2806,55],[3150,85]] },
@@ -272,9 +278,9 @@ var SUONI = [
     ] },
 
   { id: "SUONO_FINE", nome: "Fine stampa", ruolo: "la senti da vicino \u00b7 non si ripete",
-    testo: "Qui si pu\u00f2 fare musica: la fine non \u00e8 un allarme, e se la perdi lo scopri guardando il foglio. Le quattro nuove partono tutte dall'arpeggio e provano a <strong>chiuderlo</strong> invece di lasciarlo in aria.",
+    testo: "<strong>Deciso.</strong> L'arpeggio che sale, tocca il tetto e rif\u00e0 la strada all'indietro fino al DO tenuto. Le altre restano per confronto.",
     voci: [
-      { nome: "L'arpeggio che torna", stato: "nuova", mia: true,
+      { nome: "L'arpeggio che torna", stato: "scelta",
         perche: "Il tuo arpeggio, ma invece di saltare a casa ci <strong>ritorna scendendo</strong>: sale, tocca il tetto, e rifa la strada all'indietro. Un arco che si richiude si sente come finito; un salto si sente come interrotto.",
         note: [[2227,65],[2500,65],[2806,65],[3150,120],[2806,65],[2500,300]] },
       { nome: "Il doppio rintocco", stato: "nuova",
@@ -286,7 +292,7 @@ var SUONI = [
       { nome: "Il respiro", stato: "nuova",
         perche: "Tre note lunghe con l'aria in mezzo: casa, su, casa. Nessuna fretta \u2014 ed \u00e8 giusto, perch\u00e9 \u00e8 l'unico suono che arriva quando non c'\u00e8 pi\u00f9 niente da fare.",
         note: [[2500,110],[0,90],[3150,110],[0,90],[2500,360]] },
-      { nome: "L'arpeggio", stato: "testa",
+      { nome: "L'arpeggio", stato: "vista",
         perche: "Quattro gradini in su, un respiro, e torna a casa.",
         note: [[2227,70],[2500,70],[2806,70],[3150,70],[0,60],[2500,320]] },
       { nome: "La cadenza", stato: "vista",
@@ -298,16 +304,16 @@ var SUONI = [
     ] },
 
   { id: "SUONO_ERRORE", nome: "Problema", ruolo: "deve arrivare dall'altra stanza \u00b7 non si ripete",
-    testo: "Adesso che il cambio penna \u00e8 <strong>tre colpi da 90 ms</strong>, il problema ha un vincolo preciso: non pu\u00f2 essere una fila di colpi uguali, o attutiti i due diventano la stessa cosa. Tutte e quattro le nuove hanno una sagoma diversa da «tre battute pari».",
+    testo: "<strong>Deciso: la sirena, e si ripete ogni dieci secondi</strong> \u2014 per tre minuti, poi smette, e un pad qualunque la zittisce subito. La sagoma \u00e8 la pi\u00f9 vicina ai tre colpi del cambio penna, ma le due <strong>cadenze</strong> sono diverse, e quella \u00e8 la differenza che sopravvive a una porta chiusa.",
     voci: [
-      { nome: "Il ribattuto", stato: "nuova", mia: true,
+      { nome: "Il ribattuto", stato: "nuova",
         perche: "Tre colpi <strong>veloci</strong> e poi una nota tenuta lunga. \u00c8 l'opposto esatto di tre battute pari: la raffica dice «subito» e la coda lunga dice «e non \u00e8 finita». Attutito resta la sagoma pi\u00f9 lontana dal cambio penna di tutte.",
         note: [[2500,50],[0,50],[2500,50],[0,50],[2500,50],[0,50],[2500,380]] },
       { nome: "Il gradino gi\u00f9", stato: "nuova",
         perche: "Una nota alta e corta, poi una bassa e lunga: un <strong>tonfo</strong>. Due note sole, nessun rischio di confonderle con tre. E la seconda sta sotto la risonanza, quindi si spegne davvero mentre cade.",
         note: [[2973,160],[0,60],[2227,420]] },
-      { nome: "La sirena", stato: "nuova",
-        perche: "Due note che si alternano: il motivo delle ambulanze, e nessuno ha bisogno che gli venga spiegato. <strong>Ma \u00e8 la pi\u00f9 rischiosa</strong> delle quattro: attutita diventa una fila di cinque colpi, e cinque colpi somigliano a tre. Provala con «attutito» acceso prima di sceglierla.",
+      { nome: "La sirena", stato: "scelta",
+        perche: "Due note che si alternano: il motivo delle ambulanze, e nessuno ha bisogno che gli venga spiegato. Attutita diventa una fila di cinque colpi, e cinque somigliano a tre \u2014 ma <strong>torna ogni dieci secondi contro i venti del cambio penna</strong>, e un ritmo lento si conta anche quando quello veloce non si distingue pi\u00f9. La cadenza dice quello che la sagoma non riesce a dire.",
         note: [[2500,120],[2973,120],[2500,120],[2973,120],[2500,160]] },
       { nome: "Il doppio lungo basso", stato: "nuova",
         perche: "Due note piene, tenute, <strong>sotto</strong> la nota di casa. Suona cupo e un po' sordo perch\u00e9 lo \u00e8 per davvero: a 2227 Hz il cicalino rende meno. Qui lo spegnersi \u00e8 il messaggio.",
@@ -518,13 +524,13 @@ function disegnaBanda() {
   out += '<circle cx="' + X(2500).toFixed(1) + '" cy="62" r="4.5" fill="#E0A63A"/>';
   out += '<text x="' + X(2500).toFixed(1) + '" y="52" fill="#E0A63A" font-family="IBM Plex Mono, monospace" ' +
          'font-size="12" font-weight="500" text-anchor="middle">2500</text>';
-  var usate = [1984, 2227, 2500, 2806, 2973, 3150];
+  var usate = [1873, 1984, 2102, 2227, 2360, 2500, 2649, 2806, 2973, 3150, 3338];
   usate.forEach(function (f) {
     var casa = (f === 2500);
     out += '<line x1="' + X(f).toFixed(1) + '" y1="22" x2="' + X(f).toFixed(1) + '" y2="36" stroke="' +
            (casa ? "#E0A63A" : "#4C9AFF") + '" stroke-width="' + (casa ? 2.5 : 2) + '"/>';
   });
-  out += '<line x1="' + X(1984).toFixed(1) + '" y1="36" x2="' + X(3150).toFixed(1) +
+  out += '<line x1="' + X(1873).toFixed(1) + '" y1="36" x2="' + X(3338).toFixed(1) +
          '" y2="36" stroke="#4C9AFF" stroke-width="1" stroke-dasharray="3 3"/>';
   g.innerHTML = out;
 }

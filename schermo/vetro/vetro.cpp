@@ -100,7 +100,8 @@ void Gfx::print(const char* s) {
 void Leds::setPixelColor(int, int, int, int) {}
 void Leds::show() {}
 bool Qtouch::update() { return true; }
-bool Qtouch::getTouch(touchButtons) { return false; }
+int TOCCO_FINTO = -1;                /* quale pad e' toccato, -1 nessuno */
+bool Qtouch::getTouch(touchButtons p) { return (int)p == TOCCO_FINTO; }
 bool Qtouch::onTouchDown(touchButtons) { return false; }
 bool Qtouch::onTouchUp(touchButtons) { return false; }
 void Buz::sound(int) {} void Buz::noSound() {} void Buz::beep(int, unsigned long) {}
@@ -291,6 +292,62 @@ int main() {
 
   ADC_FINTO = 512; PMIC_STATO_FINTO = 0x00; leggiSpina(true);
   vFiltrata = -1; batteria = 76;
+
+  /* LA CADENZA LA DECIDE LO STATO, e si prova per la strada vera: un
+     messaggio del SLICER. Il problema chiama ogni dieci secondi e scade;
+     il cambio penna ogni venti e NON scade. Sbagliare qui vorrebbe dire
+     due allarmi con la stessa cadenza, cioe' indistinguibili attutiti -
+     che e' esattamente il rischio per cui la sirena e' stata accettata. */
+  OROLOGIO = 50000;
+  leggiMessaggio("{\"stato\":\"fermo\"}");        /* il primo non suona */
+  leggiMessaggio("{\"stato\":\"errore\"}");
+  if (richiamoOgni != RICHIAMO_ERRORE || richiamoFino == 0) {
+    fprintf(stderr, "KO il problema non chiama ogni dieci secondi, o non scade\n"); exit(1);
+  }
+  leggiMessaggio("{\"stato\":\"cambio\"}");
+  if (richiamoOgni != RICHIAMO_PENNA || richiamoFino != 0) {
+    fprintf(stderr, "KO il cambio penna non chiama ogni venti secondi, o scade\n"); exit(1);
+  }
+  leggiMessaggio("{\"stato\":\"invio\"}");
+  if (richiamo) {
+    fprintf(stderr, "KO il richiamo non si e' spento cambiando stato\n"); exit(1);
+  }
+  inSuono = nullptr;
+
+  /* IL RICHIAMO. Tre cose, e tutte e tre sono modi in cui un allarme
+     diventa inutile o insopportabile: una sirena che non parte, una che
+     non si puo' zittire, e una che non smette mai. */
+  OROLOGIO = 100000;
+  strcpy(S.stato, "errore");
+  inSuono = nullptr;
+  ARMA(SUONO_ERRORE, RICHIAMO_ERRORE, ALLARME_PER);
+
+  OROLOGIO += 9000; richiama();
+  if (inSuono) { fprintf(stderr, "KO ha richiamato dopo nove secondi\n"); exit(1); }
+  OROLOGIO += 2000; richiama();
+  if (!inSuono) { fprintf(stderr, "KO non ha richiamato dopo undici secondi\n"); exit(1); }
+
+  /* Un pad qualunque zittisce, anche se sulla schermata del problema non
+     c'e' nessun tasto vivo: il pad 3 non e' un tasto, e deve bastare. */
+  inSuono = nullptr; TOCCO_FINTO = 3;
+  leggiTasti(ERRORE);
+  TOCCO_FINTO = -1;
+  if (richiamo) { fprintf(stderr, "KO il pad non ha zittito la sirena\n"); exit(1); }
+
+  /* E a tre minuti smette da se'. */
+  ARMA(SUONO_ERRORE, RICHIAMO_ERRORE, ALLARME_PER);
+  OROLOGIO += ALLARME_PER + 11000; inSuono = nullptr; richiama();
+  if (richiamo || inSuono) { fprintf(stderr, "KO la sirena non si e' fermata a tre minuti\n"); exit(1); }
+
+  /* Il cambio penna invece NON scade: la' la macchina sta aspettando. */
+  strcpy(S.stato, "cambio");
+  ARMA(SUONO_PENNA, RICHIAMO_PENNA, 0);
+  OROLOGIO += 3600000; inSuono = nullptr; richiama();
+  if (!inSuono) { fprintf(stderr, "KO il cambio penna ha smesso di chiamare\n"); exit(1); }
+  fermaRichiamo(); inSuono = nullptr; OROLOGIO = 0;
+  strcpy(S.stato, "invio"); S.percento = 67; S.rimanente = 190000; S.passo = 1;
+  strcpy(S.penna, "#c8102e"); strcpy(S.nome, "biglietto.svg");
+  strcpy(S.macchina, "Run"); S.azzerata = true; S.giu = 1;
 
   /* Lo stop che si tiene premuto: la cornice e lo spicchio a tre quarti,
      disegnato a fette come fa il firmware venti volte al secondo. */

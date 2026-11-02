@@ -300,19 +300,56 @@ void manda(const char* t) { if (!daMandare[0]) strncpy(daMandare, t, sizeof(daMa
  * e possono permettersi delle note, tutte dentro l'ottava in cui il coso
  * parla.
  *
- * RISONANZA È DA CONFERMARE A ORECCHIO: lo schema dice che tipo di
- * cicalino è, non a che frequenza grida. Si trova con una spazzata da 1
- * a 6 kHz — il banco di prova la fa fare al computer, qui dentro non
- * c'è. Se cade altrove, si sposta QUESTO numero e l'ottava lo segue.
+ * RISONANZA MISURATA: 2500 Hz, il 2026-11-02, con un torneo a due note
+ * per volta (`cicalino/cicalino.ino`). Prima c'era scritto 4000, che era
+ * un numero messo a caso: quasi mezza ottava fuori, cioè il cicalino
+ * gridava col freno tirato da sempre.
+ *
+ * E 2500 NON È SOLO UNA COSTANTE: È LA TONICA. Le note qui sotto non sono
+ * trasportate a caso — sono una scala maggiore con il DO su 2500, che è
+ * la nota più forte che questo cicalino sappia fare:
+ *
+ *     sol 1873   la 2102   si 2360   DO 2500   re 2806   mi 3150   fa 3338
+ *
+ * Più si va lontano da 2500 più il suono si spegne, quindi la scala è
+ * tutta quella che c'è: nove semitoni. Le melodie finiscono sul DO perché
+ * l'ultima nota è quella che deve arrivare.
+ *
+ * Attenzione a una cosa che il commento vecchio prometteva e il codice non
+ * ha mai fatto: `RISONANZA` NON trascina le melodie. Le note sono scritte
+ * a mano qui sotto, e `RISONANZA` la usa soltanto il tic di otto
+ * millisecondi quando si tocca un pad. Cambiare un numero solo non basta:
+ * si rifà la scala e si riscrivono i quattro suoni (il banco dei suoni,
+ * `schermo/suoni.html`, li fa sentire prima di caricarli).
  * =================================================================== */
-const int RISONANZA = 4000;
+const int RISONANZA = 2500;
 
-/* Generati dal banco di prova, che li fa anche sentire. */
-const Nota SUONO_PARTENZA[] = { {3520, 55}, {4186, 55}, {4699, 85} };
-const Nota SUONO_PENNA[]    = { {4186, 70}, {0, 70}, {4186, 70} };
-const Nota SUONO_FINE[]     = { {4186, 80}, {3520, 80}, {4186, 80},
-                                {4699, 95}, {0, 55}, {4699, 300} };
-const Nota SUONO_ERRORE[]   = { {4186, 450} };
+/* Scelti all'ascolto dall'utente sul banco dei suoni, il 2026-11-02.
+
+   PARTENZA — «tre scalini»: due toni interi in salita. PROVVISORIO: è il
+   preferito fra le prime tre proposte, ma l'utente ne ha chieste altre,
+   più lunghe. Si cambia una riga.
+
+   CAMBIO PENNA — «tre colpi»: tutto sul DO, perché attutito da una porta
+   le altezze diventano uguali e quello che sopravvive è il ritmo. Tre è
+   un numero che si conta anche attutito.
+
+   FINE — «l'arpeggio che torna»: sale, tocca il tetto, e rifà la strada
+   all'indietro fino al DO tenuto. Un arco che si richiude si sente come
+   finito; un salto si sente come interrotto.
+
+   PROBLEMA — «la sirena»: due note che si alternano, il motivo delle
+   ambulanze. Scelta con un rischio noto e accettato: attutita diventa una
+   fila di cinque colpi, e cinque somigliano a tre. Quello che la salva è
+   che TORNA OGNI DIECI SECONDI contro i venti del cambio penna — vedi
+   «IL RICHIAMO». */
+const Nota SUONO_PARTENZA[] = { {2500, 55}, {2806, 55}, {3150, 85} };
+const Nota SUONO_PENNA[]    = { {2500, 90}, {0, 70}, {2500, 90},
+                                {0, 70}, {2500, 90} };
+const Nota SUONO_FINE[]     = { {2227, 65}, {2500, 65}, {2806, 65},
+                                {3150, 120}, {2806, 65}, {2500, 300} };
+const Nota SUONO_ERRORE[]   = { {2500, 120}, {2973, 120}, {2500, 120},
+                                {2973, 120}, {2500, 160} };
 
 const Nota* inSuono = nullptr;
 int quanteNote = 0, notaOra = 0;
@@ -334,13 +371,57 @@ void suoni() {
   else                     carrier.Buzzer.noSound();
 }
 
-/* Il cambio penna è l'unico che si ripete: è l'unico in cui la macchina
-   sta ASPETTANDO TE, e un suono che squilla una volta sola la lascia
-   ferma un'ora se in quel momento eri in un'altra stanza. Smette appena
-   tocchi un tasto, che vuol dire che sei arrivato. */
-const unsigned long RICHIAMO_MS = 20000;
-unsigned long ultimoRichiamo = 0;
-bool richiamaAncora = false;
+/* ===================================================================
+ * IL RICHIAMO
+ *
+ * Due suoni si ripetono, e non per lo stesso motivo. Il CAMBIO PENNA si
+ * ripete perché la macchina sta ASPETTANDO TE: uno squillo solo la
+ * lascerebbe ferma un'ora se in quel momento eri in un'altra stanza, e
+ * quindi chiama finché non vieni. Il PROBLEMA si ripete perché la
+ * macchina si è FERMATA e non lo sa nessuno.
+ *
+ * LE DUE CADENZE SONO DIVERSE, E QUELLA È LA DIFFERENZA CHE SOPRAVVIVE.
+ * I tre colpi del cambio penna e la sirena del problema, attutiti da una
+ * porta, si somigliano: la sirena diventa una fila di cinque colpi e
+ * cinque somigliano a tre. Ma uno torna ogni DIECI secondi e l'altro ogni
+ * VENTI, e un ritmo lento si conta anche quando quello veloce non si
+ * distingue più. La cadenza dice quello che la sagoma non riesce a dire.
+ *
+ * E IL PROBLEMA NON CHIAMA PER SEMPRE: tre minuti, diciotto sirene. Se
+ * non sei arrivato in tre minuti non sei in casa; la macchina è ferma e
+ * non si sta rovinando niente, e la schermata rossa continua a dirlo a
+ * chi arriva. Il cambio penna invece non ha scadenza, perché lì ogni
+ * minuto di silenzio è un minuto di macchina sprecato.
+ * =================================================================== */
+const unsigned long RICHIAMO_PENNA  = 20000;
+const unsigned long RICHIAMO_ERRORE = 10000;
+const unsigned long ALLARME_PER     = 180000;   // 0 = per sempre
+
+const Nota* richiamo = nullptr;
+int richiamoQuante = 0;
+unsigned long richiamoOgni = 0, ultimoRichiamo = 0, richiamoFino = 0;
+char richiamoStato[10] = "";
+
+void armaRichiamo(const Nota* x, int n, unsigned long ogni, unsigned long per) {
+  richiamo = x; richiamoQuante = n; richiamoOgni = ogni;
+  ultimoRichiamo = millis();
+  richiamoFino = per ? millis() + per : 0;
+  strncpy(richiamoStato, S.stato, sizeof(richiamoStato) - 1);
+  richiamoStato[sizeof(richiamoStato) - 1] = 0;
+}
+void fermaRichiamo() { richiamo = nullptr; richiamoStato[0] = 0; }
+#define ARMA(x, ogni, per) armaRichiamo(x, sizeof(x) / sizeof(Nota), ogni, per)
+
+/* Sta in una funzione sua e non dentro al giro perché il banco di prova la
+   chiama da fuori: una sirena che non smette, o che non parte, è il tipo
+   di difetto che non si vede guardando il codice. */
+void richiama() {
+  if (!richiamo || strcmp(S.stato, richiamoStato) || inSuono) return;
+  if (millis() - ultimoRichiamo <= richiamoOgni) return;
+  if (richiamoFino && (long)(millis() - richiamoFino) > 0) { fermaRichiamo(); return; }
+  ultimoRichiamo = millis();
+  suona(richiamo, richiamoQuante);
+}
 
 /* ===================================================================
  * DISEGNARE
@@ -1686,8 +1767,7 @@ void leggiMessaggio(const char* corpo) {
       sveglia();
     } else if (!strcmp(S.stato, "cambio")) {
       SUONA(SUONO_PENNA);
-      richiamaAncora = true;
-      ultimoRichiamo = millis();
+      ARMA(SUONO_PENNA, RICHIAMO_PENNA, 0);
       sveglia();
     } else if (!strcmp(S.stato, "fine")) {
       SUONA(SUONO_FINE);
@@ -1695,10 +1775,13 @@ void leggiMessaggio(const char* corpo) {
       scriviRegistro();
     } else if (!strcmp(S.stato, "errore")) {
       SUONA(SUONO_ERRORE);
+      ARMA(SUONO_ERRORE, RICHIAMO_ERRORE, ALLARME_PER);
       sveglia();
       scriviRegistro();
     }
-    if (strcmp(S.stato, "cambio")) richiamaAncora = false;
+    /* Cambiando stato il richiamo di prima non vale più: se il nuovo stato
+       non è quello che l'ha armato, si spegne. */
+    if (strcmp(S.stato, richiamoStato)) fermaRichiamo();
   }
   if (S.passo != passoPrima) sveglia();
 }
@@ -1814,6 +1897,20 @@ void serviCliente() {
 void leggiTasti(Schermata s) {
   carrier.Buttons.update();
 
+  /* QUALUNQUE PAD ZITTISCE IL RICHIAMO, anche uno che non è un tasto.
+     Sulla schermata del problema non c'è NESSUN tasto vivo — non c'è
+     niente da premere, la macchina è ferma — quindi senza questo la
+     sirena non si potrebbe spegnere stando alla macchina, e toccare il
+     vetro non farebbe niente mentre il coso urla. Vale anche sul cambio
+     penna, dove toccare voleva già dire «sono arrivato».
+     Si guarda `getTouch` e non `onTouchDown`: il livello si può leggere
+     quante volte si vuole, mentre consumare un fronte qui rischierebbe di
+     mangiare la pressione al tasto vero, due righe più sotto. */
+  if (richiamo) {
+    for (int k = 0; k < 5; k++)
+      if (carrier.Buttons.getTouch((touchButtons)k)) { fermaRichiamo(); break; }
+  }
+
   Tasto t[MAX_TASTI];
   int q = tastiDi(s, t);
 
@@ -1845,7 +1942,7 @@ void leggiTasti(Schermata s) {
   for (int i = 0; i < q; i++) {
     if (!carrier.Buttons.onTouchDown(padDi(t[i].dove))) continue;
     sveglia();
-    richiamaAncora = false;          // sei arrivato: il richiamo smette
+    fermaRichiamo();                 // sei arrivato: il richiamo smette
     if (t[i].manda[0]) {
       manda(t[i].manda);
     } else {
@@ -1975,12 +2072,9 @@ void loop() {
   if (Serial.available()) finestraLunga();
   gestisciLuce(schermoOra);
 
-  /* Il richiamo del cambio penna, finché non premi. */
-  if (richiamaAncora && !strcmp(S.stato, "cambio") && !inSuono &&
-      millis() - ultimoRichiamo > RICHIAMO_MS) {
-    ultimoRichiamo = millis();
-    SUONA(SUONO_PENNA);
-  }
+  /* Il richiamo: il cambio penna finché non vieni, il problema per tre
+     minuti. Vedi «IL RICHIAMO». */
+  richiama();
 
   /* La carica cambia senza che cambi schermata. Dove la pila si vede per
      intero — Pronta, e l'Attesa alla spina — si rinfresca DA SOLA, un

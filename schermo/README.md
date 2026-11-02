@@ -47,10 +47,27 @@ nessuno la fissa.
 
 | Momento | Suono | Si ripete? |
 |---|---|---|
-| **partenza** | tre note corte che salgono | no |
-| **cambio penna** | due colpi sulla nota più forte | **sì, ogni 20 s finché non premi** |
-| **fine stampa** | un motivetto: scende, risale, e l'ultima resta | no |
-| **errore** | uno lungo, sulla stessa nota del cambio penna | no |
+| **partenza** | tre note che salgono — *provvisorio, in attesa della scelta* | no |
+| **cambio penna** | **tre colpi** sul DO (2500 Hz) | **sì, ogni 20 s finché non premi** |
+| **fine stampa** | **l'arpeggio che torna**: sale, tocca il tetto, rifà la strada all'indietro | no |
+| **errore** | **la sirena**: due note che si alternano | **sì, ogni 10 s per tre minuti** |
+
+**Le due cadenze sono diverse, e quella è la differenza che sopravvive.** I
+tre colpi e la sirena, attutiti da una porta, si somigliano: la sirena diventa
+una fila di cinque colpi e cinque somigliano a tre. È un rischio **noto e
+accettato** — quello che li separa non è la sagoma ma il ritmo lento con cui
+tornano, 10 secondi contro 20, che si conta anche quando la sagoma non si
+distingue più.
+
+E i due si ripetono **per motivi diversi**. Il cambio penna perché la macchina
+sta *aspettando te*, e quindi chiama finché non vieni. L'errore perché la
+macchina si è *fermata* e non lo sa nessuno — e quello **scade a tre minuti**:
+se non sei arrivato in tre minuti non sei in casa, la macchina è ferma e non si
+sta rovinando niente, e la schermata rossa continua a dirlo a chi arriva.
+
+**Un pad qualunque zittisce il richiamo**, anche uno che non è un tasto: sulla
+schermata del problema non c'è nessun tasto vivo — non c'è niente da premere —
+e senza questo la sirena non si potrebbe spegnere stando alla macchina.
 
 **Due allarmi e due motivetti, e la differenza non è estetica.** Cambio penna
 e problema devono arrivare **dall'altra stanza**: stanno su **una nota sola**,
