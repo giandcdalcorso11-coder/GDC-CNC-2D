@@ -771,9 +771,49 @@ mezzo gli errori che non c'entrano con la scheda**:
 
 | Cosa | Come | Dove si cambia |
 |---|---|---|
-| **La risonanza del cicalino** | una spazzata da 1 a 6 kHz: si sente dove grida | `RISONANZA`, un numero solo — l'ottava dei suoni lo segue |
-| **Il partitore della batteria** | misura la 18650 col tester e confronta col grezzo che lo sketch stampa sul monitor seriale all'avvio | `K_PARTITORE` |
+| **La risonanza del cicalino** | un torneo a due note per volta: `cicalino/cicalino.ino`, vedi sotto | `RISONANZA`, un numero solo — l'ottava dei suoni lo segue |
+| ~~**Il partitore della batteria**~~ | ~~tester contro grezzo~~ | **fatto il 2026-11-01**: `K_PARTITORE = 1,284`, confermato su due punti a corrente zero |
 | ~~**Destra e sinistra dei pad**~~ | ~~un'occhiata alla scheda~~ | **fatto il 2026-10-31**, e non era una specchiatura: era mezzo giro |
+
+#### Il torneo del cicalino: `cicalino/cicalino.ino`
+
+Sketch di servizio, si carica una volta e poi si rimette il firmware.
+
+**Il problema.** L'ABT-461-RC non ha volume: o commuta o non commuta. L'unica
+cosa che cambia quanto si sente è la **frequenza**, perché ha una risonanza.
+Il firmware usa `4000`, che è un numero messo a caso in attesa di questa
+prova. Il foglio tecnico del venditore dà **2731 Hz** di risonanza e misura
+gli 85 dB a 3000 Hz, quindi 4000 è probabilmente **mezza ottava di troppo** —
+ma il foglio parla del pezzo nudo, e qui il pezzo sta dentro a una scatola di
+plastica con un foro, che ha la sua idea.
+
+**A orecchio non è un ripiego.** Un fonometro troverebbe il massimo di
+pressione acustica; qui serve la frequenza che un **umano** sente di più, e
+l'orecchio ha la sua curva di sensibilità, massima proprio fra i 3 e i 4 kHz.
+I due numeri sono diversi e quello buono è il secondo: non si sta misurando il
+cicalino, si sta accordando la **coppia cicalino + orecchio**.
+
+**A due per volta e non in fila.** Quindici note una dietro l'altra non si
+classificano: a metà spazzata non si ricorda quanto era forte la terza. Due
+note che si alternano si confrontano **senza memoria**. Quindi torneo a
+eliminazione: griglia a **sesti di ottava** da 1 a 5 kHz (passi del 12%, in
+rapporti e non in Hz, perché l'orecchio e le risonanze lavorano così),
+quattordici confronti, poi quattro di rifinitura a ±6% intorno al vincitore.
+
+**E i numeri non si vedono durante il confronto.** Sapere che una delle due è
+«quella del foglio tecnico» basta a sentirla più forte: le note si chiamano A
+e B e il lato del campione si **scambia a ogni confronto**, così non si
+finisce a premere sempre lo stesso pad. I Hz si scoprono alla fine.
+
+Se nella rifinitura non si sente differenza **non è un fallimento**: vuol dire
+che si è sul pianoro della risonanza, e il numero della griglia larga era già
+quello giusto.
+
+**L'ultimo confronto si rifà con la macchina che si muove.** Il cicalino serve
+a farsi sentire **sopra i motori**, non in una stanza silenziosa, e un rumore
+di fondo non maschera tutte le frequenze allo stesso modo. A torneo finito il
+pad centrale rimette in campo il vincitore contro il secondo: quello va fatto
+col plotter che disegna.
 
 ### Tre cose che lo schema ha cambiato nel codice
 
