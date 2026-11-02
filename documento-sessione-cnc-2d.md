@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 72
-**Ultimo aggiornamento:** 2026-11-02 22:03
+**Versione:** 73
+**Ultimo aggiornamento:** 2026-11-02 10:30
 
 ## Regole di co-editing
 
@@ -748,6 +748,7 @@ mano a mano che le misure arrivano):
 - [2026-10-29] **Primo progetto vero: il biglietto A5 per il cliente Feffi** (portaoggetti husky «Kira», da `.3mf`). Da un modello 3D a un SVG a due penne (nero + grigio) da mettere nella scatola. Provati tre stili; è stato scelto e rifinito dall'utente quello a **linee di livello**, e battezzato **«Rilievo»** (vedi `stampe/README.md`). I magneti della lavagna restano in attesa di lista esercizi e misure.
 - [2026-11-01] **Secondo cliente: Antei (abbigliamento).** Due mascotte stampate in 3D dall'utente, da disegnare in stile Rilievo, più il logo dell'azienda da vettorializzare. Fatti: logo, angioletto «Starry angel kid» (dal 3MF) e seconda mascotte (da screenshot, il 3D era troppo pesante). I magneti restano in attesa.
 - [2026-11-01] **Antei, set definitivo scelto dall'utente:** `logo antei cnc2d`, `starboy cnc2d (dettagliato)` e `(essenziale)`, `starry angel kid cnc2d (dettagliato)` e `(essenziale)`, in `stampe/antei/` sul branch `claude/quirky-bohr-u9ktwd`. Tenute entrambe le coppie di stile.
+- [2026-11-02] **Magneti: arrivano misure e colori.** Magneti grandi **75 × 75 mm**, piccoli **75 × 25 mm**, angoli arrotondati; i piccoli attuali hanno il nome scritto a pennarello (es. «INTENZIONE»). Colori in foto: azzurro, arancione, verde e un quadrato bianco grande (a cosa serve non ancora chiarito). Le grafiche arrivano dall'utente nel messaggio successivo; poi il mockup con la sequenza delle stampe.
 
 ## Storico sessioni
 
