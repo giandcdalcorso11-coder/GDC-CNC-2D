@@ -226,6 +226,10 @@ int main() {
   S.giu = 0; schermata(PENNA2, "penna2-su");       // penna alzata: ABBASSA
   S.giu = 1;
   schermata(STOP_ARMATO, "armato");
+  S.percento = 62;
+  schermata(FERMATA, "fermata");
+  schermata(FERMANDO, "fermando");
+  S.percento = 67;
   schermata(FINE, "fine");
   schermata(ERRORE, "errore");
   schermata(ATTESA, "attesa");
@@ -342,6 +346,47 @@ int main() {
     fprintf(stderr, "KO a zero non tace: parte alta %lu\n", TCC0->CC[7].reg); exit(1);
   }
   volumeCicalino = 10; modoCicalino = 0; BUZ_HZ = 0;
+
+  /* LO SFARFALLIO DOPO LO STOP. Tenuto il dito, il telecomando manda
+     «stop» — ma per due giri di messaggi `S.stato` vale ancora «invio», e
+     prima qui si rimetteva la schermata della stampa in corso: anello,
+     percentuale, tutto. E' quello che l'utente ha visto il 2026-11-02.
+     Finche' la risposta non torna, il vetro deve dire FERMO. */
+  OROLOGIO = 500000;
+  strcpy(S.stato, "invio"); S.percento = 62;
+  /* `quale()` dice ATTESA se il SLICER non si fa sentire: qui si finge che
+     il messaggio sia appena arrivato, se no la prova misurerebbe quello. */
+  mai = false; ultimoMessaggio = OROLOGIO;
+  armato = false; tenendo = false; fermandoDa = 0; raccontaDa = 0;
+  if (quale() != STAMPA) { fprintf(stderr, "KO non parte dalla stampa\n"); exit(1); }
+  fermandoDa = OROLOGIO;                      /* come fa `manda("stop")` */
+  if (quale() != FERMANDO) {
+    fprintf(stderr, "KO dopo lo stop il vetro torna alla stampa\n"); exit(1);
+  }
+  /* E non ci resta per sempre: se il comando si perde, dopo sei secondi si
+     torna a dire quello che si sa. */
+  OROLOGIO += 7000; ultimoMessaggio = OROLOGIO;
+  if (quale() != STAMPA) {
+    fprintf(stderr, "KO «fermo» non scade: un comando perso bloccherebbe il vetro\n");
+    exit(1);
+  }
+
+  /* IL RACCONTO SCADE. «Fatta» e «fermata» restano finche' non parte la
+     stampa dopo: va bene per dieci minuti, non per la mattina dopo. */
+  strcpy(S.stato, "fermata"); fermandoDa = 0; raccontaDa = OROLOGIO;
+  if (quale() != FERMATA) { fprintf(stderr, "KO non mostra la fermata\n"); exit(1); }
+  OROLOGIO += RACCONTO_MS + 1000; ultimoMessaggio = OROLOGIO;
+  if (quale() != PRONTA) {
+    fprintf(stderr, "KO dopo tre minuti racconta ancora la fermata\n"); exit(1);
+  }
+  strcpy(S.stato, "fine"); raccontaDa = OROLOGIO;
+  if (quale() != FINE) { fprintf(stderr, "KO non mostra la fine\n"); exit(1); }
+  OROLOGIO += RACCONTO_MS + 1000; ultimoMessaggio = OROLOGIO;
+  if (quale() != PRONTA) {
+    fprintf(stderr, "KO dopo tre minuti racconta ancora la fine\n"); exit(1);
+  }
+  fermandoDa = 0; raccontaDa = 0; OROLOGIO = 0;
+  strcpy(S.stato, "invio"); S.percento = 67;
 
   /* LA CADENZA LA DECIDE LO STATO, e si prova per la strada vera: un
      messaggio del SLICER. Il problema chiama ogni dieci secondi e scade;

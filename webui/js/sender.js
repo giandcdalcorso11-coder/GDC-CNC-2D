@@ -55,7 +55,35 @@ var Sender = (function () {
   var righe = [];      // il programma, ripulito
   var i = 0;           // prossima riga da affidare ad Api
   var fatte = 0;       // righe confermate dalla macchina
-  var stato = 'fermo'; // fermo | invio | pausa | cambio | fine | errore
+  var stato = 'fermo'; // fermo | invio | pausa | cambio | fine | fermata | errore
+
+  /* ===================== «FINE» VUOL DIRE FINITO =====================
+   *
+   * Prima «fine» voleva dire «ho consegnato l'ultima riga», e non e' la
+   * stessa cosa: la macchina ha un pianificatore, cioe' una fila di
+   * movimenti gia' accettati che deve ancora percorrere. Il telecomando
+   * suonava la fine mentre la penna stava ancora tracciando — di quanto
+   * dipende da quante righe ha in pancia, e su curve fitte sono secondi.
+   *
+   * Adesso la consegna e la fine sono due momenti distinti: consegnato
+   * l'ultimo comando si ASPETTA che la macchina dica `Idle`, e solo allora
+   * si e' finito davvero. Nel frattempo lo stato resta «invio» al 100%,
+   * che e' la verita': sta ancora disegnando.
+   *
+   * Un'uscita di sicurezza, perche' un'attesa senza fine e' peggio di una
+   * fine anticipata: se `Idle` non arriva entro due minuti — collegamento
+   * caduto, rapporto di stato che non torna — si chiude lo stesso,
+   * dicendolo nel registro.
+   *
+   * La modalita' finta NON e' un caso a parte, e non deve esserlo: li' la
+   * macchina dice `Idle` da subito, quindi la prova in bianco passa per
+   * questa stessa strada e si chiude all'istante. Una scorciatoia
+   * apposta per la finta vorrebbe dire provare in bianco una cosa diversa
+   * da quella che succede davvero — che e' il contrario di quello che
+   * serve a una prova. */
+  var consegnato = false;
+  var attesaIdle = null;
+  var ATTESA_IDLE_MS = 120000;
   /* La penna montata adesso: {colore, nome}, o null finché il programma non
      lo dice. Al cambio penna è già quella NUOVA — vedi SEGNO_PENNA in
      gcode.js, che la scrive prima della pausa apposta: è la risposta alla
@@ -113,6 +141,8 @@ var Sender = (function () {
       return false;
     }
     i = 0; fatte = 0; t0 = Date.now(); penna = null;
+    if (attesaIdle) { clearTimeout(attesaIdle); attesaIdle = null; }
+    consegnato = false;
     altezzaUsata = State.data.altezzaContatto;
     nome = etichetta || 'programma';
     stato = 'invio';
@@ -151,13 +181,42 @@ var Sender = (function () {
     /* Niente più da mandare e niente più in volo: la macchina ha accettato
        tutto. Non vuol dire che abbia finito di muoversi — le ultime righe sono
        nel pianificatore — ma il nostro lavoro è concluso. */
-    if (stato === 'invio' && i >= righe.length && Api.inCoda() === 0) {
-      stato = 'fine';
+    if (stato === 'invio' && !consegnato && i >= righe.length && Api.inCoda() === 0) {
+      consegnato = true;
       Log.add('msg', 'Programma consegnato per intero: ' + righe.length +
                      ' righe in ' + durata(Date.now() - t0) + '. ' +
-                     'La macchina sta finendo le ultime che ha nel buffer.');
+                     'Adesso si aspetta che la macchina finisca quello che ha ' +
+                     'nel pianificatore: la stampa è finita quando si ferma lei, ' +
+                     'non quando abbiamo finito di parlare.');
       aggiorna();
+      guardaSeHaFinito();
     }
+  }
+
+  /* La macchina ha finito di muoversi? Si guarda adesso e a ogni rapporto
+     di stato che arriva: `Idle` dopo la consegna vuol dire che il
+     pianificatore e' vuoto e la penna e' ferma. */
+  function guardaSeHaFinito() {
+    if (!consegnato || stato !== 'invio') return;
+    if (State.data.machine === 'Idle') { chiudi(''); return; }
+    if (attesaIdle) return;
+    attesaIdle = setTimeout(function () {
+      attesaIdle = null;
+      if (consegnato && stato === 'invio') {
+        chiudi(' La macchina non ha mai detto di essersi fermata: dopo due ' +
+               'minuti si chiude lo stesso. Se stava ancora disegnando, il ' +
+               'suono di fine è arrivato in anticipo.');
+      }
+    }, ATTESA_IDLE_MS);
+  }
+
+  function chiudi(coda) {
+    if (attesaIdle) { clearTimeout(attesaIdle); attesaIdle = null; }
+    consegnato = false;
+    stato = 'fine';
+    Log.add('msg', 'Stampa finita: ' + righe.length + ' righe in ' +
+                   durata(Date.now() - t0) + '.' + (coda || ''));
+    aggiorna();
   }
 
   function fatta() {
@@ -172,6 +231,8 @@ var Sender = (function () {
   function fallita(err) {
     if (stato === 'fermo' || stato === 'errore') return;  // già interrotta
     stato = 'errore';
+    if (attesaIdle) { clearTimeout(attesaIdle); attesaIdle = null; }
+    consegnato = false;
     Api.svuota();
     Log.add('err', 'Stampa interrotta alla riga ' + (fatte + 1) + ' di ' +
                    righe.length + ': ' + err.message);
@@ -262,7 +323,14 @@ var Sender = (function () {
       return;
     }
     var eraInPausa = stato === 'pausa';
-    stato = 'fermo';
+    /* «interrotta» e non «fermo», ed e' la differenza fra due cose che sul
+       vetro del telecomando erano la stessa: una macchina accesa che non ha
+       mai stampato e una stampa che hai fermato tu a meta'. La seconda e'
+       proprio il momento in cui vuoi una conferma — spesso lo STOP lo premi
+       dal telecomando, e prima il vetro tornava a «Pronta» in silenzio. */
+    stato = 'fermata';
+    if (attesaIdle) { clearTimeout(attesaIdle); attesaIdle = null; }
+    consegnato = false;
     Api.svuota();
     if (eraInPausa) Api.cycleStart();   // senza questo resterebbe in feed hold
     Log.add('msg', 'Interrotta a ' + percento() + '%. Le righe già partite ' +
@@ -343,6 +411,10 @@ var Sender = (function () {
   function inCorso() {
     return stato === 'invio' || stato === 'pausa' || stato === 'cambio';
   }
+
+  /* Il rapporto di stato della macchina arriva da solo, due volte al
+     secondo: e' li' che si scopre che ha finito. */
+  if (window.State && State.on) State.on('machine', guardaSeHaFinito);
 
   return {
     avvia: avvia, pausa: pausa, riprendi: riprendi, interrompi: interrompi,

@@ -342,6 +342,13 @@ var Telecomando = (function () {
     { nome: 'finita', ms: 5000,
       entra: function (f) { f.stato = 'fine'; f.percento = 100; f.rimanente = 0;
                             f.macchina = 'Idle'; } },
+    /* Una stampa fermata a metà: è lo stato che prima non esisteva, e il
+       vetro lo diceva tornando a «Pronta» in silenzio. Nella recita viene
+       dopo la fine apposta — così i due suoni si sentono uno dietro
+       l'altro e si capisce se si distinguono. */
+    { nome: 'fermata a metà', ms: 5000,
+      entra: function (f) { f.stato = 'fermata'; f.percento = 62;
+                            f.rimanente = null; f.macchina = 'Idle'; } },
     { nome: 'errore', ms: 5000,
       entra: function (f) { f.stato = 'errore'; } },
     /* L'ultimo pezzo è il SILENZIO: si smette di chiamare, e dopo sei
@@ -468,6 +475,9 @@ var Telecomando = (function () {
     { k: 'fine', nome: 'Finita', fa: function (f) {
         f.stato = 'fine'; f.percento = 100; f.rimanente = 0;
         f.macchina = 'Idle'; f.azzerata = true; f.penna = ROSSA; } },
+    { k: 'fermata', nome: 'Fermata', fa: function (f) {
+        f.stato = 'fermata'; f.percento = 62; f.rimanente = null;
+        f.macchina = 'Idle'; f.azzerata = true; f.penna = NERA; } },
     { k: 'errore', nome: 'Errore', fa: function (f) {
         f.stato = 'errore'; f.percento = 62; f.macchina = 'Alarm'; } },
     /* IL SILENZIO NON SI MANDA: si smette di mandare. È l'unica schermata che

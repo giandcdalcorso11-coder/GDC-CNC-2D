@@ -75,6 +75,31 @@ la spinta e non l'arrivo, e la partenza la senti da vicino.
 schermata del problema non c'è nessun tasto vivo — non c'è niente da premere —
 e senza questo la sirena non si potrebbe spegnere stando alla macchina.
 
+| **fermata a metà** | due note che scendono | no |
+
+**Tre cose sulla fine di una stampa**, trovate guardando il codice il
+2026-11-02 e tutte e tre riparate.
+
+**«Fine» voleva dire «ho consegnato l'ultima riga», non «ho finito».** La
+macchina ha un pianificatore — una fila di movimenti già accettati che deve
+ancora percorrere — quindi il telecomando suonava la fine **mentre la penna
+stava ancora tracciando**. Adesso consegna e fine sono due momenti: consegnato
+l'ultimo comando si aspetta che la macchina dica `Idle`. Se non lo dice entro
+due minuti si chiude lo stesso, dicendolo nel registro, perché un'attesa senza
+fine è peggio di una fine anticipata.
+
+**Una stampa fermata non esisteva.** Fermandola, lo stato tornava `fermo`, e
+sul vetro `fermo` è **Pronta**: la stessa schermata di una macchina accesa che
+non ha mai stampato. Nessun suono, nessuna conferma — proprio nel momento in
+cui serve, visto che spesso lo STOP lo premi dal telecomando stesso. Adesso c'è
+lo stato **`fermata`**, con la sua schermata (la percentuale a cui si è
+fermata) e il suo suono.
+
+**E il racconto scade.** «Fatta» e «fermata» restavano finché non partiva la
+stampa dopo: va bene per dieci minuti, non per la mattina dopo, quando il
+telecomando racconta ancora ieri a chi passa. Dopo **tre minuti** si torna a
+Pronta — il fatto resta nel registro del SLICER, che è dove si va a cercarlo.
+
 **Due allarmi e due motivetti, e la differenza non è estetica.** Cambio penna
 e problema devono arrivare **dall'altra stanza**: stanno su **una nota sola**,
 quella dove il cicalino è più forte, e si distinguono per il **ritmo** — due
@@ -876,6 +901,36 @@ cicalino. Ha due interruttori che contano più delle melodie — **attutito**
 (filtro passa-basso a 1150 Hz più venti decibel in meno, cioè una porta chiusa)
 e **rumore dei motori** — perché i due allarmi devono restare distinguibili
 proprio lì, e si sente la composizione, non il timbro.
+
+#### Lo sfarfallio dopo lo stop
+
+Tenuto il dito il secondo necessario, il telecomando manda «stop» — ma lo manda
+**nella risposta** al prossimo messaggio: il SLICER lo legge, ferma, e solo col
+messaggio **dopo** torna indietro lo stato nuovo. **Due giri.** In quei due giri
+`S.stato` vale ancora «invio», e prima la schermata che si disegnava era quella
+della stampa in corso: anello, percentuale, tutto. Si vedeva come uno
+sfarfallio fra tre schermate — tieni, stampa, pronta — ed è quello che l'utente
+ha visto tenendo il dito sul tasto.
+
+Il rimedio non è accelerare i messaggi: è **smettere di mentire**. Da quando lo
+stop parte a quando lo stato cambia, il vetro dice **FERMO**. Con una scadenza
+di sei secondi, però: se il comando si perde per strada, una schermata che resta
+lì per sempre è peggio di uno sfarfallio.
+
+Quella riga sta **sopra a tutte le altre** in `quale()`, ed è tutto il motivo
+per cui esiste: metterla sotto al controllo su «invio» vorrebbe dire rimettere
+la schermata della stampa dopo che l'hai fermata. Il banco lo prova, e la prima
+stesura di questa correzione sbagliava proprio l'ordine.
+
+#### Il campo dello stato è largo quanto la parola più lunga
+
+`S.stato` era di **10 byte**, e «interrotta» ne vuole 11. Il parser tronca in
+silenzio, e poi nessun confronto torna più: lo stato nuovo semplicemente non
+sarebbe esistito, senza un errore da nessuna parte. Trovato dal banco, che
+compila con i controlli sui buffer accesi. Lo stato si chiama **`fermata`** —
+più corto, e la stessa parola che si legge sul vetro — e il campo è stato
+allargato lo stesso, perché il prossimo che aggiunge uno stato non deve
+ricascarci.
 
 #### Il volume, che non esiste e si fa lo stesso
 

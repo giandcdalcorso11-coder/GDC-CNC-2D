@@ -65,7 +65,12 @@ WiFiServer server(80);
  * =================================================================== */
 
 struct Stato {
-  char  stato[10];      // fermo | invio | pausa | cambio | fine | errore
+  /* LARGO QUANTO LA PAROLA PIU' LUNGA, PIU' UN PO'. Con 10 byte ci stava
+     «interrotta» meno una lettera: il parser tronca in silenzio, e poi
+     nessun confronto torna piu' — lo stato nuovo semplicemente non
+     esisteva, senza un errore da nessuna parte. Trovato dal banco, che
+     compila con i controlli sui buffer accesi. */
+  char  stato[12];      // fermo | invio | pausa | cambio | fine | fermata | errore
   int   percento;       // 0..100, -1 = non c'è
   long  rimanente;      // millisecondi, -1 = il Sender non l'ha ancora misurato
   char  penna[10];      // "#rrggbb", vuoto = il livello non ha una tinta
@@ -91,7 +96,8 @@ const unsigned long SCADENZA = 6000;
    lì perché un valore fuori dall'intervallo di un enum, in C++, è
    ufficialmente non definito: funziona finché funziona. */
 enum Schermata { PRONTA, STAMPA, IN_PAUSA, PENNA1, PENNA2,
-                 STOP_ARMATO, STOP_TIENI, FINE, ERRORE, ATTESA, NESSUNA };
+                 STOP_ARMATO, STOP_TIENI, FERMANDO, FERMATA,
+                 FINE, ERRORE, ATTESA, NESSUNA };
 
 enum Posto { BASSO, ALTO_SX, ALTO_DX, BASSO_SX, BASSO_DX, NESSUNO };
 
@@ -187,13 +193,57 @@ bool armato = false, tenendo = false;
    Che è esattamente la sicurezza che si voleva. */
 bool attesaRilascio = false;
 
+/* ===================================================================
+ * LO STOP CHIESTO, E IL RACCONTO CHE SCADE
+ *
+ * DOPO LO STOP IL VETRO TORNAVA A «STAMPA». Tenuto il dito il secondo
+ * necessario, il telecomando manda «stop» — ma lo manda nella RISPOSTA al
+ * prossimo messaggio, il SLICER lo legge, ferma, e solo col messaggio
+ * DOPO torna indietro lo stato nuovo. Due giri. In quei due giri
+ * `S.stato` vale ancora «invio», e la schermata che si disegna e' quella
+ * della stampa in corso: anello, percentuale, tutto. Si vedeva come uno
+ * sfarfallio fra tre schermate — tieni, stampa, pronta — ed e' quello che
+ * l'utente ha visto il 2026-11-02 tenendo il dito sul tasto.
+ *
+ * Il rimedio non e' accelerare i messaggi: e' smettere di mentire. Da
+ * quando lo stop parte a quando lo stato cambia, il vetro dice FERMANDO.
+ * Con una scadenza, pero': se il comando si perde per strada, una
+ * schermata che resta li' per sempre e' peggio di uno sfarfallio.
+ *
+ * E IL RACCONTO SCADE. «Fatta» e «fermata» restano finche' non parte la
+ * stampa dopo: va bene per dieci minuti, non per la mattina dopo, quando
+ * il telecomando racconta ancora ieri a chi passa. Dopo tre minuti si
+ * torna a Pronta — il fatto e' nel registro del SLICER, non sul vetro.
+ * =================================================================== */
+const unsigned long FERMANDO_MS = 6000;     // oltre, il comando s'e' perso
+const unsigned long RACCONTO_MS = 180000;   // tre minuti, poi si torna Pronta
+unsigned long fermandoDa = 0;
+unsigned long raccontaDa = 0;
+
+bool fermando() {
+  if (!fermandoDa) return false;
+  if (millis() - fermandoDa > FERMANDO_MS) { fermandoDa = 0; return false; }
+  return true;
+}
+
+bool raccontoScaduto() {
+  return raccontaDa && (millis() - raccontaDa > RACCONTO_MS);
+}
+
 Schermata quale() {
   if (armato)  return tenendo ? STOP_TIENI : STOP_ARMATO;
   if (!vivo()) return ATTESA;
+  /* PRIMA DI TUTTO QUELLO CHE DICE IL SLICER. Lo stop e' partito e la
+     risposta non e' ancora tornata: per due giri di messaggi `S.stato` vale
+     ancora «invio», e mettere qui la schermata della stampa vorrebbe dire
+     rimetterla DOPO che l'hai fermata. E' tutto il motivo per cui questa
+     riga esiste, quindi sta sopra alle altre. */
+  if (fermando()) return FERMANDO;
   if (!strcmp(S.stato, "invio"))  return STAMPA;
   if (!strcmp(S.stato, "pausa"))  return IN_PAUSA;
   if (!strcmp(S.stato, "cambio")) return S.passo >= 1 ? PENNA2 : PENNA1;
-  if (!strcmp(S.stato, "fine"))   return FINE;
+  if (!strcmp(S.stato, "fermata")) return raccontoScaduto() ? PRONTA : FERMATA;
+  if (!strcmp(S.stato, "fine"))       return raccontoScaduto() ? PRONTA : FINE;
   if (!strcmp(S.stato, "errore")) return ERRORE;
   return PRONTA;
 }
@@ -355,6 +405,14 @@ const Nota SUONO_FINE[]     = { {2227, 65}, {2500, 65}, {2806, 65},
                                 {3150, 120}, {2806, 65}, {2500, 300} };
 const Nota SUONO_ERRORE[]   = { {2500, 120}, {2973, 120}, {2500, 120},
                                 {2973, 120}, {2500, 160} };
+
+/* FERMATA — due note che scendono, e basta. Non e' un allarme: l'hai
+   fermata tu, e un suono che insiste direbbe che e' successo qualcosa.
+   Non e' nemmeno la fine: niente e' stato portato a termine, quindi niente
+   arpeggio che si richiude. Scendere e fermarsi dice «ho smesso». E la
+   sagoma — due note sole — non somiglia ne' ai tre colpi del cambio penna
+   ne' alla sirena del problema, che e' il criterio di tutti i suoni qui. */
+const Nota SUONO_STOP[]     = { {3150, 110}, {2500, 240} };
 
 /* ===================================================================
  * IL VOLUME, CHE SU QUESTO CICALINO NON ESISTE
@@ -1071,6 +1129,29 @@ void disegnaTutto(Schermata s) {
 
     case STOP_TIENI:
       anello(100, ROSSO, true);
+      break;
+
+    /* FERMANDO: l'anello resta dov'era, perche' la macchina sta ancora
+       finendo le righe che ha in pancia. Il grigio dice che e' un momento
+       di passaggio e non uno stato. */
+    case FERMANDO:
+      anello(S.percento >= 0 ? S.percento : 0, SMORTO, true);
+      simboloDivieto(84, SMORTO);
+      scrivi("FERMO", 126, 3, SMORTO);
+      break;
+
+    /* FERMATA: la percentuale a cui si e' fermata e' l'unica cosa che
+       serve sapere — dice quanto foglio e' stato disegnato. */
+    case FERMATA:
+      anello(S.percento >= 0 ? S.percento : 0, AMBRA, true);
+      simboloDivieto(84, AMBRA);
+      scrivi("FERMATA", 126, 3, TESTO);
+      if (S.percento >= 0) {
+        char dove[12];
+        snprintf(dove, sizeof(dove), "al %d%%", S.percento);
+        scrivi(dove, 158, 2, FIOCO);
+      }
+      if (batteria >= 0 && batteria < 20 && !allaSpina()) pila(batteria, 196, false);
       break;
 
     case FINE:
@@ -1883,6 +1964,10 @@ void leggiMessaggio(const char* corpo) {
       SUONA(SUONO_FINE);
       sveglia();
       scriviRegistro();
+    } else if (!strcmp(S.stato, "fermata")) {
+      SUONA(SUONO_STOP);
+      sveglia();
+      scriviRegistro();
     } else if (!strcmp(S.stato, "errore")) {
       SUONA(SUONO_ERRORE);
       ARMA(SUONO_ERRORE, RICHIAMO_ERRORE, ALLARME_PER);
@@ -1892,6 +1977,17 @@ void leggiMessaggio(const char* corpo) {
     /* Cambiando stato il richiamo di prima non vale più: se il nuovo stato
        non è quello che l'ha armato, si spegne. */
     if (strcmp(S.stato, richiamoStato)) fermaRichiamo();
+
+    /* Lo stop è arrivato a destinazione: la schermata di passaggio può
+       andarsene. Vale per QUALUNQUE stato che non sia una stampa in corso,
+       non solo per «fermata»: se la stampa è finita nel frattempo, o se
+       è saltata per un errore, «FERMO» ha comunque smesso di essere vero. */
+    if (strcmp(S.stato, "invio") && strcmp(S.stato, "pausa") &&
+        strcmp(S.stato, "cambio")) fermandoDa = 0;
+
+    /* E il racconto comincia adesso: tre minuti e il vetro torna Pronta. */
+    raccontaDa = (!strcmp(S.stato, "fine") || !strcmp(S.stato, "fermata"))
+                 ? millis() : 0;
   }
   if (S.passo != passoPrima) sveglia();
 }
@@ -2042,7 +2138,9 @@ void leggiTasti(Schermata s) {
       if (!tenendo) { tenendo = true; tenutoDa = millis(); tenutaDisegnata = -1; }
       else if (millis() - tenutoDa >= TENUTA_MS) {
         manda("stop");
+        fermandoDa = millis();       // da qui il vetro dice FERMO, non STAMPA
         armato = false; tenendo = false; attesaRilascio = false;
+        schermoDisegnato = NESSUNA;
         sveglia();
       }
     } else if (tenendo) {

@@ -162,8 +162,9 @@
                                   ' di ' + s.totale + ' righe)';
     if (s.stato === 'cambio') t = 'Cambio penna a ' + s.percento + '%: la testina ' +
                                   'va al punto home. Cambia la penna, poi Riprendi.';
-    if (s.stato === 'fine')   t = 'Consegnato per intero: ' + s.totale + ' righe. ' +
-                                  'La macchina sta finendo il buffer.';
+    if (s.stato === 'fine')   t = 'Finita: ' + s.totale + ' righe.';
+    if (s.stato === 'fermata') t = 'Fermata a ' + s.percento + '% (' + s.fatte +
+                                  ' di ' + s.totale + ' righe). L\'origine resta valida.';
     if (s.stato === 'errore') t = 'Interrotta da un errore alla riga ' + (s.fatte + 1) +
                                   ' di ' + s.totale + '.';
     if (s.stato === 'invio' && s.rimanente !== null) {
