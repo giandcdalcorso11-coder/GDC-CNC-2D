@@ -226,6 +226,35 @@ function lunghezza(punti) {
   ok('e ne prende una manciata, non tutto', r.presi > 50 && r.presi < r.tratti / 5,
      r.presi + ' su ' + r.tratti);
 
+  /* ---------- 5. il marchio nel disegno ----------
+     Non «ha messo qualcosa»: che quello che mette sia IL LOGO. Si misura il
+     rapporto fra base e altezza, che e' la firma della forma, e la larghezza
+     in millimetri, che e' la promessa del pulsante. */
+  r = await page.evaluate(() => {
+    PREPARA([Tracciato.daPunti([{ x: 0, y: 0 }, { x: 100, y: 0 }], false)]);
+    const prima = Artwork.forme().length;
+    Editor.marchio();
+    const f = Artwork.forme();
+    if (f.length !== prima + 1) return { quante: f.length - prima };
+    const logo = f[f.length - 1];
+    const b = Tracciato.bbox([logo], 0.02);
+    /* Il viewBox del logo e' 487,03 x 158,49: il rapporto deve sopravvivere. */
+    const svg = document.querySelector('.brand .marchio').getAttribute('viewBox').split(' ');
+    return { quante: 1, sub: logo.sub.length,
+             largo: +b.w.toFixed(3), alto: +b.h.toFixed(3),
+             rapporto: +(b.w / b.h).toFixed(4),
+             atteso: +(parseFloat(svg[2]) / parseFloat(svg[3])).toFixed(4),
+             nodi: Tracciato.conta([logo]).nodi,
+             curve: Tracciato.conta([logo]).curve };
+  });
+  ok('il marchio entra nel livello', r.quante === 1 && r.sub > 10,
+     r.sub + ' tracciati, ' + r.nodi + ' nodi, ' + r.curve + ' con una curva');
+  ok('ed e` davvero il logo, non una scatola',
+     Math.abs(r.rapporto - r.atteso) < 0.002,
+     'base su altezza ' + r.rapporto + ', il logo dice ' + r.atteso);
+  ok('largo i 60 mm promessi dal pulsante', Math.abs(r.largo - 60) < 0.01,
+     r.largo + ' x ' + r.alto);
+
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
   console.log(guai ? '\n' + guai + ' controlli KO' : '\ntutto a posto');

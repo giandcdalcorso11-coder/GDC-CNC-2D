@@ -142,6 +142,28 @@ il massimo che ci sta; sotto i 20 non si riconosce più. È la **versione
 quadrata** che manca, quella che lo Step 7 del documento di sessione chiede
 già: un marchio piccolo si disegna, non si rimpicciolisce.
 
+### Il marchio dentro al disegno
+
+Il pulsante **Logo** nell'editor mette il marchio nel livello acceso, largo
+**60 mm veri** e in mezzo a quello che si sta guardando — non all'origine del
+file, che su un disegno importato può stare a mezzo metro da lì.
+
+Entra come **contorni, non come pieni**: una penna non riempie, e il marchio è
+fatto di forme piene coi contrografici ritagliati dentro, quindi sulla carta
+diventa il suo **profilo**, controcampi compresi. Non è un ripiego — quello che
+su schermo è nero pieno, su carta è il giro che lo delimita.
+
+Il disegno viene dall'**SVG che sta già nella pagina**, quello
+dell'intestazione: una copia sola, e quando il logo cambia cambiano insieme il
+marchio in alto e quello che finisce sul foglio. Il rettangolo della maschera
+non si prende: su schermo dice «qui si vede», su carta sarebbe una cornice che
+il marchio non ha.
+
+I sessanta millimetri sono veri perché la scala del livello dice quanti
+millimetri vale un'unità del file; un livello ancora vuoto non ha una misura
+sul foglio, e allora un'unità vale un millimetro — la stessa regola del resto
+del programma, e da lì in poi decidono le maniglie.
+
 ## I due strumenti che tagliano, e quello che ribalta
 
 **Il selettore specifico (il lazo).** Si cerchia a mano libera e si prende
