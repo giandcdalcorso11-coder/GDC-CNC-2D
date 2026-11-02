@@ -129,11 +129,21 @@ var Tracciato = (function () {
 
     if (forma.tipo === 'testo') {
       if (typeof FontTratto === 'undefined') return [];
-      /* FontTratto ragiona con l'origine in basso a sinistra e la lettera che
-         cresce verso l'alto; qui si resta in quelle coordinate, e chi usa il
-         risultato lo ribalta come ribalta tutto il resto. */
-      return FontTratto.testo(forma.testo, forma.x, forma.y, forma.alt)
-        .map(function (p) { return p.map(function (q) { return { x: q.x, y: q.y }; }); });
+      /* QUI LA Y SI RIBALTA, e il commento di prima diceva il contrario.
+         FontTratto ha l'origine in basso a sinistra e la lettera che cresce
+         verso l'ALTO; da qui in avanti la y va in GIÙ, come in un file SVG.
+         Il commento vecchio diceva «chi usa il risultato lo ribalta come
+         ribalta tutto il resto», e non era vero: `toRect` ribalta una volta
+         sola, quindi una lettera lasciata con la y in su restava a testa in
+         giù — nell'editor E sulla carta. Rovesciata, non ruotata: per questo
+         girandola di mezzo giro non si raddrizzava.
+         Misurato il 2026-11-02: una «L» finiva col piede in alto.
+         `forma.y` è la riga su cui le lettere poggiano, e il testo le sta
+         sopra: per questo si sottrae. */
+      return FontTratto.testo(forma.testo, forma.x, 0, forma.alt)
+        .map(function (p) {
+          return p.map(function (q) { return { x: q.x, y: forma.y - q.y }; });
+        });
     }
 
     var out = [];
