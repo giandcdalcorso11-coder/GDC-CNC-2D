@@ -815,6 +815,45 @@ di fondo non maschera tutte le frequenze allo stesso modo. A torneo finito il
 pad centrale rimette in campo il vincitore contro il secondo: quello va fatto
 col plotter che disegna.
 
+#### Il torneo ha detto 2500 Hz
+
+Vinto il 2026-11-02, dentro alla previsione (2500-3150) e a 11 Hz da un Re♯7.
+Il firmware usava **4000**: era quasi mezza ottava fuori, cioè il cicalino
+stava gridando con il freno tirato da sempre.
+
+**E 2500 diventa la nota di casa.** Le melodie non si trasportano a caso: si
+costruiscono **in chiave sul cicalino**, con 2500 come radice — la nota più
+forte dell'insieme — e le altre a intervalli giusti sopra e sotto, dentro a una
+banda strettissima perché più si va lontano da 2500 più il suono si spegne:
+
+| grado | Hz | dove si usa |
+|---|---|---|
+| −4 | 1984 | solo in discesa, dove lo spegnersi è il significato |
+| −2 | 2227 | appoggio basso |
+| **casa** | **2500** | **i due allarmi, e l'ultima nota delle melodie** |
+| +2 | 2806 | salita |
+| +3 | 2973 | salita |
+| +4 | 3150 | il tetto |
+
+Del picco sappiamo **dove sta**, non quanto è largo: il torneo confronta, non
+misura una curva. Per questo le note restano vicine alla radice invece di
+fidarsi di una banda che nessuno ha misurato.
+
+**Due cose imparate scegliendo i suoni.** L'orecchio somma l'energia di un
+suono per circa due decimi di secondo: una nota da 220 ms **si sente più
+forte** di una da 70 a parità di tutto il resto, quindi un allarme che deve
+arrivare da lontano vuole una testa lunga e non una raffica di colpi corti. E
+per il suono del problema, le note che **scendono sotto 2500** si spengono da
+sé: il difetto diventa il significato, perché un suono che cala si legge come
+guasto in qualunque lingua.
+
+**`schermo/suoni.html`** è il banco dei suoni: si apre con un doppio clic e
+suona le proposte con un'onda quadra, che è quello che `tone()` manda al
+cicalino. Ha due interruttori che contano più delle melodie — **attutito**
+(filtro passa-basso a 1150 Hz più venti decibel in meno, cioè una porta chiusa)
+e **rumore dei motori** — perché i due allarmi devono restare distinguibili
+proprio lì, e si sente la composizione, non il timbro.
+
 ### Tre cose che lo schema ha cambiato nel codice
 
 - **`carrier.begin()` torna `false` se un sensore qualsiasi non risponde** —

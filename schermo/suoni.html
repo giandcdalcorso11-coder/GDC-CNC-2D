@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- BANCO DEI SUONI. Copia autonoma della pagina pubblicata come artifact:
+     si apre con un doppio clic, non serve niente. Si rifa' quando la
+     risonanza cambia - per esempio se il telecomando finisce in una
+     scatola, che la sposta per davvero (vedi `cicalino/cicalino.ino`). -->
+<style>:root { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) }</style>
+<title>Suoni del telecomando</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Una colonna sola: il vincolo in alto, la barra dei comandi appiccicata,
+   poi i quattro suoni come schede di laboratorio. Colori presi dalla
+   tavolozza del vetro del telecomando (RGB565 convertiti in esadecimale). */
+:root {
+  --fondo: #0A0D12;
+  --scheda: #11161E;
+  --orlo: #1F2834;
+  --testo: #E6EAF0;
+  --smorto: #97A1B0;
+  --fioco: #6B7686;
+  --blu: #4C9AFF;
+  --rosso: #E05252;
+  --ambra: #E0A63A;
+  --verde: #43B581;
+  --display: "Chivo", "Helvetica Neue", Arial, sans-serif;
+  --corpo: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --suPlay: #06080C;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --fondo: #F4F6F9; --scheda: #FFFFFF; --orlo: #DDE3EB;
+    --testo: #141A22; --smorto: #5A6572; --fioco: #8A939F;
+    --blu: #1F6FD0; --rosso: #BE3A3A; --ambra: #8E6205; --verde: #227A51;
+    --suPlay: #FFFFFF;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --fondo: #F4F6F9; --scheda: #FFFFFF; --orlo: #DDE3EB;
+  --testo: #141A22; --smorto: #5A6572; --fioco: #8A939F;
+  --blu: #1F6FD0; --rosso: #BE3A3A; --ambra: #8E6205; --verde: #227A51;
+  --suPlay: #FFFFFF;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box }
+/* Sotto la barra di sistema del telefono niente deve scorrere in vista:
+   la fascia la dipinge il fondo della pagina. */
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px); z-index: 11; background: var(--fondo);
+}
+body {
+  background: var(--fondo); color: var(--testo);
+  font-family: var(--corpo); font-size: 15px; line-height: 1.55;
+  margin: 0;
+}
+.foglio {
+  max-width: 820px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+h1 {
+  font-family: var(--display); font-weight: 900;
+  font-size: clamp(30px, 7vw, 46px); line-height: 1.05;
+  letter-spacing: -0.02em; margin: 0 0 10px; text-wrap: balance;
+}
+h2 {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(20px, 4.4vw, 26px); letter-spacing: -0.01em;
+  margin: 0 0 4px; text-wrap: balance;
+}
+p { margin: 0 0 12px; max-width: 64ch }
+.guida {
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--fioco);
+  margin: 0 0 8px;
+}
+.occhiello { color: var(--ambra) }
+.sommario { color: var(--smorto); font-size: 16px; max-width: 60ch }
+.hz { font-variant-numeric: tabular-nums }
+code, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums }
+
+/* --- il grafico della banda --- */
+.banda {
+  margin: 28px 0 8px; padding: 18px 0 6px;
+  border-top: 1px solid var(--orlo); border-bottom: 1px solid var(--orlo);
+}
+.banda svg { display: block; width: 100%; height: auto; max-width: 100% }
+.didascalia { color: var(--fioco); font-size: 13px; max-width: 60ch; margin: 10px 0 0 }
+
+/* --- barra dei comandi --- */
+.barra {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  background: var(--scheda); border: 1px solid var(--orlo); border-radius: 10px;
+  padding: 12px 14px; margin: 26px 0 34px;
+  display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: center;
+}
+.barra label { display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0 }
+.barra input[type="range"] { width: 110px }
+.spegni {
+  margin-left: auto; font: inherit; font-size: 13px;
+  background: transparent; color: var(--smorto);
+  border: 1px solid var(--orlo); border-radius: 7px;
+  padding: 6px 12px; cursor: pointer;
+}
+.spegni:hover { color: var(--testo); border-color: var(--smorto) }
+
+/* --- sezioni --- */
+section { margin: 0 0 44px }
+.ruolo {
+  display: inline-block; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  border: 1px solid var(--orlo); border-radius: 999px;
+  padding: 3px 9px; color: var(--smorto); margin: 6px 0 14px;
+}
+.voci { display: grid; gap: 12px }
+.voce {
+  background: var(--scheda); border: 1px solid var(--orlo); border-radius: 10px;
+  padding: 14px 16px; display: grid; gap: 10px;
+}
+.voce.suona { border-color: var(--verde) }
+.voce.scelta { border-left: 3px solid var(--ambra) }
+.capo { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline }
+.nome { font-family: var(--display); font-weight: 700; font-size: 17px }
+.bollo {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ambra);
+  border: 1px solid var(--ambra); border-radius: 999px; padding: 2px 7px;
+}
+.perche { color: var(--smorto); font-size: 14px; margin: 0; max-width: 62ch }
+.note { display: flex; flex-wrap: wrap; gap: 5px }
+.nota {
+  font-family: var(--mono); font-size: 11.5px;
+  border: 1px solid var(--orlo); border-radius: 5px; padding: 2px 6px;
+  color: var(--smorto); font-variant-numeric: tabular-nums;
+}
+.nota.radice { color: var(--ambra); border-color: var(--ambra) }
+.nota.zitto { color: var(--fioco); border-style: dashed }
+.coda { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+.play {
+  font: inherit; font-weight: 600; font-size: 14px;
+  background: var(--blu); color: var(--suPlay);
+  border: 0; border-radius: 8px; padding: 8px 16px; cursor: pointer;
+}
+.play:hover { filter: brightness(1.12) }
+.play:active { transform: translateY(1px) }
+.sorgente {
+  font-family: var(--mono); font-size: 11.5px; color: var(--fioco);
+  overflow-x: auto; white-space: pre; min-width: 0;
+  border-top: 1px dashed var(--orlo); padding-top: 9px;
+}
+.confronto {
+  background: var(--scheda); border: 1px solid var(--orlo); border-left: 3px solid var(--rosso);
+  border-radius: 10px; padding: 16px;
+}
+footer {
+  margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--orlo);
+  color: var(--smorto); font-size: 14px;
+}
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--blu); outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+</head>
+<body>
+
+
+<div class="foglio">
+
+  <p class="guida"><span class="occhiello">torneo chiuso</span> · risonanza misurata 2500 Hz</p>
+  <h1>Suoni del telecomando</h1>
+  <p class="sommario">Quattro suoni da scegliere, tre proposte ciascuno. Qui si sentono con un'onda quadra, che è esattamente quello che <code>tone()</code> manda al cicalino.</p>
+
+  <p>Il cicalino <strong>non ha volume</strong>: o commuta o non commuta. L'unica cosa che cambia quanto si sente è la frequenza, e il massimo sta a <strong class="hz">2500 Hz</strong>. Quindi le melodie non possono andare dove vogliono: più si allontanano da 2500, più si spengono. Sono costruite <strong>in chiave sul cicalino</strong> — 2500 è la nota di casa, la più forte, e le altre sono intervalli giusti sopra e sotto.</p>
+
+  <div class="banda">
+    <svg viewBox="0 0 800 112" role="img" aria-label="Le quindici frequenze del torneo, la vincitrice a 2500 Hz, e le sei note usate dalle melodie">
+      <g font-family="IBM Plex Mono, monospace" font-size="11" fill="#6B7686">
+        <text x="20" y="14">le note delle melodie</text>
+        <text x="20" y="104">le 15 frequenze del torneo</text>
+      </g>
+      <g id="disegnoBanda"></g>
+    </svg>
+    <p class="didascalia">Del picco sappiamo <strong>dove sta</strong>, non quanto è largo: il torneo confronta, non misura una curva. Per questo le melodie gli restano vicine invece di fidarsi di una banda che nessuno ha misurato.</p>
+  </div>
+
+  <div class="barra">
+    <label for="vol">volume <input id="vol" type="range" min="0" max="100" value="22"></label>
+    <label for="attutito"><input id="attutito" type="checkbox"> attutito, dall'altra stanza</label>
+    <label for="motori"><input id="motori" type="checkbox"> rumore dei motori</label>
+    <button class="spegni" id="spegni" type="button">Ferma tutto</button>
+  </div>
+
+  <div id="sezioni"></div>
+
+  <section class="confronto">
+    <h2>Il confronto che conta</h2>
+    <p class="perche">I due allarmi devono restare distinguibili <strong>quando il suono è attutito</strong>: cambio penna e problema, uno dietro l'altro. Accendi «attutito» e «rumore dei motori» prima di premere. Se attutiti sembrano la stessa cosa, la coppia va cambiata.</p>
+    <div class="coda">
+      <button class="play" id="duePezzi" type="button">Cambio penna, poi problema</button>
+      <span class="mono" id="qualiDue" style="color:var(--fioco);font-size:12px"></span>
+    </div>
+  </section>
+
+  <footer>
+    <p>Quando hai scelto, dimmi i quattro nomi — per esempio «tre scalini, lungo-corto, la cadenza, il calante» — e ti mando il firmware con dentro quelli, più i quattro <code>SUONO_*</code> ricostruiti su 2500.</p>
+    <p>Qui senti <strong>la composizione</strong>, non il timbro: un altoparlante a 2500 Hz non suona come un trasduttore magnetico, e il rumore dei motori è finto. Il ritmo e gli intervalli invece sono quelli veri.</p>
+  </footer>
+</div>
+
+<script>
+/* ---- le proposte -------------------------------------------------- */
+var R = 2500;                     /* la radice: la risonanza misurata */
+var SCALA = { "-5": 1873, "-4": 1984, "-3": 2102, "-2": 2227, "-1": 2360,
+              "0": R, "+1": 2649, "+2": 2806, "+3": 2973, "+4": 3150, "+5": 3338 };
+
+var SUONI = [
+  { id: "SUONO_PARTENZA", nome: "Partenza", ruolo: "la senti da vicino, non deve viaggiare",
+    testo: "Tre note che salgono dicono «parto» senza bisogno di essere capite. Non serve che arrivino lontano: quando parte la stampa sei lì.",
+    voci: [
+      { nome: "Tre scalini", scelta: true,
+        perche: "Due toni interi che salgono dalla nota di casa: la forma di adesso, rimessa in chiave su 2500.",
+        note: [[R,55],[2806,55],[3150,85]] },
+      { nome: "Il salto",
+        perche: "Scende, salta su, e si posa sulla nota di casa tenuta: l'ultima nota è anche la più forte, quindi la coda porta.",
+        note: [[2227,50],[3150,50],[R,120]] },
+      { nome: "Due note sole",
+        perche: "Una terza maggiore in su e basta. Meno chiacchiere: all'avvio hai altro da guardare.",
+        note: [[R,60],[3150,110]] }
+    ] },
+
+  { id: "SUONO_PENNA", nome: "Cambio penna", ruolo: "deve arrivare dall'altra stanza · si ripete ogni 20 s",
+    testo: "Questo è l'unico suono per cui il telecomando esiste. Tutto su <strong>una nota sola</strong>, 2500: attutito da una porta le altezze diventano tutte uguali, e quello che sopravvive è il <strong>ritmo</strong>.",
+    voci: [
+      { nome: "Lungo-corto", scelta: true,
+        perche: "L'orecchio somma l'energia di un suono per circa due decimi di secondo: una nota da 220 ms si sente più forte di una da 70 a parità di tutto. Quindi la testa lunga porta, e «dah-dit» è un ritmo che non si confonde con niente.",
+        note: [[R,220],[0,90],[R,90]] },
+      { nome: "Due colpi",
+        perche: "Quello di adesso. Breve e discreto, ma due colpi da 70 ms sono il formato che l'orecchio penalizza di più.",
+        note: [[R,70],[0,70],[R,70]] },
+      { nome: "Tre colpi",
+        perche: "Tre battute un po' più lunghe: più insistente, e tre è un numero che si conta anche attutito.",
+        note: [[R,90],[0,70],[R,90],[0,70],[R,90]] }
+    ] },
+
+  { id: "SUONO_FINE", nome: "Fine stampa", ruolo: "la senti da vicino · non si ripete",
+    testo: "Qui si può fare musica: la fine non è un allarme, e se la perdi lo scopri guardando il foglio.",
+    voci: [
+      { nome: "La cadenza", scelta: true,
+        perche: "Scende per tre gradi e si ferma sulla nota di casa, tenuta: scendere e fermarsi è il modo in cui si dice «finito». E l'ultima nota è la più forte, quindi chiude con peso.",
+        note: [[3150,90],[2973,90],[2806,90],[R,280]] },
+      { nome: "Risale e resta",
+        perche: "La forma di adesso, in chiave: va giù, torna, sale e l'ultima resta.",
+        note: [[R,80],[2227,80],[R,80],[3150,95],[0,55],[3150,300]] },
+      { nome: "L'arpeggio",
+        perche: "Quattro gradini in su, un respiro, e torna a casa. Il più lungo dei tre: va bene se vuoi accorgertene dall'altra parte del tavolo.",
+        note: [[2227,70],[R,70],[2806,70],[3150,70],[0,60],[R,320]] }
+    ] },
+
+  { id: "SUONO_ERRORE", nome: "Problema", ruolo: "deve arrivare dall'altra stanza · non si ripete",
+    testo: "Deve dire «fermati» e non deve somigliare al cambio penna. Il confronto in fondo alla pagina serve a controllare proprio questo.",
+    voci: [
+      { nome: "Il calante", scelta: true,
+        perche: "Tre note che scendono. Un suono che cala si legge come guasto in qualunque lingua — e qui è vero anche fisicamente: sotto 2500 il cicalino perde forza, quindi il suono si spegne mentre scende. Il difetto diventa il significato.",
+        note: [[R,200],[2227,200],[1984,260]] },
+      { nome: "Uno lungo",
+        perche: "Quello di adesso. Massima distanza dal cambio penna: una nota ferma contro una pulsata.",
+        note: [[R,450]] },
+      { nome: "Due lunghi",
+        perche: "Due note piene con una pausa in mezzo: più urgente di una sola, e il ritmo resta diverso da quello del cambio penna.",
+        note: [[R,260],[0,120],[R,260]] }
+    ] }
+];
+
+/* ---- audio -------------------------------------------------------- */
+var ctx = null, maestro = null, filtro = null, vivi = [], rumore = null, rumoreGuad = null;
+
+function avvia() {
+  if (!ctx) {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    maestro = ctx.createGain();
+    filtro = ctx.createBiquadFilter();
+    filtro.type = "lowpass";
+    filtro.frequency.value = 20000;
+    maestro.connect(filtro);
+    filtro.connect(ctx.destination);
+    rumoreGuad = ctx.createGain();
+    rumoreGuad.gain.value = 0;
+    rumoreGuad.connect(ctx.destination);
+  }
+  if (ctx.state === "suspended") ctx.resume();
+  applicaComandi();
+  return ctx;
+}
+
+function applicaComandi() {
+  if (!ctx) return;
+  var v = document.getElementById("vol").value / 100;
+  var muto = document.getElementById("attutito").checked;
+  /* Una porta chiusa si porta via gli acuti e una ventina di decibel:
+     il filtro e il taglio di guadagno stanno insieme per questo. */
+  maestro.gain.value = v * 0.7 * (muto ? 0.16 : 1);
+  filtro.frequency.value = muto ? 1150 : 20000;
+  var mot = document.getElementById("motori").checked;
+  if (mot && !rumore) accendiMotori();
+  if (rumoreGuad) rumoreGuad.gain.value = mot ? v * 0.09 : 0;
+}
+
+function accendiMotori() {
+  /* Rumore finto dei passo-passo: rumore bianco limitato in alto, con una
+     gobba dove i motori cantano. Serve a dare un'idea, non a misurare. */
+  var n = ctx.sampleRate * 2, buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+  var ultimo = 0;
+  for (var i = 0; i < n; i++) {
+    var b = Math.random() * 2 - 1;
+    ultimo = (ultimo + 0.09 * b) / 1.09;
+    d[i] = ultimo * 3.2 + b * 0.35;
+  }
+  rumore = ctx.createBufferSource();
+  rumore.buffer = buf; rumore.loop = true;
+  var passa = ctx.createBiquadFilter();
+  passa.type = "peaking"; passa.frequency.value = 1400; passa.Q.value = 1.1; passa.gain.value = 9;
+  var tetto = ctx.createBiquadFilter();
+  tetto.type = "lowpass"; tetto.frequency.value = 5200;
+  rumore.connect(passa); passa.connect(tetto); tetto.connect(rumoreGuad);
+  rumore.start();
+}
+
+function fermaNote() {
+  vivi.forEach(function (o) { try { o.stop(); } catch (e) {} });
+  vivi = [];
+  document.querySelectorAll(".voce.suona").forEach(function (e) { e.classList.remove("suona"); });
+}
+
+function suona(note, scheda, da) {
+  avvia();
+  /* Con `da` si sta accodando a una sequenza che sta ancora suonando (il
+     confronto fra i due allarmi): spegnere qui ammazzerebbe la prima. */
+  if (da === undefined) fermaNote();
+  if (scheda) {
+    scheda.classList.add("suona");
+    var tot = note.reduce(function (s, n) { return s + n[1]; }, 0);
+    setTimeout(function () { scheda.classList.remove("suona"); }, tot + 60);
+  }
+  var t = (da || ctx.currentTime + 0.04);
+  note.forEach(function (n) {
+    var dur = n[1] / 1000;
+    if (n[0] > 0) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "square";                 /* come tone(): onda quadra */
+      o.frequency.value = n[0];
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(1, t + 0.003);
+      g.gain.setValueAtTime(1, Math.max(t + 0.004, t + dur - 0.003));
+      g.gain.linearRampToValueAtTime(0, t + dur);
+      o.connect(g); g.connect(maestro);
+      o.start(t); o.stop(t + dur + 0.01);
+      vivi.push(o);
+    }
+    t += dur;
+  });
+  return t;
+}
+
+/* ---- la pagina ---------------------------------------------------- */
+function nomeNota(hz) {
+  if (hz === 0) return "zitto";
+  var migliore = null, diff = 1e9;
+  for (var k in SCALA) {
+    var d = Math.abs(SCALA[k] - hz);
+    if (d < diff) { diff = d; migliore = k; }
+  }
+  return migliore === "0" ? "casa" : migliore;
+}
+
+function sorgente(id, note) {
+  var pezzi = note.map(function (n) { return "{" + n[0] + "," + n[1] + "}"; }).join(", ");
+  return "const Nota " + id + "[] = { " + pezzi + " };";
+}
+
+function costruisci() {
+  var dove = document.getElementById("sezioni");
+  SUONI.forEach(function (s) {
+    var sez = document.createElement("section");
+    var h = document.createElement("h2"); h.textContent = s.nome; sez.appendChild(h);
+    var r = document.createElement("div"); r.className = "ruolo"; r.textContent = s.ruolo; sez.appendChild(r);
+    var p = document.createElement("p"); p.innerHTML = s.testo; sez.appendChild(p);
+
+    var lista = document.createElement("div"); lista.className = "voci";
+    s.voci.forEach(function (v) {
+      var card = document.createElement("div");
+      card.className = "voce" + (v.scelta ? " scelta" : "");
+
+      var capo = document.createElement("div"); capo.className = "capo";
+      var nome = document.createElement("span"); nome.className = "nome"; nome.textContent = v.nome;
+      capo.appendChild(nome);
+      if (v.scelta) {
+        var b = document.createElement("span"); b.className = "bollo"; b.textContent = "la mia";
+        capo.appendChild(b);
+      }
+      card.appendChild(capo);
+
+      var per = document.createElement("p"); per.className = "perche"; per.innerHTML = v.perche;
+      card.appendChild(per);
+
+      var nn = document.createElement("div"); nn.className = "note";
+      v.note.forEach(function (n) {
+        var e = document.createElement("span");
+        e.className = "nota" + (n[0] === R ? " radice" : n[0] === 0 ? " zitto" : "");
+        e.textContent = (n[0] === 0 ? "—" : n[0] + " Hz") + "  " + n[1] + " ms";
+        e.title = nomeNota(n[0]);
+        nn.appendChild(e);
+      });
+      card.appendChild(nn);
+
+      var coda = document.createElement("div"); coda.className = "coda";
+      var bt = document.createElement("button");
+      bt.className = "play"; bt.type = "button"; bt.textContent = "Ascolta";
+      bt.addEventListener("click", function () { suona(v.note, card); });
+      coda.appendChild(bt);
+      var tot = document.createElement("span");
+      tot.className = "mono"; tot.style.color = "var(--fioco)"; tot.style.fontSize = "12px";
+      tot.textContent = v.note.reduce(function (a, n) { return a + n[1]; }, 0) + " ms in tutto";
+      coda.appendChild(tot);
+      card.appendChild(coda);
+
+      var src = document.createElement("div"); src.className = "sorgente";
+      src.textContent = sorgente(s.id, v.note);
+      card.appendChild(src);
+
+      lista.appendChild(card);
+    });
+    sez.appendChild(lista);
+    dove.appendChild(sez);
+  });
+}
+
+/* Il grafico: scala logaritmica, perche' le altezze si sentono in rapporti. */
+function disegnaBanda() {
+  var TORNEO = [1000,1120,1260,1410,1580,1780,2000,2240,2500,2800,3150,3550,4000,4500,5000];
+  var g = document.getElementById("disegnoBanda");
+  var x0 = 20, x1 = 780, f0 = 950, f1 = 5300;
+  function X(f) { return x0 + (Math.log(f) - Math.log(f0)) / (Math.log(f1) - Math.log(f0)) * (x1 - x0); }
+  var out = '<line x1="' + x0 + '" y1="62" x2="' + x1 + '" y2="62" stroke="#1F2834" stroke-width="1"/>';
+  TORNEO.forEach(function (f) {
+    var vinta = (f === 2500);
+    out += '<line x1="' + X(f).toFixed(1) + '" y1="62" x2="' + X(f).toFixed(1) + '" y2="' +
+           (vinta ? 80 : 72) + '" stroke="' + (vinta ? "#E0A63A" : "#6B7686") +
+           '" stroke-width="' + (vinta ? 2.5 : 1) + '"/>';
+  });
+  [1000, 2000, 5000].forEach(function (f) {
+    out += '<text x="' + X(f).toFixed(1) + '" y="92" fill="#6B7686" font-family="IBM Plex Mono, monospace" ' +
+           'font-size="10" text-anchor="middle">' + (f / 1000) + ' kHz</text>';
+  });
+  out += '<circle cx="' + X(2500).toFixed(1) + '" cy="62" r="4.5" fill="#E0A63A"/>';
+  out += '<text x="' + X(2500).toFixed(1) + '" y="52" fill="#E0A63A" font-family="IBM Plex Mono, monospace" ' +
+         'font-size="12" font-weight="500" text-anchor="middle">2500</text>';
+  var usate = [1984, 2227, 2500, 2806, 2973, 3150];
+  usate.forEach(function (f) {
+    var casa = (f === 2500);
+    out += '<line x1="' + X(f).toFixed(1) + '" y1="22" x2="' + X(f).toFixed(1) + '" y2="36" stroke="' +
+           (casa ? "#E0A63A" : "#4C9AFF") + '" stroke-width="' + (casa ? 2.5 : 2) + '"/>';
+  });
+  out += '<line x1="' + X(1984).toFixed(1) + '" y1="36" x2="' + X(3150).toFixed(1) +
+         '" y2="36" stroke="#4C9AFF" stroke-width="1" stroke-dasharray="3 3"/>';
+  g.innerHTML = out;
+}
+
+document.getElementById("spegni").addEventListener("click", function () {
+  fermaNote();
+  document.getElementById("motori").checked = false;
+  applicaComandi();
+});
+["vol", "attutito", "motori"].forEach(function (id) {
+  document.getElementById(id).addEventListener("input", function () { avvia(); applicaComandi(); });
+});
+
+document.getElementById("duePezzi").addEventListener("click", function () {
+  avvia();
+  var penna = SUONI[1].voci.find(function (v) { return v.scelta; });
+  var err = SUONI[3].voci.find(function (v) { return v.scelta; });
+  document.getElementById("qualiDue").textContent = penna.nome + " · poi · " + err.nome;
+  var fine = suona(penna.note, null);
+  suona(err.note, null, fine + 0.75);
+});
+
+costruisci();
+disegnaBanda();
+</script>
+
+</body>
+</html>
