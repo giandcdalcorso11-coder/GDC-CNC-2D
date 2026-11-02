@@ -1764,6 +1764,52 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
   pointer-events: none;
 }
 
+/* IL FILO DEL LAZO. Pieno e rosso: il rettangolo di selezione e le guide
+   dei magneti sono tratteggiati, e qui serve distinguere a colpo d'occhio
+   "prendo quello che tocco" da "prendo quello che chiudo dentro". Il rosso
+   e' anche il colore con cui l'utente ha disegnato il giro quando l'ha
+   chiesto, ed e' il colore che nel resto della pagina vuol dire "taglia". */
+.ed-lazo {
+  fill: none;
+  stroke: var(--danger);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+/* La chiusura e' tratteggiata perche' non l'hai disegnata tu: e' il pezzo
+   che il lazo aggiunge da solo per chiudere il giro, e vederlo evita di
+   finire il cerchio dalla parte sbagliata. */
+.ed-lazo-chiudi {
+  stroke: var(--danger);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* IL BOTTONCINO DELL'ASSE DELLO SPECCHIO. Tondo apposta: non e' un comando
+   che fa qualcosa, e' un interruttore a due posizioni che dice COME lo fara'
+   il tasto accanto. La freccia e' il verso del ribaltamento, non la riga
+   dello specchio: "destra-sinistra" si capisce, "asse verticale" si deve
+   tradurre ogni volta. */
+.ed-asse {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  margin-left: -3px;
+}
+.ed-asse:hover { border-color: var(--accent); }
+
 /* IL RETTANGOLO DI SELEZIONE. Tratteggiato come le guide, ma di un altro
    colore: quelle dicono "il punto va qui", questo dice "prendo tutto quello
    che tocco", e sono due cose che capitano nello stesso momento. */

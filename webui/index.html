@@ -287,6 +287,12 @@
          maniglie sul foglio. -->
     <div class="ed-barra" id="ed-barra">
       <button type="button" class="ed-str" data-str="scegli">Scegli</button>
+      <!-- Il selettore specifico: cerchia a mano libera e prende SOLO quello
+           che resta dentro, tagliando le spezzate sul bordo. Sta accanto a
+           Scegli perche' e' l'altro modo di scegliere, non un altro modo di
+           disegnare. -->
+      <button type="button" class="ed-str" data-str="lazo"
+              title="Selettore specifico: cerchia a mano libera e prende solo quello che sta dentro, tagliando le spezzate sul bordo">Selettore</button>
       <button type="button" class="ed-str" data-str="spezzata">Linea</button>
       <button type="button" class="ed-str" data-str="rettangolo">Rettangolo</button>
       <button type="button" class="ed-str" data-str="cerchio">Cerchio</button>
@@ -302,6 +308,14 @@
         <label>alt. <input type="number" id="ed-testo-alt" value="10" min="1" step="1"></label>
       </span>
       <button type="button" class="btn btn-ghost btn-small" id="ed-curvo">Spigolo / curva</button>
+      <!-- Lo specchio, col suo bottoncino tondo per l'asse. Ribaltare non e'
+           ruotare di mezzo giro: una lettera ruotata si legge al contrario,
+           una ribaltata e' l'immagine allo specchio. -->
+      <button type="button" class="btn btn-ghost btn-small" id="ed-specchia"
+              title="Ribalta quello che è scelto. Il cerchio accanto sceglie l'asse">Specchia</button>
+      <button type="button" class="ed-asse" id="ed-specchio-asse"
+              title="Asse verticale: ribalta destra-sinistra. Clicca per cambiarlo."
+              aria-label="asse dello specchio">&#8596;</button>
       <button type="button" class="btn btn-ghost btn-small" id="ed-elimina">Elimina</button>
       <!-- Taglia, copia e incolla servono a una cosa sola: rimettere una
            linea nel LIVELLO giusto senza spostarla sul foglio. Vedi

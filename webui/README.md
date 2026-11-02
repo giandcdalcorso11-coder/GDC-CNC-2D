@@ -122,6 +122,57 @@ dietro, e la tela resterebbe vuota proprio mentre si guarda dove incollare.
 L'ingombro copiato non va corretto dopo: `refit()` salta i livelli vuoti e non
 lo tocca, e al primo contenuto `rigenera()` lo usa come ancora.
 
+## I due strumenti che tagliano, e quello che ribalta
+
+**Il selettore specifico (il lazo).** Si cerchia a mano libera e si prende
+**solo quello che resta dentro**; dove una spezzata esce dal cerchio, **la si
+taglia sul bordo**. È il taglio a renderlo diverso da tutto il resto, e senza
+quello non servirebbe: su un disegno importato una «linea» non esiste — una
+campitura a onde è **un** tracciato con decine di migliaia di nodi — e portarne
+via un pezzo con Scegli e Ctrl+X vuol dire cliccare tratto per tratto per
+mezz'ora. Il rettangolo di selezione non aiuta: prende le **forme** che tocca,
+cioè tutta la campitura.
+
+Il taglio è sul bordo **vero**, non al nodo più vicino: su un tratto dritto è
+l'intersezione esatta, su una curva una bisezione sul parametro, e le due metà
+della curva si ricavano con de Casteljau, così la curva non si storce proprio
+dove la si taglia. Misurato: i nodi nuovi cadono a **tre centesimi di micron**
+dal bordo, e una curva tagliata si discosta dall'originale al massimo di
+**7 micron**, che è un cinquantesimo della punta di una penna.
+
+**Il lazo non cambia il disegno**, cambia solo dove stanno i nodi — e da questo
+viene la cosa più importante sulle prestazioni: le polilinee già calcolate
+restano valide, quindi `Artwork.rigenera()` si salta. Su sessantamila tratti il
+gesto costava **1714 ms**, di cui **1556 di sola rigenerazione**; la geometria
+vera (incroci, tagli, de Casteljau) è **126 ms**. Saltandola, 181. Si pagava
+dieci volte tutto il resto per rifare un calcolo dal risultato identico.
+
+E i tratti scelti si disegnano in **un `path` solo**, con `C` dove c'è una
+curva: prima erano una `polyline` per tratto con venticinque campioni
+ciascuna, che per dieci tratti andava bene e per duemila diventava un quarto di
+secondo **a ogni ridisegno**, cioè anche solo spostando lo sguardo.
+
+**Lo specchio.** Ribalta quello che è scelto attorno alla riga di mezzo della
+selezione, così il disegno si gira senza spostarsi. Non è una rotazione di
+mezzo giro, ed è il motivo per cui serve: una lettera ruotata resta leggibile
+al contrario, una lettera **ribaltata** è l'immagine allo specchio — le due
+cose coincidono solo per le figure simmetriche. Il bottoncino tondo accanto
+sceglie l'asse, e la freccia mostra il **verso del ribaltamento** e non la riga
+dello specchio: «destra-sinistra» si capisce, «asse verticale» si deve
+tradurre ogni volta.
+
+Un testo ribaltato **smette di essere un testo**: la forma `testo` tiene la
+parola e l'altezza, e da quelle le lettere si ricostruiscono dritte ogni volta,
+quindi non c'è posto dove scrivere «ma rovesciata». Lo specchio lo trasforma in
+tracciati, una volta sola e dicendolo nel registro.
+
+Il collaudo è `tools/prova-editor.js` (`node webui/tools/prova-editor.js`): gira
+sulla pagina costruita, in un browser vero, e la cosa che controlla davvero non
+è «ha selezionato qualcosa» ma **che tagliando, il disegno non cambi**. Le
+soglie di tempo sono strette apposta: senza il salto della rigenerazione il lazo
+torna a 1,8 secondi, e una soglia larga lascerebbe rientrare quel secondo e
+mezzo senza che nessuno se ne accorga.
+
 ## L'importazione e l'ottimizzazione
 
 **L'appiattimento delle curve lo fa il browser.** Ogni forma vettoriale espone

@@ -46,6 +46,7 @@ var Editor = (function () {
 
   var presa = null;        // trascinamento in corso
   var banda = null;        // il rettangolo di selezione, mentre lo si tira
+  var lazo = null;         // i punti del selettore specifico, mentre lo si tira
 
   /* IL DOPPIO CLIC CE LO CONTIAMO NOI, invece di aspettare l'evento del
      browser. Il browser emette `dblclick` solo se i due clic hanno lo stesso
@@ -159,6 +160,7 @@ var Editor = (function () {
   function nessunaForma() {
     sel = { forma: -1, forme: [], sub: -1, nodo: -1, maniglia: null, segmenti: [] };
     banda = null;
+    lazo = null;
   }
 
   function aggiornaStorici() {
@@ -299,17 +301,33 @@ var Editor = (function () {
 
     /* I tratti scelti, sopra ai loro tracciati: si vede che cosa toglierebbe
        Canc, che è l'unica domanda che conta quando si ripulisce un disegno. */
-    sel.segmenti.forEach(function (t) {
-      var fm = f[t.forma];
-      if (!fm || fm.tipo !== 'tracciato') return;
-      var sg = fm.sub[t.sub];
-      if (!sg) return;
-      var nn = sg.nodi, a0 = nn[t.k], b0 = nn[(t.k + 1) % nn.length];
-      if (!a0 || !b0) return;
-      var cc = cubicaDi(a0, b0), pz = [];
-      for (var zz = 0; zz <= 24; zz++) pz.push(valuta(cc, zz / 24));
-      out += '<polyline class="ed-seg" points="' + via(pz) + '"></polyline>';
-    });
+    /* TUTTI I TRATTI SCELTI IN UN SEGNO SOLO, e le curve come curve.
+       Prima erano una `polyline` per tratto, con venticinque campioni
+       ciascuna: andava bene per i dieci tratti che si prendono col Ctrl, ma
+       il selettore specifico ne prende migliaia in una volta, e lì
+       diventavano migliaia di elementi e centinaia di migliaia di punti —
+       un quarto di secondo A OGNI RIDISEGNO, quindi anche spostando lo
+       sguardo. Un `path` solo, con `C` dove c'è una curva, è esatto invece
+       che campionato e costa un elemento. */
+    if (sel.segmenti.length) {
+      var d = '';
+      sel.segmenti.forEach(function (t) {
+        var fm = f[t.forma];
+        if (!fm || fm.tipo !== 'tracciato') return;
+        var sg = fm.sub[t.sub];
+        if (!sg) return;
+        var nn = sg.nodi, a0 = nn[t.k], b0 = nn[(t.k + 1) % nn.length];
+        if (!a0 || !b0) return;
+        d += 'M' + a0.x + ' ' + a0.y;
+        if (!a0.ho && !b0.hi) d += 'L' + b0.x + ' ' + b0.y;
+        else {
+          var h1 = a0.ho || a0, h2 = b0.hi || b0;
+          d += 'C' + h1.x + ' ' + h1.y + ' ' + h2.x + ' ' + h2.y +
+               ' ' + b0.x + ' ' + b0.y;
+        }
+      });
+      if (d) out += '<path class="ed-seg" d="' + d + '"></path>';
+    }
 
     /* Le guide per ultime, sopra a tutto: servono mentre si guarda il
        puntatore, e sotto al disegno non si vedrebbero. */
@@ -341,6 +359,16 @@ var Editor = (function () {
                '" x2="' + g.x + '" y2="' + (g.y + c) + '"></line>';
       }
     });
+
+    /* Il filo del lazo si chiude da sé con un tratteggio: il cerchio che
+       conta è quello CHIUSO, e vederlo aperto mentre si decide dove finire
+       fa sbagliare il giro. */
+    if (lazo && lazo.length > 1) {
+      out += '<polyline class="ed-lazo" points="' + via(lazo) + '"></polyline>' +
+             '<line class="ed-lazo-chiudi" x1="' + lazo[lazo.length - 1].x +
+             '" y1="' + lazo[lazo.length - 1].y + '" x2="' + lazo[0].x +
+             '" y2="' + lazo[0].y + '"></line>';
+    }
 
     if (banda) {
       out += '<rect class="ed-banda" x="' + banda.x0 + '" y="' + banda.y0 +
@@ -596,7 +624,12 @@ var Editor = (function () {
     cerchio: 'Trascina dal centro verso il bordo.',
     testo: 'Scrivi qui sopra, poi clicca sulla tela dove vuoi la riga.',
     taglia: 'Clicca su un tratto: si spezza in due lì, e i due pezzi restano ' +
-            'separati come se la penna si fosse alzata.'
+            'separati come se la penna si fosse alzata.',
+    lazo:   '<b>Cerchia a mano libera</b> quello che vuoi: prende solo quello ' +
+            'che resta DENTRO, e dove una spezzata esce <b>la taglia sul ' +
+            'bordo</b>. Poi <b>Ctrl+X</b>, scegli il livello e <b>Ctrl+V</b>: ' +
+            'sul foglio non si muove niente, cambia solo la penna. Lavora sul ' +
+            'livello acceso, e i testi non li taglia.'
   };
 
   function scriviAiuto() {
@@ -687,6 +720,12 @@ var Editor = (function () {
     if (strumento === 'curva') return giuCurva(e, p, u);
     if (strumento === 'togli') return togliTratto(p, u);
     if (strumento === 'taglia') return taglia(p, u);
+    if (strumento === 'lazo') {
+      presa = { tipo: 'lazo', inizio: p };
+      lazo = [p];
+      try { svg.setPointerCapture(e.pointerId); } catch (x) { /* non capita */ }
+      return;
+    }
     if (strumento === 'spezzata') return giuSpezzata(p, e);
     if (strumento === 'testo') return metteTesto(p);
     if (strumento === 'rettangolo' || strumento === 'cerchio') {
@@ -883,6 +922,19 @@ var Editor = (function () {
       return;
     }
 
+    if (presa.tipo === 'lazo') {
+      /* Si tiene solo quello che aggiunge forma: un punto ogni pixel. Il filo
+         deve seguire il dito, ma diecimila punti per un cerchio rendono poi
+         ogni confronto diecimila volte più caro. */
+      var ul = lazo[lazo.length - 1];
+      var px = perPixel();
+      if ((p.x - ul.x) * (p.x - ul.x) + (p.y - ul.y) * (p.y - ul.y) >= px * px) {
+        lazo.push(p);
+        disegna();
+      }
+      return;
+    }
+
     if (presa.tipo === 'banda') {
       banda = { x0: Math.min(presa.inizio.x, p.x), y0: Math.min(presa.inizio.y, p.y),
                 x1: Math.max(presa.inizio.x, p.x), y1: Math.max(presa.inizio.y, p.y) };
@@ -966,6 +1018,15 @@ var Editor = (function () {
     }
     forseDoppio = false;
     guide = [];
+
+    if (tipo === 'lazo') {
+      var punti = lazo || [];
+      lazo = null;
+      if (mosso && punti.length >= 3) prendiDentro(punti);
+      else { nessunaForma(); disegna(); }
+      scriviPiede();
+      return;
+    }
 
     if (tipo === 'banda') {
       /* Tirato: si sceglie quello che c'è dentro. Solo premuto e rilasciato:
@@ -1426,6 +1487,375 @@ var Editor = (function () {
     }
     nessunaForma();
     cambiato();
+  }
+
+  /* ================= IL SELETTORE SPECIFICO, E LO SPECCHIO =================
+   *
+   * IL SELETTORE SPECIFICO (il lazo). Si cerchia a mano libera e si prende
+   * SOLO QUELLO CHE STA DENTRO — non le forme che il cerchio tocca, ma i
+   * pezzi di linea contenuti. Dove una spezzata esce dal cerchio, LA SI
+   * TAGLIA SUL BORDO.
+   *
+   * È il taglio che lo rende diverso da tutto il resto, e senza quello non
+   * servirebbe a niente. Su un disegno importato una «linea» non esiste: una
+   * campitura a onde è UN tracciato con decine di migliaia di nodi, e
+   * portarne via un pezzo con Scegli e Ctrl+X vuol dire cliccare tratto per
+   * tratto per mezz'ora. Il rettangolo di selezione non aiuta: prende le
+   * FORME che tocca, cioè tutta la campitura.
+   *
+   * E il taglio è sul bordo VERO, non al nodo più vicino: su un tratto dritto
+   * è l'intersezione esatta, su una curva è una bisezione sul parametro.
+   * Tagliare al nodo lascerebbe barbe fuori dal cerchio e buchi dentro, e su
+   * una campitura fitta quelle barbe sono proprio quello che si vede sulla
+   * carta.
+   *
+   * Lavora sul livello acceso, come tutto l'editor: il lazo non è un modo di
+   * scavalcare i livelli, è un modo di scegliere dentro a uno.
+   */
+
+  /* Punto dentro a un poligono: raggio verso destra, si contano gli incroci,
+     dispari vuol dire dentro. Vale anche per un poligono rientrante, ed è il
+     motivo per cui si usa questo e non il verso dell'area: un lazo tirato a
+     mano è quasi sempre rientrante da qualche parte. */
+  function dentroPoli(q, poli) {
+    var dentro = false, n = poli.length;
+    for (var i = 0, j = n - 1; i < n; j = i++) {
+      var a = poli[i], b = poli[j];
+      if ((a.y > q.y) !== (b.y > q.y) &&
+          q.x < (b.x - a.x) * (q.y - a.y) / (b.y - a.y) + a.x) dentro = !dentro;
+    }
+    return dentro;
+  }
+
+  /* Dove due segmenti si incrociano, come frazione del primo. -1 se non si
+     incrociano. Gli estremi esatti non contano: un taglio a t = 0
+     produrrebbe un tratto di lunghezza zero. */
+  function incrocioRetta(p0, p1, a, b) {
+    var rx = p1.x - p0.x, ry = p1.y - p0.y;
+    var sx = b.x - a.x, sy = b.y - a.y;
+    var den = rx * sy - ry * sx;
+    if (Math.abs(den) < 1e-12) return -1;
+    var t = ((a.x - p0.x) * sy - (a.y - p0.y) * sx) / den;
+    var u = ((a.x - p0.x) * ry - (a.y - p0.y) * rx) / den;
+    if (t <= 1e-9 || t >= 1 - 1e-9 || u < 0 || u > 1) return -1;
+    return t;
+  }
+
+  /* Tutti i punti in cui un tratto attraversa il bordo del lazo. */
+  function incroci(a, b, poli, dritto) {
+    var ts = [], i, j, t;
+    if (dritto) {
+      for (i = 0, j = poli.length - 1; i < poli.length; j = i++) {
+        t = incrocioRetta(a, b, poli[j], poli[i]);
+        if (t > 0) ts.push(t);
+      }
+    } else {
+      /* Una curva si campiona e poi si stringe: dove il dentro/fuori cambia
+         fra due campioni c'è un bordo in mezzo, e dodici bisezioni lo
+         inchiodano a un trentamillesimo del tratto — molto sotto la punta
+         della penna, che è quattro decimi di millimetro. */
+      var c = cubicaDi(a, b), N = 32, prima = dentroPoli(valuta(c, 0), poli);
+      for (var k = 1; k <= N; k++) {
+        var tk = k / N, ora = dentroPoli(valuta(c, tk), poli);
+        if (ora !== prima) {
+          var lo = (k - 1) / N, hi = tk;
+          for (var z = 0; z < 12; z++) {
+            var mm = (lo + hi) / 2;
+            if (dentroPoli(valuta(c, mm), poli) === prima) lo = mm; else hi = mm;
+          }
+          ts.push((lo + hi) / 2);
+          prima = ora;
+        }
+      }
+    }
+    ts.sort(function (x, y) { return x - y; });
+    return ts;
+  }
+
+  /* Una cubica tagliata in due nel punto t, con de Casteljau: le due metà
+     hanno maniglie nuove e passano esattamente dove passava l'originale.
+     Mettere un nodo nel punto giusto senza rifare le maniglie storcerebbe la
+     curva proprio dove la si sta tagliando. */
+  function spezzaCubica(c, t) {
+    function L(p, q) { return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t }; }
+    var a = L(c.p0, c.p1), b = L(c.p1, c.p2), d = L(c.p2, c.p3);
+    var e = L(a, b), f = L(b, d), g = L(e, f);
+    return [{ p0: c.p0, p1: a, p2: e, p3: g },
+            { p0: g, p1: f, p2: d, p3: c.p3 }];
+  }
+
+  function bboxSub(sub) {
+    var b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    function q(z) {
+      if (!z) return;
+      if (z.x < b.x0) b.x0 = z.x;
+      if (z.y < b.y0) b.y0 = z.y;
+      if (z.x > b.x1) b.x1 = z.x;
+      if (z.y > b.y1) b.y1 = z.y;
+    }
+    sub.nodi.forEach(function (n) { q(n); q(n.hi); q(n.ho); });
+    return b;
+  }
+
+  function fuoriDa(b, c) {
+    return b.x1 < c.x0 || b.x0 > c.x1 || b.y1 < c.y0 || b.y0 > c.y1;
+  }
+
+  /* Taglia un sotto-tracciato sul bordo del lazo e dice quali dei tratti
+     risultanti stanno dentro. Torna null se quel sotto-tracciato non
+     c'entra niente. */
+  function tagliaSub(sub, poli, cornice) {
+    var n = sub.nodi, m = n.length;
+    var quanti = sub.chiuso ? m : m - 1;
+    if (quanti < 1) return null;
+
+    var nuovi = [], flag = [], tocca = false;
+    for (var i = 0; i < quanti; i++) {
+      var a = n[i], b = n[(i + 1) % m];
+      nuovi.push(a);
+
+      /* Un tratto la cui scatola non sfiora nemmeno quella del lazo è fuori,
+         e non c'è niente da calcolare. Vale il 12% del tempo su sessantamila
+         tratti — misurato togliendolo, non supposto. Scriverci «è quello che
+         rende la cosa possibile» sarebbe stato falso, e avrebbe mandato chi
+         un giorno vorrà velocizzare questo codice a guardare nel posto
+         sbagliato: quello giusto è dove si rigenera, non qui. */
+      var sb = { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y),
+                 x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) };
+      if (a.ho) { sb.x0 = Math.min(sb.x0, a.ho.x); sb.y0 = Math.min(sb.y0, a.ho.y);
+                  sb.x1 = Math.max(sb.x1, a.ho.x); sb.y1 = Math.max(sb.y1, a.ho.y); }
+      if (b.hi) { sb.x0 = Math.min(sb.x0, b.hi.x); sb.y0 = Math.min(sb.y0, b.hi.y);
+                  sb.x1 = Math.max(sb.x1, b.hi.x); sb.y1 = Math.max(sb.y1, b.hi.y); }
+      if (fuoriDa(sb, cornice)) { flag.push(false); continue; }
+
+      var dritto = !a.ho && !b.hi;
+      var ts = incroci(a, b, poli, dritto);
+      if (ts.length) tocca = true;
+
+      if (!ts.length) {
+        var mezzo = dritto ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+                           : valuta(cubicaDi(a, b), 0.5);
+        flag.push(dentroPoli(mezzo, poli));
+        continue;
+      }
+
+      if (dritto) {
+        var prec = 0;
+        for (var w0 = 0; w0 < ts.length; w0++) {
+          var t0 = ts[w0];
+          var mz = { x: a.x + (b.x - a.x) * (prec + t0) / 2,
+                     y: a.y + (b.y - a.y) * (prec + t0) / 2 };
+          flag.push(dentroPoli(mz, poli));
+          nuovi.push(Tracciato.nodo(a.x + (b.x - a.x) * t0,
+                                    a.y + (b.y - a.y) * t0));
+          prec = t0;
+        }
+        var mzf = { x: a.x + (b.x - a.x) * (prec + 1) / 2,
+                    y: a.y + (b.y - a.y) * (prec + 1) / 2 };
+        flag.push(dentroPoli(mzf, poli));
+        continue;
+      }
+
+      /* Curva: si taglia un pezzo per volta, e il parametro di quelli dopo
+         va riscalato sul pezzo che resta. */
+      var resto = cubicaDi(a, b), base = 0;
+      for (var w = 0; w < ts.length; w++) {
+        var tl = (ts[w] - base) / (1 - base);
+        var due = spezzaCubica(resto, tl);
+        flag.push(dentroPoli(valuta(due[0], 0.5), poli));
+        a.ho = { x: due[0].p1.x, y: due[0].p1.y };
+        var nn = Tracciato.nodo(due[0].p3.x, due[0].p3.y,
+                                { x: due[0].p2.x, y: due[0].p2.y },
+                                { x: due[1].p1.x, y: due[1].p1.y });
+        nuovi.push(nn);
+        a = nn;
+        resto = due[1];
+        base = ts[w];
+      }
+      flag.push(dentroPoli(valuta(resto, 0.5), poli));
+      b.hi = { x: resto.p2.x, y: resto.p2.y };
+    }
+    if (!sub.chiuso) nuovi.push(n[m - 1]);
+
+    var dentroQualcosa = flag.some(function (x) { return x; });
+    if (!dentroQualcosa && !tocca) return null;
+    sub.nodi = nuovi;
+    return flag;
+  }
+
+  /* La riduzione del lazo: punti più vicini di un pixel e mezzo non
+     aggiungono niente alla forma e moltiplicano il lavoro, perché ogni
+     tratto del disegno si confronta con OGNI lato del lazo. */
+  function riduciLazo(punti, passo) {
+    var out = [punti[0]];
+    for (var i = 1; i < punti.length; i++) {
+      var u = out[out.length - 1];
+      var dx = punti[i].x - u.x, dy = punti[i].y - u.y;
+      if (dx * dx + dy * dy >= passo * passo) out.push(punti[i]);
+    }
+    return out;
+  }
+
+  /* IL LAZO NON CAMBIA IL DISEGNO, cambia solo dove stanno i nodi: quelli
+     nuovi cadono esattamente sulla linea che c'era già. Quindi le polilinee
+     che Artwork tiene in cassa restano valide, e si può saltare
+     `Artwork.rigenera()`.
+     NON È UN DETTAGLIO. Misurato il 2026-11-02 su sessantamila tratti: il
+     gesto intero costava 1714 ms, e di quelli la RIGENERAZIONE era 1556. La
+     geometria del lazo — gli incroci, i tagli, de Casteljau — è 126, e
+     l'istantanea dell'annulla 33. Si pagava dieci volte tutto il resto messo
+     insieme per rifare un calcolo il cui risultato è identico.
+     La rigenerazione torna al primo gesto che il disegno lo cambia davvero,
+     cioè dal Ctrl+X in poi, e quello passa da `cambiato()` come sempre. */
+  function soloSpostati() {
+    disegna();
+    scriviPiede();
+  }
+
+  function prendiDentro(punti) {
+    var f = forme();
+    if (!f) return;
+    if (!attivoVisibile()) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio prima ' +
+                     'di cerchiarci dentro.');
+      return;
+    }
+    var poli = riduciLazo(punti, perPixel() * 1.5);
+    if (poli.length < 3) { nessunaForma(); disegna(); return; }
+
+    var cornice = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    poli.forEach(function (q) {
+      if (q.x < cornice.x0) cornice.x0 = q.x;
+      if (q.y < cornice.y0) cornice.y0 = q.y;
+      if (q.x > cornice.x1) cornice.x1 = q.x;
+      if (q.y > cornice.y1) cornice.y1 = q.y;
+    });
+    if (cornice.x1 - cornice.x0 < perPixel() * 3 &&
+        cornice.y1 - cornice.y0 < perPixel() * 3) {
+      nessunaForma(); disegna(); return;
+    }
+
+    segna();
+    var presi = [], testi = 0, toccate = {};
+    for (var fi = 0; fi < f.length; fi++) {
+      var forma = f[fi];
+      if (!forma) continue;
+      if (forma.tipo === 'testo') { testi++; continue; }
+      if (!forma.sub) continue;
+      for (var si = 0; si < forma.sub.length; si++) {
+        var sg = forma.sub[si];
+        if (!sg.nodi || sg.nodi.length < 2) continue;
+        if (fuoriDa(bboxSub(sg), cornice)) continue;
+        var flag = tagliaSub(sg, poli, cornice);
+        if (!flag) continue;
+        for (var k = 0; k < flag.length; k++) {
+          if (flag[k]) { presi.push({ forma: fi, sub: si, k: k }); toccate[fi] = true; }
+        }
+      }
+    }
+
+    if (!presi.length) {
+      /* Niente dentro: l\'istantanea presa un attimo fa sarebbe un passo
+         indietro che non riporta indietro niente. */
+      storia.pop();
+      aggiornaStorici();
+      nessunaForma();
+      soloSpostati();
+      Log.add('err', 'Dentro al cerchio non c\'era niente di questo livello.' +
+              (testi ? ' Ci sono ' + testi + ' testi, che il lazo non taglia: ' +
+                       'una parola tagliata a metà non è più una parola.' : ''));
+      return;
+    }
+
+    sel.segmenti = presi;
+    var quali = Object.keys(toccate).map(Number);
+    sel.forme = [];
+    sel.forma = quali.length ? quali[0] : -1;
+    sel.sub = -1; sel.nodo = -1; sel.maniglia = null;
+    soloSpostati();
+    Log.add('msg', 'Presi ' + presi.length + ' tratti dentro al cerchio, ' +
+            'tagliati sul bordo. Ctrl+X, poi scegli il livello e Ctrl+V: sul ' +
+            'foglio non si muove niente.' +
+            (testi ? ' I ' + testi + ' testi del livello sono rimasti fuori: ' +
+                     'il lazo non li taglia.' : ''));
+  }
+
+  /* ------------------------------ lo specchio ------------------------------
+   *
+   * Ribalta quello che è scelto attorno alla RIGA DI MEZZO di quello che è
+   * scelto: così il disegno resta dov'è e si gira soltanto. Un asse messo
+   * altrove lo farebbe anche volare via, e si dovrebbe rincorrere.
+   *
+   * Non è una rotazione di mezzo giro, ed è il motivo per cui serve: una
+   * lettera ruotata resta leggibile al contrario, una lettera RIBALTATA è
+   * l'immagine allo specchio. Le due cose coincidono solo per le figure
+   * simmetriche, cioè quasi mai.
+   *
+   * UN TESTO RIBALTATO SMETTE DI ESSERE UN TESTO. La forma `testo` tiene la
+   * parola e l'altezza, e da quelle le lettere si ricostruiscono dritte ogni
+   * volta: non c'è posto dove scrivere «ma rovesciata». Quindi lo si
+   * trasforma in tracciati, una volta sola e dicendolo: da lì in poi la
+   * parola non si riscrive più, ma lo specchio tiene.
+   */
+  var specchioAsse = 'v';      // 'v' = asse verticale, ribalta destra-sinistra
+
+  function testoInTracciato(forma) {
+    var subs = [];
+    Tracciato.appiattisci(forma, TOL).forEach(function (poly) {
+      if (poly.length < 2) return;
+      subs.push({ chiuso: false, nodi: poly.map(function (q) {
+        return Tracciato.nodo(q.x, q.y);
+      }) });
+    });
+    return Tracciato.tracciato(subs);
+  }
+
+  function specchia() {
+    var f = forme();
+    if (!f) return;
+    if (!attivoVisibile()) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio prima ' +
+                     'di ribaltarci qualcosa.');
+      return;
+    }
+    var gruppo = sel.forme.length ? sel.forme.slice()
+               : (sel.forma >= 0 ? [sel.forma] : []);
+    if (!gruppo.length) {
+      Log.add('err', 'Non c\'è nessuna forma scelta da ribaltare: clicca una ' +
+                     'linea, o tienine premuto Shift per prenderne altre. ' +
+                     'Lo specchio lavora su forme intere, non su singoli tratti.');
+      return;
+    }
+    var scelte = gruppo.map(function (i) { return f[i]; })
+                       .filter(function (x) { return !!x; });
+    var b = Tracciato.bbox(scelte, TOL);
+    if (!isFinite(b.w) || !isFinite(b.h)) {
+      Log.add('err', 'Quello che è scelto non ha una misura: non so attorno a ' +
+                     'che cosa ribaltarlo.');
+      return;
+    }
+    var cx = b.x0 + b.w / 2, cy = b.y0 + b.h / 2;
+    var m = specchioAsse === 'v'
+      ? { a: -1, b: 0, c: 0, d: 1, e: 2 * cx, f: 0 }
+      : { a: 1, b: 0, c: 0, d: -1, e: 0, f: 2 * cy };
+
+    segna();
+    var testi = 0;
+    gruppo.forEach(function (i) {
+      var forma = f[i];
+      if (!forma) return;
+      if (forma.tipo === 'testo') { forma = testoInTracciato(forma); testi++; }
+      f[i] = Tracciato.trasforma(forma, m);
+    });
+    sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];
+    cambiato();
+    Log.add('msg', 'Ribaltato attorno all\'asse ' +
+            (specchioAsse === 'v' ? 'verticale (destra-sinistra)'
+                                  : 'orizzontale (sopra-sotto)') +
+            ', in mezzo a quello che era scelto: sul foglio non si è spostato.' +
+            (testi ? ' ' + (testi === 1 ? 'Un testo è diventato' : testi +
+                     ' testi sono diventati') + ' tracciati: una parola ' +
+                     'allo specchio non si riscrive più.' : ''));
   }
 
   /* ---------------------- taglia, copia, incolla ----------------------
@@ -1893,6 +2323,14 @@ var Editor = (function () {
         disegna();
         scriviAiuto();
       }
+      else if (b.id === 'ed-specchia') specchia();
+      else if (b.id === 'ed-specchio-asse') {
+        specchioAsse = specchioAsse === 'v' ? 'o' : 'v';
+        b.textContent = specchioAsse === 'v' ? '\u2194' : '\u2195';
+        b.title = specchioAsse === 'v'
+          ? 'Asse verticale: ribalta destra-sinistra. Clicca per cambiarlo.'
+          : 'Asse orizzontale: ribalta sopra-sotto. Clicca per cambiarlo.';
+      }
       else if (b.id === 'ed-magneti') {
         magneti = !magneti;
         b.classList.toggle('attivo', magneti);
@@ -1989,6 +2427,18 @@ var Editor = (function () {
            },
            tratti: function () { return sel.segmenti.slice(); },
            griglia: function (v) { if (v !== undefined) griglia = +v || 0; return griglia; },
+           /* Per il collaudo: il lazo e lo specchio senza passare dal mouse. */
+           lazo: prendiDentro,
+           scegliForma: function (i) {
+             sel.forma = i; sel.forme = [i];
+             sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];
+             disegna();
+           },
+           specchia: specchia,
+           asseSpecchio: function (v) {
+             if (v !== undefined) specchioAsse = (v === 'o') ? 'o' : 'v';
+             return specchioAsse;
+           },
            annulla: annulla, rifai: rifai,
            copia: copia, incolla: incolla,
            appunti: function () { return appunti ? appunti.che : null; },
