@@ -451,6 +451,34 @@ var Settings = (function () {
       notaTele();
     }
 
+    /* IL VOLUME. La nota sotto al cursore dice che cosa vuol dire il numero,
+       perche' «7 su 10» da solo non dice niente: su un cicalino senza volume
+       vero, quello che cambia e' quanto dura l'impulso, e il salto da 10 a 9
+       si sente poco mentre quello da 2 a 1 si sente tanto. */
+    var vol = document.getElementById('set-tele-volume');
+    var volN = document.getElementById('set-tele-volume-n');
+    var volNota = document.getElementById('set-tele-volume-nota');
+    function notaVolume(v) {
+      if (volN) volN.textContent = v;
+      if (!volNota) return;
+      volNota.textContent =
+        v === 0  ? 'Muto: il telecomando resta un vetro che si guarda.'
+      : v === 10 ? 'Pieno: onda quadra intera, come prima che questo cursore ' +
+                   'esistesse. È l\'unica posizione in cui il firmware non cambia strada.'
+      : 'Impulso al ' + (v * 5) + '% del periodo, circa ' +
+        Math.round(-20 * Math.log10(Math.sin(Math.PI * v / 20))) +
+        ' dB sotto il pieno. Le tacche basse si sentono molto più delle alte: ' +
+        'la scala è il seno, non una proporzione.';
+    }
+    if (vol && window.Telecomando) {
+      vol.value = String(Telecomando.volume());
+      notaVolume(Telecomando.volume());
+      vol.addEventListener('input', function () { notaVolume(+this.value); });
+      vol.addEventListener('change', function () {
+        notaVolume(Telecomando.volume(+this.value));
+      });
+    }
+
     /* La prova in bianco. Si accende solo con un indirizzo: senza, non c'è
        nessuno a cui recitare. */
     var pv = document.getElementById('btn-tele-prova');

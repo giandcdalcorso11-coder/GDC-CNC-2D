@@ -104,7 +104,10 @@ int TOCCO_FINTO = -1;                /* quale pad e' toccato, -1 nessuno */
 bool Qtouch::getTouch(touchButtons p) { return (int)p == TOCCO_FINTO; }
 bool Qtouch::onTouchDown(touchButtons) { return false; }
 bool Qtouch::onTouchUp(touchButtons) { return false; }
-void Buz::sound(int) {} void Buz::noSound() {} void Buz::beep(int, unsigned long) {}
+int BUZ_HZ = 0;                      /* l'ultima nota chiesta a tone() */
+void Buz::sound(int f) { BUZ_HZ = f; }
+void Buz::noSound() { BUZ_HZ = 0; }
+void Buz::beep(int, unsigned long) {}
 int MKRIoTCarrier::begin() { return 1; }
 void MKRIoTCarrier::noCase() {} void MKRIoTCarrier::withCase() {}
 
@@ -112,6 +115,8 @@ unsigned long millis() { return OROLOGIO; }
 void delay(unsigned long) {}
 void pinMode(int, int) {} void digitalWrite(int, int) {} int digitalRead(int) { return 0; }
 void analogWrite(int, int) {}
+TccFinto TCC0_CORPO = {};
+TccFinto* TCC0 = &TCC0_CORPO;
 int ADC_FINTO = 512;                 /* il grezzo della cella, a scelta */
 int analogRead(int) { return ADC_FINTO; }
 void tone(int, int) {} void noTone(int) {}
@@ -292,6 +297,51 @@ int main() {
 
   ADC_FINTO = 512; PMIC_STATO_FINTO = 0x00; leggiSpina(true);
   vFiltrata = -1; batteria = 76;
+
+  /* IL VOLUME DEL CICALINO. Due strade, e la differenza non si sente: un
+     volume che sbaglia il PERIODO cambierebbe la NOTA, e ascoltando un
+     cicalino nessuno direbbe «questa e' 2380 invece di 2500». I numeri si
+     guardano, non si ascoltano. */
+  volumeCicalino = 10; modoCicalino = 0; BUZ_HZ = 0;
+  canta(2500);
+  if (modoCicalino != 1 || BUZ_HZ != 2500) {
+    fprintf(stderr, "KO a volume pieno non passa piu' da tone(): modo %d, hz %d\n",
+            modoCicalino, BUZ_HZ); exit(1);
+  }
+
+  volumeCicalino = 5; canta(2500);
+  if (modoCicalino != 2) { fprintf(stderr, "KO sotto il pieno non passa al PWM\n"); exit(1); }
+  /* 48 MHz diviso 2500 fa 19200 conteggi per periodo: PER e' uno meno. */
+  if (TCC0->PER.reg != 19199) {
+    fprintf(stderr, "KO il periodo e' %lu invece di 19199: la nota sarebbe sbagliata\n",
+            TCC0->PER.reg); exit(1);
+  }
+  /* Tacca 5 su 10 = un quarto di periodo alto (il massimo utile e' meta'). */
+  if (TCC0->CC[7].reg != 4800) {
+    fprintf(stderr, "KO la parte alta e' %lu invece di 4800\n", TCC0->CC[7].reg); exit(1);
+  }
+
+  volumeCicalino = 1; canta(2500);
+  if (TCC0->CC[7].reg != 960) {
+    fprintf(stderr, "KO alla tacca 1 la parte alta e' %lu invece di 960\n",
+            TCC0->CC[7].reg); exit(1);
+  }
+  /* E la nota non deve cambiare col volume: il periodo resta quello. */
+  if (TCC0->PER.reg != 19199) {
+    fprintf(stderr, "KO il volume ha cambiato la nota: periodo %lu\n", TCC0->PER.reg); exit(1);
+  }
+
+  /* Un'altra nota, per vedere che il periodo segua lei e non il volume. */
+  canta(1873);
+  if (TCC0->PER.reg != (unsigned long)(48000000UL / 1873 - 1)) {
+    fprintf(stderr, "KO il periodo non segue la nota: %lu\n", TCC0->PER.reg); exit(1);
+  }
+
+  volumeCicalino = 0; canta(2500);
+  if (TCC0->CC[7].reg != 0) {
+    fprintf(stderr, "KO a zero non tace: parte alta %lu\n", TCC0->CC[7].reg); exit(1);
+  }
+  volumeCicalino = 10; modoCicalino = 0; BUZ_HZ = 0;
 
   /* LA CADENZA LA DECIDE LO STATO, e si prova per la strada vera: un
      messaggio del SLICER. Il problema chiama ogni dieci secondi e scade;

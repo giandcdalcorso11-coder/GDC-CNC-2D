@@ -122,6 +122,26 @@ dietro, e la tela resterebbe vuota proprio mentre si guarda dove incollare.
 L'ingombro copiato non va corretto dopo: `refit()` salta i livelli vuoti e non
 lo tocca, e al primo contenuto `rigenera()` lo usa come ancora.
 
+## Il marchio nell'intestazione
+
+Il logo sta al posto delle parole «CNC 2D», che è quello che il logo dice:
+resta «GDC» davanti e «SLICER» dietro, così la riga si legge per intero. È
+inline, prende il colore dal testo (`fill="currentColor"`) e quindi segue il
+tema senza una seconda copia da tenere d'accordo.
+
+**La sorgente è una sola e sta in `logo/cnc2d.svg`.** Qui dentro ce n'è una
+copia, perché la pagina è un file solo e un `<img src>` verso l'esterno non
+sopravviverebbe alla costruzione — ma una copia fatta a mano prima o poi resta
+indietro. `tools/logo.py` la rifà in un secondo, e con `--controlla` dice solo
+se è allineata. Quando il logo cambia, si lancia quello.
+
+**Una cosa da sapere: a misura di intestazione il marchio non si legge come
+lettere.** Gli incastri che lo rendono interessante a venti millimetri a venti
+PIXEL diventano una macchia. Sta a 26 px perché la barra è alta 52 e quello è
+il massimo che ci sta; sotto i 20 non si riconosce più. È la **versione
+quadrata** che manca, quella che lo Step 7 del documento di sessione chiede
+già: un marchio piccolo si disegna, non si rimpicciolisce.
+
 ## I due strumenti che tagliano, e quello che ribalta
 
 **Il selettore specifico (il lazo).** Si cerchia a mano libera e si prende

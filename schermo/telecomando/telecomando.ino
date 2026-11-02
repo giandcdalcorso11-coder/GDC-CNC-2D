@@ -356,6 +356,99 @@ const Nota SUONO_FINE[]     = { {2227, 65}, {2500, 65}, {2806, 65},
 const Nota SUONO_ERRORE[]   = { {2500, 120}, {2973, 120}, {2500, 120},
                                 {2973, 120}, {2500, 160} };
 
+/* ===================================================================
+ * IL VOLUME, CHE SU QUESTO CICALINO NON ESISTE
+ *
+ * L'ABT-461-RC e' un trasduttore a comando esterno: o commuta o non
+ * commuta. Non c'e' nessun livello da abbassare, nessun partitore, nessun
+ * amplificatore — fra il piedino e la bobina c'e' un solo MOSFET che apre
+ * e chiude. Quindi «volume» qui vuol dire una cosa sola: QUANTO DURA
+ * L'IMPULSO dentro a ogni periodo.
+ *
+ * E non va in proporzione. Quello che la membrana sente e' l'ampiezza
+ * della prima armonica dell'onda, che per un impulso lungo una frazione d
+ * del periodo vale sin(pi * d): a meta' periodo — l'onda quadra — e' il
+ * massimo; a un ventesimo e' un sesto. Per questo la scala del SLICER ha
+ * DIECI tacche e non cento, e per questo la nota sotto al cursore dice i
+ * decibel invece di una percentuale: da 10 a 9 non si sente quasi, da 2 a
+ * 1 si sente moltissimo.
+ *
+ * DUE STRADE, E SI SCEGLIE UNA SOLA VOLTA PER NOTA.
+ *   volume 10  ->  `tone()`, cioe' ESATTAMENTE quello che il firmware
+ *                  faceva prima che questo cursore esistesse. Il piedino
+ *                  lo commuta un'interruzione del core, e il piedino e'
+ *                  un'uscita normale.
+ *   volume 1-9 ->  TCC0 in PWM: il periodo lo decide la nota, la parte
+ *                  alta il volume, e il piedino lo pilota il timer.
+ *
+ * Non si mescolano: le due strade vogliono il piedino in due modi diversi
+ * (uscita normale contro uscita del timer), e passare dall'una all'altra
+ * vuol dire rifare il collegamento interno. Lo si fa quando il volume
+ * attraversa il dieci, non a ogni nota.
+ *
+ * PERCHE' TCC0 E PERCHE' SI PUO'. Il cicalino sta su D7, che e' PA21, che
+ * e' il canale 7 di TCC0 (tabella della variante mkrwifi1010). TCC0 qui
+ * non lo usa nessun altro: la retroilluminazione del vetro sta su D3, che
+ * e' TCC1, e `tone()` usa TC5. L'unico altro piedino di TCC0 e' D6, che
+ * sul carrier non va da nessuna parte.
+ *
+ * E L'IMPIANTO LO FA IL CORE, non noi: `analogWrite(BUZZER, 0)` collega il
+ * piedino al timer, accende il clock e mette TCC0 in PWM — codice
+ * collaudato da anni. Di nostro restano DUE registri, il periodo e il
+ * confronto. Scrivere a mano anche il resto sarebbe stato piu' codice e
+ * piu' modi di sbagliare, per la stessa cosa.
+ *
+ * QUESTA PARTE NON E' STATA PROVATA SULLA SCHEDA: da qui dentro il
+ * firmware non si compila per il MKR (downloads.arduino.cc e' bloccato).
+ * Il dieci pero' e' la strada vecchia, intatta: se il PWM fosse sbagliato,
+ * il telecomando a volume pieno suona come prima e si sbaglia solo sotto.
+ * =================================================================== */
+const uint8_t BUZZER_PIN = 7;        // D7 = PA21 = TCC0/WO[7]
+int volumeCicalino = 10;             // 0 muto, 10 pieno. Lo manda il SLICER.
+int modoCicalino = 0;                // 0 niente, 1 tone(), 2 PWM
+
+static void sincroTCC0() { while (TCC0->SYNCBUSY.reg) { /* aspetta */ } }
+
+void taci() {
+  if (modoCicalino == 2) {
+    TCC0->CC[7].reg = 0;
+    sincroTCC0();
+  } else {
+    carrier.Buzzer.noSound();
+  }
+}
+
+void canta(int hz) {
+  if (hz <= 0 || volumeCicalino <= 0) { taci(); return; }
+
+  if (volumeCicalino >= 10) {
+    if (modoCicalino != 1) {
+      /* Il piedino torna un'uscita normale: `pinMode` rifa' il
+         collegamento interno, che il PWM aveva spostato sul timer. */
+      pinMode(BUZZER_PIN, OUTPUT);
+      modoCicalino = 1;
+    }
+    carrier.Buzzer.sound(hz);
+    return;
+  }
+
+  if (modoCicalino != 2) {
+    carrier.Buzzer.noSound();
+    analogWrite(BUZZER_PIN, 0);      // il core collega, accende e configura
+    modoCicalino = 2;
+  }
+  uint32_t per = (uint32_t)(F_CPU / (uint32_t)hz) - 1;
+  /* Dieci tacche su un massimo di mezzo periodo: la tacca 9 e' il 45% e la
+     tacca 1 il 5%. Oltre meta' periodo non si guadagna niente — l'onda e'
+     simmetrica e la prima armonica ricomincia a calare. */
+  uint32_t alto = (per + 1) * (uint32_t)volumeCicalino / 20;
+  if (alto < 1) alto = 1;
+  TCC0->PER.reg = per;
+  sincroTCC0();
+  TCC0->CC[7].reg = alto;
+  sincroTCC0();
+}
+
 const Nota* inSuono = nullptr;
 int quanteNote = 0, notaOra = 0;
 unsigned long notaDa = 0;
@@ -370,10 +463,10 @@ void suoni() {
   unsigned long ora = millis();
   if (notaOra >= 0 && ora - notaDa < (unsigned long)inSuono[notaOra].ms) return;
   notaOra++;
-  if (notaOra >= quanteNote) { carrier.Buzzer.noSound(); inSuono = nullptr; return; }
+  if (notaOra >= quanteNote) { taci(); inSuono = nullptr; return; }
   notaDa = ora;
-  if (inSuono[notaOra].hz) carrier.Buzzer.sound(inSuono[notaOra].hz);
-  else                     carrier.Buzzer.noSound();
+  if (inSuono[notaOra].hz) canta(inSuono[notaOra].hz);
+  else                     taci();
 }
 
 /* ===================================================================
@@ -1752,6 +1845,18 @@ void leggiMessaggio(const char* corpo) {
   S.percento  = (int)numeroDa(corpo, "percento", -1);
   S.rimanente = numeroDa(corpo, "rimanente", -1);
   S.passo     = (int)numeroDa(corpo, "passo", -1);
+  /* IL VOLUME ARRIVA IN OGNI MESSAGGIO, e va bene cosi': qui non c'e' un
+     posto dove ricordarselo fra un'accensione e l'altra, e mandarlo una
+     volta sola vorrebbe dire che staccando la spina torna al massimo senza
+     dirlo a nessuno. Un SLICER vecchio non lo manda e vale 10, cioe' come
+     prima. Cambiandolo si rifa' la strada alla prima nota. */
+  int vol = (int)numeroDa(corpo, "volume", 10);
+  if (vol < 0) vol = 0;
+  if (vol > 10) vol = 10;
+  if (vol != volumeCicalino) {
+    volumeCicalino = vol;
+    Serial.print("Volume cicalino: "); Serial.println(vol);
+  }
   S.azzerata  = booleanoDa(corpo, "azzerata");
   S.giu       = treStati(corpo, "giu");
 
@@ -1876,13 +1981,18 @@ void serviCliente() {
   const char* comeVa = spina == A_BATTERIA ? "batteria" :
                        spina == IN_CARICA  ? "carica"   :
                        spina == PIENA      ? "piena"    : "ferma";
-  char risposta[96];
+  /* Il volume torna indietro perche' il cursore del SLICER possa dire la
+     VERITA' invece della propria ultima idea: se il messaggio non e' mai
+     arrivato, i due numeri non coincidono e si vede. */
+  char risposta[128];
   if (daMandare[0]) snprintf(risposta, sizeof(risposta),
-                             "{\"tasto\":\"%s\",\"batteria\":%d,\"carica\":\"%s\"}",
-                             daMandare, batteria, comeVa);
+                             "{\"tasto\":\"%s\",\"batteria\":%d,\"carica\":\"%s\","
+                             "\"volume\":%d}",
+                             daMandare, batteria, comeVa, volumeCicalino);
   else              snprintf(risposta, sizeof(risposta),
-                             "{\"tasto\":null,\"batteria\":%d,\"carica\":\"%s\"}",
-                             batteria, comeVa);
+                             "{\"tasto\":null,\"batteria\":%d,\"carica\":\"%s\","
+                             "\"volume\":%d}",
+                             batteria, comeVa, volumeCicalino);
   daMandare[0] = 0;
 
   c.println("HTTP/1.1 200 OK");
@@ -1957,9 +2067,9 @@ void leggiTasti(Schermata s) {
       attesaRilascio = true;
       schermoDisegnato = NESSUNA;
     }
-    carrier.Buzzer.sound(RISONANZA);
+    canta(RISONANZA);
     delay(8);                        // un tic, giusto per sentire il dito
-    carrier.Buzzer.noSound();
+    taci();
     return;
   }
 }

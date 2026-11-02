@@ -18,6 +18,17 @@ void digitalWrite(int, int);
 int  digitalRead(int);
 void analogWrite(int, int);
 int  analogRead(int);
+
+/* IL TIMER FINTO, e il clock della scheda. Non suona niente: serve a far
+   compilare il codice del volume e, soprattutto, a controllare i DUE
+   NUMERI che ci finiscono dentro - il periodo e la parte alta - che sulla
+   scheda non si possono rileggere e a orecchio non si distinguono. Un
+   volume che sbaglia il periodo cambierebbe la NOTA, non il volume, e
+   nessuno se ne accorgerebbe ascoltando un cicalino. */
+#define F_CPU 48000000L
+struct TccReg { unsigned long reg; };
+struct TccFinto { TccReg PER; TccReg SYNCBUSY; TccReg CC[8]; };
+extern TccFinto* TCC0;
 void tone(int, int);
 void noTone(int);
 #define OUTPUT 1

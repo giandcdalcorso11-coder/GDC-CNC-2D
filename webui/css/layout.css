@@ -18,6 +18,19 @@
 }
 .brand span { color: var(--accent); }
 
+/* IL MARCHIO. Alto quanto una maiuscola della riga e allineato alla base,
+   perche' sta DENTRO a una frase - «GDC [marchio] SLICER» - e non accanto:
+   un logo che galleggia mezzo pixel sopra alle lettere si vede, anche se
+   nessuno sa dire cosa non va. Prende il colore dal testo, quindi non c'e'
+   una seconda tavolozza da tenere d'accordo. */
+.brand .marchio {
+  height: 26px;
+  width: auto;
+  display: inline-block;
+  vertical-align: -7px;
+  margin: 0 5px;
+}
+
 /* Il numero di versione accanto al nome. Piccolo e smorzato: serve quando lo
    si cerca - "che copia ho davanti?" - e non deve farsi notare il resto del
    tempo. */

@@ -34,6 +34,17 @@
 var Telecomando = (function () {
 
   var CHIAVE = 'cnc2d-telecomando';
+  var CHIAVE_VOL = 'cnc2d-telecomando-volume';
+
+  /* IL VOLUME, che su questo cicalino non esiste e si fa lo stesso.
+     L'ABT-461-RC è un trasduttore a comando esterno: o commuta o non
+     commuta, e non c'è nessun livello da abbassare. L'unica cosa che si
+     può cambiare è QUANTO DURA L'IMPULSO dentro a ogni periodo — la parte
+     di onda che sta in alto — e l'ampiezza della fondamentale, cioè quello
+     che la membrana sente, va come il seno di quella frazione.
+     Dieci è l'onda quadra piena, cioè esattamente quello che faceva prima:
+     a dieci il firmware non cambia strada. */
+  var volume = 10;
 
   /* Ogni quanto si parla. Durante una stampa il tasto deve rispondere svelto,
      e il ritardo di un tasto È l'intervallo fra due messaggi: tre decimi per
@@ -91,6 +102,12 @@ var Telecomando = (function () {
          sopra l'AZIONE che farà, non il suo nome. `null` fuori di lì. */
       giu: finta ? (finta.giu === undefined ? null : finta.giu)
                  : ((window.Popup && Popup.pennaGiu) ? Popup.pennaGiu() : null),
+      /* Il volume viaggia in OGNI messaggio, non una volta sola. Il
+         telecomando non ha un posto dove ricordarselo fra un'accensione e
+         l'altra, e un valore mandato una volta sarebbe quello giusto finché
+         non stacca la spina — poi tornerebbe al massimo senza dirlo. Costa
+         un numero in un messaggio che parte comunque. */
+      volume: volume,
       macchina: finta ? finta.macchina : State.data.machine,
       azzerata: finta ? !!finta.azzerata : !!State.data.azzerata,
       data: new Date().toISOString()
@@ -117,7 +134,7 @@ var Telecomando = (function () {
        tasto, aspettare il prossimo giro vorrebbe dire leggere l'azione
        sbagliata per un momento, proprio mentre si guarda il tasto che si è
        appena premuto. */
-    return [m.stato, m.passo, m.macchina, m.azzerata, m.giu].join('|');
+    return [m.stato, m.passo, m.macchina, m.azzerata, m.giu, m.volume].join('|');
   }
 
   /* ------------------------------ il dialogo ------------------------------ */
@@ -567,6 +584,21 @@ var Telecomando = (function () {
 
   /* ----------------------------- l'indirizzo ----------------------------- */
 
+  /* Da 0 a 10. Zero è muto, e muto deve restare possibile: il telecomando
+     sta in una stanza dove a volte si dorme. */
+  function vol(v) {
+    if (v === undefined) return volume;
+    var n = Math.round(+v);
+    volume = Math.max(0, Math.min(10, isNaN(n) ? 10 : n));
+    try { localStorage.setItem(CHIAVE_VOL, String(volume)); } catch (e) { /* privata */ }
+    /* Si manda subito: un cursore che si muove e un cicalino che cambia tre
+       secondi dopo non si collegano fra loro, e si finisce a trascinarlo
+       avanti e indietro per capire se ha fatto qualcosa. */
+    firma = '';
+    manda();
+    return volume;
+  }
+
   function dove(v) {
     if (v === undefined) return indirizzo;
     indirizzo = String(v || '').trim();
@@ -589,6 +621,10 @@ var Telecomando = (function () {
 
   function init() {
     try { indirizzo = localStorage.getItem(CHIAVE) || ''; } catch (e) { indirizzo = ''; }
+    try {
+      var vv = localStorage.getItem(CHIAVE_VOL);
+      if (vv !== null) volume = Math.max(0, Math.min(10, parseInt(vv, 10) || 0));
+    } catch (e) { /* privata */ }
     segnala();
     if (indirizzo) { manda(); battito(); }
 
@@ -608,7 +644,7 @@ var Telecomando = (function () {
     });
   }
 
-  return { init: init, dove: dove, stato: stato, manda: manda, premuto: premuto,
+  return { init: init, dove: dove, volume: vol, stato: stato, manda: manda, premuto: premuto,
            prova: prova, inProva: function () { return !!finta; },
            pose: function () { return POSE.map(function (p) {
                    return { k: p.k, nome: p.nome }; }); },

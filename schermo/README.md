@@ -877,6 +877,54 @@ cicalino. Ha due interruttori che contano più delle melodie — **attutito**
 e **rumore dei motori** — perché i due allarmi devono restare distinguibili
 proprio lì, e si sente la composizione, non il timbro.
 
+#### Il volume, che non esiste e si fa lo stesso
+
+Fra il piedino e la bobina c'è **un MOSFET e basta**: nessun livello da
+abbassare, nessun partitore, nessun amplificatore. Quindi «volume» qui vuol
+dire una cosa sola — **quanto dura l'impulso dentro a ogni periodo** — e quello
+che la membrana sente è l'ampiezza della prima armonica, che per un impulso
+lungo una frazione `d` del periodo vale `sin(π·d)`.
+
+**Non va in proporzione**, e per questo la scala ha **dieci tacche e non
+cento**: da 10 a 9 non si sente quasi niente, da 2 a 1 si sente moltissimo.
+
+| tacca | impulso | sotto il pieno |
+|---|---|---|
+| 10 | 50% (onda quadra) | — |
+| 7 | 35% | 1 dB |
+| 5 | 25% | 3 dB |
+| 3 | 15% | 7 dB |
+| 1 | 5% | 16 dB |
+| 0 | — | muto |
+
+**Due strade, e si sceglie una volta per nota.** A **10** si passa da `tone()`,
+cioè esattamente quello che il firmware faceva prima che il cursore esistesse:
+il piedino è un'uscita normale e lo commuta un'interruzione del core. Da **1 a
+9** è **TCC0 in PWM**: il periodo lo decide la nota, la parte alta il volume, e
+il piedino lo pilota il timer. Non si mescolano — le due strade vogliono il
+piedino in due modi diversi — e si cambia quando il volume attraversa il dieci.
+
+**Perché TCC0 si può usare.** Il cicalino sta su **D7 = PA21 = TCC0/WO[7]**
+(tabella della variante `mkrwifi1010`), e TCC0 qui non lo usa nessun altro: la
+retroilluminazione del vetro è su **D3 = TCC1**, `tone()` usa **TC5**, e
+l'unico altro piedino di TCC0 è D6, che sul carrier non va da nessuna parte.
+E **l'impianto lo fa il core**: `analogWrite(BUZZER, 0)` collega il piedino al
+timer, accende il clock e mette TCC0 in PWM — codice collaudato da anni. Di
+nostro restano **due registri**, il periodo e il confronto.
+
+**Il volume viaggia in ogni messaggio** del SLICER, non una volta sola: qui non
+c'è un posto dove ricordarselo fra un'accensione e l'altra, e mandarlo una
+volta vorrebbe dire che staccando la spina torna al massimo senza dirlo a
+nessuno. Torna indietro nella risposta, così il cursore dice la verità invece
+della propria ultima idea. Un SLICER vecchio non lo manda e vale 10.
+
+**Questa parte non è stata provata sulla scheda**: da dentro la sessione il
+firmware non si compila per il MKR. Quello che si è potuto provare sono **i due
+numeri** — periodo e parte alta — sul banco finto, che è dove conta: un volume
+che sbaglia il periodo cambierebbe la **nota**, e ascoltando un cicalino
+nessuno direbbe «questa è 2380 invece di 2500». E la tacca 10 è la strada
+vecchia intatta: se il PWM fosse sbagliato, a volume pieno suona come prima.
+
 ### Tre cose che lo schema ha cambiato nel codice
 
 - **`carrier.begin()` torna `false` se un sensore qualsiasi non risponde** —

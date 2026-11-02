@@ -1764,6 +1764,18 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
   pointer-events: none;
 }
 
+/* IL CURSORE DEL VOLUME, col numero accanto. Il numero c'e' perche' una
+   tacca su dieci senza cifra si legge "circa a meta'", e qui "7" e "8" sono
+   due cose diverse che si devono poter ridire a voce. */
+.vol-riga { display: flex; align-items: center; gap: 10px; }
+.vol-riga input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.vol-riga output {
+  flex: 0 0 2.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 /* IL FILO DEL LAZO. Pieno e rosso: il rettangolo di selezione e le guide
    dei magneti sono tratteggiati, e qui serve distinguere a colpo d'occhio
    "prendo quello che tocco" da "prendo quello che chiudo dentro". Il rosso
