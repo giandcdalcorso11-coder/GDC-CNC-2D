@@ -326,9 +326,13 @@ const int RISONANZA = 2500;
 
 /* Scelti all'ascolto dall'utente sul banco dei suoni, il 2026-11-02.
 
-   PARTENZA — «tre scalini»: due toni interi in salita. PROVVISORIO: è il
-   preferito fra le prime tre proposte, ma l'utente ne ha chieste altre,
-   più lunghe. Si cambia una riga.
+   PARTENZA — «la fanfara»: sol do mi, do mi, do. Una quarta, una terza e
+   il rimbalzo: è la forma delle trombe militari, e quella forma esiste
+   per un motivo che vale anche qui — usa SOLO le note che uno strumento
+   senza tasti sa fare, e il cicalino è esattamente uno strumento senza
+   tasti. Il sol d'attacco sta un quarto sotto il DO, quindi è la nota più
+   debole delle sei: va bene perché è la spinta, non l'arrivo, e la
+   partenza la senti da vicino.
 
    CAMBIO PENNA — «tre colpi»: tutto sul DO, perché attutito da una porta
    le altezze diventano uguali e quello che sopravvive è il ritmo. Tre è
@@ -343,7 +347,8 @@ const int RISONANZA = 2500;
    fila di cinque colpi, e cinque somigliano a tre. Quello che la salva è
    che TORNA OGNI DIECI SECONDI contro i venti del cambio penna — vedi
    «IL RICHIAMO». */
-const Nota SUONO_PARTENZA[] = { {2500, 55}, {2806, 55}, {3150, 85} };
+const Nota SUONO_PARTENZA[] = { {1873, 90}, {2500, 90}, {3150, 140},
+                                {2500, 90}, {3150, 90}, {2500, 260} };
 const Nota SUONO_PENNA[]    = { {2500, 90}, {0, 70}, {2500, 90},
                                 {0, 70}, {2500, 90} };
 const Nota SUONO_FINE[]     = { {2227, 65}, {2500, 65}, {2806, 65},

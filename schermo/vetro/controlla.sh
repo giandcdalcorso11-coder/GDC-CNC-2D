@@ -4,6 +4,8 @@
 #   2. sintassi e nomi, con g++ contro le intestazioni finte
 #   3. la geometria del vetro, letta dal sorgente: ogni parola dentro al
 #      cerchio libero e nessuna addosso a un'altra
+#   4. i suoni: che il banco dei suoni (../suoni.html) dica esattamente
+#      quello che il firmware fa, nota per nota
 set -e
 cd "$(dirname "$0")"
 mkdir -p fuori
@@ -13,3 +15,5 @@ echo "--- sintassi e nomi (g++ -Wall -Wextra) ---"
 g++ -std=c++17 -fsyntax-only -Wall -Wextra -I finto -I fuori finto/prova.cpp && echo "pulito"
 echo "--- geometria del vetro, letta dal sorgente ---"
 python3 geometria.py
+echo "--- i suoni: pagina contro firmware ---"
+python3 suoni.py

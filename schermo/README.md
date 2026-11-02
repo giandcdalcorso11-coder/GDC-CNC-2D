@@ -47,7 +47,7 @@ nessuno la fissa.
 
 | Momento | Suono | Si ripete? |
 |---|---|---|
-| **partenza** | tre note che salgono — *provvisorio, in attesa della scelta* | no |
+| **partenza** | **la fanfara**: sol do mi, do mi, do | no |
 | **cambio penna** | **tre colpi** sul DO (2500 Hz) | **sì, ogni 20 s finché non premi** |
 | **fine stampa** | **l'arpeggio che torna**: sale, tocca il tetto, rifà la strada all'indietro | no |
 | **errore** | **la sirena**: due note che si alternano | **sì, ogni 10 s per tre minuti** |
@@ -64,6 +64,12 @@ sta *aspettando te*, e quindi chiama finché non vieni. L'errore perché la
 macchina si è *fermata* e non lo sa nessuno — e quello **scade a tre minuti**:
 se non sei arrivato in tre minuti non sei in casa, la macchina è ferma e non si
 sta rovinando niente, e la schermata rossa continua a dirlo a chi arriva.
+
+La fanfara usa solo le note di un ottone senza valvole, e non per nostalgia:
+**quella forma esiste perché uno strumento senza tasti sa fare solo quelle**, e
+il cicalino è esattamente uno strumento senza tasti. Il `sol` d'attacco sta un
+quarto sotto il DO, quindi è la nota più debole delle sei — va bene, perché è
+la spinta e non l'arrivo, e la partenza la senti da vicino.
 
 **Un pad qualunque zittisce il richiamo**, anche uno che non è un tasto: sulla
 schermata del problema non c'è nessun tasto vivo — non c'è niente da premere —

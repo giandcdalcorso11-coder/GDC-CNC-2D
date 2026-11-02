@@ -6,7 +6,10 @@
 <!-- BANCO DEI SUONI. Copia autonoma della pagina pubblicata come artifact:
      si apre con un doppio clic, non serve niente. Si rifa' quando la
      risonanza cambia - per esempio se il telecomando finisce in una
-     scatola, che la sposta per davvero (vedi `cicalino/cicalino.ino`). -->
+     scatola, che la sposta per davvero (vedi `cicalino/cicalino.ino`).
+     `vetro/suoni.py` controlla che le proposte segnate «scelta» siano
+     identiche agli array del firmware: se divergono, questa pagina
+     diventa una bugia che suona bene. -->
 <style>:root { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) }</style>
 <title>Suoni del telecomando</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -183,9 +186,9 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 
 <div class="foglio">
 
-  <p class="guida"><span class="occhiello">torneo chiuso</span> · risonanza misurata 2500 Hz</p>
+  <p class="guida"><span class="occhiello">tutti e quattro scelti</span> · risonanza misurata 2500 Hz</p>
   <h1>Suoni del telecomando</h1>
-  <p class="sommario">Quattro suoni da scegliere, tre proposte ciascuno. Qui si sentono con un'onda quadra, che è esattamente quello che <code>tone()</code> manda al cicalino.</p>
+  <p class="sommario">I quattro suoni del telecomando, scelti all'ascolto, più le proposte scartate. Si sentono con un'onda quadra, che è esattamente quello che <code>tone()</code> manda al cicalino.</p>
 
   <p>Il cicalino <strong>non ha volume</strong>: o commuta o non commuta. L'unica cosa che cambia quanto si sente è la frequenza, e il massimo sta a <strong class="hz">2500 Hz</strong>. Quindi le melodie non possono andare dove vogliono: più si allontanano da 2500, più si spengono.</p>
 
@@ -225,7 +228,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
   </section>
 
   <footer>
-    <p>Tre su quattro sono decisi e <strong>sono già nel firmware</strong>: tre colpi, l'arpeggio che torna, la sirena ogni dieci secondi. Manca la <strong>partenza</strong>: dimmi quale dei quattro motivetti e cambio una riga. Per intanto c'è «tre scalini», il tuo preferito fra le prime tre.</p>
+    <p>Tutti e quattro sono nel firmware: <strong>la fanfara</strong>, <strong>tre colpi</strong>, <strong>l'arpeggio che torna</strong>, <strong>la sirena</strong> ogni dieci secondi. Le proposte scartate restano qui, suonabili: se un giorno uno dei quattro stanca, il confronto è già pronto.</p>
     <p>Qui senti <strong>la composizione</strong>, non il timbro: un altoparlante a 2500 Hz non suona come un trasduttore magnetico, e il rumore dei motori è finto. Il ritmo e gli intervalli invece sono quelli veri.</p>
   </footer>
 </div>
@@ -238,9 +241,9 @@ var SCALA = { "-5": 1873, "-4": 1984, "-3": 2102, "-2": 2227, "-1": 2360,
 
 var SUONI = [
   { id: "SUONO_PARTENZA", nome: "Partenza", ruolo: "la senti da vicino, non deve viaggiare",
-    testo: "<strong>L'unica rimasta da scegliere.</strong> Non serve che arrivi lontano: quando parte la stampa sei li\u00ec, quindi qui si pu\u00f2 scegliere col gusto. Le quattro nuove sono motivetti veri, fra tre quarti di secondo e un secondo \u2014 pi\u00f9 lunghe di quelle di prima, come hai chiesto.",
+    testo: "<strong>Deciso.</strong> La fanfara: sol do mi, do mi, do. Le altre restano per confronto.",
     voci: [
-      { nome: "Si parte", stato: "nuova", mia: true,
+      { nome: "Si parte", stato: "nuova",
         perche: "Un motivetto vero, sette note in nove decimi di secondo: <strong>do re mi do \u2014 mi re do</strong>. Sale, gira, e torna a casa. \u00c8 la frase pi\u00f9 corta che suoni finita invece di interrotta, e finisce sulla nota pi\u00f9 forte.",
         note: [[2500,90],[2806,90],[3150,90],[2500,90],[3150,110],[2806,170],[2500,260]] },
       { nome: "Il campanile", stato: "nuova",
@@ -249,10 +252,10 @@ var SUONI = [
       { nome: "La giostra", stato: "nuova",
         perche: "Nove note: una cellula di tre che si ripete due volte, poi una terza che cambia e chiude. \u00c8 come lavorano le scatole musicali \u2014 e un plotter che parte a disegnare \u00e8 la stessa famiglia di macchine.",
         note: [[2500,80],[3150,80],[2806,80],[2500,80],[3150,80],[2806,80],[3150,100],[2806,100],[2500,260]] },
-      { nome: "La fanfara", stato: "nuova",
+      { nome: "La fanfara", stato: "scelta",
         perche: "<strong>sol do mi \u2014 do mi \u2014 do</strong>: una quarta, una terza, e il rimbalzo. \u00c8 la forma delle trombe militari, che esiste perch\u00e9 usa solo le note che uno strumento senza tasti sa fare \u2014 e il nostro cicalino \u00e8 esattamente uno strumento senza tasti.",
         note: [[1873,90],[2500,90],[3150,140],[2500,90],[3150,90],[2500,260]] },
-      { nome: "Tre scalini", stato: "testa",
+      { nome: "Tre scalini", stato: "vista",
         perche: "Due toni interi che salgono dalla nota di casa: la forma di adesso, rimessa in chiave su 2500.",
         note: [[2500,55],[2806,55],[3150,85]] },
       { nome: "Il salto", stato: "vista",
