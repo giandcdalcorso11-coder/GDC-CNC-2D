@@ -274,6 +274,12 @@ var Popup = (function () {
                  ? '<span class="tinta" style="background:' + p.colore + '"></span> '
                  : '') +
               '<b>' + esc(inCassetto || p.nome || p.colore || 'la prossima penna') +
+              /* LO SPESSORE ACCANTO AL NOME, e non è un di più: con due nere
+                 in cassetto «monta la nera» non è una risposta. Il numero
+                 arriva dal programma, quindi vale anche per un file salvato
+                 e riaperto fra una settimana. */
+              (p.mm ? ' <span class="muted">tratto ' +
+                      esc(String(p.mm).replace('.', ',')) + ' mm</span>' : '') +
               '</b>' +
               (inCassetto && p.nome ? ' <span class="muted">per ' + esc(p.nome) + '</span>' : '') +
               '</p>'

@@ -31,8 +31,12 @@ var Gcode = (function () {
      sul segno di pausa e non legge più niente, quindi un colore scritto
      dopo arriverebbe solo alla ripresa, cioè quando non serve più. Scritto
      prima, al momento della domanda «quale monto?» la risposta è già lì.
-     Forma: «;PENNA <colore> <nome del livello>», e il colore è un trattino
-     quando il livello non ne ha uno — disegnato a mano, non importato. */
+     Forma: «;PENNA <colore> [<mm>mm] <nome del livello>», e il colore è un
+     trattino quando il livello non ne ha uno — disegnato a mano, non
+     importato.
+     LO SPESSORE C'È DAL 2026-11-03 e serve a una domanda sola, quella che si
+     fa stando davanti alla macchina con due penne nere in mano: «quale?».
+     È facoltativo, quindi un programma salvato prima si legge ancora. */
   var SEGNO_PENNA = ';PENNA';
 
   /* Zeri in coda tolti: "93.000" diventa "93". Non si perde niente — un passo
@@ -62,6 +66,7 @@ var Gcode = (function () {
       /* Niente «;» e niente a capo nel nome: finirebbero per troncare la
          riga o per farne due, e il nome lo scrive chi carica il file. */
       penneA[p.i] = (p.colore || '-') + ' ' +
+                    (p.mm ? p.mm + 'mm ' : '') +
                     String(p.nome || '').replace(/[;\r\n]+/g, ' ').trim();
     });
 

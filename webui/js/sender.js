@@ -49,7 +49,10 @@ var Sender = (function () {
      pignoleria: l'intestazione dei nostri file contiene già una riga
      «; penna alzata Z-18.33, abbassata Z-21.27», che con una forma larga
      verrebbe letta come un cambio penna di colore «alzata». */
-  var RE_PENNA = /^\s*;\s*PENNA\s+(#[0-9a-f]{3,8}|-)\s*(.*?)\s*$/i;
+  /* Lo spessore sta in mezzo ed è facoltativo: si riconosce dal «mm»
+     attaccato al numero, che nessun nome di livello ha in testa per caso. Un
+     programma salvato prima del 2026-11-03 non ce l'ha e si legge uguale. */
+  var RE_PENNA = /^\s*;\s*PENNA\s+(#[0-9a-f]{3,8}|-)(?:\s+(\d+(?:\.\d+)?)mm)?\s*(.*?)\s*$/i;
   var PENNA = '\u0000penna:';
 
   var righe = [];      // il programma, ripulito
@@ -119,7 +122,7 @@ var Sender = (function () {
       }
       var mp = RE_PENNA.exec(l);
       if (mp) {
-        out.push(PENNA + mp[1] + '\u0000' + mp[2]);
+        out.push(PENNA + mp[1] + '\u0000' + (mp[2] || '') + '\u0000' + mp[3]);
         continue;
       }
       var p = l.indexOf(';');
@@ -163,8 +166,12 @@ var Sender = (function () {
            arriverebbe mai a cento. */
         fatte++;
         var d = riga.slice(PENNA.length).split('\u0000');
-        penna = { colore: d[0] === '-' ? null : d[0], nome: d[1] || '' };
-        Log.add('msg', 'Penna: ' + (penna.nome || penna.colore || '?') + '.');
+        penna = { colore: d[0] === '-' ? null : d[0],
+                  mm: d[1] ? parseFloat(d[1]) : null,
+                  nome: d[2] || '' };
+        Log.add('msg', 'Penna: ' + (penna.nome || penna.colore || '?') +
+                       (penna.mm ? ' — tratto ' + String(penna.mm).replace('.', ',') +
+                                   ' mm' : '') + '.');
         aggiorna();
         continue;
       }

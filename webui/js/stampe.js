@@ -86,7 +86,9 @@ var Stampe = (function () {
         if (r.indexOf('\u0000cambio-penna') === 0) { pause.push(i); continue; }
         if (r.indexOf('\u0000penna:') === 0) {
           var d = r.slice(7).split('\u0000');
-          penna = { colore: d[0] === '-' ? null : d[0], nome: d[1] || '' };
+          penna = { colore: d[0] === '-' ? null : d[0],
+                    mm: d[1] ? parseFloat(d[1]) : null,
+                    nome: d[2] || '' };
           penne.push({ riga: i, penna: penna });
           continue;
         }
@@ -416,7 +418,8 @@ var Stampe = (function () {
         if (q.colore === pen.colore) fuori = q.nome;
       });
     }
-    return fuori || pen.nome || pen.colore || '—';
+    var come = fuori || pen.nome || pen.colore || '—';
+    return come + (pen.mm ? ' ' + String(pen.mm).replace('.', ',') + ' mm' : '');
   }
 
   function riquadroDati(t, pc) {
@@ -467,7 +470,7 @@ var Stampe = (function () {
       if (r.indexOf('\u0000cambio-penna') === 0) { r = '— cambio penna —'; cl += ' st-r-pausa'; }
       else if (r.indexOf('\u0000penna:') === 0) {
         var d = r.slice(7).split('\u0000');
-        r = '— penna: ' + (d[1] || d[0]) + ' —';
+        r = '— penna: ' + (d[2] || d[0]) + (d[1] ? ' ' + d[1] + ' mm' : '') + ' —';
         cl += ' st-r-pausa';
       }
       if (i === k) cl += ' st-r-ora';

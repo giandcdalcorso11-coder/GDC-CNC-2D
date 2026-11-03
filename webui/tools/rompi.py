@@ -132,14 +132,6 @@ MUTAZIONI = [
         vede="va nel progetto e torna indietro",
     ),
     dict(
-        nome="lo spessore finisce nel G-code",
-        file="js/artwork.js",
-        da="    document.getElementById('gcode-out').value = prep;",
-        a="""    document.getElementById('gcode-out').value = prep +
-      (livelli[0] && livelli[0].spessore ? '\\n; punta ' + livelli[0].spessore : '');""",
-        vede="il G-code non cambia",
-    ),
-    dict(
         nome="il tratto gia' percorso torna a perdersi sotto la penna",
         file="css/components.css",
         da=".trace-done { stroke: var(--accent) !important; }",
@@ -351,6 +343,93 @@ MUTAZIONI = [
         a="                        giu: true,",
         vede="sta dove lo dice il G-code",
         prova="prova-stampe.js",
+    ),
+
+    # ------------------- quando due livelli vogliono penne diverse
+    dict(
+        nome="la penna torna a essere il solo colore",
+        file="js/artwork.js",
+        da="    return p ? p.colore + '|' + (p.mm || '-') : null;",
+        a="    return p ? p.colore : null;",
+        vede="spessori diversi: e` comunque un cambio penna",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="una fermata fra spessori diversi torna «sprecata»",
+        file="js/artwork.js",
+        da="      if (vis[j].cambioPenna && seq[j] && seq[j] === seq[j - 1]) inutili++;",
+        a="      if (vis[j].cambioPenna && seq[j] &&\n          seq[j].split('|')[0] === seq[j - 1].split('|')[0]) inutili++;",
+        vede="non la chiama sprecata",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="la fermata mancante non viene piu' segnalata",
+        file="js/artwork.js",
+        da="    if (mancanti.length) {",
+        a="    if (false) {",
+        vede="senza fermata: lo dice",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="la riga dove manca la fermata non viene segnata",
+        file="js/artwork.js",
+        da="      vis[j].mancaPenna = true;\n      mancanti.push(vis[j].nome);",
+        a="      mancanti.push(vis[j].nome);",
+        vede="segna la riga dove va messa",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="la nota si scrive dopo le righe, come prima",
+        file="js/artwork.js",
+        da="""       modifica di ritardo, che è il modo più sicuro di non farsi credere. */
+    notaPenne();
+
+    var out = '';""",
+        a="""       modifica di ritardo, che è il modo più sicuro di non farsi credere. */
+
+    var out = '';""",
+        vede="segna la riga dove va messa",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="l'avviso penna/carta torna a leggere la chiave",
+        file="js/artwork.js",
+        da="        var t = tintaDi(vis[q]);",
+        a="        var t = seq[q];",
+        vede="penne diverse con la fermata: non dice niente",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="lo spessore non viene scritto nel programma",
+        file="js/gcode.js",
+        da="                    (p.mm ? p.mm + 'mm ' : '') +",
+        a="",
+        vede="scrive lo spessore accanto al colore",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="il lettore del programma non si aspetta lo spessore",
+        file="js/sender.js",
+        da="(?:\\s+(\\d+(?:\\.\\d+)?)mm)?",
+        a="",
+        vede="lo rilegge come numero",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="lo spessore diventa obbligatorio nel programma",
+        file="js/sender.js",
+        da="(?:\\s+(\\d+(?:\\.\\d+)?)mm)?",
+        a="\\s+(\\d+(?:\\.\\d+)?)mm",
+        vede="programma salvato prima si legge ancora",
+        prova="prova-penne.js",
+    ),
+    dict(
+        nome="uno spessore cambia anche i comandi, non solo il promemoria",
+        file="js/gcode.js",
+        da="      if (f !== null && String(f) !== uf) { mov += ' F' + f; uf = String(f); }",
+        a="      if (f !== null && String(f) !== uf) { mov += ' F' + f; uf = String(f); }\n      if (opt.penne && opt.penne[0] && opt.penne[0].mm) mov += ' ';",
+        vede="nessun comando del G-code cambia",
+        prova="prova-foglio.js",
     ),
 ]
 

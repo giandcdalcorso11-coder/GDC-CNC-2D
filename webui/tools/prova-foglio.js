@@ -257,26 +257,38 @@ function ok(nome, vero, extra) {
      r.salvato === 0.8 && r.ripreso === 0.8,
      'salvato ' + r.salvato + ', ripreso ' + r.ripreso);
 
-  /* E NON ENTRA NEL G-CODE. La macchina non sa quanto e' larga la punta che
-     le hai montato: un numero che non comanda niente, in un file che comanda
-     tutto, sarebbe solo un modo di sbagliarsi. */
+  /* E NON COMANDA NIENTE. La macchina non sa quanto e' larga la punta che le
+     hai montato, e nessun G0, G1 o F deve cambiare perche' e' cambiato uno
+     spessore.
+     DAL 2026-11-03 il numero compare nel file in un posto solo: il commento
+     «;PENNA», accanto al colore, perche' al cambio penna «monta la nera» non
+     e' una risposta se di nere ne hai due. Il controllo si e' stretto invece
+     di allargarsi: prima diceva «il file non cambia», adesso dice «non
+     cambia NESSUN COMANDO, e il promemoria sì». */
   r = await page.evaluate(() => {
     const id = Artwork.livelli()[0].id;
     const fuori = document.getElementById('gcode-out');
+    const comandi = (t) => t.split('\n')
+      .filter((x) => x.trim() && x.trim()[0] !== ';').join('\n');
     Artwork.scegliSpessore(id, null);
     Artwork.prepare();
     const sottile = fuori.value;
     Artwork.scegliSpessore(id, 1.5);
     Artwork.prepare();
     const grosso = fuori.value;
-    return { uguali: sottile === grosso,
-             righe: grosso ? grosso.split('\n').length : 0 };
+    return { comandiUguali: comandi(sottile) === comandi(grosso),
+             tuttoUguale: sottile === grosso,
+             nelPromemoria: /;PENNA[^\n]*1\.5mm/.test(grosso),
+             righe: comandi(grosso) ? comandi(grosso).split('\n').length : 0 };
   });
   /* Il confronto vale solo su un programma che esiste: due stringhe vuote
      sono identiche e non dimostrano niente. */
-  ok('il G-code non cambia di una virgola',
-     r.righe > 100 && r.uguali === true,
-     r.righe + ' righe, ' + (r.uguali ? 'identiche' : 'DIVERSE'));
+  ok('nessun comando del G-code cambia',
+     r.righe > 100 && r.comandiUguali === true,
+     r.righe + ' comandi, ' + (r.comandiUguali ? 'identici' : 'DIVERSI'));
+  ok('e il numero sta solo nel promemoria della penna',
+     r.nelPromemoria === true && r.tuttoUguale === false,
+     r.nelPromemoria ? 'scritto nel ;PENNA' : 'non scritto da nessuna parte');
 
   /* ============ LA PENNA CHE NON SI VEDE SULLA CARTA ============ */
 

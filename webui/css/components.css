@@ -2200,3 +2200,14 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
   .st-lato { flex: 0 0 auto; }
   .st-vista { min-height: 260px; }
 }
+
+/* IL SIMBOLO DELLA PENNA QUANDO LA FERMATA MANCA. Acceso e mancante sono
+   due stati diversi e dicono due cose diverse: acceso e' «qui la stampa si
+   ferma», mancante e' «qui dovrebbe fermarsi e non si ferma». Il secondo e'
+   un avviso, quindi porta il colore degli avvisi e un anello: un simbolo
+   solo colorato si confonderebbe con quello acceso, che e' il contrario. */
+.liv-penna.manca {
+  color: var(--warn);
+  box-shadow: inset 0 0 0 1px var(--warn);
+  border-radius: 4px;
+}

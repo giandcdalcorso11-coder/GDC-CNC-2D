@@ -634,9 +634,15 @@ var Artwork = (function () {
    * pennarello da 1,5 si impasta e diventa una macchia nera, e finché
    * l'anteprima disegna tutto a 0,4 quella macchia si scopre sulla carta.
    *
-   * NON ENTRA NEL G-CODE e non deve: la macchina non sa quanto è larga la
-   * punta che le hai montato, e un numero che non comanda niente in un file
-   * che comanda tutto sarebbe solo un modo di sbagliarsi.
+   * NON COMANDA NIENTE, e non deve: la macchina non sa quanto è larga la
+   * punta che le hai montato, e un numero che pilotasse qualcosa partendo da
+   * lì sarebbe solo un modo di sbagliarsi. Nessun G0, nessun G1, nessuna F
+   * cambia perché hai cambiato spessore.
+   * DAL 2026-11-03 COMPARE NEL FILE in un posto solo: il commento «;PENNA»,
+   * accanto al colore e per lo stesso motivo. Quel commento non è un comando
+   * — la macchina lo scarta — è il promemoria che al cambio penna risponde
+   * alla domanda «quale monto?», e «la nera» non è una risposta quando in
+   * cassetto di nere ce ne sono due.
    *
    * Gli spessori stanno in localStorage come le penne, e per lo stesso
    * motivo: sono il cassetto di chi stampa, non una proprietà della macchina.
@@ -769,6 +775,43 @@ var Artwork = (function () {
   }
 
   function coloreLivello(id) { return tintaDi(trova(id)); }
+
+  /* ================= CHE PENNA VUOLE UN LIVELLO =================
+   *
+   * Non il colore: il COLORE E LO SPESSORE. Due livelli neri, uno a 0,3 e
+   * uno a 0,8, non si stampano con la stessa penna — sono due penne, e fra
+   * loro ci vuole una fermata esattamente come fra il nero e il rosso.
+   *
+   * Finché lo spessore non esisteva la domanda «stessa penna?» si poteva
+   * rispondere col colore, e tutto l'elenco dei livelli era scritto così.
+   * Dal 2026-11-03 il colore da solo dà la risposta sbagliata, e la dà nel
+   * verso peggiore: diceva «questa fermata è inutile, toglila» di una
+   * fermata che serve davvero.
+   *
+   * `null` vuol dire «non si sa»: un livello senza tinta — disegnato a mano
+   * — non si confronta con nessuno, come prima. Lo spessore da solo non
+   * basta a riconoscere una penna: due righe larghe uguali possono essere
+   * di due colori qualsiasi.
+   */
+  function pennaDi(l) {
+    var c = tintaDi(l);
+    if (!c) return null;
+    return { colore: c, mm: (l && l.spessore) || null };
+  }
+
+  function chiavePenna(l) {
+    var p = pennaDi(l);
+    return p ? p.colore + '|' + (p.mm || '-') : null;
+  }
+
+  /* Perché due livelli vogliono penne diverse: serve a dirlo a parole,
+     perché «diverse» da solo lascia l'utente a cercare la differenza. */
+  function motivoDiverse(a, b) {
+    var pa = pennaDi(a), pb = pennaDi(b);
+    if (!pa || !pb) return '';
+    if (pa.colore !== pb.colore) return 'colore';
+    return 'spessore';
+  }
 
   function elenco() {
     return livelli.map(function (l, i) {
@@ -1363,6 +1406,14 @@ var Artwork = (function () {
     if (testa) testa.hidden = !livelli.length;
     if (!livelli.length) { box.innerHTML = ''; return; }
 
+    /* LA NOTA SI SCRIVE PRIMA DELLE RIGHE, e non è un dettaglio d'ordine:
+       è notaPenne() a decidere su quale riga manca una fermata, e le righe
+       qui sotto leggono quel segno. Chiamandola dopo — com'era fino al
+       2026-11-03, quando non segnava niente — ogni riga mostrerebbe il
+       risultato del giro PRECEDENTE: il simbolo si accenderebbe con una
+       modifica di ritardo, che è il modo più sicuro di non farsi credere. */
+    notaPenne();
+
     var out = '';
     for (var i = 0; i < livelli.length; i++) {
       var l = livelli[i];
@@ -1428,15 +1479,28 @@ var Artwork = (function () {
                   '">edit</button>'
                 : '') +
 
+             /* IL SIMBOLO DELLA PENNA si accende in due modi diversi, e
+                dicono due cose diverse: ACCESO vuol dire «qui la stampa si
+                ferma», MANCA vuol dire «qui dovrebbe fermarsi e non si
+                ferma». Il secondo è un avviso e sta sulla riga che lo
+                riguarda, perché la nota in fondo all'elenco dice quanti
+                sono ma non quale: con dodici livelli, cercarlo è un lavoro.
+                Vedi notaPenne(), che decide chi è marcato. */
              '<button type="button" class="liv-ic liv-penna' +
-             (l.cambioPenna && i > 0 ? ' attivo' : '') + '" data-penna="' + l.id +
+             (l.cambioPenna && i > 0 ? ' attivo' : '') +
+             (l.mancaPenna && !l.cambioPenna ? ' manca' : '') +
+             '" data-penna="' + l.id +
              '"' + (i === 0 ? ' disabled' : '') +
              ' title="' + (i === 0
                 ? 'Il primo livello non ha un prima in cui fermarsi'
                 : (l.cambioPenna ? 'La stampa si ferma prima di questo livello: ' +
                                    'clicca per non fermarla'
-                                 : 'Clicca per fermare la stampa prima di questo ' +
-                                   'livello e cambiare penna')) + '">' +
+                                 : (l.mancaPenna
+                                    ? 'Qui serve una penna diversa dal livello ' +
+                                      'sopra e la stampa non si ferma: clicca ' +
+                                      'per fermarla'
+                                    : 'Clicca per fermare la stampa prima di questo ' +
+                                      'livello e cambiare penna'))) + '">' +
              SEGNI.penna + '</button>' +
 
              '<button type="button" class="liv-ic" data-occhio="' + l.id +
@@ -1448,7 +1512,6 @@ var Artwork = (function () {
              '</div>';
     }
     box.innerHTML = out;
-    notaPenne();
   }
 
   /* DUE LIVELLI DELLA STESSA PENNA, LONTANI FRA LORO, COSTANO DUE FERMATE.
@@ -1470,11 +1533,12 @@ var Artwork = (function () {
     var el = document.getElementById('liv-penne');
     if (!el) return;
     var vis = livelli.filter(function (l) { return l.visibile; });
-    var seq = vis.map(function (l) { return tintaDi(l); });
+    /* LA CHIAVE E NON LA TINTA: colore più spessore. Vedi chiavePenna(). */
+    var seq = vis.map(function (l) { return chiavePenna(l); });
 
     var blocchi = 0, distinti = {}, quanti = 0;
     for (var i = 0; i < seq.length; i++) {
-      if (!seq[i]) continue;                       // senza tinta non si raggruppa
+      if (!seq[i]) continue;                       // senza penna nota non si raggruppa
       if (!(seq[i] in distinti)) { distinti[seq[i]] = 0; quanti++; }
       distinti[seq[i]]++;
       if (i === 0 || seq[i - 1] !== seq[i]) blocchi++;
@@ -1487,20 +1551,63 @@ var Artwork = (function () {
       if (vis[j].cambioPenna && seq[j] && seq[j] === seq[j - 1]) inutili++;
     }
 
+    /* E LA TERZA, che fino al 2026-11-03 non c'era e che è la più cara di
+       tutte: due livelli di seguito che vogliono penne DIVERSE senza una
+       fermata in mezzo. Lì la macchina non si ferma, e il secondo livello
+       esce disegnato con la penna del primo — un foglio intero sbagliato,
+       scoperto a stampa finita.
+       Non la si mette da soli: l'ordine dei livelli decide anche che cosa
+       finisce sopra a che cosa, e una fermata aggiunta di nascosto
+       cambierebbe la stampa senza che nessuno l'abbia chiesto. Si dice, e
+       si accende il simbolo della penna sulla riga dove va messa. */
+    var mancanti = [], motivi = {};
+    /* La riga dove la fermata manca si marca, così la correzione si fa dove
+       si legge il problema invece che cercandola a mano. */
+    for (j = 0; j < livelli.length; j++) livelli[j].mancaPenna = false;
+    for (j = 1; j < vis.length; j++) {
+      if (!seq[j] || !seq[j - 1] || seq[j] === seq[j - 1]) continue;
+      if (vis[j].cambioPenna) continue;
+      vis[j].mancaPenna = true;
+      mancanti.push(vis[j].nome);
+      motivi[motivoDiverse(vis[j - 1], vis[j])] = 1;
+    }
+
     var dice = [];
+
+    /* PRIMA DI TUTTE LE ALTRE, e non per ordine di scrittura: le altre due
+       fanno risparmiare tempo, questa evita un foglio da rifare. */
+    if (mancanti.length) {
+      var q = mancanti.length;
+      var why = Object.keys(motivi).filter(function (k) { return k; });
+      dice.push('<b>' + (q > 1 ? q + ' cambi penna mancanti' : 'Manca un cambio penna') +
+                '</b>: prima di ' + mancanti.map(esc).join(', ') +
+                (q > 1 ? ' servono penne diverse' : ' serve una penna diversa') +
+                ' da quella del livello sopra — ' +
+                (why.length === 1
+                   ? (why[0] === 'colore' ? 'cambia il colore'
+                                          : 'cambia lo spessore')
+                   : 'cambiano colore e spessore') +
+                ' — ma la macchina non si ferma: ' +
+                (q > 1 ? 'quei livelli verrebbero disegnati'
+                       : 'quel livello verrebbe disegnato') +
+                ' con la penna di prima. Il simbolo della penna su quella ' +
+                'riga mette la fermata.');
+    }
+
     if (blocchi > quanti) {
       var n = blocchi - quanti;
       dice.push('<b>' + (n > 1 ? n + ' cambi penna evitabili' : 'Un cambio penna evitabile') +
-                '</b>: ci sono livelli della stessa penna che non stanno ' +
-                'vicini. Trascinandoli uno dopo l\'altro la macchina si ferma ' +
+                '</b>: ci sono livelli della stessa penna — stesso colore e ' +
+                'stesso spessore — che non stanno vicini. Trascinandoli uno ' +
+                'dopo l\'altro la macchina si ferma ' +
                 (n > 1 ? n + ' volte in meno' : 'una volta in meno') +
                 ', e il disegno è lo stesso.');
     }
     if (inutili) {
       dice.push('<b>' + (inutili > 1 ? inutili + ' fermate' : 'Una fermata') +
-                ' fra livelli della stessa penna</b>: si smonta e si rimonta ' +
-                'la penna che è già dentro. Il simbolo della penna su quella ' +
-                'riga la toglie.');
+                ' fra livelli della stessa penna</b>: stesso colore e stesso ' +
+                'spessore, quindi si smonta e si rimonta la penna che è già ' +
+                'dentro. Il simbolo della penna su quella riga la toglie.');
     }
     /* UNA PENNA CHE NON SI DISTINGUE DALLA CARTA non è un difetto
        dell'anteprima: è una stampa che esce vuota. Succede davvero — nero su
@@ -1512,7 +1619,13 @@ var Artwork = (function () {
     if (carta && window.Paper && Paper.contrasto) {
       var muti = [];
       for (var q = 0; q < vis.length; q++) {
-        var t = seq[q];
+        /* IL COLORE, non la chiave della penna. `seq` qui sopra è diventata
+           «colore|spessore» il 2026-11-03, e questo pezzo ha continuato a
+           leggerla come se fosse una tinta: `chiarezza()` di una stringa che
+           non è un esadecimale torna 1, cioè «bianchissimo», e l'avviso
+           scattava su OGNI livello di OGNI disegno. Un avviso che si accende
+           sempre è un avviso che non si legge più. */
+        var t = tintaDi(vis[q]);
         if (t && Paper.contrasto(t, carta) < 1.6) muti.push(vis[q].nome);
       }
       if (muti.length) {
@@ -1674,8 +1787,9 @@ var Artwork = (function () {
     }
     /* Perché quel numero non comanda la macchina. Sta scritto qui e non in un
        manuale: è qui che uno si chiede se stia cambiando come stampa. */
-    html += '<div class="tav-piede">Cambia l\'anteprima, non il G-code: ' +
-            'la macchina non sa che punta le hai montato.</div>';
+    html += '<div class="tav-piede">Cambia l\'anteprima e il promemoria del ' +
+            'cambio penna. Nessun comando del G-code: la macchina non sa che ' +
+            'punta le hai montato.</div>';
 
     tav = document.createElement('div');
     tav.className = 'tavolozza';
@@ -2051,7 +2165,8 @@ var Artwork = (function () {
          lo scrive nel file, e da lì al Sender, che mentre stampa sa sempre
          quale penna è montata — e al cambio penna sa quale mostrare. */
       if (l && g.polys.length) {
-        penne.push({ i: art.length, colore: tintaDi(l), nome: l.nome });
+        penne.push({ i: art.length, colore: tintaDi(l),
+                     mm: l.spessore || null, nome: l.nome });
       }
       g.polys.forEach(function (p) { art.push(p); di.push(g.id); });
     });
