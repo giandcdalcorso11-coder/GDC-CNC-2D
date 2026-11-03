@@ -68,6 +68,29 @@ def apri(b, r):
     return b
 
 
+def _pulisci(b):
+    """Toglie dallo scheletro i pixel d'angolo dei gradini (un pixel con due soli vicini,
+    adiacenti fra loro): senza, ogni diagonale spessa si riempie di falsi incroci e si
+    spezza in centinaia di pezzettini."""
+    ys, xs = np.nonzero(b)
+    pix = set(zip(xs.tolist(), ys.tolist()))
+    N8 = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+    cambiato = True
+    while cambiato:
+        cambiato = False
+        for p in list(pix):
+            if p not in pix:
+                continue
+            v = [(p[0] + dx, p[1] + dy) for dx, dy in N8 if (p[0] + dx, p[1] + dy) in pix]
+            if len(v) == 2 and max(abs(v[0][0] - v[1][0]), abs(v[0][1] - v[1][1])) == 1:
+                pix.discard(p)
+                cambiato = True
+    out = np.zeros_like(b)
+    for x, y in pix:
+        out[y, x] = True
+    return out
+
+
 def scheletro(b):
     """Zhang-Suen. b: bool 2D."""
     b = b.copy()
@@ -91,7 +114,7 @@ def scheletro(b):
                 b &= ~rim
                 cambiato = True
         if not cambiato:
-            return b
+            return _pulisci(b)
 
 
 def traccia(sk):
@@ -185,3 +208,121 @@ def costruisci(percorso, contenuto_mm, spessore_src=None, linea_sopra=None):
             linee.append(S.dirada([(float(x), float(y)) for x, y in p], 0.9))
     out = [[(x * mm_px, y * mm_px) for x, y in p] for p in linee if len(p) > 1]
     return out, m.width * mm_px, m.height * mm_px
+
+
+# ======================================================================
+# Versione a UNA LINEA per tratto, con due penne (dal 2026-11-03)
+#
+# Lo SLICER sceglie lo spessore per livello, cioe' per colore: qui non si
+# disegna piu' il contorno delle parti spesse, si traccia una linea sola e lo
+# spessore lo fa il pennarello.
+#   fine    -> Tratto Pen (0,5 mm): contorni e dettagli sottili
+#   marker  -> indelebile (2 mm): scritte e tratti spessi
+# ======================================================================
+
+def larghezza_locale(b):
+    """Spessore (in px) del tratto in ogni pixel: erosioni successive."""
+    d = np.zeros(b.shape, dtype=np.int32)
+    cur = b.copy()
+    n = 0
+    while cur.any():
+        n += 1
+        cur = _erodi(cur, n % 2 == 0)
+        d += cur
+    return d * 2
+
+
+def _catene(sk, larg, taglio_peduncoli):
+    """Scheletro -> catene lunghe, ognuna con la sua larghezza mediana."""
+    pezzi = []
+    for p, libero in traccia(sk):
+        w = float(np.median([larg[y, x] for x, y in p]))
+        # un peduncolo e' un tratto corto che finisce nel vuoto; un tratto corto
+        # fra due incroci e' disegno (ma sotto 3 px sono grumi)
+        if libero and len(p) < max(12, taglio_peduncoli * w):
+            continue
+        pezzi += [[p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]] for i in range(len(p) - 1)]
+    out = []
+    if pezzi:
+        for c in S.cuci(np.array(pezzi, dtype=float), 0.5):
+            if S.lunghezza(c) < 5:             # grumi di un pixel negli incroci
+                continue
+            w = float(np.median([larg[min(int(round(y)), larg.shape[0] - 1), min(int(round(x)), larg.shape[1] - 1)]
+                                 for x, y in c]))
+            out.append(([(float(x), float(y)) for x, y in c], w))
+    return out
+
+
+def _contorni(b, soglia=0.5, minimo=20):
+    sm = np.asarray(Image.fromarray((b * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.4))).astype(float) / 255
+    return [S.dirada(p, 0.6) for p in S.contorni(sm, soglia, salta_nan=False) if S.lunghezza(p) > minimo]
+
+
+def costruisci_doppio(percorso, contenuto_mm, cfg):
+    """(fine, marker, larghezza_mm, altezza_mm): polilinee in mm, origine in alto a sinistra.
+
+    cfg:
+      testo      frazione dell'altezza da cui in giu' e' scritta (tutto a linea di mezzo,
+                 marker); None se non c'e' scritta separata, 1.0 = e' tutta scritta
+      blob_src   spessore (px del file) da cui in su una forma e' piena: ne resta il contorno
+      marker_src spessore da cui in su una linea e' un tratto spesso (marker)
+      sottile    'fine' o 'marker': dove va una linea sotto marker_src
+      esterno    True: il contorno esterno dell'icona va in fine, gli interni in marker
+      testo_fine True: anche la scritta in fine (per le versioni piccole, dove il marker la impasta)
+      fine_blob  True: i contorni delle forme piene vanno in fine (default), False: in marker
+    """
+    m = maschera(percorso)
+    ys, xs = np.nonzero(np.asarray(m) > 128)
+    m = m.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
+    k = contenuto_mm / max(m.size)
+    s = k * PX_MM
+    m = m.resize((max(1, round(m.width * s)), max(1, round(m.height * s))), Image.LANCZOS)
+    mm_px = 1.0 / PX_MM
+    bb = np.asarray(m.point(lambda v: 255 if v > 128 else 0)) > 0
+    marg = 24
+    bb = np.pad(bb, marg)
+    H = bb.shape[0]
+    frazione = cfg.get('testo')
+    cut = H if frazione is None else marg + int(round(frazione * (H - 2 * marg)))
+    icona = bb.copy()
+    icona[cut:] = False
+    testo = bb.copy()
+    testo[:cut] = False
+
+    fine, marker = [], []
+    larg_t = larghezza_locale(testo) if testo.any() else None
+    if testo.any():
+        for c, w in _catene(scheletro(testo), larg_t, 1.2):
+            (fine if cfg.get('testo_fine') else marker).append(S.dirada(c, 0.9))
+
+    if icona.any():
+        r_blob = max(2, int(round(cfg.get('blob_src', 24) / 2 * s)))
+        blob = apri(icona, r_blob)
+        larga = blob.copy()
+        for i in range(3):
+            larga = _dilata(larga, i % 2 == 0)
+        resto = icona & ~larga
+        resto = apri(resto, 1)
+        # le forme piene: solo contorno
+        contorni = _contorni(blob)
+        if cfg.get('esterno'):
+            chiusa = blob.copy()
+            for i in range(8):
+                chiusa = _dilata(chiusa, i % 2 == 0)
+            for i in range(8):
+                chiusa = _erodi(chiusa, i % 2 == 0)
+            chiusa = S.riempi_buchi(chiusa)
+            fine += _contorni(chiusa)
+            marker += contorni                      # quelli interni: gli elementi del simbolo
+        else:
+            (fine if cfg.get('fine_blob', True) else marker).extend(contorni)
+        # le linee: a linea di mezzo, in fine o in marker secondo lo spessore
+        larg = larghezza_locale(resto) if resto.any() else None
+        soglia_marker = cfg.get('marker_src', 14.5) * s
+        if resto.any():
+            for c, w in _catene(scheletro(resto), larg, 1.2):
+                spesso = w >= soglia_marker
+                dest = marker if (spesso or cfg.get('sottile') == 'marker') else fine
+                dest.append(S.dirada(c, 0.9))
+    conv = lambda L: [[(x * mm_px - marg * mm_px, y * mm_px - marg * mm_px) for x, y in p] for p in L if len(p) > 1]
+    return conv(fine), conv(marker), (m.width) * mm_px, (m.height) * mm_px
