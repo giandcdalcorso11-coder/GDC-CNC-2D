@@ -91,10 +91,29 @@
 
       <section class="card">
         <h2>Foglio</h2>
+        <!-- I tre formati ISO stanno nel markup perche' sono costanti del
+             mondo (vedi js/profile.js), ma il COLORE della carta no: un A4 lo
+             compri bianco, avorio o nero. Per quello hanno anche loro il
+             pulsantino, che apre la stessa finestrella dei fogli tagliati a
+             mano con nome e misure bloccati: quelli non sono tuoi da cambiare.
+             I fogli dell'operatore li aggiunge js/paper.js, dopo questi tre e
+             prima del «+». -->
         <div class="preset-row" id="preset-row">
-          <button class="btn btn-ghost preset" data-w="210" data-h="297">A4</button>
-          <button class="btn btn-ghost preset" data-w="148" data-h="210">A5</button>
-          <button class="btn btn-ghost preset" data-w="105" data-h="148">A6</button>
+          <span class="preset-wrap preset-fisso">
+            <button class="btn btn-ghost preset" data-w="210" data-h="297">A4</button>
+            <button class="mini mini-colore" data-fog-colore="210x297"
+                    title="Colore della carta" aria-label="Colore della carta"></button>
+          </span>
+          <span class="preset-wrap preset-fisso">
+            <button class="btn btn-ghost preset" data-w="148" data-h="210">A5</button>
+            <button class="mini mini-colore" data-fog-colore="148x210"
+                    title="Colore della carta" aria-label="Colore della carta"></button>
+          </span>
+          <span class="preset-wrap preset-fisso">
+            <button class="btn btn-ghost preset" data-w="105" data-h="148">A6</button>
+            <button class="mini mini-colore" data-fog-colore="105x148"
+                    title="Colore della carta" aria-label="Colore della carta"></button>
+          </span>
           <button class="btn btn-ghost preset-add" id="btn-paper-add" disabled>+</button>
         </div>
         <div class="field-row">
@@ -938,6 +957,19 @@
       <div class="field-row">
         <label>Larghezza (mm) <input type="number" id="fog-w" min="20" max="400" step="1"></label>
         <label>Altezza (mm) <input type="number" id="fog-h" min="20" max="400" step="1"></label>
+      </div>
+      <!-- IL COLORE DELLA CARTA, non una preferenza di aspetto: serve a
+           guardare l'anteprima e capire se il disegno si vedra'. Una penna
+           nera su cartoncino nero sul foglio vero non lascia niente, e qui si
+           vede prima di montarla. Le tinte sono quelle delle carte che si
+           comprano; il quadratino in fondo apre il selettore del sistema per
+           tutte le altre. Vedi js/paper.js. -->
+      <div class="campo">
+        <span class="flab">Colore della carta</span>
+        <div class="carte" id="fog-carte"></div>
+        <label class="carta-altro">Un altro colore
+          <input type="color" id="fog-colore" value="#f7f5f0">
+        </label>
       </div>
       <p class="modal-nota" id="fog-nota"></p>
     </div>

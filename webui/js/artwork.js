@@ -532,6 +532,10 @@ var Artwork = (function () {
           nome: l.nome, tol: l.tol, forme: l.forme,
           box: l.box, ritaglio: l.ritaglio, rot: l.rot,
           visibile: l.visibile, cambioPenna: l.cambioPenna, penna: l.penna || null,
+          /* Lo spessore sta sul livello come la penna, quindi va nel file
+             come la penna: è una scelta di chi stampa, non un prodotto del
+             disegno, e riaprendo il lavoro domani deve essere ancora lì. */
+          spessore: l.spessore || null,
           origine: l.origine || null, mostraOrigine: !!l.mostraOrigine
         };
       }),
@@ -559,6 +563,7 @@ var Artwork = (function () {
         visibile: d.visibile !== false,
         cambioPenna: !!d.cambioPenna,
         penna: d.penna || undefined,
+        spessore: d.spessore || undefined,
         origine: d.origine || null,
         mostraOrigine: !!d.mostraOrigine,
         art: []
@@ -619,6 +624,93 @@ var Artwork = (function () {
       if (p[i].colore === colore) { p.splice(i, 1); break; }
     }
     try { localStorage.setItem(CHIAVE_PENNE, JSON.stringify(p)); } catch (e) { /* privata */ }
+  }
+
+  /* ===================== LO SPESSORE DEL TRATTO =====================
+   *
+   * Quanto è larga la riga che quella penna lascia sulla carta, in
+   * millimetri. Serve a una cosa sola e dichiarata: che l'anteprima sul
+   * foglio somigli al foglio. Un tratteggio a 0,5 mm di passo fatto con un
+   * pennarello da 1,5 si impasta e diventa una macchia nera, e finché
+   * l'anteprima disegna tutto a 0,4 quella macchia si scopre sulla carta.
+   *
+   * NON ENTRA NEL G-CODE e non deve: la macchina non sa quanto è larga la
+   * punta che le hai montato, e un numero che non comanda niente in un file
+   * che comanda tutto sarebbe solo un modo di sbagliarsi.
+   *
+   * Gli spessori stanno in localStorage come le penne, e per lo stesso
+   * motivo: sono il cassetto di chi stampa, non una proprietà della macchina.
+   * I valori sono NOMINALI — una punta da 0,5 su carta assorbente fa 0,7 — e
+   * si cambiano dal «+».
+   */
+  var SPESSORI_DI_SERIE = [
+    { nome: 'fine',       mm: 0.3 },
+    { nome: 'tratto pen', mm: 0.5 },
+    { nome: 'indelebile', mm: 0.8 },
+    { nome: 'pennarello', mm: 1.5 }
+  ];
+  var CHIAVE_SPESSORI = 'cnc2d-spessori';
+  var spessori = null;
+
+  function spessoriSalvati() {
+    if (spessori) return spessori;
+    try {
+      var s = localStorage.getItem(CHIAVE_SPESSORI);
+      spessori = s ? JSON.parse(s) : null;
+    } catch (e) { spessori = null; }
+    if (!spessori || !spessori.length) spessori = SPESSORI_DI_SERIE.slice();
+    return spessori;
+  }
+
+  function scriviSpessori() {
+    try { localStorage.setItem(CHIAVE_SPESSORI, JSON.stringify(spessori)); }
+    catch (e) { /* finestra privata: resta per questa sessione */ }
+  }
+
+  /* Uno spessore che c'è già non si duplica: si ritorna quello. Il confronto è
+     sui millimetri e non sul nome, perché due nomi per la stessa larghezza
+     sono due righe identiche nell'elenco. */
+  function aggiungiSpessore(mm, nome) {
+    var l = spessoriSalvati();
+    for (var i = 0; i < l.length; i++) {
+      if (Math.abs(l[i].mm - mm) < 0.005) return l[i];
+    }
+    var nuovo = { nome: nome || (mm + ' mm'), mm: +mm };
+    l.push(nuovo);
+    l.sort(function (a, b) { return a.mm - b.mm; });
+    scriviSpessori();
+    return nuovo;
+  }
+
+  function togliSpessore(mm) {
+    var l = spessoriSalvati();
+    for (var i = 0; i < l.length; i++) {
+      if (Math.abs(l[i].mm - mm) < 0.005) { l.splice(i, 1); break; }
+    }
+    scriviSpessori();
+  }
+
+  function nomeSpessore(mm) {
+    var l = spessoriSalvati();
+    for (var i = 0; i < l.length; i++) {
+      if (Math.abs(l[i].mm - mm) < 0.005) return l[i].nome;
+    }
+    return null;
+  }
+
+  /* `undefined` vuol dire «non l'ho scelto», e non è lo stesso di un valore:
+     un livello senza spessore si disegna col tratto sottile di sempre e porta
+     il trattino tratteggiato, come il pallino vuoto della penna. */
+  function scegliSpessore(id, mm) {
+    var l = trova(id);
+    if (!l) return;
+    if (mm) l.spessore = +mm; else delete l.spessore;
+    refit();
+  }
+
+  function spessoreLivello(id) {
+    var l = trova(id);
+    return l && l.spessore ? l.spessore : null;
   }
 
   /* LA PENNA SCELTA VINCE SULLA TINTA DEDOTTA.
@@ -682,6 +774,7 @@ var Artwork = (function () {
     return livelli.map(function (l, i) {
       return { id: l.id, nome: l.nome, visibile: l.visibile, colore: tintaDi(l),
                pennaScelta: l.penna || null, tinta: tintaSoloDalFile(l),
+               spessore: l.spessore || null,
                cambioPenna: l.cambioPenna, attivo: l.cambioPenna && i > 0,
                primo: i === 0,
                tratti: l.art.length,
@@ -1302,6 +1395,24 @@ var Artwork = (function () {
                   '"></button>';
              })(tintaDi(l), !!l.penna) +
 
+             /* IL TRATTINO, subito dopo il pallino: sono le due proprietà
+                della stessa penna — di che colore scrive e quanto largo — e
+                vanno lette insieme. Senza spessore scelto è tratteggiato
+                come il pallino vuoto, per lo stesso motivo: si vede che
+                manca una scelta invece di sembrare una penna da zero. */
+             (function (mm) {
+                return '<button type="button" class="spess' + (mm ? '' : ' vuoto') +
+                  '" data-spess="' + l.id + '" title="' + (mm
+                    ? 'Tratto ' + esc(mmScritti(mm)) +
+                      (nomeSpessore(mm) ? ' — ' + esc(nomeSpessore(mm)) : '') +
+                      ' — solo nell\'anteprima'
+                    : 'Spessore del tratto: passaci sopra per sceglierlo') +
+                  '">' +
+                  (mm ? '<span class="sp-barra" style="height:' + pixelSpessore(mm) +
+                        'px"></span>' : '') +
+                  '</button>';
+             })(l.spessore || null) +
+
              '<button type="button" class="liv-nome" data-nome="' + l.id +
              '" title="' + esc(l.nome) + ' — ' + l.art.length +
              ' tratti' + (tintaDi(l) ? ', penna ' + esc(tintaDi(l)) : '') +
@@ -1391,6 +1502,28 @@ var Artwork = (function () {
                 'la penna che è già dentro. Il simbolo della penna su quella ' +
                 'riga la toglie.');
     }
+    /* UNA PENNA CHE NON SI DISTINGUE DALLA CARTA non è un difetto
+       dell'anteprima: è una stampa che esce vuota. Succede davvero — nero su
+       cartoncino nero, bianco su carta bianca — e si scopre dopo venti minuti
+       di macchina se nessuno lo dice prima. Il conto è il contrasto del WCAG,
+       che per questo serve benissimo: sotto 1,6 due tinte sono la stessa
+       tinta anche per un occhio che le guarda da vicino. */
+    var carta = State.data.paper && State.data.paper.colore;
+    if (carta && window.Paper && Paper.contrasto) {
+      var muti = [];
+      for (var q = 0; q < vis.length; q++) {
+        var t = seq[q];
+        if (t && Paper.contrasto(t, carta) < 1.6) muti.push(vis[q].nome);
+      }
+      if (muti.length) {
+        dice.push('<b>' + (muti.length > 1 ? muti.length + ' livelli' : 'Un livello') +
+                  ' con la penna del colore della carta</b> (' +
+                  muti.map(esc).join(', ') + '): sul foglio vero quel tratto ' +
+                  'non si vedrà. Cambia penna, o cambia carta dal pulsante del ' +
+                  'formato.');
+      }
+    }
+
     el.hidden = !dice.length;
     el.innerHTML = dice.join(' ');
   }
@@ -1421,6 +1554,44 @@ var Artwork = (function () {
 
   function tavolozzaResta() {
     if (tavChiudi) { clearTimeout(tavChiudi); tavChiudi = null; }
+  }
+
+  /* FUORI DALLA COLONNA, all'altezza della sua riga.
+     Sotto coprirebbe le righe degli altri livelli, e di fianco al pallino
+     coprirebbe i nomi: la prima cosa che si fa dopo aver scelto una penna è
+     guardare quella del livello accanto, e per guardarla bisogna vederla. A
+     destra della colonna c'è il foglio, che per qualche secondo si può
+     coprire. Se a destra non ci sta, va a sinistra.
+
+     Vale per la tavolozza e per gli spessori: sono due riquadri che si
+     aprono dalla stessa colonna allo stesso modo, e due copie di questo
+     conto sarebbero due posti da correggere la prossima volta che la
+     colonna cambia larghezza. */
+  function tavolozzaColloca(bottone) {
+    var r = bottone.getBoundingClientRect();
+    var colonna = (document.getElementById('livelli') || bottone).getBoundingClientRect();
+    var w = tav.offsetWidth, h = tav.offsetHeight;
+    var x = colonna.right + 12;
+    if (x + w > window.innerWidth - 8) x = Math.max(8, colonna.left - w - 12);
+    var y = Math.max(8, Math.min(window.innerHeight - h - 8,
+                                 r.top + r.height / 2 - h / 2));
+    tav.style.left = x + 'px';
+    tav.style.top = y + 'px';
+
+    tav.addEventListener('pointerenter', tavolozzaResta);
+    tav.addEventListener('pointerleave', tavolozzaFraPoco);
+  }
+
+  /* Il trattino disegnato: tanti pixel quanti ne servono per vedere la
+     differenza fra 0,3 e 1,5 mm in undici pixel di riga. Non è una scala
+     vera — a scala vera 0,3 mm sarebbe un pixel e un quarto — ed è apposta:
+     qui serve riconoscere la scelta, la scala vera sta sul foglio. */
+  function pixelSpessore(mm) {
+    return Math.max(1, Math.min(7, Math.round(mm * 3.5)));
+  }
+
+  function mmScritti(mm) {
+    return String(mm).replace('.', ',') + ' mm';
   }
 
   function tavolozzaApri(bottone, id) {
@@ -1455,25 +1626,7 @@ var Artwork = (function () {
     tav.innerHTML = html;
     document.body.appendChild(tav);
 
-    /* FUORI DALLA COLONNA, all'altezza della sua riga.
-       Sotto coprirebbe le righe degli altri livelli, e di fianco al
-       pallino coprirebbe i nomi: la prima cosa che si fa dopo aver scelto
-       una penna è guardare quella del livello accanto, e per guardarla
-       bisogna vederla. A destra della colonna c'è il foglio, che per
-       qualche secondo si può coprire. Se a destra non ci sta, va a
-       sinistra. */
-    var r = bottone.getBoundingClientRect();
-    var colonna = (document.getElementById('livelli') || bottone).getBoundingClientRect();
-    var w = tav.offsetWidth, h = tav.offsetHeight;
-    var x = colonna.right + 12;
-    if (x + w > window.innerWidth - 8) x = Math.max(8, colonna.left - w - 12);
-    var y = Math.max(8, Math.min(window.innerHeight - h - 8,
-                                 r.top + r.height / 2 - h / 2));
-    tav.style.left = x + 'px';
-    tav.style.top = y + 'px';
-
-    tav.addEventListener('pointerenter', tavolozzaResta);
-    tav.addEventListener('pointerleave', tavolozzaFraPoco);
+    tavolozzaColloca(bottone);
     tav.addEventListener('click', function (e) {
       var b = e.target.closest('button');
       if (!b) return;
@@ -1481,6 +1634,130 @@ var Artwork = (function () {
       else if (b.dataset.tavTorna) { scegliPenna(id, null); tavolozzaChiudi(); }
       else if (b.dataset.tavPiu) { pennaNuova(id); }
     });
+  }
+
+  /* ===================== IL RIQUADRO DEGLI SPESSORI =====================
+   *
+   * Stesso gesto della tavolozza — passa, guarda, premi — e di proposito:
+   * sono due proprietà della stessa penna, e due modi diversi di scegliere
+   * due cose vicine si imparano due volte.
+   *
+   * Riusa lo stesso `tav`, quindi aprire uno chiude l'altro: due riquadri
+   * aperti insieme si coprirebbero, e quello sotto sarebbe un pulsante che
+   * non si riesce a premere.
+   */
+  function spessoriApri(bottone, id) {
+    if (tavPer === id + ':sp' && tav) { tavolozzaResta(); return; }
+    tavolozzaChiudi();
+    var l = trova(id);
+    if (!l) return;
+    tavPer = id + ':sp';
+
+    var ora = l.spessore || null;
+    var html = '<div class="tav-titolo">Spessore del tratto</div><div class="tav-righe">';
+    spessoriSalvati().forEach(function (x) {
+      var suo = ora && Math.abs(x.mm - ora) < 0.005;
+      html += '<button type="button" class="tav-pen sp-riga' + (suo ? ' ora' : '') +
+              '" data-sp="' + x.mm + '" title="' + esc(x.nome) + ' — ' +
+              esc(mmScritti(x.mm)) + '">' +
+              '<span class="sp-barra" style="height:' + pixelSpessore(x.mm) + 'px"></span>' +
+              '<span class="tav-nome">' + esc(x.nome) + '</span>' +
+              '<span class="sp-mm">' + esc(mmScritti(x.mm)) + '</span></button>';
+    });
+    html += '<button type="button" class="tav-pen tav-piu" data-sp-piu="1" ' +
+            'title="Aggiungi uno spessore"><span class="tinta vuota">+</span>' +
+            '<span class="tav-nome">aggiungi</span></button>';
+    html += '</div>';
+    if (ora) {
+      html += '<button type="button" class="tav-torna" data-sp-torna="1">' +
+              'Togli lo spessore scelto</button>';
+    }
+    /* Perché quel numero non comanda la macchina. Sta scritto qui e non in un
+       manuale: è qui che uno si chiede se stia cambiando come stampa. */
+    html += '<div class="tav-piede">Cambia l\'anteprima, non il G-code: ' +
+            'la macchina non sa che punta le hai montato.</div>';
+
+    tav = document.createElement('div');
+    tav.className = 'tavolozza';
+    tav.innerHTML = html;
+    document.body.appendChild(tav);
+    tavolozzaColloca(bottone);
+
+    tav.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.sp) { scegliSpessore(id, +b.dataset.sp); tavolozzaChiudi(); }
+      else if (b.dataset.spTorna) { scegliSpessore(id, null); tavolozzaChiudi(); }
+      else if (b.dataset.spPiu) { spessoreNuovo(id); }
+    });
+  }
+
+  /* UNO SPESSORE NUOVO: un numero e un nome.
+   *
+   * Il cursore e la casella dicono lo stesso numero perché servono a due
+   * gesti diversi: il cursore per trovarlo guardando il trattino crescere,
+   * la casella per scriverlo quando lo si sa già — ed è il caso normale,
+   * perché lo spessore di una penna sta stampato sulla penna.
+   */
+  function spessoreNuovo(id) {
+    tavolozzaChiudi();
+    var box = document.createElement('div');
+    box.className = 'tavolozza scelta-colore';
+    box.innerHTML =
+      '<div class="tav-titolo">Uno spessore nuovo</div>' +
+      '<div class="sp-prova"><span class="sp-barra" id="sp-prova-barra"></span></div>' +
+      '<label class="sc-riga">Millimetri' +
+      '<input type="range" id="sp-slider" min="0.1" max="3" step="0.1" value="0.5"></label>' +
+      '<label class="sc-riga sc-nome">Millimetri esatti' +
+      '<input type="number" id="sp-mm" min="0.05" max="5" step="0.05" value="0.5"></label>' +
+      '<label class="sc-riga sc-nome">Nome' +
+      '<input type="text" id="sp-nome" placeholder="indelebile fine" maxlength="18"></label>' +
+      '<div class="sc-fondo"><code id="sp-eco">0,5 mm</code>' +
+      '<button type="button" class="btn btn-small" id="sp-no">Lascia</button>' +
+      '<button type="button" class="btn btn-small btn-primary" id="sp-si">Aggiungi</button></div>';
+    document.body.appendChild(box);
+    box.style.left = Math.max(8, (window.innerWidth - box.offsetWidth) / 2) + 'px';
+    box.style.top = Math.max(8, (window.innerHeight - box.offsetHeight) / 3) + 'px';
+
+    var cur = box.querySelector('#sp-slider'), num = box.querySelector('#sp-mm'),
+        barra = box.querySelector('#sp-prova-barra'), eco = box.querySelector('#sp-eco'),
+        nome = box.querySelector('#sp-nome');
+
+    function valore() {
+      var v = parseFloat(num.value);
+      return isNaN(v) ? 0 : Math.round(v * 100) / 100;
+    }
+    function aggiorna() {
+      var v = valore();
+      barra.style.height = pixelSpessore(v) + 'px';
+      eco.textContent = v > 0 ? mmScritti(v) : '—';
+    }
+    cur.addEventListener('input', function () { num.value = cur.value; aggiorna(); });
+    num.addEventListener('input', function () {
+      var v = valore();
+      /* Il cursore arriva a 3 mm, la casella a 5: oltre i 3 si scrive, e il
+         cursore resta in fondo invece di saltare a un numero che nessuno ha
+         chiesto. */
+      cur.value = Math.max(0.1, Math.min(3, v));
+      aggiorna();
+    });
+    aggiorna();
+
+    function chiudi() { box.remove(); }
+    box.querySelector('#sp-no').addEventListener('click', chiudi);
+    box.querySelector('#sp-si').addEventListener('click', function () {
+      var v = valore();
+      if (!(v > 0 && v <= 5)) return;
+      aggiungiSpessore(v, (nome.value || '').trim() || mmScritti(v));
+      scegliSpessore(id, v);
+      chiudi();
+    });
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') chiudi();
+      if (e.key === 'Enter') box.querySelector('#sp-si').click();
+    });
+    num.focus();
+    num.select();
   }
 
   /* IL SELETTORE: due cursori, tinta e chiarezza.
@@ -2011,6 +2288,7 @@ var Artwork = (function () {
            due intenzioni diverse, e la spunta è l'unico modo di arrivare a
            non aver scelto niente. */
         if (d.pen) tavolozzaApri(b, d.pen);   // il pallino: anche al clic
+        else if (d.spess) spessoriApri(b, d.spess);  // il trattino: lo stesso
         else if (d.sel) seleziona(d.sel, 'aggiungi');
         else if (d.nome) seleziona(d.nome);
         else if (d.penna) commutaCambioPenna(d.penna);
@@ -2035,8 +2313,10 @@ var Artwork = (function () {
          gestori attaccati riga per riga ne resterebbero in giro. */
       box.addEventListener('pointerover', function (e) {
         var b = e.target.closest('button[data-pen]');
-        if (b) tavolozzaApri(b, b.dataset.pen);
-        else if (!e.target.closest('.tavolozza')) tavolozzaFraPoco();
+        if (b) { tavolozzaApri(b, b.dataset.pen); return; }
+        var t = e.target.closest('button[data-spess]');
+        if (t) { spessoriApri(t, t.dataset.spess); return; }
+        if (!e.target.closest('.tavolozza')) tavolozzaFraPoco();
       });
       box.addEventListener('pointerleave', tavolozzaFraPoco);
 
@@ -2176,6 +2456,9 @@ var Artwork = (function () {
     scalaMm: scalaMm,
     livelli: elenco, coloreLivello: coloreLivello,
     tavolozza: tavolozza, aggiungiPenna: aggiungiPenna, togliPenna: togliPenna,
+    spessori: spessoriSalvati, aggiungiSpessore: aggiungiSpessore,
+    togliSpessore: togliSpessore, scegliSpessore: scegliSpessore,
+    spessoreLivello: spessoreLivello,
     scegliPenna: scegliPenna,
     seleziona: seleziona, sceltoId: sceltoId, quale: quale,
     deseleziona: deseleziona, scelti: scelti, segnaOrigine: segnaOrigine,

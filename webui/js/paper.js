@@ -26,6 +26,62 @@ var Paper = (function () {
 
   var FORMATI = { A4: [210, 297], A5: [148, 210], A6: [105, 148] };
 
+  /* LE CARTE CHE SI COMPRANO, per nome.
+     Non è una tavolozza: sono i fogli che stanno in casa, e i valori sono
+     NOMINALI come quelli delle penne — servono a riconoscere la risma a colpo
+     d'occhio sull'anteprima, non a riprodurre la carta. Tutte le altre tinte
+     si prendono dal selettore del sistema, nella stessa finestrella. */
+  var CARTE = [
+    { nome: 'bianca',  colore: '#f7f5f0' },
+    { nome: 'avorio',  colore: '#efe6d2' },
+    { nome: 'kraft',   colore: '#c49a6c' },
+    { nome: 'grigia',  colore: '#b8b5ae' },
+    { nome: 'celeste', colore: '#cfe0ef' },
+    { nome: 'nera',    colore: '#1d1d1b' }
+  ];
+
+  /* Quanto è chiara una tinta, da 0 a 1, con i pesi della percezione: il
+     verde conta sei volte il blu. Serve due volte, e per due motivi diversi:
+     a dare il bordo giusto a un foglio scuro — su un piano scuro un foglio
+     nero senza bordo chiaro non è un foglio, è un buco — e a dire se una
+     penna si distinguerà dalla carta. */
+  function chiarezza(hex) {
+    var c = String(hex || '').replace('#', '');
+    if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+    if (c.length !== 6) return 1;
+    var v = [0, 2, 4].map(function (i) {
+      var x = parseInt(c.substr(i, 2), 16) / 255;
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+
+  /* Il nome della carta, quando è una di quelle in elenco. Un esadecimale in
+     didascalia non dice niente a chi guarda il piano: «carta kraft» sì. */
+  function nomeCarta(hex) {
+    var h = String(hex || '').toLowerCase();
+    for (var i = 0; i < CARTE.length; i++) {
+      if (CARTE[i].colore.toLowerCase() === h) return CARTE[i].nome;
+    }
+    return h;
+  }
+
+  /* Il colore della carta che si ha sotto adesso. Non è tenuto in una
+     variabile di questo file: la risma vive nel profilo, e una seconda copia
+     qui sarebbe la solita coppia di valori che prima o poi non coincidono. */
+  function colore() {
+    return Profile.coloreFoglioEffettivo(State.data.paper.w, State.data.paper.h);
+  }
+
+  /* IL CONTRASTO FRA DUE TINTE secondo il WCAG. Una penna e una carta che
+     stanno sotto 1.6 sul foglio vero danno un disegno che non si legge:
+     non è un problema dell'anteprima, è un problema della stampa, e per
+     questo l'avviso lo dà l'elenco dei livelli e non questo file. */
+  function contrasto(a, b) {
+    var x = chiarezza(a), y = chiarezza(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+
   function nomeFormato(w, h) {
     for (var k in FORMATI) {
       if (FORMATI[k][0] === w && FORMATI[k][1] === h) return k;
@@ -264,7 +320,13 @@ var Paper = (function () {
     var vuoto = r.w <= 0 || r.h <= 0;
     var fa = fuoriAppoggio();
 
-    var html = '<rect class="sheet" x="' + o.x + '" y="' + o.y +
+    /* IL COLORE È UNO STILE E NON UN ATTRIBUTO, come per i tratti qui sotto:
+       la regola `.sheet` nel foglio di stile vince su un attributo di
+       presentazione, e il foglio sarebbe rimasto bianco qualunque carta si
+       scegliesse. */
+    var carta = colore();
+    var html = '<rect class="sheet' + (chiarezza(carta) < 0.25 ? ' sheet-scuro' : '') +
+               '" style="fill:' + esc(carta) + '" x="' + o.x + '" y="' + o.y +
                '" width="' + p.w + '" height="' + p.h + '" rx="0.6"></rect>';
 
     /* IL RETTANGOLO RAGGIUNGIBILE, disegnato SOPRA la carta.
@@ -303,13 +365,23 @@ var Paper = (function () {
 
     if (fa) coda += ' · ESCE DALLA TAVOLA ' + fa.join(' e ') + ' mm';
 
+    /* Il nome della carta nella didascalia solo se è stato scelto: «carta
+       bianca» su ogni foglio sarebbe una parola in più da leggere ogni volta
+       per non sapere niente di nuovo. */
+    var dichiarato = Profile.coloreFoglio(p.w, p.h);
     caption.textContent =
       'Area ' + a.w.toFixed(1) + ' × ' + a.h.toFixed(1) + ' mm · foglio ' + p.name +
-      ' ' + p.w + ' × ' + p.h + ' mm' + coda;
+      ' ' + p.w + ' × ' + p.h + ' mm' +
+      (dichiarato ? ', carta ' + nomeCarta(dichiarato) : '') + coda;
   }
 
   function apply() {
     State.data.paper.name = nomeFormato(State.data.paper.w, State.data.paper.h);
+    /* Il colore nello stato è una COPIA PER COMODITÀ di chi guarda — l'elenco
+       dei livelli, che deve dire se la penna si vedrà su questa carta — e si
+       riscrive qui a ogni giro, da Profile, perché una copia che si aggiorna
+       da sola non può divergere. Il padrone del dato resta il profilo. */
+    State.data.paper.colore = colore();
     markPreset();
     etichettaCentra();
     renderBed();
@@ -380,10 +452,39 @@ var Paper = (function () {
     '<path d="M1.5 2.8h9M4.6 2.8V1.6a.7.7 0 0 1 .7-.7h1.4a.7.7 0 0 1 .7.7v1.2" ' +
     'fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>';
 
+  /* Il pallino di carta dentro al pulsante del formato, e solo se quel foglio
+     ha un colore dichiarato: sei pallini bianchi in fila sarebbero sei volte
+     la stessa notizia, cioè nessuna notizia. */
+  function segnoCarta(w, h) {
+    var c = Profile.coloreFoglio(w, h);
+    if (!c) return '';
+    return '<span class="preset-carta" style="background:' + esc(c) + '"></span>';
+  }
+
   function renderFormati() {
     var row = document.getElementById('preset-row');
     var piu = document.getElementById('btn-paper-add');
-    var vecchi = row.querySelectorAll('.preset-wrap');
+    /* I tre ISO sono nel markup e non si rifanno, ma il loro pallino di carta
+       sì: è l'unico pezzo di quelle tre righe che dipende dal profilo. */
+    var fissi = row.querySelectorAll('[data-fog-colore]');
+    for (var k = 0; k < fissi.length; k++) {
+      var mis = fissi[k].dataset.fogColore.split('x');
+      var cf = Profile.coloreFoglio(+mis[0], +mis[1]);
+      fissi[k].style.background = cf || '';
+      fissi[k].classList.toggle('vuota', !cf);
+      var bot = fissi[k].parentNode.querySelector('.preset');
+      if (bot) {
+        var vecchio = bot.querySelector('.preset-carta');
+        if (vecchio) bot.removeChild(vecchio);
+        bot.insertAdjacentHTML('afterbegin', segnoCarta(+mis[0], +mis[1]));
+      }
+    }
+
+    /* Si tolgono solo i fogli dell'operatore: i tre ISO sono marcati
+       `preset-fisso` nel markup e restano dove sono. Un `:has()` qui avrebbe
+       funzionato lo stesso, ma una classe scritta in chiaro si legge anche
+       da un browser di tre anni fa. */
+    var vecchi = row.querySelectorAll('.preset-wrap:not(.preset-fisso)');
     for (var i = 0; i < vecchi.length; i++) row.removeChild(vecchi[i]);
 
     var l = Profile.formati(), html = '';
@@ -393,7 +494,7 @@ var Paper = (function () {
       html += '<span class="preset-wrap">' +
         '<button class="btn btn-ghost preset" data-w="' + f.larghezza +
         '" data-h="' + f.altezza + '" title="' + esc(f.nome) + ' — ' + mis + '">' +
-        esc(f.nome) + '</button>' +
+        segnoCarta(f.larghezza, f.altezza) + esc(f.nome) + '</button>' +
         '<button class="mini mini-edit" data-fog-edit="' + f.id +
         '" title="Modifica nome e misure" aria-label="Modifica">' + MATITA + '</button>' +
         '<button class="mini mini-del" data-fog-del="' + f.id +
@@ -472,18 +573,40 @@ var Paper = (function () {
     return m;
   }
 
+  /* LO SPESSORE DEI TRATTI, per livello e in millimetri veri.
+     Dentro all'SVG si disegna in millimetri — c'è la viewBox — quindi un
+     `stroke-width` di 0,8 è una riga larga 0,8 mm sulla carta, non un numero
+     da convertire: è il motivo per cui questa anteprima può somigliare al
+     foglio invece di somigliare a uno schermo.
+     Si prendono una volta per livello come i colori, e per lo stesso motivo:
+     un disegno ha migliaia di tratti e tre livelli. */
+  function spessoriDeiLivelli() {
+    var m = {}, di = State.data.artDi || [];
+    if (!window.Artwork || !Artwork.spessoreLivello) return m;
+    for (var i = 0; i < di.length; i++) {
+      if (di[i] && !(di[i] in m)) m[di[i]] = Artwork.spessoreLivello(di[i]) || 0;
+    }
+    return m;
+  }
+
   function renderPath() {
     var seg = State.data.path, out = '';
-    var col = coloriDeiLivelli(), di = State.data.artDi || [];
+    var col = coloriDeiLivelli(), sp = spessoriDeiLivelli(), di = State.data.artDi || [];
     for (var i = 0; i < seg.length; i++) {
       var s = seg[i];
       var c = s.draw ? (col[di[s.poly]] || '') : '';
+      /* Lo spessore vale solo sui tratti disegnati: uno spostamento a penna
+         alzata non è inchiostro, e disegnarlo largo come il tratto direbbe
+         che la penna ha scritto anche lì. */
+      var w = s.draw ? (sp[di[s.poly]] || 0) : 0;
       /* STILE e non attributo `stroke`: la regola `.trace-draw` nel foglio
          di stile vince su un attributo di presentazione, e i tratti
          sarebbero rimasti grigi — con l'attributo scritto giusto dentro
-         all'HTML, che è il modo peggiore di sbagliare. */
+         all'HTML, che è il modo peggiore di sbagliare. Lo stesso vale per la
+         larghezza, che nella stessa regola è .4. */
+      var stile = (c ? 'stroke:' + c + ';' : '') + (w ? 'stroke-width:' + w + ';' : '');
       out += '<line class="' + (s.draw ? 'trace-draw' : 'trace-move') +
-             '"' + (c ? ' style="stroke:' + c + '"' : '') +
+             '"' + (stile ? ' style="' + stile + '"' : '') +
              ' x1="' + s.x1 + '" y1="' + s.y1 +
              '" x2="' + s.x2 + '" y2="' + s.y2 + '"></line>';
     }
@@ -763,31 +886,115 @@ var Paper = (function () {
   }
 
   /* La finestrella: `null` vuol dire «stai creando», un id «stai correggendo
-     quello». È l'unico stato che serve, e sta qui invece che nel DOM. */
-  var inModifica = null;
+     quello». È l'unico stato che serve, e sta qui invece che nel DOM.
+     `fisso` è il terzo caso: un A4 non si rinomina e non si ridimensiona — è
+     una costante del mondo — ma la carta di cui è fatto si scegli tu, e si
+     sceglie da questa stessa finestrella con i due campi bloccati. */
+  var inModifica = null, fisso = null;
+
+  /* Il colore mentre la finestrella è aperta. Sta qui e non nel profilo
+     perché «Annulla» deve annullare: scrivendolo subito nel profilo, la
+     carta sarebbe già cambiata e il pulsante non avrebbe niente da annullare.
+     `null` vuol dire «questo foglio non ha un colore dichiarato». */
+  var coloreInCorso = null;
+
+  function renderCarte() {
+    var box = document.getElementById('fog-carte');
+    if (!box) return;
+    var ora = String(coloreInCorso || '').toLowerCase();
+    var html = '', trovata = false;
+    CARTE.forEach(function (c) {
+      var sua = c.colore.toLowerCase() === ora;
+      if (sua) trovata = true;
+      html += '<button type="button" class="carta' + (sua ? ' ora' : '') +
+              '" data-carta="' + esc(c.colore) + '" title="Carta ' + esc(c.nome) +
+              ' (' + esc(c.colore) + ')"><span class="carta-tinta" style="background:' +
+              esc(c.colore) + '"></span><span class="carta-nome">' + esc(c.nome) +
+              '</span></button>';
+    });
+    box.innerHTML = html;
+    /* Il quadratino del selettore di sistema si accende solo quando la tinta
+       NON è una delle carte in elenco: due pulsanti accesi insieme
+       direbbero che la carta è due cose. */
+    var alt = document.getElementById('fog-colore');
+    if (alt) {
+      alt.value = coloreInCorso || Profile.CARTA_BIANCA;
+      alt.parentNode.classList.toggle('ora', !!coloreInCorso && !trovata);
+    }
+  }
 
   function apriModale(id) {
     var f = id ? Profile.trovaFormato(id) : null;
     if (id && !f) return;
     inModifica = id || null;
+    fisso = null;
+    var w = f ? f.larghezza : State.data.paper.w;
+    var h = f ? f.altezza : State.data.paper.h;
+    coloreInCorso = Profile.coloreFoglio(w, h);
     document.getElementById('fog-titolo').textContent =
       f ? 'Modifica «' + f.nome + '»' : 'Nuovo foglio';
     document.getElementById('fog-nome').value =
       f ? f.nome : State.data.paper.w + ' × ' + State.data.paper.h;
-    document.getElementById('fog-w').value = f ? f.larghezza : State.data.paper.w;
-    document.getElementById('fog-h').value = f ? f.altezza : State.data.paper.h;
+    document.getElementById('fog-w').value = w;
+    document.getElementById('fog-h').value = h;
+    sbloccaCampi(true);
     document.getElementById('fog-nota').textContent = '';
+    renderCarte();
     document.getElementById('fog-modal').hidden = false;
     document.getElementById('fog-nome').focus();
     document.getElementById('fog-nome').select();
   }
 
+  /* La stessa finestrella per un formato ISO: solo la carta. */
+  function apriModaleFisso(w, h) {
+    inModifica = null;
+    fisso = { w: w, h: h };
+    coloreInCorso = Profile.coloreFoglio(w, h);
+    document.getElementById('fog-titolo').textContent =
+      'Carta del foglio ' + nomeFormato(w, h);
+    document.getElementById('fog-nome').value = nomeFormato(w, h);
+    document.getElementById('fog-w').value = w;
+    document.getElementById('fog-h').value = h;
+    sbloccaCampi(false);
+    document.getElementById('fog-nota').textContent =
+      'Nome e misure di un formato ISO non si cambiano: quello che è tuo è la ' +
+      'carta.';
+    renderCarte();
+    document.getElementById('fog-modal').hidden = false;
+  }
+
+  function sbloccaCampi(si) {
+    ['fog-nome', 'fog-w', 'fog-h'].forEach(function (id) {
+      document.getElementById(id).disabled = !si;
+    });
+  }
+
   function chiudiModale() {
     document.getElementById('fog-modal').hidden = true;
     inModifica = null;
+    fisso = null;
   }
 
   function salvaModale() {
+    /* UN FORMATO ISO SI SALVA SOLO PER LA CARTA, e non cambia il foglio in
+       uso: scegliere il colore dell'A4 mentre si stampa su A5 non vuol dire
+       «passa all'A4» — vuol dire «il mio A4 è nero». Il foglio in uso si
+       ricolora da sé se le misure sono queste, perché apply() rilegge il
+       profilo. */
+    if (fisso) {
+      var fw = fisso.w, fh = fisso.h;
+      Profile.setColoreFoglio(fw, fh, coloreInCorso);
+      chiudiModale();
+      renderFormati();
+      apply();
+      Log.add('msg', coloreInCorso
+        ? 'Il foglio ' + nomeFormato(fw, fh) + ' è di carta ' +
+          nomeCarta(coloreInCorso) + '.'
+        : 'Il foglio ' + nomeFormato(fw, fh) + ' torna senza carta dichiarata: ' +
+          'nell\'anteprima è bianco.');
+      return;
+    }
+
     var nome = document.getElementById('fog-nome').value.trim();
     var w = Math.round(+document.getElementById('fog-w').value);
     var h = Math.round(+document.getElementById('fog-h').value);
@@ -799,13 +1006,23 @@ var Paper = (function () {
       return;
     }
 
-    if (inModifica) Profile.modificaFormato(inModifica, nome, w, h);
-    else Profile.aggiungiFormato(nome, w, h);
+    if (inModifica) {
+      var vecchio = Profile.trovaFormato(inModifica);
+      /* Le misure cambiate si portano dietro la carta: è la stessa risma,
+         tagliata un centimetro più corta. */
+      if (vecchio) Profile.spostaColoreFoglio(vecchio.larghezza, vecchio.altezza, w, h);
+      Profile.modificaFormato(inModifica, nome, w, h);
+    } else {
+      Profile.aggiungiFormato(nome, w, h);
+    }
+    Profile.setColoreFoglio(w, h, coloreInCorso);
 
     chiudiModale();
     renderFormati();
     setSize(w, h);
-    Log.add('msg', 'Foglio «' + nome + '» ' + w + ' × ' + h + ' mm salvato.');
+    Log.add('msg', 'Foglio «' + nome + '» ' + w + ' × ' + h + ' mm' +
+                   (coloreInCorso ? ', carta ' + nomeCarta(coloreInCorso) : '') +
+                   ' salvato.');
   }
 
   function eliminaFormato(id) {
@@ -841,6 +1058,16 @@ var Paper = (function () {
       var del = e.target.closest('[data-fog-del]');
       if (del) { eliminaFormato(del.dataset.fogDel); return; }
 
+      /* Il pulsantino dei tre ISO: apre la stessa finestrella per la sola
+         carta. Le misure stanno nell'attributo e non in una variabile qui,
+         così la riga del markup si legge da sola. */
+      var col = e.target.closest('[data-fog-colore]');
+      if (col) {
+        var m = col.dataset.fogColore.split('x');
+        apriModaleFisso(+m[0], +m[1]);
+        return;
+      }
+
       /* Scegliere un formato lo mette anche AL CENTRO dell'area di lavoro:
          è quello che si vuole nove volte su dieci, e le altre si trascina.
          Non lo fa invece scrivendo a mano larghezza e altezza — lì il foglio
@@ -867,6 +1094,23 @@ var Paper = (function () {
       apply();
       Log.add('msg', 'Foglio «' + f.nome + '» aggiunto. Con la matita gli dai ' +
                      'un nome, col cestino lo togli.');
+    });
+
+    /* Le carte: un ascoltatore sul contenitore, perché i pulsanti si rifanno
+       a ogni apertura. Ripremere la carta già scelta la TOGLIE — è il modo di
+       dire «non so di che colore è», e senza non ci sarebbe nessun modo di
+       tornare indietro una volta scelta. */
+    document.getElementById('fog-carte').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-carta]');
+      if (!b) return;
+      var c = b.dataset.carta;
+      coloreInCorso = (String(coloreInCorso || '').toLowerCase() === c.toLowerCase())
+        ? null : c;
+      renderCarte();
+    });
+    document.getElementById('fog-colore').addEventListener('input', function () {
+      coloreInCorso = this.value;
+      renderCarte();
     });
 
     document.getElementById('fog-ok').addEventListener('click', salvaModale);
@@ -931,6 +1175,12 @@ var Paper = (function () {
     adatta: adatta,
     setSheetOrigin: setSheetOrigin, centerSheet: centerSheet,
     rebuildPath: rebuildPath, renderPause: renderPause,
-    renderSegni: renderSegni, fissa: fissa
+    renderSegni: renderSegni, fissa: fissa,
+    /* Il colore della carta e il contrasto escono da qui perché il foglio è
+       di questo file. Li usa l'elenco dei livelli, per dire quando una penna
+       sulla carta di oggi non lascerebbe niente. */
+    colore: colore, carte: function () { return CARTE.slice(); },
+    nomeCarta: nomeCarta, chiarezza: chiarezza, contrasto: contrasto,
+    apriColoreFoglio: apriModaleFisso
   };
 })();

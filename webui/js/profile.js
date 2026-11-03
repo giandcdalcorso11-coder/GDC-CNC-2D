@@ -331,7 +331,23 @@ var Profile = (function () {
          Stanno al PRIMO livello, fuori da `stampa`, di proposito: i profili di
          stampa si salvano e si ricaricano col loro nome, e un foglio tagliato
          in garage non deve sparire perché si è cambiato profilo. */
-      formati: []
+      formati: [],
+
+      /* IL COLORE DELLA CARTA, per misura di foglio.
+         Sta accanto ai formati e per lo stesso motivo: è una proprietà della
+         RISMA che si ha in casa, non del profilo di stampa. Cambiare profilo
+         non fa diventare bianco il cartoncino nero.
+
+         È un ELENCO e non una mappa nome→colore, e non per gusto: `fondi()`
+         ricopia solo le chiavi che conosce già, quindi una mappa libera
+         tornerebbe vuota al primo caricamento — gli array invece si
+         sostituiscono interi. Lo stesso inciampo c'è scritto lì sopra.
+
+         La chiave è la MISURA e non il nome: così vale anche per A4, A5 e A6,
+         che un record non ce l'hanno perché sono costanti del mondo. Le due
+         misure si tengono ordinate, perché un foglio girato per il lungo è lo
+         stesso foglio e lo stesso colore. */
+      coloriFoglio: []
     };
   }
 
@@ -721,6 +737,70 @@ var Profile = (function () {
     return false;
   }
 
+  /* -------------------- il colore della carta -------------------- */
+
+  var CARTA_BIANCA = '#f7f5f0';     // lo stesso `--paper` del foglio di stile
+
+  /* Misure ordinate: 148 × 210 e 210 × 148 sono lo stesso foglio girato, e
+     devono avere lo stesso colore. Arrotondate al millimetro perché le misure
+     del foglio si digitano interi, e un 210.0000001 arrivato da un calcolo non
+     deve creare una seconda voce invisibile. */
+  function chiaveFoglio(w, h) {
+    var a = Math.round(+w), b = Math.round(+h);
+    return a <= b ? [a, b] : [b, a];
+  }
+
+  function vociColore() { return get().coloriFoglio || (get().coloriFoglio = []); }
+
+  function trovaColore(w, h) {
+    var k = chiaveFoglio(w, h), l = vociColore();
+    for (var i = 0; i < l.length; i++) {
+      if (l[i].w === k[0] && l[i].h === k[1]) return l[i];
+    }
+    return null;
+  }
+
+  /* `null` NON vuol dire bianco: vuol dire «non l'ho mai detto». La differenza
+     serve a chi disegna il foglio, che su un colore mai scelto non deve
+     mettere il pallino nel pulsante del formato. Il bianco di partenza lo
+     mette chi disegna, con coloreFoglioEffettivo(). */
+  function coloreFoglio(w, h) {
+    var v = trovaColore(w, h);
+    return v ? v.colore : null;
+  }
+
+  function coloreFoglioEffettivo(w, h) {
+    return coloreFoglio(w, h) || CARTA_BIANCA;
+  }
+
+  /* Passare `null` cancella la voce invece di scrivere il bianco: così il
+     pulsante del formato torna senza pallino, e si vede che quel foglio non
+     ha un colore dichiarato. */
+  function setColoreFoglio(w, h, colore) {
+    var k = chiaveFoglio(w, h), l = vociColore();
+    for (var i = 0; i < l.length; i++) {
+      if (l[i].w === k[0] && l[i].h === k[1]) {
+        if (colore) { l[i].colore = colore; } else { l.splice(i, 1); }
+        save();
+        return;
+      }
+    }
+    if (colore) { l.push({ w: k[0], h: k[1], colore: colore }); save(); }
+  }
+
+  /* Quando si cambiano le misure di un foglio salvato, il colore va con lui:
+     la carta è la stessa, l'hai solo tagliata di un'altra misura. Senza
+     questo, modificare un «cartoncino nero 270 × 255» in 270 × 250 lo
+     farebbe tornare bianco senza dire niente. */
+  function spostaColoreFoglio(w0, h0, w1, h1) {
+    var k0 = chiaveFoglio(w0, h0), k1 = chiaveFoglio(w1, h1);
+    if (k0[0] === k1[0] && k0[1] === k1[1]) return;
+    var c = coloreFoglio(w0, h0);
+    if (!c) return;
+    setColoreFoglio(w0, h0, null);
+    setColoreFoglio(w1, h1, c);
+  }
+
   function verifica() {
     var m = macchina(), problemi = [];
 
@@ -1042,6 +1122,9 @@ var Profile = (function () {
     tavolaRect: tavolaRect, appoggioRect: appoggioRect,
 
     formati: formati, trovaFormato: trovaFormato,
+    coloreFoglio: coloreFoglio, coloreFoglioEffettivo: coloreFoglioEffettivo,
+    setColoreFoglio: setColoreFoglio, spostaColoreFoglio: spostaColoreFoglio,
+    CARTA_BIANCA: CARTA_BIANCA,
     aggiungiFormato: aggiungiFormato, modificaFormato: modificaFormato,
     eliminaFormato: eliminaFormato,
 

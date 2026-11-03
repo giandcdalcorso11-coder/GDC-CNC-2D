@@ -517,7 +517,15 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 
 .trace-draw { fill: none; stroke: var(--ink); stroke-width: .4; stroke-linecap: round; stroke-linejoin: round; }
 .trace-move { fill: none; stroke: #9aa3b0; stroke-width: .25; stroke-dasharray: 1.4 1.4; }
-.trace-done { stroke: var(--accent); }
+/* `!important` NON E' UNA PIGRIZIA, ed e' l'unica cosa che funziona qui.
+   Il colore della penna si scrive come STILE sulla riga -- deve farlo, se no
+   la regola `.trace-draw` qui sopra vincerebbe e i tratti resterebbero tutti
+   grigi -- e uno stile sulla riga batte qualsiasi regola di questo file.
+   Risultato: da quando i livelli hanno una penna, il segno di «questo pezzo
+   l'ha gia' fatto» non si vedeva piu' su nessun disegno colorato. Si vedeva
+   solo sui livelli senza tinta, che sono quelli disegnati a mano, cioe'
+   quasi mai: per questo e' passato inosservato. */
+.trace-done { stroke: var(--accent) !important; }
 .pen-dot { fill: #e0523f; stroke: #fff; stroke-width: .4; }
 
 /* --------------------- cursore dell'anteprima --------------------- */
@@ -1869,3 +1877,154 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
 /* Il pulsante che manda un messaggio adesso non deve essere largo come la
    scheda: è un gesto piccolo, e un pulsante largo sembra importante. */
 #btn-tele-manda { align-self: flex-start; }
+
+/* ==================== LA CARTA E LO SPESSORE ====================
+   Due aggiunte del 2026-11-03, e servono alla stessa cosa: che l'anteprima
+   sul foglio somigli al foglio. Il colore e' la carta che hai in casa, lo
+   spessore e' quanto largo scrive la penna che ci monti sopra. */
+
+/* Il pallino di carta dentro al pulsante del formato. C'e' solo quando quel
+   foglio ha un colore dichiarato: sei pallini bianchi in fila sarebbero sei
+   volte la stessa notizia. Il contorno non e' decorazione -- la carta bianca
+   su fondo scuro senza contorno e' un buco, quella nera e' niente. */
+.preset-carta {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  box-shadow: 0 0 0 1px var(--text-mute);
+}
+
+/* Il pulsantino del colore sta a destra come il cestino, perche' sui tre
+   formati ISO e' l'unico comando e deve stare dove si cerca. Sui fogli
+   dell'operatore quel posto e' del cestino, e la carta si cambia dalla
+   matita insieme a nome e misure. */
+.mini-colore { right: -7px; }
+/* Il quadratino mostra la carta di quel formato, quindi non e' un'icona: e'
+   il dato. Vuoto -- nessun colore dichiarato -- diventa tratteggiato, come
+   il pallino della penna che non c'e'. */
+.mini-colore.vuota { border-style: dashed; }
+
+/* LE CARTE NELLA FINESTRELLA. Una riga di campioni con il nome sotto: il
+   nome senza il campione non dice di che colore e', il campione senza il
+   nome non dice come si chiama quando la ricompri. */
+.carte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.carta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 4px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.carta:hover { background: var(--bg); color: var(--text); }
+.carta.ora { border-color: var(--accent); color: var(--text); }
+.carta-tinta {
+  width: 30px;
+  height: 22px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--text-mute);
+}
+.carta-nome { white-space: nowrap; }
+
+/* Il selettore del sistema per tutte le altre tinte. Si accende solo quando
+   la carta NON e' una di quelle in elenco: due pulsanti accesi insieme
+   direbbero che la carta e' due cose. */
+.carta-altro {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.carta-altro.ora { border-color: var(--accent); color: var(--text); }
+.carta-altro input[type=color] {
+  width: 34px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+/* IL FOGLIO SCURO sul piano scuro. Il bordo chiaro non e' un vezzo: senza,
+   un cartoncino nero su un piano #171b22 non e' un foglio, e' un'assenza, e
+   non si vede piu' dove la penna andra' a scrivere. */
+.sheet-scuro { stroke: #8b93a0; stroke-width: .4; }
+
+/* IL TRATTINO dello spessore, accanto al pallino della penna. Alto come la
+   riga per essere premibile, ma quello che si guarda e' la barra in mezzo:
+   e' l'unica cosa che cambia fra 0,3 e 1,5 mm. */
+.spess {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.spess:hover { background: var(--bg-raised); box-shadow: 0 0 0 1px var(--accent); }
+.sp-barra {
+  display: block;
+  width: 14px;
+  background: var(--text);
+  border-radius: 1px;
+}
+/* Senza spessore scelto: una riga tratteggiata, come il pallino vuoto della
+   penna. Si vede che manca una scelta invece di sembrare un tratto da zero. */
+.spess.vuoto::before {
+  content: '';
+  display: block;
+  width: 14px;
+  border-top: 1px dashed var(--text-mute);
+}
+
+/* Nel riquadro: nome a sinistra, millimetri a destra. I millimetri ci sono
+   per scritto e non solo come barra, perche' sulla penna c'e' scritto un
+   numero e il gesto e' «cerco quello». */
+.sp-riga { width: 100%; }
+.sp-riga .sp-barra { width: 16px; flex: 0 0 auto; }
+.sp-mm { margin-left: auto; color: var(--text-mute); font-size: 11px; }
+.tav-piede {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-mute);
+}
+.sp-prova {
+  height: 42px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+/* La prova si disegna su fondo carta e in inchiostro, non in bianco su
+   scuro: lo spessore si giudica guardando come viene sul foglio. */
+.sp-prova .sp-barra { width: 100%; background: var(--ink); }
