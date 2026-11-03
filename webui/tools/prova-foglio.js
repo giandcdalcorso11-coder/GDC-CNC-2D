@@ -14,7 +14,7 @@
  *
  * Ogni controllo qui dentro e' stato provato ROMPENDO IL CODICE DI PROPOSITO:
  * un controllo che non si accende quando il codice e' rotto non e' un
- * controllo, e' una decorazione. Vedi tools/rompi-foglio.py.
+ * controllo, e' una decorazione. Vedi tools/rompi.py.
  *
  * Uso:  node webui/tools/prova-foglio.js
  */

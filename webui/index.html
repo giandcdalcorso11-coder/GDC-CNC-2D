@@ -993,6 +993,13 @@
     </div>
     <footer class="modal-foot">
       <button class="btn btn-ghost" id="modal-annulla">Annulla la stampa</button>
+      <!-- Il terzo pulsante esiste per un passo solo: la ri-referenziazione
+           della punta al cambio penna, che e' una correzione e non un
+           obbligo. Chi ha rimontato la stessa penna, o chi di mezzo
+           millimetro non sa che farsene, deve poter tirare dritto senza
+           inventarsi un gesto finto. Nascosto quando il passo non lo
+           dichiara: vedi `salta` in js/popup.js. -->
+      <button class="btn btn-ghost" id="modal-salta" hidden>Salta</button>
       <button class="btn btn-primary" id="modal-ok">Avanti</button>
     </footer>
   </div>

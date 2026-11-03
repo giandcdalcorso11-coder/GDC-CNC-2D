@@ -15,5 +15,6 @@ python3 ppm2png.py fuori/schermate.png x2 \
   fuori/stampa.ppm fuori/pausa.ppm fuori/penna1.ppm fuori/penna2.ppm \
   fuori/pronta.ppm fuori/armato.ppm fuori/tieni.ppm fuori/fine.ppm \
   fuori/attesa.ppm fuori/errore.ppm fuori/stampa-94.ppm fuori/armato-meta.ppm \
-  fuori/pronta-carica.ppm fuori/attesa-carica.ppm fuori/penna2-su.ppm fuori/pronta-73.ppm
+  fuori/pronta-carica.ppm fuori/attesa-carica.ppm fuori/penna2-su.ppm \
+  fuori/penna3.ppm fuori/pronta-73.ppm
 echo "le schermate: schermo/vetro/fuori/schermate.png"

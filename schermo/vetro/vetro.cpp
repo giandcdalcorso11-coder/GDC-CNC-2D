@@ -225,6 +225,8 @@ int main() {
   S.giu = 1; schermata(PENNA2, "penna2");          // penna gia' al contatto: ALZA
   S.giu = 0; schermata(PENNA2, "penna2-su");       // penna alzata: ABBASSA
   S.giu = 1;
+  /* Il terzo passo: la punta della penna nuova da ritrovare sul foglio. */
+  schermata(PENNA3, "penna3");
   schermata(STOP_ARMATO, "armato");
   S.percento = 62;
   schermata(FERMATA, "fermata");
@@ -385,7 +387,37 @@ int main() {
   if (quale() != PRONTA) {
     fprintf(stderr, "KO dopo tre minuti racconta ancora la fine\n"); exit(1);
   }
-  fermandoDa = 0; raccontaDa = 0; OROLOGIO = 0;
+  /* I TRE PASSI DEL CAMBIO PENNA. Dal 2026-11-03 sono tre e non due: dopo
+     aver montato la penna nuova si va a ritrovarne la PUNTA, che non sta
+     dove stava quella di prima. Senza il terzo caso qui sotto il vetro
+     direbbe ancora «MONTA» mentre il SLICER chiede l'angolo del foglio:
+     una schermata che dice una cosa e una macchina che ne aspetta un'altra,
+     che e' il difetto che questo banco esiste per trovare. */
+  fermandoDa = 0; raccontaDa = 0;
+  strcpy(S.stato, "cambio");
+  S.passo = 0;
+  if (quale() != PENNA1) { fprintf(stderr, "KO passo 0 non e' PENNA1\n"); exit(1); }
+  S.passo = 1;
+  if (quale() != PENNA2) { fprintf(stderr, "KO passo 1 non e' PENNA2\n"); exit(1); }
+  S.passo = 2;
+  if (quale() != PENNA3) {
+    fprintf(stderr, "KO al terzo passo il vetro dice ancora «monta la penna»\n");
+    exit(1);
+  }
+  /* E su quella schermata non c'e' niente da premere: ritrovare la punta
+     vuol dire guidare la testina e guardare dove cade, e un tasto «fatto»
+     premibile senza aver mosso niente sposterebbe il programma di venti
+     millimetri per sbaglio. */
+  {
+    Tasto t[4];
+    if (tastiDi(PENNA3, t) != 0) {
+      fprintf(stderr, "KO il terzo passo offre un tasto che non deve esserci\n");
+      exit(1);
+    }
+  }
+  S.passo = -1;
+
+  OROLOGIO = 0;
   strcpy(S.stato, "invio"); S.percento = 67;
 
   /* LA CADENZA LA DECIDE LO STATO, e si prova per la strada vera: un

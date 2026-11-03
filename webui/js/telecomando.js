@@ -57,8 +57,28 @@ var Telecomando = (function () {
      indicatore che lampeggia a ogni pacchetto perso. */
   var PAZIENZA = 3;
 
+  /* QUANTO SI ASPETTA UNA RISPOSTA, e perché senza questo numero la stampa
+     finiva in silenzio.
+     `fetch` non scade da solo: se il telecomando accetta la connessione e poi
+     non risponde — ha 32 kB di memoria, un WiFi solo e uno schermo da
+     ridisegnare — la promessa resta appesa PER SEMPRE. E siccome `inVolo`
+     si rimette a posto solo quando la promessa si scioglie, resta vero per
+     sempre anche lui: da quel momento `manda()` esce subito, `subito()`
+     esce subito, il battito continua a battere a vuoto e al telecomando non
+     arriva più niente. Il vetro resta sulla schermata che aveva — la stampa
+     in corso — e la fine non gli viene mai detta.
+     Peggio: nemmeno il registro se ne accorge, perché il `catch` non scatta
+     e `falliti` non cresce. Una cosa rotta che non dice di esserlo.
+     Due secondi e mezzo sono abbondanti: il battito a stampa viva è di
+     quattro decimi, e sulla rete di casa una risposta ne vuole meno di uno. */
+  var ATTESA_RISPOSTA = 2500;
+
   var indirizzo = '';
   var timer = null, inVolo = false, falliti = 0;
+  /* Quando è partito il messaggio in volo: è la rete di sicurezza della rete
+     di sicurezza. Se un browser non facesse scattare l'interruzione su una
+     connessione piantata, questo numero lo scopre lo stesso. */
+  var inVoloDa = 0;
   var firma = '';            // lo stato dell'ultima volta, per mandare subito se cambia
   var visto = false;         // il telecomando ha risposto almeno una volta
   var batteria = null;
@@ -139,22 +159,57 @@ var Telecomando = (function () {
 
   /* ------------------------------ il dialogo ------------------------------ */
 
+  /* Un messaggio appeso da troppo tempo non è più in volo: è perso. Si
+     riapre la porta invece di restare a guardarla chiusa. */
+  function sbloccaSeAppeso() {
+    if (inVolo && inVoloDa && Date.now() - inVoloDa > ATTESA_RISPOSTA * 2) {
+      inVolo = false;
+      falliti++;
+      if (falliti === PAZIENZA && visto) {
+        Log.add('err', 'Il telecomando ha smesso di rispondere a metà ' +
+                       'messaggio: riprovo da capo.');
+        visto = false;
+        batteria = null;
+        carica = null;
+        segnala();
+      }
+    }
+  }
+
   function manda() {
+    sbloccaSeAppeso();
     if (!indirizzo || inVolo || muto) return;
     var m = messaggio();
     firma = impronta(m);
     inVolo = true;
+    inVoloDa = Date.now();
     if (spiona) Log.add('cmd', '→ telecomando ' + JSON.stringify(m));
+
+    /* L'interruzione a tempo: senza, questa promessa può non sciogliersi mai.
+       `AbortController` fa cadere la fetch nel `catch` qui sotto, che è
+       esattamente dove deve cadere — da lì in poi è un telecomando che non
+       risponde come tutti gli altri, e dopo tre tentativi lo dice. */
+    var ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+    var scadenza = setTimeout(function () {
+      if (ctl) ctl.abort();
+      /* Se il browser non avesse l'interruzione, si libera comunque il
+         passaggio: una risposta che arrivasse dopo troverà `inVolo` falso e
+         non farà danni, perché non c'è niente che dipenda dall'ordine. */
+      if (!ctl && inVolo) { inVolo = false; falliti++; }
+    }, ATTESA_RISPOSTA);
+
+    function finita() { clearTimeout(scadenza); inVolo = false; }
 
     fetch(url('/stato'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(m)
+      body: JSON.stringify(m),
+      signal: ctl ? ctl.signal : undefined
     }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     }).then(function (risposta) {
-      inVolo = false;
+      finita();
       if (falliti >= PAZIENZA) {
         Log.add('msg', 'Telecomando di nuovo raggiungibile.');
       }
@@ -172,19 +227,30 @@ var Telecomando = (function () {
       segnala();
       if (risposta.tasto) premuto(String(risposta.tasto));
     }).catch(function (e) {
-      inVolo = false;
+      finita();
       falliti++;
       /* Si dice una volta sola, quando si smette di crederci: un messaggio di
          rete fallita ogni due secondi riempirebbe il registro di righe che
          raccontano tutte la stessa cosa. */
       if (spiona) Log.add('err', '× telecomando ' + e.message);
       if (falliti === PAZIENZA) {
-        if (visto) Log.add('err', 'Telecomando non raggiungibile: ' + e.message);
+        if (visto) Log.add('err', 'Telecomando non raggiungibile: ' +
+          (e && e.name === 'AbortError'
+            ? 'ha accettato la connessione e non ha risposto entro ' +
+              (ATTESA_RISPOSTA / 1000).toFixed(1).replace('.', ',') + ' s'
+            : e.message));
         visto = false;
         batteria = null;
         carica = null;
         segnala();
       }
+      /* SI RIPROVA DAL MOMENTO DEL GUASTO, non da quello che era in
+         calendario. Il battito era stato messo in agenda quando il
+         messaggio è partito: aspettarlo vorrebbe dire sommare l'attesa
+         della risposta al giro normale, e un telecomando che smette di
+         rispondere ci metterebbe il doppio a dirlo — e il doppio a
+         riprendersi quando torna. */
+      battito();
     });
   }
 

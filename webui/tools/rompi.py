@@ -16,8 +16,8 @@ guardare, e questo script lo segnala come difetto SUO — non del codice.
 
 Il sorgente viene sempre rimesso come era, anche se qualcosa va storto.
 
-  python3 webui/tools/rompi-foglio.py
-  python3 webui/tools/rompi-foglio.py 3        # solo la mutazione numero 3
+  python3 webui/tools/rompi.py
+  python3 webui/tools/rompi.py 3          # solo la mutazione numero 3
 """
 import re
 import subprocess
@@ -27,7 +27,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # Ogni voce: che cosa si rompe, in quale file, la stringa da sostituire, con
-# che cosa, e il pezzo di nome del controllo che deve andare KO.
+# che cosa, il pezzo di nome del controllo che deve andare KO, e -- quando non
+# e' quello del foglio -- quale collaudo lo trova.
+PROVA_PREDEFINITA = 'prova-foglio.js'
 MUTAZIONI = [
     dict(
         nome="il colore come attributo invece che come stile",
@@ -158,6 +160,109 @@ MUTAZIONI = [
         a="if (t) muti.push(vis[q].nome);",
         vede="non dice niente",
     ),
+
+    # ------ il dialogo col telecomando: la cosa che si rompeva in silenzio
+    dict(
+        nome="la fetch al telecomando torna senza scadenza",
+        file="js/telecomando.js",
+        da="      signal: ctl ? ctl.signal : undefined\n",
+        a="",
+        vede="interrotto a tempo",
+        prova="prova-telecomando.js",
+    ),
+    dict(
+        nome="il messaggio in volo non viene mai sbloccato",
+        file="js/telecomando.js",
+        da="    function finita() { clearTimeout(scadenza); inVolo = false; }",
+        a="    function finita() { clearTimeout(scadenza); }",
+        vede="continuano a partire anche se nessuno risponde",
+        prova="prova-telecomando.js",
+    ),
+
+    # --------------- ritrovare la punta al cambio penna
+    dict(
+        nome="la correzione non viene mandata alla macchina",
+        file="js/popup.js",
+        da="          Api.dichiaraPosizione(atteso.x, atteso.y);",
+        a="",
+        vede="dichiara l'angolo",
+        prova="prova-cambio-penna.js",
+    ),
+    dict(
+        nome="il G92 dichiara dove si trova invece di dove dovrebbe",
+        file="js/popup.js",
+        da="          Api.dichiaraPosizione(atteso.x, atteso.y);",
+        a="          Api.dichiaraPosizione(State.data.pos.x, State.data.pos.y);",
+        vede="dichiara l'angolo",
+        prova="prova-cambio-penna.js",
+    ),
+    dict(
+        nome="gli scostamenti dai bordi non entrano nel conto",
+        file="js/popup.js",
+        da="          var atteso = { x: o.x + dx, y: o.y + dy };",
+        a="          var atteso = { x: o.x, y: o.y };",
+        vede="i due scostamenti entrano nel conto",
+        prova="prova-cambio-penna.js",
+    ),
+    dict(
+        nome="nessun limite allo scarto: venti millimetri passano",
+        file="js/popup.js",
+        da="          if (scarto > SCARTO_MASSIMO) {",
+        a="          if (false) {",
+        vede="NON corregge",
+        prova="prova-cambio-penna.js",
+    ),
+    dict(
+        nome="il passo nuovo non fa ripartire la stampa",
+        file="js/popup.js",
+        da="""          alzaPenna();
+          Sender.riprendiCambio();
+          return true;
+        }
+      }
+    ];""",
+        a="""          alzaPenna();
+          return true;
+        }
+      }
+    ];""",
+        vede="la stampa riparte da sola",
+        prova="prova-cambio-penna.js",
+    ),
+    dict(
+        nome="saltare non fa ripartire la stampa",
+        file="js/popup.js",
+        da="""                         'nuovo esce spostato di quello scarto.');
+          Sender.riprendiCambio();""",
+        a="""                         'nuovo esce spostato di quello scarto.');""",
+        vede="riprende davvero",
+        prova="prova-cambio-penna.js",
+    ),
+    dict(
+        nome="il secondo passo fa ripartire la stampa come prima",
+        file="js/popup.js",
+        da="""          var alzata = Profile.alzataMm(), z = quotaContatto();
+          if (alzata !== null && z !== null) Api.penna(z + alzata);
+          return true;
+        }
+      },""",
+        a="""          var alzata = Profile.alzataMm(), z = quotaContatto();
+          if (alzata !== null && z !== null) Api.penna(z + alzata);
+          Sender.riprendiCambio();
+          return true;
+        }
+      },""",
+        vede="la stampa aspetta ancora",
+        prova="prova-cambio-penna.js",
+    ),
+    dict(
+        nome="il telecomando riceve ancora il passo 2 sul terzo passo",
+        file="../schermo/telecomando/telecomando.ino",
+        da="    if (S.passo >= 2) return PENNA3;",
+        a="",
+        vede="il vetro dice ancora",
+        prova="vetro.sh",
+    ),
 ]
 
 
@@ -167,10 +272,20 @@ def costruisci():
         capture_output=True, text=True).returncode == 0
 
 
-def collauda():
-    p = subprocess.run(["node", str(ROOT / "tools" / "prova-foglio.js")],
-                       capture_output=True, text=True)
-    return p.stdout
+def collauda(prova=PROVA_PREDEFINITA):
+    """Lancia un collaudo e torna (uscita, passa).
+
+    Due tipi di banco, e la differenza e' solo come si lanciano: i `.js`
+    girano nel browser con node, `vetro.sh` compila il firmware vero contro
+    un display finto e lo fa girare. Tutti e due scrivono le righe che non
+    tornano cominciando per KO e tornano diverso da zero: tanto basta.
+    """
+    if prova.endswith(".sh"):
+        cmd = ["bash", str(ROOT.parent / "schermo" / "vetro" / prova)]
+    else:
+        cmd = ["node", str(ROOT / "tools" / prova)]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    return (r.stdout + r.stderr), r.returncode == 0
 
 
 def riga_del(uscita, pezzo):
@@ -183,16 +298,17 @@ def riga_del(uscita, pezzo):
 def main():
     soli = {int(a) for a in sys.argv[1:] if a.isdigit()}
 
-    print("--- il collaudo sul codice intero, prima di rompere niente ---")
+    prove = sorted({m.get("prova", PROVA_PREDEFINITA) for m in MUTAZIONI})
+    print("--- i collaudi sul codice intero, prima di rompere niente ---")
     if not costruisci():
         print("la pagina non si compone: mi fermo")
         return 1
-    base = collauda()
-    if "tutto a posto" not in base:
-        print(base)
-        print("il collaudo non passa sul codice intero: niente da mutare")
-        return 1
-    print("passa.\n")
+    for pr in prove:
+        if not collauda(pr)[1]:
+            print("%s non passa sul codice intero: niente da mutare" % pr)
+            return 1
+        print("%-22s passa." % pr)
+    print("")
 
     sordi, visti = [], 0
     for i, m in enumerate(MUTAZIONI, 1):
@@ -210,7 +326,7 @@ def main():
             if not costruisci():
                 esito, dettaglio = False, "la pagina non si compone"
             else:
-                uscita = collauda()
+                uscita = collauda(m.get("prova", PROVA_PREDEFINITA))[0]
                 riga = riga_del(uscita, m["vede"])
                 if riga is None:
                     esito, dettaglio = False, "il controllo «%s» non c'e'" % m["vede"]

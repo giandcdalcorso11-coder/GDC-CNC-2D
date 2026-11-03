@@ -367,6 +367,23 @@ var Api = (function () {
     return send('G92 X0 Y0');
   }
 
+  /* «ADESSO SEI QUI», e vale per ogni punto, non solo per lo zero.
+   *
+   * È lo stesso `G92` di setOrigin() — la stessa riga, lo stesso effetto —
+   * solo con un numero diverso al posto dello zero: sposta il sistema di
+   * coordinate in modo che il punto in cui la macchina si trova ADESSO si
+   * chiami come gli si dice. Serve al cambio penna: la punta nuova non sta
+   * dove stava la vecchia, e dichiarando che è sull'angolo del foglio tutte
+   * le righe che restano si spostano di quello scarto, senza riscriverne
+   * nessuna.
+   *
+   * La Z non si tocca, ed è voluto: l'altezza la rimette il gesto con cui si
+   * monta la penna — si infila finché tocca e si stringe lì — e un `G92 Z`
+   * in mezzo rovinerebbe l'unica misura che non c'è bisogno di fare. */
+  function dichiaraPosizione(x, y) {
+    return send('G92 X' + Number(x).toFixed(3) + ' Y' + Number(y).toFixed(3));
+  }
+
   /* ------------------------- homing a mano -------------------------
      Niente finecorsa: il riferimento sono i blocchi stampati agganciati alle
      staffe, e i carrelli ci si appoggiano a mano. Col motore no — la sua coppia
@@ -452,8 +469,12 @@ var Api = (function () {
       }
       State.emit('pos');
     } else if (line.indexOf('G92') === 0) {
-      State.data.pos.x = 0;
-      State.data.pos.y = 0;
+      /* Col valore scritto, non sempre zero: `G92 X20 Y20` vuol dire «questo
+         punto si chiama 20,20», e il finto deve dire la stessa cosa della
+         macchina vera o la prova in bianco proverebbe un'altra cosa. */
+      var gx = /X(-?[\d.]+)/.exec(line), gy = /Y(-?[\d.]+)/.exec(line);
+      State.data.pos.x = gx ? parseFloat(gx[1]) : 0;
+      State.data.pos.y = gy ? parseFloat(gy[1]) : 0;
       State.emit('pos');
     } else if (line.indexOf('G90 G1 Z') === 0) {
       State.data.pos.z = parseFloat(line.slice(8));
@@ -472,7 +493,7 @@ var Api = (function () {
 
   return {
     send: send, sendMuto: sendMuto, realtime: realtime,
-    inCoda: inCoda, svuota: svuota,
+    inCoda: inCoda, svuota: svuota, dichiaraPosizione: dichiaraPosizione,
     connect: connect, disconnect: disconnect,
     jog: jog, jogXY: jogXY, setOrigin: setOrigin, led: led,
     motoriLiberi: motoriLiberi, homingFatto: homingFatto,

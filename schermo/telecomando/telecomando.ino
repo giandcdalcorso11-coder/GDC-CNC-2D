@@ -95,7 +95,7 @@ const unsigned long SCADENZA = 6000;
    vale più, rifallo». Sta dentro all'elenco invece di essere un -1 buttato
    lì perché un valore fuori dall'intervallo di un enum, in C++, è
    ufficialmente non definito: funziona finché funziona. */
-enum Schermata { PRONTA, STAMPA, IN_PAUSA, PENNA1, PENNA2,
+enum Schermata { PRONTA, STAMPA, IN_PAUSA, PENNA1, PENNA2, PENNA3,
                  STOP_ARMATO, STOP_TIENI, FERMANDO, FERMATA,
                  FINE, ERRORE, ATTESA, NESSUNA };
 
@@ -241,7 +241,15 @@ Schermata quale() {
   if (fermando()) return FERMANDO;
   if (!strcmp(S.stato, "invio"))  return STAMPA;
   if (!strcmp(S.stato, "pausa"))  return IN_PAUSA;
-  if (!strcmp(S.stato, "cambio")) return S.passo >= 1 ? PENNA2 : PENNA1;
+  /* TRE PASSI E NON PIU' DUE, dal 2026-11-03: dopo aver montato la penna
+     nuova si va a ritrovarne la PUNTA, che non sta dove stava quella di
+     prima. Senza questa riga il vetro continuerebbe a dire «MONTA» mentre
+     lo slicer chiede di andare sull'angolo del foglio: una schermata che
+     dice una cosa e una macchina che ne aspetta un'altra. */
+  if (!strcmp(S.stato, "cambio")) {
+    if (S.passo >= 2) return PENNA3;
+    return S.passo >= 1 ? PENNA2 : PENNA1;
+  }
   if (!strcmp(S.stato, "fermata")) return raccontoScaduto() ? PRONTA : FERMATA;
   if (!strcmp(S.stato, "fine"))       return raccontoScaduto() ? PRONTA : FINE;
   if (!strcmp(S.stato, "errore")) return ERRORE;
@@ -314,6 +322,14 @@ int tastiDi(Schermata s, Tasto* out) {
          al primo messaggio la parola si corregge da sé. */
       out[1] = { BASSO_DX, S.giu == 0 ? "ABBASSA" : "ALZA", VERDE, "prova" };
       return 2;
+    /* NIENTE TASTI, ed e' una scelta. Ritrovare la punta vuol dire guidare
+       la testina col tastierino e GUARDARE dove cade: si fa davanti alla
+       macchina, con lo slicer sotto gli occhi. Un tasto «FATTO» qui sopra
+       sarebbe premibile senza aver mosso niente, cioe' un modo di spostare
+       il programma di venti millimetri per sbaglio. Quando il passo sara'
+       portato sul telecomando ci vorranno le frecce, non un tasto solo. */
+    case PENNA3:
+      return 0;
     case STOP_ARMATO:
       out[0] = { BASSO,    "ANNULLA",  VERDE, "" };
       out[1] = { BASSO_DX, "TIENI",    ROSSO, "" };
@@ -1121,6 +1137,16 @@ void disegnaTutto(Schermata s) {
       parolaEPallino("MONTA", S.penna, 116, 3, TESTO);
       break;
 
+    /* PENNA3: la punta della penna nuova va ritrovata sul foglio. Il verde
+       e' lo stesso del montaggio, perche' e' la coda dello stesso gesto;
+       la seconda riga dice DOVE si fa, visto che qui non si fa. */
+    case PENNA3:
+      anello(S.percento, AMBRA, true);
+      simboloPenna(88, VERDE, true);
+      scrivi("ANGOLO", 116, 3, TESTO);
+      scrivi("DAL PC", 146, 2, FIOCO);
+      break;
+
     case STOP_ARMATO:
       anello(100, ROSSO, true);
       simboloDivieto(80, ROSSO);
@@ -1332,7 +1358,7 @@ void sveglia() { ultimoMovimento = millis(); }
 
 void gestisciLuce(Schermata s) {
   bool succede = (s == STAMPA || s == IN_PAUSA || s == PENNA1 || s == PENNA2 ||
-                  s == STOP_ARMATO || s == STOP_TIENI);
+                  s == PENNA3 || s == STOP_ARMATO || s == STOP_TIENI);
   if (succede || millis() - ultimoMovimento < BUIO_MS) luce(255);
   else luce(12);    // non spento: spento sembra rotto, e questo deve dire «ci sono»
 }

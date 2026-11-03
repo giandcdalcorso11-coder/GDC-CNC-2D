@@ -21,7 +21,8 @@
  */
 var Popup = (function () {
 
-  var box, titolo, passoEtichetta, descrizione, nota, contenitore, okBtn, annullaBtn;
+  var box, titolo, passoEtichetta, descrizione, nota, contenitore,
+      okBtn, annullaBtn, saltaBtn;
   var corrente = -1, passi = [];
 
   /* Quale procedura si sta facendo. Le due usano la stessa finestra e lo
@@ -197,6 +198,12 @@ var Popup = (function () {
   /* La quota a cui il programma in corso appoggia la penna. Senza (un file
      caricato a mano, mai passato dai popup) si usa quella nominale del
      profilo, che è la stessa con cui la penna è stata montata la prima volta. */
+  /* Quanto possono distare due punte, in millimetri. Non è una tolleranza di
+     precisione: è il confine fra «penna diversa» e «hai premuto nel posto
+     sbagliato». Dieci millimetri sono abbondanti per la prima e stretti per
+     la seconda — il punto home dista più del doppio dall'angolo del foglio. */
+  var SCARTO_MASSIMO = 10;
+
   function quotaContatto() {
     var v = Sender.altezzaUsata();
     return v === null ? Profile.zContatto() : v;
@@ -306,14 +313,136 @@ var Popup = (function () {
         },
         pronto: function () { return !!State.data.connected; },
         attesa: 'La macchina non è collegata.',
-        etichetta: 'Riprendi la stampa col colore nuovo',
+        etichetta: 'Montata — adesso ritrovo la punta',
         esci: function () {
-          /* Si riparte a penna alzata. Il generatore dopo il segno ridichiara
-             tutto, Z compresa, quindi non sarebbe indispensabile — ma se fra
-             qui e la ripresa succede qualcosa, la punta è su e non sul
-             foglio. */
+          /* Si alza la penna PRIMA di qualsiasi movimento in X e Y: il passo
+             dopo cammina sul foglio, e con la punta a contatto camminare
+             vuol dire rigare il disegno che è già lì. */
           var alzata = Profile.alzataMm(), z = quotaContatto();
           if (alzata !== null && z !== null) Api.penna(z + alzata);
+          return true;
+        }
+      },
+
+      /* ============ TERZO PASSO: DOVE SI È SPOSTATA LA PUNTA ============
+       *
+       * IL PROBLEMA, visto sulla carta il 2026-11-03 stampando a due colori.
+       * Due penne diverse non hanno la punta nello stesso posto: il morsetto
+       * tiene il CORPO della penna, e corpi diversi portano la punta a
+       * qualche decimo — a volte a qualche millimetro — l'uno dall'altra. Il
+       * disegno viene a fuochi: il nero dove deve stare, il rosso spostato
+       * di tutto, e la differenza si vede solo a stampa finita.
+       *
+       * LA Z NON È IL PROBLEMA, e non lo è per costruzione: la penna nuova si
+       * monta col servo fermo alla quota del programma e si stringe quando
+       * tocca. È il passo prima, ed è il motivo per cui lì non c'è niente da
+       * misurare. In X e Y quel gesto non esiste: non c'è niente contro cui
+       * appoggiare la punta.
+       *
+       * LA CORREZIONE È UNA RIGA, ed è la stessa riga con cui si azzera la
+       * macchina a inizio stampa: un `G92`. Si porta la punta nuova sullo
+       * stesso punto del foglio che si era toccato con la vecchia e le si
+       * dice «tu sei lì». Da quel momento ogni coordinata del programma che
+       * resta è spostata esattamente dello scarto fra le due punte, e non si
+       * riscrive una virgola del G-code — che è l'altra strada, quella che
+       * il cambio penna aveva già scartato per la Z: «aritmetica messa a
+       * rimediare un gesto che si può fare bene».
+       *
+       * E IL SISTEMA DI COORDINATE RESTA GIUSTO DOPO, non sbagliato: da lì in
+       * avanti è riferito alla penna montata, che è quella che disegna.
+       */
+      {
+        nome: 'Ritrova la punta sul foglio',
+        sezioni: { posizione: true, homing: false, assi: true, penna: true },
+        testo: function () {
+          var r = Paper.raggiungibile();
+          var base = 'La punta della penna nuova <b>non è dove era quella di ' +
+                     'prima</b>: il morsetto tiene il corpo della penna, non la ' +
+                     'punta. Se non lo si corregge, il secondo colore esce ' +
+                     'spostato di tutto rispetto al primo.<br><br>';
+          if (!r.piuGrande) {
+            return base +
+                   'Porta la punta sull\'<b>angolo in basso a sinistra del ' +
+                   'foglio</b>, lo stesso che hai toccato prima di far partire ' +
+                   'la stampa. Per essere sicuro abbassala un attimo: il ' +
+                   'puntino te lo dice.<br><br>' +
+                   'Poi premi: da lì in avanti il programma si sposta dello ' +
+                   'scarto fra le due punte, e il colore nuovo cade dove deve.';
+          }
+          return base +
+                 '<b>Questo foglio è più grande della corsa</b>, quindi il suo ' +
+                 'angolo sta fuori. Porta la punta su un punto del foglio che la ' +
+                 'macchina raggiunge e scrivi qui sotto quanto dista dal <b>bordo ' +
+                 'sinistro</b> e dal <b>bordo inferiore</b>: gli stessi due numeri ' +
+                 'del terzo passo di prima, se hai toccato lo stesso punto.';
+        },
+
+        /* Gli stessi due campi del terzo passo di inizio stampa, e non per
+           somiglianza: è lo stesso punto, dichiarato allo stesso modo. Qui
+           però arrivano precompilati con quelli di ALLORA — il foglio non si
+           è mosso, solo la penna — così nel caso normale si conferma. */
+        extra: function () {
+          var r = Paper.raggiungibile();
+          return '<div class="pop-off"><p class="muted small">Distanza del punto ' +
+                 'toccato dai bordi del foglio</p><div class="field-row">' +
+                 '<label>Dal bordo sinistro (mm) <input type="number" id="pop-off-x" ' +
+                 'step="0.5" value="' + (r.piuGrande ? r.dax.toFixed(0) : '0') + '"></label>' +
+                 '<label>Dal bordo inferiore (mm) <input type="number" id="pop-off-y" ' +
+                 'step="0.5" value="' + (r.piuGrande ? r.day.toFixed(0) : '0') + '"></label>' +
+                 '</div></div>';
+        },
+
+        entra: function () {},
+        pronto: function () { return !!State.data.connected && State.data.azzerata; },
+        attesa: 'Serve una macchina collegata e una posizione nota.',
+        etichetta: 'La punta è sul punto: correggi e riprendi',
+
+        /* Saltare è legittimo — stessa penna rimontata, o uno scarto che non
+           interessa — ma non è «non fare niente»: la stampa deve ripartire
+           lo stesso, se no resta ferma con la finestra chiusa. */
+        etichettaSalta: 'Riprendi senza correggere',
+        salta: function () {
+          Log.add('msg', 'Cambio penna senza ritrovare la punta: il programma ' +
+                         'resta com\'è. Se le due punte non coincidono, il colore ' +
+                         'nuovo esce spostato di quello scarto.');
+          Sender.riprendiCambio();
+          return true;
+        },
+
+        esci: function () {
+          var dx = parseFloat((document.getElementById('pop-off-x') || {}).value);
+          var dy = parseFloat((document.getElementById('pop-off-y') || {}).value);
+          if (isNaN(dx)) dx = 0;
+          if (isNaN(dy)) dy = 0;
+
+          var o = State.data.sheetOrigin;
+          var atteso = { x: o.x + dx, y: o.y + dy };
+          var sx = State.data.pos.x - atteso.x, sy = State.data.pos.y - atteso.y;
+          var scarto = Math.sqrt(sx * sx + sy * sy);
+
+          /* IL CONTROLLO CHE IMPEDISCE IL DANNO. Due punte distano qualche
+             decimo, al limite qualche millimetro: un corpo penna non è largo
+             un centimetro. Uno scarto più grande non è una penna diversa, è
+             un errore — il più facile di tutti, premere senza aver mosso la
+             testina, che sta al punto home e darebbe venti millimetri buoni.
+             Applicarlo vorrebbe dire spostare di due centimetri tutto quello
+             che resta da disegnare, cioè rovinare un foglio a metà. */
+          if (scarto > SCARTO_MASSIMO) {
+            nota.hidden = false;
+            nota.textContent = 'Da lì allo scarto ci sono ' + scarto.toFixed(1) +
+              ' mm: troppi per due punte, e il programma si sposterebbe di ' +
+              'altrettanto. Controlla di essere davvero sul punto giusto — il ' +
+              'limite è ' + SCARTO_MASSIMO + ' mm. Se non vuoi correggere, usa ' +
+              '«Riprendi senza correggere».';
+            return false;
+          }
+
+          Api.dichiaraPosizione(atteso.x, atteso.y);
+          Log.add('msg', 'Punta ritrovata: la penna nuova stava ' +
+                  scarto.toFixed(2) + ' mm più in là (X ' + sx.toFixed(2) +
+                  ', Y ' + sy.toFixed(2) + '). Le coordinate che restano sono ' +
+                  'spostate di altrettanto: il G-code non è stato toccato.');
+          alzaPenna();
           Sender.riprendiCambio();
           return true;
         }
@@ -446,6 +575,11 @@ var Popup = (function () {
     titolo.textContent = p.nome;
     descrizione.innerHTML = typeof p.testo === 'function' ? p.testo() : p.testo;
     okBtn.textContent = p.etichetta;
+    /* Il pulsante di scarto c'è solo dove il passo lo dichiara. */
+    if (saltaBtn) {
+      saltaBtn.hidden = !p.salta;
+      if (p.salta) saltaBtn.textContent = p.etichettaSalta || 'Salta';
+    }
     /* «Annulla la stampa» durante un cambio penna sarebbe una bugia: lì
        quel pulsante chiude la finestra e lascia la stampa ferma dov'è, col
        disegno a metà sul foglio. */
@@ -466,6 +600,19 @@ var Popup = (function () {
     okBtn.disabled = !ok;
     nota.textContent = ok ? '' : p.attesa;
     nota.hidden = ok;
+  }
+
+  /* SALTARE NON È ANDARE AVANTI A VUOTO. Il passo che si salta ha comunque
+     qualcosa da fare — quello della punta deve far ripartire la stampa — e
+     saltarlo senza quello lascerebbe la macchina ferma per sempre con la
+     finestra chiusa. Per questo `salta` è una funzione e non un `true`. */
+  function salta() {
+    var p = passi[corrente];
+    if (!p || !p.salta) return;
+    if (p.salta() === false) return;
+    if (corrente + 1 < passi.length) { apri(corrente + 1); return; }
+    chiudi();
+    if (modo === 'stampa') consegna();
   }
 
   function avanti() {
@@ -531,6 +678,8 @@ var Popup = (function () {
     contenitore = document.getElementById('modal-panel');
     okBtn = document.getElementById('modal-ok');
     annullaBtn = document.getElementById('modal-annulla');
+    saltaBtn = document.getElementById('modal-salta');
+    if (saltaBtn) saltaBtn.addEventListener('click', salta);
 
     okBtn.addEventListener('click', avanti);
     annullaBtn.addEventListener('click', function () {
