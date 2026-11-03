@@ -263,6 +263,95 @@ MUTAZIONI = [
         vede="il vetro dice ancora",
         prova="vetro.sh",
     ),
+
+    # ------------------------- le tab delle stampe
+    dict(
+        nome="la tab legge il foglio vivo invece della sua copia",
+        file="js/stampe.js",
+        da="""      foglio: { x: org.x, y: org.y, w: pap.w, h: pap.h,""",
+        a="""      foglio: { get x() { return State.data.sheetOrigin.x; },
+                get y() { return State.data.sheetOrigin.y; },
+                get w() { return State.data.paper.w; },
+                get h() { return State.data.paper.h; },""",
+        vede="il foglio di allora",
+        prova="prova-stampe.js",
+    ),
+    dict(
+        nome="ogni «invio» apre una tab, ripresa compresa",
+        file="js/stampe.js",
+        da="""    return ora === 'invio' &&
+           (prima === 'fermo' || prima === 'fine' || prima === 'fermata' ||
+            prima === 'errore');""",
+        a="""    return ora === 'invio' &&
+           (prima === 'fermo' || prima === 'fine' || prima === 'fermata' ||
+            prima === 'cambio' || prima === 'errore');""",
+        vede="NON nasce una seconda tab",
+        prova="prova-stampe.js",
+    ),
+    dict(
+        nome="la tab smette di ascoltare appena la stampa e' dichiarata finita",
+        file="js/stampe.js",
+        da="""        aggiorna(corrente);
+      }
+      /* `corrente` NON si azzera qui""",
+        a="""        aggiorna(corrente);
+        corrente = null;
+      }
+      /* `corrente` NON si azzera qui""",
+        vede="percorso fatto e` disegnato tutto",
+        prova="prova-stampe.js",
+    ),
+    dict(
+        nome="la × si puo' premere anche mentre la stampa va",
+        file="js/stampe.js",
+        da="""      '<button class="tab-chiudi" data-chiudi="' + t.id + '" disabled ' +""",
+        a="""      '<button class="tab-chiudi" data-chiudi="' + t.id + '" ' +""",
+        vede="non si puo` chiudere",
+        prova="prova-stampe.js",
+    ),
+    dict(
+        nome="chiudendo resta il pannello attaccato al documento",
+        file="js/stampe.js",
+        da="    if (p) p.parentNode.removeChild(p);",
+        a="",
+        vede="toglie la tab e il suo pannello",
+        prova="prova-stampe.js",
+    ),
+    dict(
+        nome="le tab si accumulano senza tetto",
+        file="js/stampe.js",
+        da="    while (elenco.length > MAX) {",
+        a="    while (false) {",
+        vede="le piu` vecchie se ne vanno",
+        prova="prova-stampe.js",
+    ),
+    dict(
+        nome="il G-code letto senza memoria delle coordinate di prima",
+        file="js/stampe.js",
+        da="""      var nx = mx ? parseFloat(mx[1]) : x;
+      var ny = my ? parseFloat(my[1]) : y;""",
+        a="""      var nx = mx ? parseFloat(mx[1]) : 0;
+      var ny = my ? parseFloat(my[1]) : 0;""",
+        vede="sta dove lo dice il G-code",
+        prova="prova-stampe.js",
+    ),
+    dict(
+        nome="la parola G pretesa in testa a ogni riga",
+        file="js/stampe.js",
+        da="""      var mg = /(?:^|\\s)G(\\d+)/g, gg;""",
+        a="""      if (!/^G[01](\\s|$)/.test(r)) continue;
+      var mg = /(?:^|\\s)G(\\d+)/g, gg;""",
+        vede="il percorso non e` vuoto",
+        prova="prova-stampe.js",
+    ),
+    dict(
+        nome="penna giu' e penna su si confondono",
+        file="js/stampe.js",
+        da="                        giu: zc !== null && zc <= soglia,",
+        a="                        giu: true,",
+        vede="sta dove lo dice il G-code",
+        prova="prova-stampe.js",
+    ),
 ]
 
 

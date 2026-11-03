@@ -2028,3 +2028,175 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
 /* La prova si disegna su fondo carta e in inchiostro, non in bianco su
    scuro: lo spessore si giudica guardando come viene sul foglio. */
 .sp-prova .sp-barra { width: 100%; background: var(--ink); }
+
+/* ==================== LE TAB DELLE STAMPE ====================
+   Nascono da sole quando parte una stampa e si possono chiudere, a
+   differenza delle altre: non sono una parte del programma, sono il
+   racconto di UNA stampa. Vedi js/stampe.js. */
+
+.tab-wrap { position: relative; display: inline-flex; align-items: center; }
+
+/* La × sta FUORI dal pulsante della tab, non dentro: un bottone dentro un
+   bottone non e' HTML valido e il browser lo riscrive come gli pare. */
+.tab-chiudi {
+  background: none;
+  border: 0;
+  color: var(--text-mute);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 6px 4px 0;
+  margin-left: -6px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.tab-chiudi:hover:not(:disabled) { color: var(--danger); background: var(--bg-raised); }
+/* Finche' la stampa va, il racconto non si chiude: chiuderlo per sbaglio
+   vorrebbe dire perdere la vista viva proprio mentre serve. */
+.tab-chiudi:disabled { opacity: .25; cursor: default; }
+
+/* Il pallino sulla linguetta dice com'e' andata senza doverci entrare. */
+.tab-spia {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: 1px;
+  background: var(--accent);
+}
+.tab-spia-fine    { background: #43b581; }
+.tab-spia-fermata { background: var(--warn); }
+.tab-spia-errore  { background: var(--danger); }
+
+/* ---------------------- dentro alla tab ---------------------- */
+
+.st-wrap {
+  display: flex;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  padding: 14px;
+  box-sizing: border-box;
+}
+.st-vista {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-sunken, #11141a);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+}
+.st-svg { width: 100%; height: 100%; }
+.st-lato {
+  flex: 0 0 330px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.st-testa { display: flex; align-items: center; gap: 8px; }
+.st-testa h2 {
+  margin: 0;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.st-badge {
+  flex: 0 0 auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  border: 1px solid var(--line);
+}
+.st-invio   { color: var(--accent); border-color: var(--accent-dim); }
+.st-pausa, .st-cambio { color: var(--warn); border-color: var(--warn); }
+.st-fine    { color: #43b581; border-color: #43b581; }
+.st-fermata { color: var(--warn); border-color: var(--warn); }
+.st-errore  { color: var(--danger); border-color: var(--danger); }
+
+.st-barra {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+.st-barra-dentro { height: 100%; width: 0; background: var(--accent); }
+.st-dati { margin: 0; }
+.st-sez {
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-top: 4px;
+}
+
+/* La finestra sul G-code: la riga in corso con un po' di prima e di dopo.
+   A larghezza fissa, perche' cosi' le colonne dei numeri stanno incolonnate
+   e si legge dove cambia una quota. */
+.st-code {
+  margin: 0;
+  flex: 0 0 auto;
+  max-height: 210px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.45;
+  background: var(--bg-sunken, #11141a);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.st-r { white-space: pre; color: var(--text-mute); }
+.st-r-fatta { color: var(--text-dim); }
+.st-r-ora {
+  color: var(--text);
+  background: var(--bg-raised);
+  border-radius: 3px;
+  font-weight: 600;
+}
+.st-r-pausa { color: var(--warn); }
+.st-n {
+  display: inline-block;
+  width: 42px;
+  color: var(--text-mute);
+  opacity: .55;
+  text-align: right;
+  padding-right: 8px;
+}
+.st-log {
+  flex: 1 1 auto;
+  min-height: 90px;
+  overflow: auto;
+  font-size: 11px;
+  background: var(--bg-sunken, #11141a);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+/* ------------------------ il disegno ------------------------ */
+
+.st-foglio { fill: var(--paper); stroke: #d8d2c6; stroke-width: .3; }
+/* Gli spostamenti a penna alzata: tratteggiati e smorti, come sul piano.
+   Non sono inchiostro, e devono leggersi come il contorno della faccenda. */
+.st-su   { fill: none; stroke: #6b7380; stroke-width: .22; stroke-dasharray: 1.4 1.4; }
+.st-giu  { fill: none; stroke: #5a6472; stroke-width: .45;
+           stroke-linecap: round; stroke-linejoin: round; }
+/* Quello che la macchina ha gia' disegnato, sopra al resto. */
+.st-fatto { fill: none; stroke: var(--accent); stroke-width: .5;
+            stroke-linecap: round; stroke-linejoin: round; }
+.st-pausa { fill: none; stroke: var(--warn); stroke-width: .5; }
+.st-punta { fill: #e0523f; stroke: #fff; stroke-width: .35; }
+
+@media (max-width: 1000px) {
+  .st-wrap { flex-direction: column; }
+  .st-lato { flex: 0 0 auto; }
+  .st-vista { min-height: 260px; }
+}

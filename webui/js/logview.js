@@ -15,7 +15,22 @@ var Log = (function () {
            ('0' + d.getSeconds()).slice(-2);
   }
 
+  /* CHI VUOLE SENTIRE LE RIGHE MENTRE NASCONO.
+     Serve alle tab delle stampe: ognuna tiene il registro della SUA stampa,
+     e per farlo deve sapere che cosa viene detto mentre lei è quella in
+     corso. L'alternativa era che qualcuno avvolgesse `add` da fuori, cioè
+     che il registro diventasse un posto in cui due moduli si scavalcano a
+     vicenda senza dirselo. */
+  var orecchie = [];
+  function ascolta(fn) { if (typeof fn === 'function') orecchie.push(fn); }
+
   function add(kind, text) {
+    var riga = { kind: kind, text: text, time: ts() };
+    for (var o = 0; o < orecchie.length; o++) {
+      /* Un ascoltatore che si rompe non deve portarsi dietro il registro:
+         qui dentro passa anche il racconto dei guasti. */
+      try { orecchie[o](riga); } catch (e) { /* non è affar suo */ }
+    }
     lines.push({ kind: kind, text: text, time: ts() });
     if (lines.length > MAX) lines.splice(0, lines.length - MAX);
     render();
@@ -75,5 +90,5 @@ var Log = (function () {
     render();
   }
 
-  return { add: add, init: init, render: render };
+  return { add: add, init: init, render: render, ascolta: ascolta };
 })();

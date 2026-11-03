@@ -24,21 +24,32 @@
     Hold: 'state-hold', Alarm: 'state-alarm', Door: 'state-alarm'
   };
 
+  /* UN ASCOLTATORE SULLA BARRA, non uno per pulsante: dal 2026-11-03 le tab
+     delle stampe nascono e muoiono mentre la pagina è aperta, e agganciarsi
+     ai nodi che ci sono all'avvio vuol dire che quelle nuove non rispondono
+     al clic — una tab che non si apre, senza niente che lo spieghi. */
   function tabs() {
-    var btns = document.querySelectorAll('.tab');
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].addEventListener('click', function () {
-        for (var j = 0; j < btns.length; j++) btns[j].classList.remove('is-active');
-        this.classList.add('is-active');
-        var panels = document.querySelectorAll('.panel');
-        for (var k = 0; k < panels.length; k++) panels[k].classList.remove('is-active');
-        document.getElementById('tab-' + this.dataset.tab).classList.add('is-active');
+    var nav = document.querySelector('nav.tabs');
+    if (!nav) return;
+    nav.addEventListener('click', function (e) {
+      /* La × di una stampa non cambia tab: la chiude, e ci pensa Stampe. */
+      if (e.target.closest('[data-chiudi]')) return;
+      var b = e.target.closest('.tab');
+      if (!b) return;
+      var panel = document.getElementById('tab-' + b.dataset.tab);
+      if (!panel) return;
 
-        /* L'editor si prepara entrando, non all'avvio: la tela va adattata
-           al disegno che c'è adesso, e all'avvio non c'è niente. */
-        if (this.dataset.tab === 'editor' && window.Editor) Editor.apri();
-      });
-    }
+      var btns = nav.querySelectorAll('.tab');
+      for (var j = 0; j < btns.length; j++) btns[j].classList.remove('is-active');
+      b.classList.add('is-active');
+      var panels = document.querySelectorAll('.panel');
+      for (var k = 0; k < panels.length; k++) panels[k].classList.remove('is-active');
+      panel.classList.add('is-active');
+
+      /* L'editor si prepara entrando, non all'avvio: la tela va adattata
+         al disegno che c'è adesso, e all'avvio non c'è niente. */
+      if (b.dataset.tab === 'editor' && window.Editor) Editor.apri();
+    });
   }
 
   function refreshState() {
@@ -283,6 +294,10 @@
     document.getElementById('btn-send').addEventListener('click', Popup.avviaStampa);
 
     tabs();
+    /* Le tab delle stampe si agganciano DOPO `tabs()`: la prima cosa che
+       fanno è chiedere alla barra di ascoltare, e la barra deve già
+       saper cambiare pagina. */
+    if (window.Stampe) Stampe.init();
     dropzone();
     connectBtn();
 

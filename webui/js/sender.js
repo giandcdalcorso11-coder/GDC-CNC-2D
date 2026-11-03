@@ -421,6 +421,17 @@ var Sender = (function () {
     riprendiCambio: riprendiCambio,
     inCorso: inCorso, prepara: prepara, durata: durata,
     stato: function () { return stato; },
+    /* IL PROGRAMMA IN CORSO, in copia. Lo prende la tab della stampa per
+       disegnarsi il percorso da sé: non da `State.data.path`, che è il
+       disegno sul foglio e cambia appena si tocca un livello, ma dalle
+       righe che la macchina sta davvero ricevendo. È l'unica fonte che
+       resta vera anche dopo, quando il disegno sullo schermo è un altro.
+       In copia perché chi la riceve se la tiene per sempre, e un array
+       condiviso diventerebbe il racconto di un'altra stampa. */
+    programma: function () {
+      return { righe: righe.slice(), nome: nome, inizio: t0,
+               contatto: altezzaUsata };
+    },
     penna: function () { return penna; },
     /* Serve a chi deve decidere se chiedere la rimisurazione: senza una
        quota di partenza non c'è nessuna differenza da calcolare. */
