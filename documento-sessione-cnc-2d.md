@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 74
-**Ultimo aggiornamento:** 2026-11-03 20:14
+**Versione:** 75
+**Ultimo aggiornamento:** 2026-11-05 09:02
 
 ## Regole di co-editing
 
@@ -765,8 +765,36 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 - [2026-11-01] **Secondo cliente: Antei (abbigliamento).** Due mascotte stampate in 3D dall'utente, da disegnare in stile Rilievo, più il logo dell'azienda da vettorializzare. Fatti: logo, angioletto «Starry angel kid» (dal 3MF) e seconda mascotte (da screenshot, il 3D era troppo pesante). I magneti restano in attesa.
 - [2026-11-01] **Antei, set definitivo scelto dall'utente:** `logo antei cnc2d`, `starboy cnc2d (dettagliato)` e `(essenziale)`, `starry angel kid cnc2d (dettagliato)` e `(essenziale)`, in `stampe/antei/` sul branch `claude/quirky-bohr-u9ktwd`. Tenute entrambe le coppie di stile.
 - [2026-11-02] **Magneti: arrivano misure e colori.** Magneti grandi **75 × 75 mm**, piccoli **75 × 25 mm**, angoli arrotondati; i piccoli attuali hanno il nome scritto a pennarello (es. «INTENZIONE»). Colori in foto: azzurro, arancione, verde e un quadrato bianco grande (a cosa serve non ancora chiarito). Le grafiche arrivano dall'utente nel messaggio successivo; poi il mockup con la sequenza delle stampe.
+- [2026-11-05] **Magneti: l'utente rifà a mano i tre grandi, e da lì si ricava la regola delle scritte.** I tre file ritoccati (`stampe/magneti/finali-utente/`) sono i buoni. Il problema era nelle scritte: tracciare il **contorno** della lettera con l'indelebile da **1,5 mm** (predefinito del livello nello SLICER) fa sbordare l'inchiostro di mezzo pennarello e le lettere si impastano. Regola nuova (`stampe/magneti/testo_marker.py`): tratto **dentro** la lettera a metà larghezza di pennarello dal bordo, anelli sovrapposti ~10% solo dentro la stessa lettera, linea di mezzo per le parti sottili, spaziatura fra lettere calcolata sulla forma (≥ ~0,9 mm di vuoto). Applicata ai quattro piccoli e ai tre bianchi, da provare in stampa. Due penne: Tratto Pen (~0,5 mm) e indelebile (1,5 mm); lo spessore lo sceglie l'utente per livello nello SLICER. Il verde «Gioco» ritoccato è un disegno diverso dal mio (podio 1-2-3 con coppa).
 
 ## Storico sessioni
+
+### [2026-11-05 09:02] (stampe) Magneti: due penne a una linea, e la lezione delle scritte per il pennarello grosso
+
+**Riepilogo:** i magneti della lavagna sono stati rifatti a una linea sola per tratto e due penne (Tratto Pen e indelebile); l'utente ha ritoccato a mano i tre grandi perché le scritte, fatte col contorno delle lettere, si impastavano con l'indelebile, e dai suoi file è stata ricavata una regola nuova per le scritte, applicata ai piccoli e ai bianchi.
+
+**Cosa è stato fatto:**
+- Misure e grafiche ricevute: grandi 75 × 75 mm (azzurro, arancione, verde, bianco), piccoli 75 × 25 mm. Prodotti i tre grandi in versione quadrato e rombo (45°), i quattro piccoli (INTENZIONE, FASE, RALLY, SCORE) e tre bianchi di fase (BLOCCATA, REGOLARE, ALTERNATA, icone ridisegnate perché il file originale non era arrivato).
+- Dopo che lo SLICER ha acquisito lo spessore per livello, rifatti tutti a una linea: `vettorializza.py` (`costruisci_doppio`) divide fra Tratto Pen e indelebile.
+- Studiati i tre file ritoccati e scritta la nuova logica per le lettere in `testo_marker.py`.
+
+**Bug: le scritte con l'indelebile si impastavano**
+
+**Sintomo:** lettere confuse e sovrapposte fra loro nei magneti con l'indelebile (segnalato dall'utente, che ha rifatto a mano tutti e tre).
+**Causa:** le scritte erano il **contorno** delle lettere; col pennarello da 1,5 mm l'inchiostro sborda di mezzo pennarello da ogni lato, quindi le lettere si ingrossano e si toccano. Lo scheletro puro, d'altra parte, è rumoroso.
+**Fix applicato:** `testo_marker.py` (tratto dentro la lettera, anelli sovrapposti solo nella stessa lettera, spaziatura sulla forma). Verificato solo su anteprima: **da confermare in stampa**.
+
+**Decisioni prese:**
+- Contesto: l'utente sceglie lo spessore dal livello nello SLICER e usa due pennarelli.
+- Decisione: ogni tratto è una linea sola; scritte e parti spesse in indelebile (1,5 mm), contorni e dettagli in Tratto Pen (~0,5 mm); i file ritoccati dell'utente (`finali-utente/`) sono quelli buoni per i tre grandi.
+- Alternative scartate: tracciare il contorno delle lettere; scheletro semplice per le lettere (troppo rumoroso).
+- Da rivedere se: la stampa vera dei piccoli e dei bianchi mostra lettere ancora impastate (REGOLARE e ALTERNATA, nel cerchio, sono le più strette).
+
+**File consegnati/modificati:** `stampe/magneti/` (`testo_marker.py`, `piccoli_e_bianchi.py`, `magneti.py`, `vettorializza.py`, SVG dei piccoli e dei bianchi, `finali-utente/`, mockup, README); questo documento (v75). Nel documento una riga precedente cita `stampe/antei/logo.py`: ora è `stampe/logo_vettoriale.py`.
+
+**Impatto su Vision/Pipeline:** nessuno; Step 10 aggiornato con la nota di oggi.
+
+---
 
 ### [2026-11-03 20:14] (software + firmware) Lo Step 9 si chiude, l'anteprima somiglia al foglio, e una penna diventa due cose
 
