@@ -25,3 +25,18 @@ in due penne; solo le forme piene grandi (mattoncino, impennaggio della freccia)
 e i tre bianchi; le icone dei bianchi sono ridisegnate a mano (geometria) sul modello
 dell'immagine ricevuta. Il carattere è Montserrat ExtraBold Italic (OFL), non incluso nel repo:
 `python3 -B piccoli_e_bianchi.py <Montserrat-ExtraBoldItalic.ttf> . <cartella-immagini>`.
+
+## Scritte per il pennarello grosso (dal 2026-11-05) — cosa ho imparato dai file ritoccati
+L'utente ha rifatto a mano i tre magneti grandi (`finali-utente/`, sono loro i file buoni).
+Il problema delle mie scritte: il **contorno** della lettera, tracciato con un indelebile da
+1,5 mm, sborda di mezzo pennarello per lato; le lettere si ingrossano, si toccano e si
+impastano. Nei file ritoccati ogni lettera è fatta di **pochi tratti che si sovrappongono solo
+dentro la stessa lettera**, e fra una lettera e l'altra resta aria.
+Regola ora in `testo_marker.py` (usata da `piccoli_e_bianchi.py`):
+- il tratto sta **dentro** la lettera, a metà larghezza di pennarello dal bordo (l'orlo
+  dell'inchiostro coincide col bordo della lettera, non lo supera);
+- una parte larga si riempie con anelli concentrici sovrapposti ~10%; una sottile con la
+  linea di mezzo;
+- la spaziatura fra le lettere si calcola sulla forma, con almeno ~0,9 mm di vuoto.
+Spessore dell'indelebile: **1,5 mm** (predefinito del livello nello SLICER).
+Il magnete verde «Gioco» ritoccato è un disegno diverso dal mio (podio con 1-2-3 e coppa).

@@ -26,9 +26,9 @@ INSCRITTO = LATO / math.sqrt(2)    # quadrato dritto piu' grande dentro il rombo
 # Una linea sola per tratto; lo spessore lo decide la penna scelta nello SLICER, per livello
 # (cioe' per colore). Due penne:
 #   FINE   = Tratto Pen, ~0,5 mm   -> colore nero    #111111
-#   MARKER = indelebile, ~2 mm     -> colore grigio  #6b6b6b
+#   MARKER = indelebile, 1,5 mm (spessore predefinito del livello nello SLICER) -> grigio #6b6b6b
 COL_FINE, COL_MARKER = '#111111', '#6b6b6b'
-W_FINE, W_MARKER = 0.5, 2.0
+W_FINE, W_MARKER = 0.5, 1.5
 
 MAGNETI = [
     # nome, file, colore del magnete, cfg della vettorializzazione

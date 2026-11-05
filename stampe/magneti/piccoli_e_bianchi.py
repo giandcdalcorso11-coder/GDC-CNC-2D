@@ -18,6 +18,7 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont
 
 import magneti as M
+import testo_marker as T
 import vettorializza as V
 
 LATO = M.LATO
@@ -27,22 +28,10 @@ H_PIC = 25.0
 # ---------------------------------------------------------------- testo
 
 def testo(font, stringa, alt_maiuscole_mm, fine=False):
-    """(linee, w, h): la scritta a linea di mezzo, in mm, origine in alto a sinistra."""
-    f = ImageFont.truetype(font, 300)
-    box = f.getbbox(stringa)
-    img = Image.new('RGB', (box[2] + 80, box[3] + 80), 'white')
-    ImageDraw.Draw(img).text((40, 40), stringa, font=f, fill='black')
-    px_h = f.getbbox('H')[3] - f.getbbox('H')[1]
-    k = alt_maiuscole_mm / px_h
-    bb = img.convert('L').point(lambda v: 255 if v < 128 else 0).getbbox()
-    contenuto = max(bb[2] - bb[0], bb[3] - bb[1]) * k
-    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as t:
-        img.save(t.name)
-    try:
-        fi, ma, w, h = V.costruisci_doppio(t.name, contenuto, dict(testo=0.0, testo_fine=fine))
-        return (fi if fine else ma), w, h
-    finally:
-        os.unlink(t.name)
+    """(linee, w, h): la scritta, in mm, origine in alto a sinistra. Motore: testo_marker.py
+    (il tratto resta dentro la lettera, spaziatura sulla forma)."""
+    w = M.W_FINE if fine else M.W_MARKER
+    return T.scritta(font, stringa, alt_maiuscole_mm, w_mm=w, vuoto_mm=max(0.9, 0.6 * w) if not fine else 0.5)
 
 
 # ------------------------------------------------------------ primitive
@@ -140,9 +129,10 @@ if __name__ == '__main__':
 
     # --- i quattro piccoli: scritta a marker, stessa altezza di lettera per tutti
     parole = ['INTENZIONE', 'FASE', 'RALLY', 'SCORE']
-    ref = testo(font, 'INTENZIONE', 8.0)
-    larg_max = LATO - 2 * M.MARGINE_Q
-    alt = 8.0 * larg_max / ref[1] if ref[1] > larg_max else 8.0
+    larg_max = LATO - 2 * 5.0                      # 65 mm: margine di 5 dal bordo
+    alt = 7.0
+    while testo(font, 'INTENZIONE', alt)[1] > larg_max:
+        alt -= 0.2
     piccoli = {}
     for p in parole:
         l, w, h = testo(font, p, alt)
@@ -164,11 +154,20 @@ if __name__ == '__main__':
     W = 4 * colw + gap
     corpo = []
     y = gap
-    for i, (nome, f, colore, cfg) in enumerate(M.MAGNETI):
-        q = V.costruisci_doppio(os.path.join(imgs, f), LATO - 2 * M.MARGINE_Q, cfg)
-        cx = gap + colw * i + LATO / 2
-        corpo.append(M.magnete(cx, y + LATO / 2, colore, 0))
-        corpo.append(M.tratti(q, cx, y + LATO / 2, True))
+    # prima riga: i tre colorati, nella versione RITOCCATA DALL'UTENTE (finali-utente/): sono
+    # loro i file buoni, e il confronto con quanto generato prima e' nel README
+    import glob
+    import re
+    colori = {'verde': '#6bb52f', 'arancione': '#f58a14', 'blu': '#3fb0c4'}
+    for i, nome in enumerate(('blu', 'arancione', 'verde')):
+        f = glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'finali-utente', '*%s*.svg' % nome))[0]
+        t = open(f, encoding='utf-8').read()
+        vb = [float(v) for v in re.search(r'viewBox="([^"]+)"', t).group(1).split()]
+        corpo_u = t[t.index('<g transform'):t.rindex('</svg>')]
+        corpo_u = re.sub(r'stroke="hsl\([^"]*\)"', 'stroke="#111"', corpo_u).replace('stroke-width="0.3"', 'stroke-width="%g"' % M.W_MARKER)
+        cx = gap + colw * i
+        corpo.append(M.magnete(cx + LATO / 2, y + LATO / 2, colori[nome], 0))
+        corpo.append('<g transform="translate(%.2f %.2f)">%s</g>' % (cx, y, corpo_u))
     y += LATO + gap
     for i, (nome, (fi, ma)) in enumerate(bianchi.items()):
         cx = gap + colw * i + LATO / 2
