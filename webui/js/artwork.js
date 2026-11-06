@@ -106,14 +106,15 @@ var Artwork = (function () {
        era salvata. Vedi js/progetto.js. */
     var pg = (typeof Progetto !== 'undefined') ? Progetto.leggi(text) : null;
     if (pg) {
-      if (livelli.length &&
-          !window.confirm('«' + nome + '» è un progetto salvato: riaprendolo, ' +
-                          'i ' + livelli.length + ' livelli che ci sono adesso ' +
-                          'vengono sostituiti. Procedo?')) {
-        Log.add('msg', 'Progetto non riaperto: quello che c\'era resta com\'è.');
-        return;
-      }
-      Progetto.applica(pg, nome);
+      /* SUL FOGLIO VUOTO NON SI CHIEDE NIENTE: non c'è nessuna differenza fra
+         sostituire e aggiungere quando non c'è niente da sostituire, e una
+         domanda con una risposta sola è solo un clic in più. */
+      if (!livelli.length) { Progetto.applica(pg, nome); return; }
+      /* Con del lavoro sul foglio la scelta è di chi stampa, e sono tre:
+         vedi `chiedi` in js/progetto.js. La risposta arriva dopo — la
+         finestrella non blocca la pagina come faceva il `confirm` — quindi
+         qui si finisce, e il seguito lo fa lei. */
+      Progetto.chiedi(pg, nome);
       return;
     }
 
@@ -545,11 +546,29 @@ var Artwork = (function () {
     };
   }
 
-  function daProgetto(ls) {
-    livelli = [];
-    scelto = null;
-    selezionati = [];
-    pause = [];
+  /* I livelli di un progetto salvato, in uno dei due modi.
+   *
+   * `aggiungi` LI ACCOSTA a quelli che ci sono invece di sostituirli, ed è il
+   * modo che serve per pescare dei pezzi da due file diversi. Quello che
+   * arriva sono le FORME, non i tracciati: curve, nomi, penne, spessori,
+   * rotazioni e ritagli entrano interi, cioè proprio la parte che si
+   * perderebbe riaprendo lo stesso file come un SVG qualunque.
+   *
+   * Le pause messe a mano non si portano dietro né in un modo né nell'altro,
+   * e non è una dimenticanza: sono indici dentro al percorso ottimizzato, e
+   * `refit()` qui sotto il percorso lo rifà. Le svuota lui.
+   */
+  function daProgetto(ls, aggiungi) {
+    if (!aggiungi) {
+      livelli = [];
+      scelto = null;
+      selezionati = [];
+      pause = [];
+    }
+    /* C'era già qualcosa prima di questo file? Si guarda PRIMA di accodare,
+       perché un attimo dopo la risposta sarebbe sempre sì. */
+    var primo = livelli.length === 0;
+    var nati = [];
     (ls || []).forEach(function (d) {
       var l = {
         id: 'liv' + (++seq),
@@ -570,9 +589,20 @@ var Artwork = (function () {
       };
       l.raw = Tracciato.appiattisciTutte(l.forme, l.tol);
       livelli.push(l);
+      nati.push(l);
     });
-    if (livelli.length) {
-      scelto = livelli[0].id;
+    if (nati.length) {
+      /* IL PRIMO LIVELLO ARRIVATO CHIEDE UN CAMBIO PENNA, e lo chiede anche
+         se nel suo file non lo chiedeva: là era il primo di tutti, qui viene
+         dopo il lavoro di qualcun altro. È la stessa regola di load() per un
+         SVG accostato ad altri, ed è quella giusta per lo stesso motivo — due
+         file sono due disegni, e nessuno garantisce che la penna sia la
+         stessa. Se poi è la stessa, l'elenco dice che la fermata è sprecata e
+         si toglie con un clic. */
+      if (!primo) nati[0].cambioPenna = true;
+      /* Si resta su quello che si è appena portato dentro: è quello che si
+         sta guardando. */
+      scelto = nati[0].id;
       selezionati = [scelto];
     }
     if (window.Selezione) Selezione.chiudi();

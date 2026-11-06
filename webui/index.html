@@ -981,6 +981,33 @@
   </div>
 </div>
 
+<!-- CHE FARE DI UN PROGETTO SALVATO quando sul foglio c'e' gia' del lavoro.
+     Tre strade e non due, e il motivo e' che con due non ci stavano: un
+     `confirm` ha due pulsanti, quindi poteva offrire «sostituisco» o «lascio
+     stare», e mancava proprio quella che serve a chi pesca pezzi da due
+     progetti diversi. Vedi js/progetto.js. -->
+<div class="modal" id="prog-modal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="prog-titolo">
+    <header class="modal-head"><h2 id="prog-titolo">Progetto salvato</h2></header>
+    <div class="modal-body">
+      <p class="modal-desc" id="prog-desc"></p>
+      <p class="modal-desc" id="prog-coda" hidden></p>
+      <!-- Il foglio diverso: non blocca niente, ma e' la cosa che fa trovare
+           un livello mezzo fuori dal foglio senza capire perche'. -->
+      <p class="modal-nota" id="prog-nota" hidden></p>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn btn-ghost" id="prog-annulla">Annulla</button>
+      <!-- «Sostituisci tutto» non e' il pulsante principale, e non lo e' per
+           una ragione: questa finestrella si apre SOLO quando c'e' del lavoro
+           da perdere, e il pulsante che butta via non va messo dove cade il
+           dito di chi tira avanti a Invio. -->
+      <button class="btn btn-ghost" id="prog-sostituisci">Sostituisci tutto</button>
+      <button class="btn btn-primary" id="prog-aggiungi">Aggiungi i livelli</button>
+    </footer>
+  </div>
+</div>
+
 <div class="modal" id="modal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-titolo">
     <header class="modal-head">

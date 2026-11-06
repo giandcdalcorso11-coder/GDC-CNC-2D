@@ -23,6 +23,13 @@
  * li rifà l'appiattimento delle forme — e rileggerli vorrebbe dire tornare a
  * un disegno di segmenti dritti, cioè perdere le curve e l'editor.
  *
+ * E SI RIAPRE IN DUE MODI, perché un progetto salvato non serve solo a
+ * riprendere la giornata di ieri: serve anche a tenere da parte dei pezzi. Si
+ * SOSTITUISCE quello che c'è — si torna a quel momento, foglio compreso — o si
+ * AGGIUNGONO i suoi livelli a quelli che ci sono, per pescare da due file. La
+ * scelta la fa la finestrella a tre pulsanti qui sotto, e si apre solo quando
+ * c'è del lavoro da perdere.
+ *
  * COSA NON CI VA, e non è una dimenticanza. I cambi penna messi a mano sono
  * indici dentro al percorso ottimizzato, e quel percorso si ricalcola a ogni
  * modifica: un indice salvato oggi domani indica un altro tratto. I cambi
@@ -163,46 +170,198 @@ var Progetto = (function () {
     return dati;
   }
 
-  /* Rimettere a posto. L'ORDINE CONTA: prima il foglio, poi i livelli.
-     Cambiare foglio azzera i rettangoli di tutti i livelli — è quello che
-     deve succedere quando si cambia formato — quindi farlo dopo vorrebbe dire
-     buttare via le collocazioni appena ripristinate. */
-  function applica(dati, nome) {
-    if (dati.foglio) Paper.setSize(dati.foglio.w, dati.foglio.h);
-    /* L'ANGOLO DEL FOGLIO SI RIMETTE SOLO SE NON E' STATO MISURATO OGGI.
-       Quello salvato è una posizione indicativa, presa quando il progetto è
-       stato messo via; quello di adesso, se il lucchetto è chiuso, è una
-       misura fatta sulla macchina col terzo popup. Una misura non si
-       sovrascrive con un'ipotesi, nemmeno con un'ipotesi scritta in un file. */
+  /* Quando le due misure sono la stessa cosa. Si arrotonda al millimetro e
+     non si ordina: un foglio girato NON è lo stesso foglio per chi ci
+     appoggia sopra dei livelli, perché i rettangoli sono coordinate su
+     QUELLE misure, non sul nome del formato. È il contrario della regola di
+     `chiaveFoglio` in profile.js, e lo è per il motivo opposto: là si parlava
+     della risma, qui si parla di dove casca un disegno. */
+  function stessoFoglio(f) {
+    if (!f) return true;
+    return Math.round(f.w) === Math.round(State.data.paper.w) &&
+           Math.round(f.h) === Math.round(State.data.paper.h);
+  }
+
+  function quando(dati) {
+    if (!dati.salvato) return '';
+    var d = new Date(dati.salvato);
+    if (isNaN(d)) return '';
+    return ', salvato il ' + d.toLocaleDateString('it-IT') + ' alle ' +
+           d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /* Rimettere a posto, in uno dei due modi. L'ORDINE CONTA: prima il foglio,
+     poi i livelli. Cambiare la misura del foglio sposta i rettangoli di tutti
+     i livelli — li ricentra, vedi l'ascoltatore `paper` in artwork.js —
+     quindi farlo dopo vorrebbe dire muovere le collocazioni appena
+     ripristinate.
+
+     AGGIUNGENDO, del file si prendono SOLO i livelli. Foglio, angolo e scala
+     restano quelli in uso: chi c'era prima è il padrone di casa, e chi arriva
+     dopo è ospite. Costa qualcosa — se il progetto arrivato era su un foglio
+     di un'altra misura, i suoi livelli restano alle coordinate in cui erano e
+     possono cascare fuori — e per adesso si paga, dicendolo. Vedi lo Step 11
+     della pipeline. */
+  function applica(dati, nome, aggiungi) {
     var misurato = State.data.foglioMisurato;
-    if (dati.angolo && !misurato) Paper.setSheetOrigin(dati.angolo.x, dati.angolo.y);
-    if (dati.scala) document.getElementById('art-scale').value = dati.scala;
 
-    Artwork.daProgetto(dati.livelli);
-
-    var quando = '';
-    if (dati.salvato) {
-      var d = new Date(dati.salvato);
-      if (!isNaN(d)) {
-        quando = ', salvato il ' + d.toLocaleDateString('it-IT') + ' alle ' +
-                 d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-      }
+    if (!aggiungi) {
+      if (dati.foglio) Paper.setSize(dati.foglio.w, dati.foglio.h);
+      /* L'ANGOLO DEL FOGLIO SI RIMETTE SOLO SE NON E' STATO MISURATO OGGI.
+         Quello salvato è una posizione indicativa, presa quando il progetto è
+         stato messo via; quello di adesso, se il lucchetto è chiuso, è una
+         misura fatta sulla macchina col terzo popup. Una misura non si
+         sovrascrive con un'ipotesi, nemmeno con un'ipotesi scritta in un
+         file. */
+      if (dati.angolo && !misurato) Paper.setSheetOrigin(dati.angolo.x, dati.angolo.y);
+      if (dati.scala) document.getElementById('art-scale').value = dati.scala;
     }
-    Log.add('msg', 'Ripreso il progetto ' + nome + ': ' + dati.livelli.length +
-            (dati.livelli.length === 1 ? ' livello' : ' livelli') +
-            ' con le forme come le avevi lasciate, foglio ' + dati.foglio.w +
-            ' × ' + dati.foglio.h + ' mm' + quando + '. I cambi penna messi a ' +
-            'mano no: sono posizioni nel percorso, e il percorso si rifà.' +
-            (misurato
-              ? ' L\'angolo del foglio è rimasto quello misurato oggi sulla ' +
-                'macchina, non quello salvato nel file.' : ''));
+
+    var n = dati.livelli.length;
+    var quanti = n + (n === 1 ? ' livello' : ' livelli');
+
+    Artwork.daProgetto(dati.livelli, !!aggiungi);
+
+    if (!aggiungi) {
+      Log.add('msg', 'Ripreso il progetto ' + nome + ': ' + quanti +
+              ' con le forme come le avevi lasciate, foglio ' + dati.foglio.w +
+              ' × ' + dati.foglio.h + ' mm' + quando(dati) + '. I cambi penna ' +
+              'messi a mano no: sono posizioni nel percorso, e il percorso si rifà.' +
+              (misurato
+                ? ' L\'angolo del foglio è rimasto quello misurato oggi sulla ' +
+                  'macchina, non quello salvato nel file.' : ''));
+      return;
+    }
+
+    Log.add('msg', 'Aggiunti ' + quanti + ' dal progetto ' + nome + quando(dati) +
+            ': forme, nomi, penne e spessori come li avevi lasciati. Al primo ' +
+            'livello arrivato è stato messo un cambio penna, come per un file ' +
+            'qualunque accostato ad altri: se la penna è la stessa, l\'elenco ' +
+            'te lo dice e lo togli con un clic.');
+
+    /* Il foglio diverso non è un errore, è la cosa che fa trovare un livello
+       mezzo fuori dal foglio senza capire perché: va detta nel canale che si
+       guarda, non nascosta in fondo a una riga lunga. */
+    if (!stessoFoglio(dati.foglio)) {
+      Log.add('err', 'Attenzione: quel progetto era su un foglio ' +
+              dati.foglio.w + ' × ' + dati.foglio.h + ' mm, qui ce n\'è uno ' +
+              State.data.paper.w + ' × ' + State.data.paper.h + ' mm. I livelli ' +
+              'arrivati sono alle coordinate in cui stavano: controlla dove sono ' +
+              'finiti, qualcuno può essere fuori dal foglio.');
+    }
+  }
+
+  /* ------------------- CHE FARE DI UN PROGETTO CHE ARRIVA ----------------- */
+
+  /* TRE STRADE E NON DUE.
+   *
+   * Fino al 2026-11-06 riaprire un progetto con del lavoro già sul foglio
+   * chiedeva «li sostituisco?» con un `window.confirm`, che ha due pulsanti e
+   * quindi poteva offrire solo «sostituisci» o «lascia stare». Mancava
+   * esattamente quello che serviva all'operatore il 6 novembre: aprire due
+   * progetti salvati e pescare dei pezzi da entrambi. Il caso «aggiungi»
+   * esisteva già, e per un file qualunque: più SVG trascinati insieme
+   * diventano più livelli. Un progetto era l'unico file che non si potesse
+   * accostare a quello che c'è, e non c'era una ragione — c'era solo una
+   * finestrella con due pulsanti.
+   *
+   * SI FA LA CODA perché i file arrivano a mazzo. Trascinandone due, i due
+   * FileReader finiscono quando finiscono, e aprire la seconda finestrella
+   * sopra la prima vorrebbe dire perdere una scelta senza dirlo: il secondo
+   * progetto sparirebbe e nessuno saprebbe perché.
+   */
+  var coda = [];
+
+  function chiedi(dati, nome) {
+    coda.push({ dati: dati, nome: nome });
+    /* Si ridisegna anche quando la finestrella e` GIA' aperta, e non e' un
+       lusso: il secondo file arriva mentre la prima domanda e` sullo schermo,
+       e senza questa riga «c'e' un altro progetto in attesa» non comparirebbe
+       mai -- la riga si scrive una volta sola, quando ancora in coda c'era un
+       file solo. Chi sta scegliendo deve sapere che la scelta non e' l'ultima. */
+    mostra();
+  }
+
+  function mostra() {
+    var v = coda[0];
+    if (!v) return;
+
+    /* Quanti livelli ci sono si conta ADESSO e non quando il file è stato
+       letto: mentre questo aspettava in coda, una scelta può averne aggiunti
+       o buttati, e un numero vecchio in una domanda è una bugia. */
+    var ci = Artwork.livelli().length;
+    var suoi = v.dati.livelli.length;
+
+    document.getElementById('prog-titolo').textContent = 'Progetto «' + v.nome + '»';
+    document.getElementById('prog-desc').textContent =
+      'Dentro ci sono ' + suoi + (suoi === 1 ? ' livello' : ' livelli') +
+      ', e sul foglio ce ' + (ci === 1 ? 'n\'è 1' : 'ne sono ' + ci) + '. ' +
+      'Aggiungendoli si mettono accanto a quelli che ci sono, con le loro ' +
+      'forme, i nomi, le penne e gli spessori: foglio e scala restano quelli ' +
+      'in uso. Sostituendo tutto si torna a quel progetto com\'era, foglio ' +
+      'compreso, e quello che c\'è adesso si perde.';
+
+    var altri = coda.length - 1;
+    var cod = document.getElementById('prog-coda');
+    cod.hidden = altri < 1;
+    cod.textContent = altri < 1 ? '' :
+      altri === 1 ? 'C\'è un altro progetto in attesa: te lo chiedo dopo questo.'
+                  : 'Ci sono altri ' + altri + ' progetti in attesa: te li chiedo ' +
+                    'uno per uno dopo questo.';
+
+    var nota = document.getElementById('prog-nota');
+    var diverso = !stessoFoglio(v.dati.foglio);
+    nota.hidden = !diverso;
+    nota.textContent = !diverso ? '' :
+      'Quel progetto era su un foglio ' + v.dati.foglio.w + ' × ' +
+      v.dati.foglio.h + ' mm, qui ce n\'è uno ' + State.data.paper.w + ' × ' +
+      State.data.paper.h + ' mm. Aggiungendo i livelli, quelli arrivati ' +
+      'restano alle coordinate in cui erano e qualcuno può cascare fuori dal ' +
+      'foglio.';
+
+    document.getElementById('prog-modal').hidden = false;
+    document.getElementById('prog-aggiungi').focus();
+  }
+
+  /* `scelta`: 'aggiungi', 'sostituisci', o niente per lasciare stare.
+     La coda va avanti anche se la scelta si rompe per strada: una finestrella
+     che non si riapre più è peggio dell'errore che l'ha fatta chiudere. */
+  function rispondi(scelta) {
+    if (!coda.length) return;
+    var v = coda.shift();
+    document.getElementById('prog-modal').hidden = true;
+    try {
+      if (scelta) applica(v.dati, v.nome, scelta === 'aggiungi');
+      else Log.add('msg', 'Progetto «' + v.nome + '» non aperto: quello che ' +
+                          'c\'era resta com\'è.');
+    } catch (e) {
+      Log.add('err', 'Non sono riuscito ad aprire «' + v.nome + '»: ' + e.message);
+    }
+    if (coda.length) mostra();
   }
 
   function init() {
     var b = document.getElementById('btn-save-prog');
     if (b) b.addEventListener('click', salva);
+
+    document.getElementById('prog-aggiungi')
+      .addEventListener('click', function () { rispondi('aggiungi'); });
+    document.getElementById('prog-sostituisci')
+      .addEventListener('click', function () { rispondi('sostituisci'); });
+    document.getElementById('prog-annulla')
+      .addEventListener('click', function () { rispondi(null); });
+    document.getElementById('prog-modal').addEventListener('click', function (e) {
+      if (e.target === this) rispondi(null);        // clic sul fondo scuro
+    });
+    document.addEventListener('keydown', function (e) {
+      if (document.getElementById('prog-modal').hidden) return;
+      /* Invio fa la cosa che non butta via niente. Il pulsante che perde del
+         lavoro si preme col dito, guardandolo. */
+      if (e.key === 'Enter') rispondi('aggiungi');
+      if (e.key === 'Escape') rispondi(null);
+    });
   }
 
   return { init: init, salva: salva, leggi: leggi, applica: applica,
-           testo: testo, MARCA: MARCA };
+           chiedi: chiedi, testo: testo, MARCA: MARCA };
 })();

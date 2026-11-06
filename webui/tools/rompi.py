@@ -431,6 +431,134 @@ MUTAZIONI = [
         vede="nessun comando del G-code cambia",
         prova="prova-foglio.js",
     ),
+
+    # ---- DUE PROGETTI SALVATI SULLO STESSO FOGLIO (2026-11-06) ----
+    dict(
+        nome="si chiede anche quando non c'e' niente da perdere",
+        file="js/artwork.js",
+        da="      if (!livelli.length) { Progetto.applica(pg, nome); return; }",
+        a="      if (false) { Progetto.applica(pg, nome); return; }",
+        vede="senza chiedere niente",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="si aggiunge PRIMA di chiedere",
+        file="js/artwork.js",
+        da="      Progetto.chiedi(pg, nome);",
+        a="      Progetto.applica(pg, nome, true);\n      Progetto.chiedi(pg, nome);",
+        vede="non e` cambiato niente",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="aggiungendo, quello che c'era si butta via lo stesso",
+        file="js/artwork.js",
+        da="""  function daProgetto(ls, aggiungi) {
+    if (!aggiungi) {""",
+        a="""  function daProgetto(ls, aggiungi) {
+    if (true) {""",
+        vede="li mette accanto a quelli che ci sono",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="sostituendo, quello che c'era resta",
+        file="js/artwork.js",
+        da="""  function daProgetto(ls, aggiungi) {
+    if (!aggiungi) {""",
+        a="""  function daProgetto(ls, aggiungi) {
+    if (false) {""",
+        vede="torna a quel progetto, foglio compreso",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="le forme arrivano appiattite (le curve si perdono)",
+        file="js/artwork.js",
+        da="        forme: d.forme || [],",
+        a="""        forme: (d.forme || []).map(function (f) {
+          (f.sub || []).forEach(function (s) {
+            s.nodi.forEach(function (q) { delete q.hi; delete q.ho; });
+          });
+          return f;
+        }),""",
+        vede="la curva e` ancora una curva",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="penna e spessore non si portano dietro",
+        file="js/artwork.js",
+        da="        penna: d.penna || undefined,",
+        a="        penna: undefined,",
+        vede="con penna e spessore scelti a mano",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il primo livello arrivato non chiede un cambio penna",
+        file="js/artwork.js",
+        da="      if (!primo) nati[0].cambioPenna = true;",
+        a="",
+        vede="chiede un cambio penna",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="aggiungendo si prende anche il foglio del file",
+        file="js/progetto.js",
+        da="""    if (!aggiungi) {
+      if (dati.foglio) Paper.setSize(dati.foglio.w, dati.foglio.h);""",
+        a="""    if (true) {
+      if (dati.foglio) Paper.setSize(dati.foglio.w, dati.foglio.h);""",
+        vede="il foglio in uso non si muove",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="«Annulla» aggiunge lo stesso",
+        file="js/progetto.js",
+        da="      if (scelta) applica(v.dati, v.nome, scelta === 'aggiungi');\n      else Log.add('msg', 'Progetto «' + v.nome + '» non aperto: quello che ' +\n                          'c\\'era resta com\\'è.');",
+        a="      applica(v.dati, v.nome, scelta !== 'sostituisci');",
+        vede="lascia il foglio com'era",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il secondo progetto in coda non si annuncia",
+        file="js/progetto.js",
+        da="""       file solo. Chi sta scegliendo deve sapere che la scelta non e' l'ultima. */
+    mostra();""",
+        a="""       file solo. Chi sta scegliendo deve sapere che la scelta non e' l'ultima. */
+    if (coda.length === 1) mostra();""",
+        vede="si dice che c'e` un altro",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il secondo progetto in coda si perde",
+        file="js/progetto.js",
+        da="    if (coda.length) mostra();",
+        a="",
+        vede="si chiede del secondo, senza perderlo",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il foglio diverso non si dice nella finestrella",
+        file="js/progetto.js",
+        da="    nota.hidden = !diverso;",
+        a="    nota.hidden = true;",
+        vede="e` scritto nella finestrella",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="l'avviso del foglio compare anche quando e' lo stesso",
+        file="js/progetto.js",
+        da="""    return Math.round(f.w) === Math.round(State.data.paper.w) &&
+           Math.round(f.h) === Math.round(State.data.paper.h);""",
+        a="    return false;",
+        vede="quando e` lo stesso",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il foglio ignorato finisce fra i messaggi invece che fra gli avvisi",
+        file="js/progetto.js",
+        da="      Log.add('err', 'Attenzione: quel progetto era su un foglio ' +",
+        a="      Log.add('msg', 'Attenzione: quel progetto era su un foglio ' +",
+        vede="il registro racconta l'aggiunta",
+        prova="prova-progetto.js",
+    ),
 ]
 
 
