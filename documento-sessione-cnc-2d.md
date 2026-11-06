@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 75
-**Ultimo aggiornamento:** 2026-11-05 09:02
+**Versione:** 76
+**Ultimo aggiornamento:** 2026-11-06 15:32
 
 ## Regole di co-editing
 
@@ -248,6 +248,8 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 
  Il 2026-11-02 l'editor prende due strumenti che mancavano — il **selettore specifico** (lazo che taglia sul bordo) e lo **specchio** —, il marchio della macchina entra nell'intestazione e nel foglio, e la **fine di una stampa** smette di essere una bugia: «fine» aspetta che la macchina si fermi davvero, una stampa fermata diventa uno stato suo, e il racconto scade.
 
+ Il 2026-11-06 **due progetti salvati si possono unire**: riaprirne uno con del lavoro già sul foglio non lo sostituisce più d'ufficio, chiede, e fra le strade c'è **«aggiungi i livelli»** — con le forme intere, cioè le curve ancora curve. Quello che di questa cosa resta aperto è lo Step 11.
+
  Il 2026-11-03 l'anteprima smette di essere un disegno e comincia a somigliare al foglio: la **carta ha un colore** (sei carte per nome più il selettore, per misura di foglio e non per profilo) e ogni livello ha lo **spessore del tratto** in millimetri veri, scelto da un trattino accanto al pallino della penna. Nella stessa giornata: la **punta della penna nuova si ritrova** al cambio penna con un `G92`, perché due penne non hanno la punta nello stesso posto; nasce la tab **«In stampa»**, che racconta una stampa mentre succede e resta a raccontarla dopo; e **una penna diventa un colore E uno spessore**, con tutti gli avvisi dei cambi penna rifatti su quella chiave più uno nuovo — la fermata che manca.
 
 **Obiettivo:** un'unica pagina web da cui caricare un disegno, vederne l'anteprima sul foglio, generare il G-code e mandarlo in esecuzione
@@ -288,6 +290,9 @@ mano a mano che le misure arrivano):
 **Criterio di completamento:** caricare un SVG, vederlo posizionato nel foglio, generare il G-code e farlo eseguire alla macchina
 
 **Note (cronologia dello step):**
+- [2026-11-06] **Un progetto salvato si riapre in due modi, e prima ce n'era uno solo.** Riaprire un `.cnc2d.svg` azzerava l'elenco dei livelli: era di proposito — «un progetto non si importa, si riprende» — e giusto per riprendere la giornata di ieri, sbagliato per chi tiene da parte dei pezzi e ne vuole da due file. La domanda c'era già, ma era un `window.confirm`: **due pulsanti, quindi due strade**, e la terza non c'entrava. Adesso è una finestrella sua con *Annulla / Sostituisci tutto / Aggiungi i livelli*, e aggiungendo arrivano le **forme** — curve, nomi, penne, spessori, rotazioni, ritagli — non i tracciati.
+- [2026-11-06] **Perché le forme contano più di tutto il resto.** Lo stesso file, riaperto come un SVG qualunque (togliendo il `<metadata>` a mano), si sarebbe potuto accostare fin dal primo giorno: nel file c'è un `<g>` per livello. Ma i tracciati disegnati lì dentro sono **polilinee già appiattite**, quindi la curva sarebbe tornata una spezzata e l'editor non l'avrebbe più ricurvata, e nome, penna e spessore sarebbero spariti. È il motivo per cui «aggiungi» passa dal `<metadata>` e non dall'importatore.
+- [2026-11-06] **La coda, che non era un dettaglio.** I file arrivano a mazzo: due trascinati insieme sono due `FileReader` che finiscono quando finiscono. Aprire la seconda finestrella sopra la prima avrebbe perso una scelta **senza dirlo** — il secondo progetto sparito e nessuno che sa perché. Si chiede uno per volta, e mentre si sceglie si vede scritto che ce n'è un altro in attesa.
 - [2026-11-02] **Il selettore specifico (il lazo), e perché il taglio è tutto.** Si cerchia a mano libera e si prende solo quello che resta dentro, **tagliando le spezzate sul bordo**. Senza il taglio non servirebbe a niente: su un disegno importato una «linea» non esiste — una campitura a onde è **un** tracciato con decine di migliaia di nodi — e portarne via un pezzo con Scegli e Ctrl+X vuol dire cliccare tratto per tratto per mezz'ora; il rettangolo di selezione prende le **forme** che tocca, cioè tutta la campitura. Il taglio è sul bordo vero: intersezione esatta sui tratti dritti, bisezione sul parametro per le curve, e le due metà ricavate con de Casteljau così la curva non si storce proprio dove la si taglia. Misurato: nodi nuovi a **tre centesimi di micron** dal bordo, curva tagliata che si discosta al massimo di **7 micron**.
 - [2026-11-02] **E il costo non era dove pensavo.** Il lazo su sessantamila tratti costava 1714 ms, di cui **1556 di sola rigenerazione** e 126 di geometria vera. Ma il lazo **non cambia il disegno** — sposta solo dove stanno i nodi, che cadono sulla linea che c'era già — quindi le polilinee in cassa restano valide e `Artwork.rigenera()` si salta: **181 ms**. Avevo scritto che il filtro delle scatole era «quello che rende la cosa possibile»: misurandolo vale il 12%, e il commento è stato corretto, perché scritto così avrebbe mandato chi un giorno vuole velocizzare quel codice a guardare nel posto sbagliato.
 - [2026-11-02] **Lo specchio, e perché non è una rotazione.** Ribalta quello che è scelto attorno alla riga di mezzo della selezione, così si gira senza spostarsi. Una lettera **ruotata** resta leggibile al contrario, una lettera **ribaltata** è l'immagine allo specchio: le due cose coincidono solo per le figure simmetriche. Un testo ribaltato **smette di essere un testo** — la forma `testo` tiene la parola e l'altezza, e da quelle le lettere si ricostruiscono dritte ogni volta, quindi non c'è posto dove scrivere «ma rovesciata» — e diventa tracciati, una volta sola e dicendolo nel registro.
@@ -767,7 +772,77 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 - [2026-11-02] **Magneti: arrivano misure e colori.** Magneti grandi **75 × 75 mm**, piccoli **75 × 25 mm**, angoli arrotondati; i piccoli attuali hanno il nome scritto a pennarello (es. «INTENZIONE»). Colori in foto: azzurro, arancione, verde e un quadrato bianco grande (a cosa serve non ancora chiarito). Le grafiche arrivano dall'utente nel messaggio successivo; poi il mockup con la sequenza delle stampe.
 - [2026-11-05] **Magneti: l'utente rifà a mano i tre grandi, e da lì si ricava la regola delle scritte.** I tre file ritoccati (`stampe/magneti/finali-utente/`) sono i buoni. Il problema era nelle scritte: tracciare il **contorno** della lettera con l'indelebile da **1,5 mm** (predefinito del livello nello SLICER) fa sbordare l'inchiostro di mezzo pennarello e le lettere si impastano. Regola nuova (`stampe/magneti/testo_marker.py`): tratto **dentro** la lettera a metà larghezza di pennarello dal bordo, anelli sovrapposti ~10% solo dentro la stessa lettera, linea di mezzo per le parti sottili, spaziatura fra lettere calcolata sulla forma (≥ ~0,9 mm di vuoto). Applicata ai quattro piccoli e ai tre bianchi, da provare in stampa. Due penne: Tratto Pen (~0,5 mm) e indelebile (1,5 mm); lo spessore lo sceglie l'utente per livello nello SLICER. Il verde «Gioco» ritoccato è un disegno diverso dal mio (podio 1-2-3 con coppa).
 
+### Step 11 — Unire due progetti salvati: il foglio e la scelta dei livelli
+
+**Stato:** in corso — **la strada c'è, le due rifiniture no.** Dal 2026-11-06 i livelli di un progetto salvato si possono **aggiungere** a quelli che ci sono (Step 4). Restano fuori due cose, rimandate dall'utente in modo esplicito: il **foglio** e la **scelta dei livelli**.
+
+**Obiettivo:** prendere pezzi da due progetti salvati senza perdere niente per strada e senza dover ricollocare a mano — né i disegni, né l'attenzione.
+
+**Decisioni progettuali:**
+- **Aggiungendo, chi c'era prima è il padrone di casa** (2026-11-06). Del file arrivato si prendono *solo* i livelli: foglio, angolo e scala restano quelli in uso. L'alternativa — adottare il foglio del file — sposterebbe i livelli di chi c'era già, perché cambiare misura del foglio li ricentra tutti.
+- **Il prezzo di quella decisione si paga dicendolo** (2026-11-06). I rettangoli di collocazione sono millimetri **su quel foglio**: se le due misure non combaciano, i livelli arrivati restano alle coordinate in cui stavano e possono cascare fuori. Per ora si avvisa in due posti — nella finestrella prima di scegliere, e nel registro fra gli avvisi dopo — e non si fa altro. Rimandato dall'utente: «per ora non mi interessa se perdo il foglio».
+- **Un foglio girato NON è lo stesso foglio**, qui. È il contrario della regola di `chiaveFoglio` in `profile.js`, dove un A5 per il lungo è sempre un A5: là si parla della **risma**, qui si parla di **dove casca un disegno**, e 148 × 210 non è 210 × 148 per un rettangolo di collocazione.
+
+**Che cosa manca** (le due cose rimandate):
+
+| Cosa | Perché serve |
+|---|---|
+| **Il foglio diverso** | Decidere che fare quando le due misure non combaciano: ricollocare quello che arriva dentro al foglio in uso, oppure offrire di adottare il foglio del file dicendo che quello che c'era si sposta. Oggi si avvisa e basta. |
+| **La scelta dei livelli** | «Mi servono *alcune parti* da quello»: un elenco con le caselle prima di aggiungere, per prenderne due su otto invece di prenderli tutti e cancellare il resto a mano. |
+
+**Criterio di completamento:** l'utente apre due progetti salvati su fogli di misura diversa, prende da ciascuno solo i livelli che gli servono, e **non deve ricollocare niente a mano** prima di stampare.
+
+**Note (cronologia dello step):**
+- [2026-11-06] Step aperto, e aperto perché una parte è già fatta: l'avviso a tre vie è nello Step 4. Qui restano il foglio e la scelta dei livelli, rimandati dall'utente nello stesso messaggio in cui ha chiesto l'avviso.
+
 ## Storico sessioni
+
+### [2026-11-06 15:32] (software) Due progetti salvati sullo stesso foglio: la terza strada che il `confirm` non poteva offrire
+
+**Riepilogo:** riaprire un progetto salvato con del lavoro già sul foglio sostituiva tutto, e l'utente lavorava con pezzi presi da due file diversi; adesso chiede, e fra le strade c'è «aggiungi i livelli», con le forme intere — il foglio e la scelta dei livelli sono rimandati allo Step 11, nuovo.
+
+**Cosa è stato fatto:**
+- **Trovato dove stava il problema, prima di toccare niente** (l'utente aveva chiesto solo una diagnosi): `Artwork.daProgetto()` azzerava l'elenco dei livelli. Non un difetto — una scelta scritta nei commenti, «un progetto non si importa, si riprende» — ma scritta per il caso «riprendo ieri» e mai per il caso «pesco dei pezzi».
+- **Smentita l'ipotesi dell'utente**, che pensava al foglio salvato nel file. Non c'entrava: nessun punto del codice azzera i rettangoli di collocazione per un cambio foglio, l'ascoltatore `paper` in `artwork.js` li **ricentra**. Il foglio diventa un problema solo *dopo*, quando si uniscono due file su misure diverse.
+- **La finestrella a tre vie** (`#prog-modal`, markup suo in `index.html`, logica in `js/progetto.js`): *Annulla / Sostituisci tutto / Aggiungi i livelli*. Invio fa la cosa che non butta via niente, Escape e il fondo scuro annullano. Si apre **solo** quando c'è del lavoro da perdere: sul foglio vuoto il progetto si apre e basta.
+- **`daProgetto(ls, aggiungi)`** accoda invece di azzerare, e al primo livello arrivato mette un cambio penna — la stessa regola che vale già per un SVG accostato ad altri, perché due file sono due disegni.
+- **`applica(dati, nome, aggiungi)`**: aggiungendo si prendono solo i livelli; se il foglio del file non è quello in uso lo si dice nella finestrella **prima** di scegliere e nel registro **dopo**, fra gli avvisi.
+- **La coda** delle domande, per i file trascinati a mazzo.
+- **Collaudo nuovo `webui/tools/prova-progetto.js`** (18 controlli) e **13 mutazioni nuove** in `tools/rompi.py`: 59 su 59 viste.
+
+**Bug: la riga «c'è un altro progetto in attesa» non compariva mai**
+
+**Sintomo:** trascinando due progetti insieme, la prima finestrella non diceva che ce n'era un secondo in coda. La coda funzionava — il secondo veniva chiesto dopo — ma chi sceglieva non sapeva che la scelta non era l'ultima.
+**Causa:** accertata. La riga si scrive quando la finestrella si disegna, e la finestrella si disegnava **una volta sola**, all'arrivo del primo file; il secondo `FileReader` finiva dopo, accodava e non ridisegnava niente.
+**Fix applicato:** `chiedi()` ridisegna sempre, anche a finestrella già aperta. Verificato dal collaudo e dalla mutazione «il secondo progetto in coda non si annuncia».
+
+**Bug (mio, del banco): una mutazione lasciava un `else` orfano**
+
+**Sintomo:** la mutazione ««Annulla» aggiunge lo stesso» risultava NON VISTA, e il collaudo moriva prima di arrivare al controllo — `Paper is not defined`.
+**Causa:** accertata. La mutazione sostituiva la riga dell'`if` e lasciava il suo `else` attaccato al niente: un **errore di sintassi**, non il difetto che voleva simulare. La pagina è un file solo, quindi un errore di sintassi in uno script spegne tutti gli altri.
+**Fix applicato:** la mutazione sostituisce l'`if`/`else` intero, preso alla lettera dal sorgente invece che riscritto a mano. VISTA.
+
+**Decisioni prese:**
+- Contesto: aggiungendo i livelli di un progetto, i due file possono venire da fogli di misura diversa, e i rettangoli di collocazione sono millimetri su quel foglio.
+- Decisione: **del file arrivato si prendono solo i livelli**; foglio, angolo e scala restano quelli in uso, e la differenza si avvisa invece di correggerla. Rimandato dall'utente in modo esplicito: «per ora non mi interessa se perdo il foglio, lo implementeremo più avanti».
+- Alternative scartate: **adottare il foglio del file** (sposterebbe i livelli di chi c'era già, perché cambiare misura ricentra tutto); **ricollocare d'ufficio** quello che arriva (muoverebbe un disegno senza che nessuno l'abbia chiesto — e nella maggior parte dei casi, cioè due progetti sullo stesso A4, non ci sarebbe niente da muovere).
+- Da rivedere se: unire due progetti su fogli diversi smette di essere il caso raro — allora tocca allo Step 11.
+
+- Contesto: la finestrella si apre solo quando c'è del lavoro da perdere, cioè sempre quando una delle tre strade è distruttiva.
+- Decisione: **«Aggiungi i livelli» è il pulsante principale**, «Sostituisci tutto» è un pulsante normale. Invio aggiunge.
+- Alternative scartate: «Sostituisci» come principale, che era il comportamento di prima — ma il pulsante che butta via del lavoro non va messo dove cade il dito di chi tira avanti a Invio.
+
+**File consegnati/modificati:**
+- `webui/index.html` — la finestrella `#prog-modal`
+- `webui/js/progetto.js` — `applica()` a due modi, `stessoFoglio()`, `chiedi()`/`mostra()`/`rispondi()` con la coda, e l'intestazione del file aggiornata
+- `webui/js/artwork.js` — `load()` senza `window.confirm`, `daProgetto(ls, aggiungi)`
+- `webui/tools/prova-progetto.js` — nuovo, 18 controlli
+- `webui/tools/rompi.py` — 13 mutazioni nuove (59 in tutto)
+- `documento-sessione-cnc-2d.md` — v76
+
+**Impatto su Vision/Pipeline:** nuovo **Step 11 — Unire due progetti salvati: il foglio e la scelta dei livelli**, aperto con una parte già fatta e due rimandate dall'utente. Step 4 aggiornato nello stato e con tre note.
+
+---
 
 ### [2026-11-05 09:02] (stampe) Magneti: due penne a una linea, e la lezione delle scritte per il pennarello grosso
 
