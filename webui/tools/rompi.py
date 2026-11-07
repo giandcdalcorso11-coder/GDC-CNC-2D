@@ -41,8 +41,8 @@ MUTAZIONI = [
     dict(
         nome="nessun bordo chiaro sul foglio scuro",
         file="js/paper.js",
-        da="(chiarezza(carta) < 0.25 ? ' sheet-scuro' : '')",
-        a="''",
+        da="      if (chiarezza(carta) < 0.25) cl += ' sheet-scuro';",
+        a="",
         vede="un foglio scuro prende il bordo chiaro",
     ),
     dict(
@@ -616,6 +616,13 @@ MUTAZIONI = [
         file="js/artwork.js",
         da="      if (prima.id !== p.id) { refit(); return; }",
         a="",
+        # Difeso in due posti: questa guardia ferma il ricentramento quando a
+        # cambiare e' il foglio invece della sua misura, e il filtro qui
+        # sotto fa in modo che il ricentramento tocchi solo i livelli del
+        # foglio cambiato. Romperne uno solo lascia i disegni fermi, cioe'
+        # simula un difetto che non e' un difetto.
+        piu=[("js/artwork.js",
+              "        if (l.foglio && l.foglio !== p.id) return;", "")],
         vede="non muove i disegni",
         prova="prova-fogli.js",
     ),

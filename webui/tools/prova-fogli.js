@@ -96,7 +96,12 @@ const AZZERA = (page) => page.evaluate(() => {
      sostituirebbe la vista con un oggetto qualunque e il foglio resterebbe
      dov'era, in silenzio. */
   r = await page.evaluate(() => {
-    Paper.setSheetOrigin(31, 42);
+    /* SI SCRIVE LA VISTA, non si passa da Paper. Il controllo diceva
+       «scrivere sheetOrigin intero scrive sul foglio» e invece chiamava
+       `Paper.setSheetOrigin`, che dal 2026-11-07 scrive sul foglio per conto
+       suo: la vista non la toccava nessuno, e togliere il suo «set» non
+       faceva piu' fallire niente. Lo ha trovato il banco delle mutazioni. */
+    State.data.sheetOrigin = { x: 31, y: 42 };
     return { f: [State.data.fogli[0].origine.x, State.data.fogli[0].origine.y],
              v: [State.data.sheetOrigin.x, State.data.sheetOrigin.y] };
   });
