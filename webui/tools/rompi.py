@@ -508,8 +508,8 @@ MUTAZIONI = [
     dict(
         nome="«Annulla» aggiunge lo stesso",
         file="js/progetto.js",
-        da="        applica(conSoloScelti(v), v.nome, scelta === 'aggiungi');",
-        a="        applica(conSoloScelti(v), v.nome, scelta !== 'sostituisci');",
+        da="      if (scelta) {",
+        a="      if (true) {",
         vede="lascia il foglio com'era",
         prova="prova-progetto.js",
     ),
