@@ -258,13 +258,10 @@ MUTAZIONI = [
 
     # ------------------------- le tab delle stampe
     dict(
-        nome="la tab legge il foglio vivo invece della sua copia",
+        nome="la tab legge i fogli vivi invece della sua copia",
         file="js/stampe.js",
-        da="""      foglio: { x: org.x, y: org.y, w: pap.w, h: pap.h,""",
-        a="""      foglio: { get x() { return State.data.sheetOrigin.x; },
-                get y() { return State.data.sheetOrigin.y; },
-                get w() { return State.data.paper.w; },
-                get h() { return State.data.paper.h; },""",
+        da='      fogli: State.data.fogli.map(function (f) {\n        return { x: f.origine.x, y: f.origine.y, w: f.w, h: f.h,',
+        a='      fogli: State.data.fogli.map(function (f) {\n        return { get x() { return f.origine.x; },\n                 get y() { return f.origine.y; },\n                 get w() { return f.w; }, get h() { return f.h; },',
         vede="il foglio di allora",
         prova="prova-stampe.js",
     ),
