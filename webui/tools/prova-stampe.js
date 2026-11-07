@@ -267,6 +267,104 @@ const PROGRAMMA = (conPausa) => {
      'da ' + r.x0.toFixed(1) + ',' + r.y0.toFixed(1) +
      ' a ' + r.x1.toFixed(1) + ',' + r.y1.toFixed(1));
 
+  /* ============ PIU' FOGLI SUL PIANO (2026-11-07) ============
+     Con l'ordine per penna la punta salta da un foglio all'altro di
+     continuo: una tab che ne disegna uno solo mostrerebbe un disegno in cui
+     meta' dei tratti cascano nel vuoto, e chi guarda non capirebbe se la
+     macchina sta sbagliando o se e' il racconto a essere incompleto. */
+  r = await page.evaluate(() => {
+    const D = (t) => '<svg xmlns="http://www.w3.org/2000/svg" width="40mm" ' +
+      'height="40mm" viewBox="0 0 40 40"><path fill="none" stroke="' + t +
+      '" d="M5 5 L35 5 L35 35 L5 35 Z"/></svg>';
+    document.getElementById('btn-clear-file').click();
+    const l = State.data.fogli;
+    while (l.length > 1) Fogli.togli(l[l.length - 1].id);
+    Fogli.scegli(l[0].id);
+    l[0].misurato = false;
+    Paper.setSize(75, 75); Paper.setSheetOrigin(0, 0);
+    /* DUE PENNE, e serve: col finto la macchina consuma tutto il
+       programma in un lampo, quindi non esiste un istante «a stampa viva»
+       da guardare -- tranne la PAUSA del cambio penna, che e' uno stato
+       fermo e stabile. E' li' che si va a vedere quale foglio e' acceso. */
+    /* UNA SCENA SBILANCIATA, e lo e' apposta: il foglio 1 ha solo il
+       rosso, il foglio 2 anche il nero. Con l'ordine per penna la stampa
+       fa tutto il rosso (foglio 1, poi 2), si ferma, e riprende col nero
+       sul foglio 2 -- quindi alla pausa il foglio in lavorazione e' il
+       SECONDO. Con due fogli simmetrici sarebbe stato il primo, e un
+       controllo che accetta «il primo» non distingue il codice giusto da
+       uno che accende sempre quello. */
+    Artwork.load(D('#c8102e'), 'r1');
+    Fogli.scegli(Fogli.aggiungi(75, 75, null).id);
+    Artwork.load(D('#c8102e'), 'r2'); Artwork.load(D('#1d1d1b'), 'n2');
+    Profile.stampa().ordineFogli = 'penna';
+    Artwork.prepare();
+    /* Si manda il programma al Sender come fanno gli altri controlli di
+       questo banco: `Artwork.invia()` passa dai popup di inizio stampa, che
+       qui non c'entrano. */
+    /* UN OSSERVATORE E NON UN CAMPIONE, E ACCESO PRIMA DI PARTIRE.
+       Guardando ogni tanto si perde quello che succede in mezzo: col finto
+       la stampa corre, e fra due occhiate il foglio acceso puo' cambiare
+       due volte. E va acceso prima, su tutta la pagina: la tab della
+       stampa NASCE quando la stampa parte, quindi un osservatore messo
+       dopo si perde l'inizio -- che e' la prima cosa da vedere. */
+    window.__accesi = [];
+    new MutationObserver(() => {
+      const a = document.querySelector('.st-foglio-ora');
+      const q = a ? +a.dataset.f : null;
+      if (q !== null && window.__accesi[window.__accesi.length - 1] !== q) {
+        window.__accesi.push(q);
+      }
+    }).observe(document.body, { subtree: true, attributes: true,
+                                attributeFilter: ['class'] });
+
+    Sender.avvia(document.getElementById('gcode-out').value, 'due fogli.svg');
+    const t = Stampe.aperte().slice(-1)[0];
+    const vista = document.getElementById('vista-' + t.id);
+    return { fogli: t.fogli.length,
+             marcatori: t.marcatoriFoglio,
+             rettangoli: vista.querySelectorAll('.st-foglio').length,
+             pose: t.fogli.map((f) => f.x + ',' + f.y),
+             id: t.id };
+  });
+  ok('la tab si porta via TUTTI i fogli del piano, non quello in uso',
+     r.fogli === 2 && r.rettangoli === 2 &&
+     r.pose[0] === '0,0' && r.pose[1] === '75,0',
+     r.fogli + ' fogli, ' + r.rettangoli + ' rettangoli disegnati, a ' +
+     JSON.stringify(r.pose));
+  ok('e legge dal programma su che foglio si va, a ogni salto',
+     r.marcatori === 2, r.marcatori + ' marcatori di foglio');
+
+  /* IL FOGLIO SU CUI STA DISEGNANDO SI ACCENDE. Con due quadrati uguali
+     sapere QUALE e' l'unica cosa che quel disegno ha da dire. */
+  r = await page.evaluate(async (id) => {
+    const aspetta = (ms) => new Promise((f) => setTimeout(f, ms));
+    for (let k = 0; k < 60 && State.data.stampa.stato !== 'cambio'; k++) {
+      await aspetta(40);
+    }
+    const accesi = [...document.querySelectorAll('.st-foglio-ora')]
+      .map((x) => +x.dataset.f);
+    const dati = document.getElementById('dati-' + id).textContent
+      .replace(/\s+/g, ' ');
+    const detto = (dati.match(/Foglio\s*(\d+) di (\d+)/) || [])[1];
+    return { accesi: accesi, dati: dati, detto: detto ? +detto : null,
+             stato: State.data.stampa.stato, visti: window.__accesi };
+  }, r.id);
+  ok('ferma al cambio penna, un foglio solo e` acceso sul piano',
+     r.stato === 'cambio' && r.accesi.length === 1,
+     'stato ' + r.stato + ', accesi ' + JSON.stringify(r.accesi));
+  ok('ed e` quello che il riquadro dei dati dice, non un altro',
+     r.detto !== null && r.accesi[0] === r.detto,
+     'acceso il ' + r.accesi[0] + ', scritto «' +
+     (r.dati.match(/Foglio[^D]*/) || [''])[0].trim() + '»');
+  /* E NON E` SEMPLICEMENTE IL PRIMO. Col finto la macchina consuma tutto
+     il programma fino alla pausa in un colpo solo, quindi il PASSAGGIO da
+     un foglio all'altro non si riesce a guardare: l'unico istante fermo e'
+     la pausa. Lo si prende per un'altra strada -- una scena in cui alla
+     pausa il foglio giusto NON e' il primo -- che e' quello che un codice
+     sbagliato sbaglierebbe. */
+  ok('e non e` semplicemente il primo foglio', r.accesi[0] === 2,
+     'acceso il ' + r.accesi[0] + ' su ' + r.visti.length + ' passaggi visti');
+
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
   console.log(guai ? '\n' + guai + ' controlli KO' : '\ntutto a posto');

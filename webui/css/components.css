@@ -548,6 +548,11 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 .fogli-nota { font-size: 10.5px; line-height: 1.4; color: var(--text-dim); margin: 0 0 8px; }
 .fogli-nota:empty { display: none; }
 
+/* IL FOGLIO SU CUI LA MACCHINA STA DISEGNANDO ADESSO, nella tab della
+   stampa. Con nove quadrati uguali sul piano, sapere QUALE e' l'unica
+   informazione che serve guardando quel disegno. */
+.st-foglio-ora { stroke: var(--accent); stroke-width: 1.2; }
+
 .carte-diverse {
   display: flex;
   align-items: flex-start;

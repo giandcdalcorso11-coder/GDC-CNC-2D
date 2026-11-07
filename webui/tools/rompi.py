@@ -1038,6 +1038,64 @@ MUTAZIONI = [
         vede='alla fine lo dice',
         prova='prova-ordine.js',
     ),
+
+    # ---- PIU' FOGLI, fase 3c: la tab «In stampa» (2026-11-07) ----
+    dict(
+        nome='la tab disegna solo il primo foglio',
+        file='js/stampe.js',
+        da='    t.dati.fogli.forEach(function (p, k) {',
+        a='    t.dati.fogli.slice(0, 1).forEach(function (p, k) {',
+        vede='TUTTI i fogli del piano',
+        prova='prova-stampe.js',
+    ),
+    dict(
+        nome='la tab si porta via solo il foglio in uso',
+        file='js/stampe.js',
+        da='      fogli: State.data.fogli.map(function (f) {',
+        a='      fogli: [State.data.paper].map(function (f) {',
+        vede='TUTTI i fogli del piano',
+        prova='prova-stampe.js',
+    ),
+    dict(
+        nome='il marcatore del foglio non arriva al Sender',
+        file='js/sender.js',
+        da="      var mf = RE_FOGLIO.exec(l);\n      if (mf) {\n        out.push(FOGLIO + mf[1] + '\\u0000' + mf[2] + '\\u0000' + mf[3]);\n        continue;\n      }",
+        a='',
+        vede='su che foglio si va',
+        prova='prova-stampe.js',
+    ),
+    dict(
+        nome='la tab non legge i marcatori del foglio',
+        file='js/stampe.js',
+        da="        if (r.indexOf('\\u0000foglio:') === 0) {",
+        a='        if (false) {',
+        vede='su che foglio si va',
+        prova='prova-stampe.js',
+    ),
+    dict(
+        nome='si accende sempre il primo foglio',
+        file='js/stampe.js',
+        da="      r[i].classList.toggle('st-foglio-ora',\n        !!ora && viva(t) && +r[i].dataset.f === ora.n);",
+        a="      r[i].classList.toggle('st-foglio-ora',\n        !!ora && viva(t) && +r[i].dataset.f === 1);",
+        vede='non e` semplicemente il primo',
+        prova='prova-stampe.js',
+    ),
+    dict(
+        nome='non si accende nessun foglio',
+        file='js/stampe.js',
+        da="      r[i].classList.toggle('st-foglio-ora',\n        !!ora && viva(t) && +r[i].dataset.f === ora.n);",
+        a='',
+        vede='un foglio solo e` acceso',
+        prova='prova-stampe.js',
+    ),
+    dict(
+        nome='il riquadro dei dati dice sempre il primo foglio',
+        file='js/stampe.js',
+        da="    var ora = null;\n    for (var i = 0; i < t.perc.fogli.length; i++) {\n      if (t.perc.fogli[i].riga < t.fatte) ora = t.perc.fogli[i];\n    }\n    if (!ora) return fg.length + ' fogli sul piano';",
+        a="    var ora = t.perc.fogli[0] || null;\n    if (!ora) return fg.length + ' fogli sul piano';",
+        vede='quello che il riquadro dei dati dice',
+        prova='prova-stampe.js',
+    ),
 ]
 
 

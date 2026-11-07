@@ -77,13 +77,19 @@ var Stampe = (function () {
     var soglia = (zMin === null) ? -1e9 : zMin + 0.05;
 
     var x = null, y = null, zc = null, penna = null, modo = null;
-    var segmenti = [], pause = [], penne = [];
+    var segmenti = [], pause = [], penne = [], fogli = [];
 
     for (i = 0; i < righe.length; i++) {
       var r = righe[i];
 
       if (r.charCodeAt(0) === 0) {
         if (r.indexOf('\u0000cambio-penna') === 0) { pause.push(i); continue; }
+        if (r.indexOf('\u0000foglio:') === 0) {
+          var g = r.slice(8).split('\u0000');
+          fogli.push({ riga: i, n: parseInt(g[0], 10),
+                       di: parseInt(g[1], 10), nome: g[2] || '' });
+          continue;
+        }
         if (r.indexOf('\u0000penna:') === 0) {
           var d = r.slice(7).split('\u0000');
           penna = { colore: d[0] === '-' ? null : d[0],
@@ -127,7 +133,8 @@ var Stampe = (function () {
       x = nx; y = ny;
     }
 
-    return { segmenti: segmenti, pause: pause, penne: penne, zContatto: zMin };
+    return { segmenti: segmenti, pause: pause, penne: penne, fogli: fogli,
+             zContatto: zMin };
   }
 
   /* ========================= IL DISEGNO =========================
@@ -142,9 +149,12 @@ var Stampe = (function () {
    * pronti costano un decimo.
    */
   function vista(t) {
-    var p = t.dati.foglio, perc = t.perc;
-    var bx0 = Math.min(0, p.x), by0 = Math.min(0, p.y);
-    var bx1 = Math.max(p.x + p.w, 1), by1 = Math.max(p.y + p.h, 1);
+    var perc = t.perc;
+    var bx0 = 0, by0 = 0, bx1 = 1, by1 = 1;
+    t.dati.fogli.forEach(function (p) {
+      bx0 = Math.min(bx0, p.x); by0 = Math.min(by0, p.y);
+      bx1 = Math.max(bx1, p.x + p.w); by1 = Math.max(by1, p.y + p.h);
+    });
     for (var i = 0; i < perc.segmenti.length; i++) {
       var s = perc.segmenti[i];
       bx0 = Math.min(bx0, s.x1, s.x2); by0 = Math.min(by0, s.y1, s.y2);
@@ -167,14 +177,21 @@ var Stampe = (function () {
   }
 
   function disegna(t) {
-    var p = t.dati.foglio, v = vista(t), perc = t.perc;
+    var v = vista(t), perc = t.perc;
     var out = '<svg class="st-svg" viewBox="' + n(v.x0) + ' ' + n(v.y0) + ' ' +
               n(v.w) + ' ' + n(v.h) + '" preserveAspectRatio="xMidYMid meet">' +
               '<g transform="translate(0,' + n(2 * v.y0 + v.h) + ') scale(1,-1)">';
 
-    out += '<rect class="st-foglio" x="' + n(p.x) + '" y="' + n(p.y) +
-           '" width="' + n(p.w) + '" height="' + n(p.h) + '" rx="0.6"' +
-           (p.colore ? ' style="fill:' + esc(p.colore) + '"' : '') + '></rect>';
+    /* TUTTI I FOGLI DEL PIANO, com'erano quando la stampa e' partita. Con
+       l'ordine per penna la punta salta da un foglio all'altro di continuo:
+       disegnarne uno solo vorrebbe dire guardare un disegno in cui meta'
+       dei tratti cascano nel vuoto. */
+    t.dati.fogli.forEach(function (p, k) {
+      out += '<rect class="st-foglio" data-f="' + (k + 1) + '" x="' + n(p.x) +
+             '" y="' + n(p.y) + '" width="' + n(p.w) + '" height="' + n(p.h) +
+             '" rx="0.6"' +
+             (p.colore ? ' style="fill:' + esc(p.colore) + '"' : '') + '></rect>';
+    });
 
     /* Gli spostamenti a penna alzata stanno SOTTO a tutto il resto: sono il
        contorno della faccenda, non il disegno. */
@@ -199,6 +216,43 @@ var Stampe = (function () {
     return out;
   }
 
+  /* SU CHE FOGLIO STA ANDANDO ADESSO, letto dai marcatori del programma e
+     non dallo stato della pagina: con l'ordine per penna la punta salta da
+     un foglio all'altro di continuo, e dalle coordinate non si capirebbe.
+     Con un foglio solo si dice com'era prima -- nome e misure -- perche'
+     «foglio 1 di 1» non distingue niente. */
+  function descrizioneFoglio(t) {
+    var fg = t.dati.fogli;
+    if (fg.length < 2) {
+      var p = fg[0] || { nome: '', w: 0, h: 0 };
+      return esc(p.nome || '') + ' ' + n(p.w) + ' × ' + n(p.h) + ' mm';
+    }
+    var ora = null;
+    for (var i = 0; i < t.perc.fogli.length; i++) {
+      if (t.perc.fogli[i].riga < t.fatte) ora = t.perc.fogli[i];
+    }
+    if (!ora) return fg.length + ' fogli sul piano';
+    return '<b>' + ora.n + ' di ' + ora.di + '</b>' +
+           (ora.nome ? ' · ' + esc(ora.nome) : '');
+  }
+
+  /* Il foglio su cui sta disegnando si accende sul piano: con nove
+     quadrati uguali, sapere QUALE e' l'unica informazione che serve. */
+  function accendiFoglio(t) {
+    if (t.dati.fogli.length < 2) return;
+    var vista = document.getElementById('vista-' + t.id);
+    if (!vista) return;
+    var ora = null;
+    for (var i = 0; i < t.perc.fogli.length; i++) {
+      if (t.perc.fogli[i].riga < t.fatte) ora = t.perc.fogli[i];
+    }
+    var r = vista.querySelectorAll('.st-foglio');
+    for (i = 0; i < r.length; i++) {
+      r[i].classList.toggle('st-foglio-ora',
+        !!ora && viva(t) && +r[i].dataset.f === ora.n);
+    }
+  }
+
   /* Dove riprende il disegno dopo una pausa: il primo tratto che viene dopo
      quella riga. È lì che si va a cambiare la penna, ed è il punto che si
      vuole vedere segnato. */
@@ -217,14 +271,20 @@ var Stampe = (function () {
     var prog = Sender.programma();
     if (!prog.righe.length) return null;
 
-    var pap = State.data.paper, org = State.data.sheetOrigin;
+    /* UNA FOTOGRAFIA DI TUTTI I FOGLI, non del foglio in uso. Come tutto
+       il resto di questa tab e' una COPIA: dopo, sul piano, i fogli si
+       spostano, se ne aggiungono e se ne tolgono, e il racconto di questa
+       stampa deve restare quello di questa stampa. */
     var dati = {
       nome: prog.nome,
       inizio: Date.now(),
       righe: prog.righe,
-      foglio: { x: org.x, y: org.y, w: pap.w, h: pap.h,
-                nome: pap.name,
-                colore: (window.Paper && Paper.colore) ? Paper.colore() : null }
+      fogli: State.data.fogli.map(function (f) {
+        return { x: f.origine.x, y: f.origine.y, w: f.w, h: f.h,
+                 nome: f.name,
+                 colore: (window.Paper && Paper.coloreDi)
+                           ? Paper.coloreDi(f) : null };
+      })
     };
 
     var t = {
@@ -394,6 +454,7 @@ var Stampe = (function () {
     }
 
     riquadroDati(t, pc);
+    accendiFoglio(t);
     riquadroCodice(t);
   }
 
@@ -439,8 +500,7 @@ var Stampe = (function () {
           ? '<span class="tinta" style="background:' + esc(pen.colore) + '"></span> '
           : '') + esc(nomePenna(pen)) : '—'],
       ['Cambi penna', t.perc.pause.length ? t.perc.pause.length : 'nessuno'],
-      ['Foglio', esc(t.dati.foglio.nome || '') + ' ' + n(t.dati.foglio.w) +
-                 ' × ' + n(t.dati.foglio.h) + ' mm'],
+      ['Foglio', descrizioneFoglio(t)],
       ['Durata', durata(fin - t.dati.inizio) + (t.fine ? '' : ' finora')],
       ['Macchina', vivo ? esc(State.data.machine) : '—'],
       ['Mancante', vivo && s.rimanente ? Sender.durata(s.rimanente / 1000) : '—']
@@ -585,7 +645,12 @@ var Stampe = (function () {
                  righe: t.dati.righe.length,
                  tratti: t.perc.segmenti.length,
                  pause: t.perc.pause.length,
-                 foglio: t.dati.foglio };
+                 fogli: t.dati.fogli,
+                 marcatoriFoglio: t.perc.fogli.length,
+                 /* Il primo, per i controlli scritti quando il foglio era
+                    uno solo: dicono ancora la verita', e cambiarli per una
+                    cosa che non e' cambiata sarebbe rumore. */
+                 foglio: t.dati.fogli[0] };
       });
     },
     chiudi: chiudi

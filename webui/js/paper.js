@@ -1462,7 +1462,7 @@ var Paper = (function () {
     /* Il colore della carta e il contrasto escono da qui perché il foglio è
        di questo file. Li usa l'elenco dei livelli, per dire quando una penna
        sulla carta di oggi non lascerebbe niente. */
-    colore: colore, carte: function () { return CARTE.slice(); },
+    colore: colore, coloreDi: coloreDi, carte: function () { return CARTE.slice(); },
     nomeCarta: nomeCarta, chiarezza: chiarezza, contrasto: contrasto,
     apriColoreFoglio: apriModaleFisso
   };

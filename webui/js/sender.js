@@ -55,6 +55,16 @@ var Sender = (function () {
   var RE_PENNA = /^\s*;\s*PENNA\s+(#[0-9a-f]{3,8}|-)(?:\s+(\d+(?:\.\d+)?)mm)?\s*(.*?)\s*$/i;
   var PENNA = '\u0000penna:';
 
+  /* SU CHE FOGLIO SI STA DISEGNANDO, dal 2026-11-07. Stesso trattamento del
+     colore e per la stessa ragione: e' un commento, quindi va riconosciuto
+     PRIMA che i commenti si buttino via, e serve mentre la macchina lavora
+     -- il telecomando deve poter dire «foglio 3 di 9». Con l'ordine per
+     penna la punta salta da un foglio all'altro di continuo e dalle
+     coordinate non si capirebbe.
+     Forma: «;FOGLIO <n>/<quanti> <nome>». */
+  var RE_FOGLIO = /^\s*;\s*FOGLIO\s+(\d+)\/(\d+)\s*(.*?)\s*$/i;
+  var FOGLIO = '\u0000foglio:';
+
   var righe = [];      // il programma, ripulito
   var i = 0;           // prossima riga da affidare ad Api
   var fatte = 0;       // righe confermate dalla macchina
@@ -92,6 +102,11 @@ var Sender = (function () {
      gcode.js, che la scrive prima della pausa apposta: è la risposta alla
      domanda «quale monto?», che è l'unica che si fa in quel momento. */
   var penna = null;
+
+  /* Su che foglio sta andando, quando i fogli sono piu' d'uno. `null` finche'
+     il programma non lo dice -- un programma salvato prima del 2026-11-07 non
+     ha il marcatore, e va eseguito lo stesso. */
+  var foglio = null;
   var t0 = 0;
   var nome = '';
 
@@ -125,6 +140,11 @@ var Sender = (function () {
         out.push(PENNA + mp[1] + '\u0000' + (mp[2] || '') + '\u0000' + mp[3]);
         continue;
       }
+      var mf = RE_FOGLIO.exec(l);
+      if (mf) {
+        out.push(FOGLIO + mf[1] + '\u0000' + mf[2] + '\u0000' + mf[3]);
+        continue;
+      }
       var p = l.indexOf(';');
       if (p >= 0) l = l.slice(0, p);
       l = l.trim();
@@ -143,7 +163,7 @@ var Sender = (function () {
       Log.add('err', 'Il programma non contiene nessun comando.');
       return false;
     }
-    i = 0; fatte = 0; t0 = Date.now(); penna = null;
+    i = 0; fatte = 0; t0 = Date.now(); penna = null; foglio = null;
     if (attesaIdle) { clearTimeout(attesaIdle); attesaIdle = null; }
     consegnato = false;
     altezzaUsata = State.data.altezzaContatto;
@@ -172,6 +192,20 @@ var Sender = (function () {
         Log.add('msg', 'Penna: ' + (penna.nome || penna.colore || '?') +
                        (penna.mm ? ' — tratto ' + String(penna.mm).replace('.', ',') +
                                    ' mm' : '') + '.');
+        aggiorna();
+        continue;
+      }
+      if (riga.indexOf(FOGLIO) === 0) {
+        fatte++;
+        var f = riga.slice(FOGLIO.length).split('\u0000');
+        foglio = { n: parseInt(f[0], 10), di: parseInt(f[1], 10), nome: f[2] || '' };
+        /* Si scrive nel registro solo quando i fogli sono piu' d'uno: «foglio
+           1 di 1» a ogni stampa sarebbe una riga in piu' da leggere ogni
+           volta per non sapere niente di nuovo. */
+        if (foglio.di > 1) {
+          Log.add('msg', 'Foglio ' + foglio.n + ' di ' + foglio.di +
+                         (foglio.nome ? ' — ' + foglio.nome : '') + '.');
+        }
         aggiorna();
         continue;
       }
@@ -411,7 +445,8 @@ var Sender = (function () {
       totale: righe.length,
       percento: percento(),
       rimanente: rimanente(),
-      penna: penna
+      penna: penna,
+      foglio: foglio
     });
   }
 
@@ -440,6 +475,7 @@ var Sender = (function () {
                contatto: altezzaUsata };
     },
     penna: function () { return penna; },
+    foglio: function () { return foglio; },
     /* Serve a chi deve decidere se chiedere la rimisurazione: senza una
        quota di partenza non c'è nessuna differenza da calcolare. */
     altezzaUsata: function () { return altezzaUsata; },
