@@ -108,6 +108,73 @@ function ok(nome, vero, extra) {
      r.visto === true && r.batteria === 61,
      'visto ' + r.visto + ', batteria ' + r.batteria);
 
+  /* ============ IL FOGLIO NEL MESSAGGIO (2026-11-07) ============
+     Dal piano a piu' fogli, il telecomando deve poter dire «foglio 3 di
+     9»: con l'ordine per penna la punta salta da un foglio all'altro di
+     continuo, e chi guarda una percentuale che sale non sa se il magnete
+     che ha davanti e' finito.
+
+     Si guarda il messaggio VERO, quello che parte: si cattura il corpo
+     della fetch invece di chiedere alla pagina che cosa pensa di mandare. */
+  r = await page.evaluate(async () => {
+    const aspetta = (ms) => new Promise((f) => setTimeout(f, ms));
+    window.__corpi = [];
+    const vera = window.fetch;
+    window.fetch = function (u, opt) {
+      if (opt && opt.body) window.__corpi.push(String(opt.body));
+      return vera.apply(this, arguments);
+    };
+    window.__risponde = true;
+
+    /* Un foglio solo: niente foglio nel messaggio. «Foglio 1 di 1» non
+       distingue niente, e occuperebbe una riga sul vetro per dirlo. */
+    State.data.stampa = { stato: 'invio', nome: 'x', fatte: 1, totale: 9,
+                          percento: 11, rimanente: null, penna: null,
+                          foglio: { n: 1, di: 1 } };
+    State.emit('stampa');
+    await aspetta(500);
+    const uno = window.__corpi.slice(-1)[0] || '';
+
+    window.__corpi.length = 0;
+    State.data.stampa = { stato: 'invio', nome: 'x', fatte: 2, totale: 9,
+                          percento: 22, rimanente: null, penna: null,
+                          foglio: { n: 3, di: 9 } };
+    State.emit('stampa');
+    await aspetta(500);
+    const nove = window.__corpi.slice(-1)[0] || '';
+    return { uno: uno, nove: nove };
+  });
+  ok('con piu` fogli il messaggio dice su quale si sta andando',
+     /"foglio":\{"n":3,"di":9\}/.test(r.nove),
+     (r.nove.match(/"foglio":(\{[^}]*\}|null)/) || ['—'])[0]);
+  ok('e con un foglio solo non lo dice', /"foglio":null/.test(r.uno),
+     (r.uno.match(/"foglio":(\{[^}]*\}|null)/) || ['—'])[0]);
+
+  /* E IL FOGLIO CHE CAMBIA FA PARTIRE UN MESSAGGIO SUBITO, come lo stato:
+     cambia un numero sul vetro, e aspettare il giro dopo vorrebbe dire
+     leggere il foglio sbagliato mentre si guarda la macchina lavorarci
+     sopra. La percentuale no -- quella cambia cento volte per stampa. */
+  r = await page.evaluate(async () => {
+    const aspetta = (ms) => new Promise((f) => setTimeout(f, ms));
+    const giro = async (foglio, percento) => {
+      window.__corpi.length = 0;
+      State.data.stampa = { stato: 'invio', nome: 'x', fatte: 3, totale: 9,
+                            percento: percento, rimanente: null, penna: null,
+                            foglio: foglio };
+      State.emit('stampa');
+      await aspetta(120);
+      return window.__corpi.length;
+    };
+    await giro({ n: 3, di: 9 }, 30);
+    const soloPercento = await giro({ n: 3, di: 9 }, 31);
+    const cambioFoglio = await giro({ n: 4, di: 9 }, 32);
+    return { soloPercento, cambioFoglio };
+  });
+  ok('cambiando foglio il messaggio parte subito, cambiando percentuale no',
+     r.soloPercento === 0 && r.cambioFoglio > 0,
+     'solo la percentuale: ' + r.soloPercento + ' messaggi, col foglio: ' +
+     r.cambioFoglio);
+
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
   console.log(guai ? '\n' + guai + ' controlli KO' : '\ntutto a posto');

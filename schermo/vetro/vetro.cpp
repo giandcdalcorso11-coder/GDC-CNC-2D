@@ -191,6 +191,30 @@ static void salva(const char* nome) {
   fclose(f);
 }
 
+/* Quanti pixel accesi ci sono in una striscia alta `h` da `y`. Serve a
+   provare che una riga di testo c'e' o NON c'e': di un disegno non si
+   puo' chiedere molto di piu' senza ricopiarlo, ma «qui non e' scritto
+   niente» e «qui c'e' scritto qualcosa» sono due fatti netti. */
+/* Quanti pixel sono accesi su tutto il vetro. Di un disegno non si puo'
+   chiedere molto di piu' senza ricopiarlo, ma «qui c'e' qualcosa in piu'»
+   e «sono due disegni diversi» sono due fatti netti. */
+static int accesi() {
+  int n = 0;
+  for (int i = 0; i < 240 * 240; i++) if (FB[i]) n++;
+  return n;
+}
+
+/* Quanti pixel accesi in una fascia, dentro a una finestra orizzontale.
+   Serve a dire «qui in mezzo non c'e' scritto niente», che e' il modo per
+   provare che due righe non si toccano. */
+static int accesiNellaFascia(int y, int h, int x0, int x1) {
+  int n = 0;
+  for (int r = y; r < y + h && r < 240; r++) {
+    for (int c = x0; c < x1; c++) if (FB[r * 240 + c]) n++;
+  }
+  return n;
+}
+
 static void schermata(Schermata s, const char* nome) {
   disegnaTutto(s);
   salva(nome);
@@ -218,6 +242,98 @@ int main() {
 
   schermata(PRONTA, "pronta");
   schermata(STAMPA, "stampa");
+
+  /* ============ IL FOGLIO, QUANDO SONO PIU' D'UNO ============
+     Con nove magneti sul piano, una percentuale che sale non dice se il
+     terzo e' fatto o se si sta ancora al primo -- e con l'ordine per penna
+     la punta ci torna sopra due volte. Con UN foglio invece non si scrive
+     niente: «foglio 1 di 1» occuperebbe una riga di vetro per non
+     distinguere niente. */
+  disegnaTutto(STAMPA);
+  int vuoto = accesi();
+  S.foglioN = 3; S.foglioDi = 9;
+  disegnaTutto(STAMPA);
+  int pieno = accesi();
+  /* Si contano i pixel accesi di TUTTO il vetro invece che di una fascia:
+     scrivendo il foglio la schermata si rialza -- il pallino e la
+     percentuale salgono di quattordici pixel per far posto -- quindi una
+     fascia sola direbbe «e' cambiato» anche solo perche' il resto si e'
+     spostato. La riga in piu' sono i suoi pixel in piu', e quelli non
+     mentono. */
+  if (pieno - vuoto < 80) {
+    fprintf(stderr, "KO con nove fogli non scrive su che foglio sta "
+                    "(%d pixel contro %d)\n", pieno, vuoto); exit(1);
+  }
+  /* UN FOGLIO DICHIARATO E' COME NESSUNO. «Foglio 1 di 1» occuperebbe una
+     riga di vetro per non distinguere niente, e alzerebbe tutto il resto
+     per fare posto a quella riga. Il banco non provava questo caso, e
+     senza non c'e' differenza fra «dal secondo in poi» e «da uno in poi»:
+     l'ha trovato il banco delle mutazioni. */
+  S.foglioN = 1; S.foglioDi = 1;
+  disegnaTutto(STAMPA);
+  if (accesi() != vuoto) {
+    fprintf(stderr, "KO «1 di 1» cambia la schermata: non scrive su che "
+                    "foglio sta solo quando ce n'e' piu' d'uno\n"); exit(1);
+  }
+  S.foglioN = 3; S.foglioDi = 9;
+  disegnaTutto(STAMPA);
+
+  /* E LA RIGA NUOVA NON DEVE TOCCARE NEMMENO LA PERCENTUALE, che e'
+     l'altra meta' del perche' tutto si alza: senza lo spostamento il
+     numero grande arriva fin dove comincia la riga del foglio, e si
+     leggono due scritte sovrapposte. Si pretende un corridoio vuoto anche
+     sopra. */
+  if (accesiNellaFascia(126, 5, 40, 200) != 0) {
+    fprintf(stderr, "KO la riga del foglio tocca la percentuale\n"); exit(1);
+  }
+
+  schermata(STAMPA, "stampa-foglio");
+
+  /* IL NUMERO CAMBIA SENZA CHE CAMBI LA SCHERMATA, ed e' il caso che con
+     l'ordine per penna capita di continuo: se il vetro si rifacesse solo
+     al cambio di schermata, resterebbe «3/9» fino alla fine della stampa. */
+  /* LA RIGA NUOVA NON DEVE TOCCARE L'ETICHETTA DEL TASTO STOP, che sta
+     nella fascia 152-162 a destra di x=154. E' il motivo per cui scrivendo
+     il foglio tutto il resto si alza: senza, una riga larga come questa ci
+     sbatterebbe dentro e sul vetro si leggerebbero due scritte sovrapposte.
+     Si pretende un corridoio vuoto fra le due. */
+  if (accesiNellaFascia(146, 4, 40, 200) != 0) {
+    fprintf(stderr, "KO la riga del foglio tocca l'etichetta dello STOP\n");
+    exit(1);
+  }
+
+  /* I NUMERI ARRIVANO DAVVERO NELLA SCRITTA. Il vetro finto disegna
+     BLOCCHI al posto delle lettere (vedi l'intestazione di questo file),
+     quindi «3» e «4» sono identici per costruzione e confrontarli non
+     proverebbe niente: due disegni uguali sarebbero una conseguenza del
+     banco, non del codice. Quello che il banco PUO' vedere e' la
+     LARGHEZZA -- «3/12» e' un carattere piu' lungo di «3/9» -- e quella
+     cambia solo se i numeri finiscono davvero nella stringa. */
+  S.foglioDi = 12;
+  disegnaTutto(STAMPA);
+  if (accesi() <= pieno) {
+    fprintf(stderr, "KO «3/12» non e' piu' lungo di «3/9»: i numeri non "
+                    "arrivano nella scritta\n"); exit(1);
+  }
+  /* IL VETRO SI RIFA' QUANDO IL FOGLIO CAMBIA, e non e' scontato: il
+     foglio cambia restando in «invio», cioe' SENZA cambiare schermata, e
+     il vetro si ridisegna da capo solo quando la schermata cambia. Senza
+     questo il numero resterebbe quello di prima fino alla fine della
+     stampa. */
+  azzerataDisegnata = S.azzerata;
+  giuDisegnato = S.giu;
+  foglioDisegnato = S.foglioN;
+  strncpy(pennaDisegnata, S.penna, sizeof(pennaDisegnata) - 1);
+  if (vetroDaRifare()) {
+    fprintf(stderr, "KO il vetro vuole rifarsi quando non e' cambiato niente\n");
+    exit(1);
+  }
+  S.foglioN = 7;
+  if (!vetroDaRifare()) {
+    fprintf(stderr, "KO il foglio cambia e il vetro non si rifa'\n"); exit(1);
+  }
+
+  S.foglioN = 0; S.foglioDi = 0;
   schermata(IN_PAUSA, "pausa");
   schermata(PENNA1, "penna1");
   /* Le DUE facce del montaggio: il tasto dice l'azione, quindi la parola
@@ -426,6 +542,28 @@ int main() {
      due allarmi con la stessa cadenza, cioe' indistinguibili attutiti -
      che e' esattamente il rischio per cui la sirena e' stata accettata. */
   OROLOGIO = 50000;
+  /* ============ IL MESSAGGIO PORTA IL FOGLIO ============
+     `foglio` e' un oggetto come `penna`. Assente o null vuol dire «non lo
+     dice», e allora i due numeri si AZZERANO: un numero rimasto da prima
+     sarebbe peggio di nessun numero -- direbbe «foglio 3 di 9» mentre si
+     stampa su un foglio solo. */
+  leggiMessaggio("{\"stato\":\"invio\",\"foglio\":{\"n\":5,\"di\":9}}");
+  if (S.foglioN != 5 || S.foglioDi != 9) {
+    fprintf(stderr, "KO il foglio non si legge dal messaggio (%d/%d)\n",
+            S.foglioN, S.foglioDi); exit(1);
+  }
+  leggiMessaggio("{\"stato\":\"invio\",\"foglio\":null}");
+  if (S.foglioN != 0 || S.foglioDi != 0) {
+    fprintf(stderr, "KO un foglio null non azzera quello di prima (%d/%d)\n",
+            S.foglioN, S.foglioDi); exit(1);
+  }
+  leggiMessaggio("{\"stato\":\"invio\",\"foglio\":{\"n\":2,\"di\":3}}");
+  leggiMessaggio("{\"stato\":\"invio\"}");
+  if (S.foglioN != 0 || S.foglioDi != 0) {
+    fprintf(stderr, "KO un messaggio senza foglio non azzera quello di prima\n");
+    exit(1);
+  }
+
   leggiMessaggio("{\"stato\":\"fermo\"}");        /* il primo non suona */
   leggiMessaggio("{\"stato\":\"errore\"}");
   if (richiamoOgni != RICHIAMO_ERRORE || richiamoFino == 0) {

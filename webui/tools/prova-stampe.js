@@ -347,8 +347,18 @@ const PROGRAMMA = (conPausa) => {
       .replace(/\s+/g, ' ');
     const detto = (dati.match(/Foglio\s*(\d+) di (\d+)/) || [])[1];
     return { accesi: accesi, dati: dati, detto: detto ? +detto : null,
-             stato: State.data.stampa.stato, visti: window.__accesi };
+             stato: State.data.stampa.stato, visti: window.__accesi,
+             senderFoglio: State.data.stampa.foglio || null };
   }, r.id);
+  /* E IL SENDER SA SU CHE FOGLIO STA, non solo la tab: e' lui a dirlo al
+     telecomando, che su tre centimetri di vetro scrive «foglio 2 di 2». La
+     tab lo ricava dal programma per conto suo -- sono due strade diverse
+     che devono dire la stessa cosa. */
+  ok('e il Sender sa su che foglio sta, per dirlo al telecomando',
+     !!r.senderFoglio && r.senderFoglio.n === r.accesi[0] &&
+     r.senderFoglio.di === 2,
+     'il Sender dice ' + JSON.stringify(r.senderFoglio));
+
   ok('ferma al cambio penna, un foglio solo e` acceso sul piano',
      r.stato === 'cambio' && r.accesi.length === 1,
      'stato ' + r.stato + ', accesi ' + JSON.stringify(r.accesi));

@@ -116,6 +116,15 @@ var Telecomando = (function () {
          tinta — e allora sul vetro non c'è nessun pallino: meglio di uno
          nero inventato, che vorrebbe dire «monta la penna nera». */
       penna: s.penna || null,
+      /* SU CHE FOGLIO STA ANDANDO, quando i fogli sono più d'uno. Dal
+         2026-11-07 sul piano ce ne possono essere nove, e con l'ordine per
+         penna la punta salta dall'uno all'altro di continuo: chi guarda il
+         telecomando vede una percentuale che sale e non sa se il magnete 3
+         è fatto o se si sta ancora lavorando il primo. `null` con un foglio
+         solo — «foglio 1 di 1» non distingue niente — e `null` anche per un
+         programma vecchio, che il marcatore non ce l'ha. */
+      foglio: s.foglio && s.foglio.di > 1
+        ? { n: s.foglio.n, di: s.foglio.di } : null,
       passo: finta ? finta.passo
                    : ((window.Popup && Popup.passoPenna) ? Popup.passoPenna() : null),
       /* Dove sta il servo nel montaggio: il tasto del telecomando ci scrive
@@ -154,7 +163,14 @@ var Telecomando = (function () {
        tasto, aspettare il prossimo giro vorrebbe dire leggere l'azione
        sbagliata per un momento, proprio mentre si guarda il tasto che si è
        appena premuto. */
-    return [m.stato, m.passo, m.macchina, m.azzerata, m.giu, m.volume].join('|');
+    /* IL FOGLIO ci sta dentro, la penna no, e la differenza è quante volte
+       cambia. La penna cambia solo all'inizio di un livello, e lì cambia
+       anche lo stato, che è già qui; il foglio con l'ordine per penna
+       cambia ogni volta che la punta salta — diciotto volte in una stampa
+       di nove magneti a due penne — e ogni volta è un numero diverso sul
+       vetro. Diciotto messaggi in più per una stampa non sono cento. */
+    return [m.stato, m.passo, m.macchina, m.azzerata, m.giu, m.volume,
+            m.foglio ? m.foglio.n : ''].join('|');
   }
 
   /* ------------------------------ il dialogo ------------------------------ */
@@ -366,7 +382,8 @@ var Telecomando = (function () {
 
   function vuoto() {
     return { stato: 'fermo', nome: 'prova in bianco', percento: 0, rimanente: null,
-             penna: null, passo: null, giu: null, macchina: 'Idle', azzerata: false };
+             penna: null, foglio: null, passo: null, giu: null,
+             macchina: 'Idle', azzerata: false };
   }
 
   /* Il copione. I due passi del cambio penna aspettano che tu prema — e

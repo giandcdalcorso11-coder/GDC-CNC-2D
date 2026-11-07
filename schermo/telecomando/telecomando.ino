@@ -77,6 +77,14 @@ struct Stato {
   char  nome[28];       // il nome del lavoro: serve solo al libro di bordo
   int   passo;          // 0 o 1 nel cambio penna, -1 fuori
   int   giu;            // 1 penna al contatto, 0 alzata, -1 il SLICER non lo dice
+  /* SU CHE FOGLIO STA DISEGNANDO, quando i fogli sono piu' d'uno. Zero
+     vuol dire «il SLICER non lo dice»: un foglio solo, oppure un programma
+     scritto prima del 2026-11-07, che il marcatore non ce l'ha. Senza
+     questo, con nove magneti sul piano si vedrebbe una percentuale salire
+     senza sapere se il terzo e' fatto o se si sta ancora al primo -- e con
+     l'ordine per penna la punta ci torna sopra due volte. */
+  int   foglioN;        // 1..foglioDi, 0 = non lo dice
+  int   foglioDi;       // quanti fogli in tutto, 0 = non lo dice
   char  macchina[8];    // Idle | Run | Jog | Hold | Alarm
   bool  azzerata;
   char  data[26];       // la manda il SLICER: qui un orologio non c'è
@@ -1069,6 +1077,28 @@ void simboloSenzaRete(int y, uint16_t c) {
 /* Il tempo che resta, come lo scrive il SLICER: un numero e «min». Sotto
    le venti righe il Sender non l'ha ancora misurato e manda -1 — e allora
    al suo posto non ci va un numero inventato, ci va «misuro». */
+/* VERO QUANDO IL FOGLIO VA SCRITTO. Con uno solo no: «foglio 1 di 1»
+   occuperebbe una riga di vetro per non distinguere niente, ed e' anche il
+   caso di ogni programma scritto prima del 2026-11-07. */
+bool diceIlFoglio() { return S.foglioDi >= 2 && S.foglioN >= 1; }
+
+/* «FOGLIO 3/9». Sotto la percentuale: non e' la cosa che si guarda per
+   prima -- quella e' quanto manca -- ma e' quella che dice se il magnete
+   che hai davanti e' finito.
+   DOVE STA NON E' LIBERO. Sul vetro, fra la percentuale e il tempo che
+   manca, ci passa l'etichetta del tasto STOP: occupa la fascia 152-162 a
+   destra di x=154, e una riga larga come questa ci sbatte dentro. Per
+   questo quando il foglio si scrive TUTTO SI ALZA di quattordici pixel --
+   il pallino della penna e la percentuale -- e la riga nuova sta nel posto
+   che si e' liberato. Con un foglio solo la schermata resta esattamente
+   quella di prima, che e' il caso della maggior parte delle stampe. */
+void scriviFoglio(int y) {
+  if (!diceIlFoglio()) return;
+  char t[18];
+  snprintf(t, sizeof(t), "FOGLIO %d/%d", S.foglioN, S.foglioDi);
+  scrivi(t, y, 2, FIOCO);
+}
+
 void scriviRimanente(int y) {
   char t[12];
   if (S.rimanente < 0) { scrivi("misuro", y, 2, FIOCO); return; }
@@ -1103,9 +1133,10 @@ void disegnaTutto(Schermata s) {
 
     case STAMPA:
       anello(S.percento, BLU, true);
-      pallino(S.penna, 74);
+      pallino(S.penna, diceIlFoglio() ? 60 : 74);
       snprintf(n, sizeof(n), "%d%%", S.percento < 0 ? 0 : S.percento);
-      scrivi(n, 96, 6, TESTO);
+      scrivi(n, diceIlFoglio() ? 82 : 96, 6, TESTO);
+      scriviFoglio(132);
       scriviRimanente(174);
       break;
 
@@ -1117,7 +1148,7 @@ void disegnaTutto(Schermata s) {
          basso a destra: le due si toccavano per quattro pixel. */
       scrivi("PAUSA", 118, 3, TESTO);
       snprintf(n, sizeof(n), "%d%%", S.percento < 0 ? 0 : S.percento);
-      scrivi(n, 174, 2, FIOCO);
+      scrivi(n, 150, 2, FIOCO);
       break;
 
     case PENNA1:
@@ -1236,6 +1267,29 @@ int pitturaDisegnata = 0;
 bool azzerataDisegnata = false;
 int giuDisegnato = -2;
 char pennaDisegnata[10] = "";
+/* Il numero del foglio cambia SENZA cambiare schermata, come il pallino
+   della penna: con l'ordine per penna la punta salta da un foglio
+   all'altro restando in «invio», e senza questo il vetro continuerebbe a
+   dire il foglio di prima fino alla fine della stampa. */
+int foglioDisegnato = -1;
+
+/* QUELLO CHE CAMBIA LA FACCIA DEL VETRO SENZA CAMBIARE SCHERMATA.
+ * `giu` cambia l'ETICHETTA di un tasto; il pallino del colore arriva un
+ * attimo dopo l'inizio della stampa; una macchina azzerata resta sulla
+ * schermata PRONTA e cambia solo la riga sotto; e dal 2026-11-07 il
+ * numero del foglio cambia mentre si resta in «invio» -- con l'ordine per
+ * penna la punta salta da un foglio all'altro di continuo. Senza questo
+ * controllo il vetro resterebbe su quello che c'era fino al prossimo
+ * cambio di schermata, cioe' a volte fino alla fine della stampa.
+ * E' una funzione e non una riga dentro a `loop()` perche' cosi' il banco
+ * del vetro puo' chiamarla: quello che sta dentro al giro principale, qui,
+ * non si riesce a provare. */
+bool vetroDaRifare() {
+  return S.azzerata != azzerataDisegnata ||
+         strcmp(S.penna, pennaDisegnata) != 0 ||
+         S.giu != giuDisegnato ||
+         S.foglioN != foglioDisegnato;
+}
 float tenutaDisegnata = -1;
 
 void aggiornaPezzi(Schermata s) {
@@ -1253,9 +1307,9 @@ void aggiornaPezzi(Schermata s) {
   } else if (s == IN_PAUSA) {
     anello(S.percento, AMBRA, false);
     if (S.percento != pcDisegnato) {
-      pulisci(174, 16);
+      pulisci(150, 16);
       snprintf(n, sizeof(n), "%d%%", S.percento < 0 ? 0 : S.percento);
-      scrivi(n, 174, 2, FIOCO);
+      scrivi(n, 150, 2, FIOCO);
       pcDisegnato = S.percento;
     }
   } else if (s == STOP_ARMATO) {
@@ -1967,6 +2021,17 @@ void leggiMessaggio(const char* corpo) {
   S.azzerata  = booleanoDa(corpo, "azzerata");
   S.giu       = treStati(corpo, "giu");
 
+  /* `foglio` e' un oggetto come `penna`: si entra li' dentro. Assente o
+     null vuol dire «non lo dice», e si azzerano tutt'e due -- un numero
+     rimasto da prima sarebbe peggio di nessun numero. */
+  S.foglioN = 0;
+  S.foglioDi = 0;
+  const char* pf = trova(corpo, "foglio");
+  if (pf && *pf == '{') {
+    S.foglioN  = (int)numeroDa(pf, "n", 0);
+    S.foglioDi = (int)numeroDa(pf, "di", 0);
+  }
+
   /* `penna` è un oggetto: si entra lì dentro e si prende il colore. */
   S.penna[0] = 0;
   const char* p = trova(corpo, "penna");
@@ -2338,13 +2403,7 @@ void loop() {
       schermoDisegnato = NESSUNA;
   }
 
-  /* `giu` cambia l'ETICHETTA di un tasto senza cambiare schermata: senza
-     questo, la parola resterebbe quella di prima fino al cambio di
-     schermata, cioè fino alla fine del cambio penna. */
-  if (S.azzerata != azzerataDisegnata || strcmp(S.penna, pennaDisegnata) ||
-      S.giu != giuDisegnato) {
-    schermoDisegnato = NESSUNA;
-  }
+  if (vetroDaRifare()) schermoDisegnato = NESSUNA;
 
   if (schermoOra != schermoDisegnato) {
     disegnaTutto(schermoOra);
@@ -2355,6 +2414,7 @@ void loop() {
     caricaDisegnata = batteria;   // appena disegnata: non ridisegnarla subito
     strncpy(pennaDisegnata, S.penna, sizeof(pennaDisegnata) - 1);
     pennaDisegnata[sizeof(pennaDisegnata) - 1] = 0;
+    foglioDisegnato = S.foglioN;
     pcDisegnato = -999;
     tenutaDisegnata = -1;
   } else {
