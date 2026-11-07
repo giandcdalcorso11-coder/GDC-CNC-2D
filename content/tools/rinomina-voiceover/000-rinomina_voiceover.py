@@ -18,6 +18,14 @@ salire anche se sposti o archivi altrove i file già rinominati (es. in una
 sottocartella per episodio finito), senza bisogno di un file contatore a
 parte.
 
+Un file che ha gia' il prefisso numerico NNN- non viene MAI piu' ritoccato,
+indipendentemente da cosa dice 000-elaborati.json: e' quel prefisso stesso
+a fare da prova "gia' fatto", non solo lo storico. Questo evita che un file
+gia' a posto (magari gia' in una timeline di Resolve) venga rinominato di
+nuovo se lo storico si disallinea per qualche motivo (es. un conflitto di
+sincronizzazione OneDrive sulla cartella). Se vuoi far ritrascrivere un file
+gia' numerato, togli tu a mano il prefisso NNN- dal nome prima di rilanciare.
+
 Per ognuno viene creato un file .txt con la trascrizione integrale.
 Lo storico delle rinomine (nome originale -> nuovo nome, data/ora) resta in
 000-elaborati.json; 000-log-trascrizioni.csv tiene lo stesso storico in
@@ -117,14 +125,13 @@ def main():
 
     def scan_once():
         changed = False
-        already_renamed = {entry["rinominato_in"] for entry in processed.values()}
         counter = next_number(src_dir, processed)
         for f in sorted(src_dir.iterdir()):
             if (
                 f.is_file()
                 and f.suffix.lower() in AUDIO_EXT
+                and not NUM_PATTERN.match(f.name)
                 and f.name not in processed
-                and f.name not in already_renamed
             ):
                 try:
                     original_name, new_name = process_file(model, f, counter, log_path)
@@ -132,7 +139,6 @@ def main():
                         "rinominato_in": new_name,
                         "quando": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     }
-                    already_renamed.add(new_name)
                     counter += 1
                     changed = True
                 except Exception as e:
