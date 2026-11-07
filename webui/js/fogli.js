@@ -123,6 +123,87 @@ var Fogli = (function () {
     return { x: 0, y: 0 };
   }
 
+  /* DOVE METTERE UN GRUPPO DI FOGLI CHE ARRIVA TUTTO INSIEME: lo
+   * scostamento da sommare a tutti quanti.
+   *
+   * Non è `posaLibera` ripetuta, e la differenza è tutto il punto. I fogli
+   * di un progetto salvato hanno una geometria RELATIVA che è un fatto: due
+   * magneti spinti uno contro l'altro lo erano il giorno che il file è stato
+   * messo via, e riaprendolo lo devono essere ancora — se no quella coppia
+   * torna a essere due misure invece di una. Posandoli uno per uno, il
+   * secondo troverebbe il primo già al suo posto e andrebbe altrove:
+   * l'accostamento si perderebbe per strada. Quindi si sposta il GRUPPO, di
+   * un solo scostamento, e si cerca quello.
+   *
+   * E SE NON CI STA, si mette DI FIANCO a tutto quello che c'è — fuori dalla
+   * corsa, se è lì che finisce — e non SOPRA. Sovrapporre due fogli è il
+   * guaio che non si vede: due disegni sulla stessa carta, e chi stampa lo
+   * scopre quando la penna ci passa la seconda volta. Un foglio che sporge
+   * dalla corsa invece si vede sul piano, ed è già scritto sotto l'elenco dei
+   * fogli («N fogli escono dalla corsa»): è un guaio dichiarato.
+   *
+   * `dentro` falso vuol dire proprio questo: il gruppo è stato messo di
+   * fianco e sporge. `piuGrande` distingue i due motivi, perché sono due cose
+   * diverse da dire a chi guarda: o sul piano non c'era più posto libero, o
+   * quei fogli non ci stanno nella corsa NEMMENO DA SOLI — che non è un
+   * errore, perché con un A4 si stampa un pezzo per volta (il pulsante
+   * «Centra l'area nel foglio» esiste per quello), e pretendere che un A4 ci
+   * stia vorrebbe dire dare un allarme a ogni progetto su A4.
+   */
+  function posaGruppo(retti) {
+    if (!retti || !retti.length) {
+      return { dx: 0, dy: 0, dentro: true, piuGrande: false };
+    }
+
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    retti.forEach(function (r) {
+      x0 = Math.min(x0, r.x0); y0 = Math.min(y0, r.y0);
+      x1 = Math.max(x1, r.x1); y1 = Math.max(y1, r.y1);
+    });
+    var w = x1 - x0, h = y1 - y0;
+    var a = State.data.area;
+    var piuGrande = w > a.w || h > a.h;
+
+    /* Gli stessi posti che prova `posaLibera`, e per la stessa ragione:
+       accanto a un foglio che c'è già un gruppo nasce accostato a lui. */
+    var cand = [];
+    elenco().forEach(function (f) {
+      var r = rett(f);
+      cand.push({ x: r.x1, y: r.y0 });
+      cand.push({ x: r.x0, y: r.y1 });
+    });
+    cand.push({ x: 0, y: 0 });
+
+    for (var i = 0; i < cand.length; i++) {
+      if (staGruppo(retti, cand[i].x - x0, cand[i].y - y0)) {
+        return { dx: cand[i].x - x0, dy: cand[i].y - y0,
+                 dentro: true, piuGrande: false };
+      }
+    }
+
+    for (var y = 0; y + h <= a.h; y += 5) {
+      for (var x = 0; x + w <= a.w; x += 5) {
+        if (staGruppo(retti, x - x0, y - y0)) {
+          return { dx: x - x0, dy: y - y0, dentro: true, piuGrande: false };
+        }
+      }
+    }
+
+    /* Di fianco a destra di tutto: qualunque sia la y, non si sovrappone a
+       niente, perché comincia dove finisce il foglio più a destra. */
+    var destra = 0;
+    elenco().forEach(function (f) { destra = Math.max(destra, rett(f).x1); });
+    return { dx: destra - x0, dy: -y0, dentro: false, piuGrande: piuGrande };
+  }
+
+  function staGruppo(retti, dx, dy) {
+    for (var i = 0; i < retti.length; i++) {
+      var r = retti[i];
+      if (!sta(r.x0 + dx, r.y0 + dy, r.x1 - r.x0, r.y1 - r.y0)) return false;
+    }
+    return true;
+  }
+
   function sta(x, y, w, h) {
     var a = State.data.area;
     if (x < 0 || y < 0 || x + w > a.w || y + h > a.h) return false;
@@ -321,6 +402,7 @@ var Fogli = (function () {
     elenco: elenco, attivo: attivo, trova: trova, indice: indice,
     rett: rett, scegli: scegli,
     aggiungi: aggiungi, togli: togli, muovi: muovi, posaLibera: posaLibera,
+    posaGruppo: posaGruppo,
     accostati: accostati, aggancioDi: aggancioDi, rileggiAgganci: rileggiAgganci,
     daMisurare: daMisurare, radiceDi: radiceDi,
     famiglia: famiglia, poniMisurato: poniMisurato,

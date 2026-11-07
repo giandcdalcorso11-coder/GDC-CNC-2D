@@ -429,8 +429,14 @@ MUTAZIONI = [
     dict(
         nome="si chiede anche quando non c'e' niente da perdere",
         file="js/artwork.js",
-        da="      if (!livelli.length) { Progetto.applica(pg, nome); return; }",
-        a="      if (false) { Progetto.applica(pg, nome); return; }",
+        da="""      if (!livelli.length && State.data.fogli.length < 2) {
+        Progetto.applica(pg, nome);
+        return;
+      }""",
+        a="""      if (false) {
+        Progetto.applica(pg, nome);
+        return;
+      }""",
         vede="senza chiedere niente",
         prova="prova-progetto.js",
     ),
@@ -445,9 +451,9 @@ MUTAZIONI = [
     dict(
         nome="aggiungendo, quello che c'era si butta via lo stesso",
         file="js/artwork.js",
-        da="""  function daProgetto(ls, aggiungi) {
+        da="""  function daProgetto(ls, aggiungi, fogli) {
     if (!aggiungi) {""",
-        a="""  function daProgetto(ls, aggiungi) {
+        a="""  function daProgetto(ls, aggiungi, fogli) {
     if (true) {""",
         vede="li mette accanto a quelli che ci sono",
         prova="prova-progetto.js",
@@ -455,9 +461,9 @@ MUTAZIONI = [
     dict(
         nome="sostituendo, quello che c'era resta",
         file="js/artwork.js",
-        da="""  function daProgetto(ls, aggiungi) {
+        da="""  function daProgetto(ls, aggiungi, fogli) {
     if (!aggiungi) {""",
-        a="""  function daProgetto(ls, aggiungi) {
+        a="""  function daProgetto(ls, aggiungi, fogli) {
     if (false) {""",
         vede="torna a quel progetto, foglio compreso",
         prova="prova-progetto.js",
@@ -492,13 +498,11 @@ MUTAZIONI = [
         prova="prova-progetto.js",
     ),
     dict(
-        nome="aggiungendo si prende anche il foglio del file",
+        nome="aggiungendo, il piano di chi c'era si butta lo stesso",
         file="js/progetto.js",
-        da="""    if (!aggiungi) {
-      if (dati.foglio) Paper.setSize(dati.foglio.w, dati.foglio.h);""",
-        a="""    if (true) {
-      if (dati.foglio) Paper.setSize(dati.foglio.w, dati.foglio.h);""",
-        vede="il foglio in uso non si muove",
+        da="    var esito = aggiungi ? accosta(fg) : rimetti(fg);",
+        a="    var esito = rimetti(fg);",
+        vede="quello che c'era sul piano non si muove",
         prova="prova-progetto.js",
     ),
     dict(
@@ -528,27 +532,18 @@ MUTAZIONI = [
         prova="prova-progetto.js",
     ),
     dict(
-        nome="il foglio diverso non si dice nella finestrella",
+        nome="la finestrella non dice che il progetto porta il suo foglio",
         file="js/progetto.js",
-        da="    nota.hidden = !diverso;",
-        a="    nota.hidden = true;",
-        vede="e` scritto nella finestrella",
+        da="      ' su ' + quantiFogli(fg) + '. Sul piano adesso ' +",
+        a="      '. Sul piano adesso ' +",
+        vede="dice che porta il suo foglio",
         prova="prova-progetto.js",
     ),
     dict(
-        nome="l'avviso del foglio compare anche quando e' lo stesso",
+        nome="il registro non dice che foglio si e' portato dietro",
         file="js/progetto.js",
-        da="""    return Math.round(f.w) === Math.round(State.data.paper.w) &&
-           Math.round(f.h) === Math.round(State.data.paper.h);""",
-        a="    return false;",
-        vede="quando e` lo stesso",
-        prova="prova-progetto.js",
-    ),
-    dict(
-        nome="il foglio ignorato finisce fra i messaggi invece che fra gli avvisi",
-        file="js/progetto.js",
-        da="      Log.add('err', 'Attenzione: quel progetto era su un foglio ' +",
-        a="      Log.add('msg', 'Attenzione: quel progetto era su un foglio ' +",
+        da="              : ', con ' + quantiFogli(fg) + ': ogni livello sul foglio su cui ' +",
+        a="              : ': ogni livello sul foglio su cui ' +",
         vede="il registro racconta l'aggiunta",
         prova="prova-progetto.js",
     ),
@@ -1177,6 +1172,227 @@ MUTAZIONI = [
         a='         false;',
         vede='il vetro non si rifa',
         prova='vetro.sh',
+    ),
+    # ---- PIU' FOGLI SUL PIANO, fase 5: il progetto salvato (2026-11-07) ----
+    dict(
+        nome="il livello non dice su che foglio sta",
+        file="js/artwork.js",
+        da="          foglio: i === undefined ? 0 : i,",
+        a="          foglio: 0,",
+        vede="ogni livello dice su quale sta",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il disegno nel file resta in coordinate del suo foglio",
+        file="js/progetto.js",
+        da="      var dx = o.x - q.x, dy = o.y - q.y;",
+        a="      var dx = 0, dy = 0;",
+        vede="ogni disegno sta nel pezzo di riquadro",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il disegno nel file si porta dentro l'angolo del foglio",
+        file="js/progetto.js",
+        da="      var dx = o.x - q.x, dy = o.y - q.y;",
+        a="      var dx = o.x, dy = o.y;",
+        vede="niente angolo nei numeri",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il riquadro del file e' il primo foglio invece di tutti",
+        file="js/progetto.js",
+        da="    var q = riquadro(fg);",
+        a="    var q = riquadro([fg[0]]);",
+        vede="il riquadro del file contiene tutti i fogli",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il file non salva l'elenco dei fogli",
+        file="js/progetto.js",
+        da="""      fogli: fg.map(function (f) {
+        return { w: f.w, h: f.h, nome: f.name || null,
+                 angolo: { x: f.origine.x, y: f.origine.y } };
+      }),""",
+        a="      fogli: [],",
+        vede="il file salva tutti i fogli",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il file smette di dire del primo foglio al formato 1",
+        file="js/progetto.js",
+        da="      foglio: { w: fg[0].w, h: fg[0].h, nome: fg[0].name || null },",
+        a="",
+        vede="le chiavi del formato 1 restano",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il livello arrivato va sul foglio in uso invece che sul suo",
+        file="js/artwork.js",
+        da="        foglio: (fogli && fogli[+d.foglio || 0]) || State.data.foglioAttivo,",
+        a="        foglio: State.data.foglioAttivo,",
+        vede="il progetto si porta dietro il suo foglio",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="dopo aver aggiunto si resta a guardare il foglio di prima",
+        file="js/progetto.js",
+        da="    if (primo) Fogli.scegli(primo);",
+        a="",
+        vede="il progetto si porta dietro il suo foglio",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="sostituendo, gli agganci non si rileggono",
+        file="js/progetto.js",
+        da="""    State.data.foglioAttivo = nuovi[0].id;
+    Fogli.rileggiAgganci();""",
+        a="    State.data.foglioAttivo = nuovi[0].id;",
+        vede="di nuovo accostato al primo",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="l'aggancio non guarda se i due fogli si toccano davvero",
+        file="js/fogli.js",
+        da="      if (accostati(f, l[j])) return l[j].id;",
+        a="      return l[j].id;",
+        vede="gli angoli da misurare diventano due",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="i fogli che arrivano si posano uno per volta",
+        file="js/progetto.js",
+        da="""    var mappa = fg.map(function (f) {
+      var n = State.nuovoFoglio({ w: f.w, h: f.h, name: f.nome,
+                                  x: f.angolo.x + d.dx, y: f.angolo.y + d.dy });""",
+        a="""    var mappa = fg.map(function (f) {
+      var sola = Fogli.posaLibera(f.w, f.h);
+      var n = State.nuovoFoglio({ w: f.w, h: f.h, name: f.nome,
+                                  x: sola.x, y: sola.y });""",
+        vede="il gruppo di fogli si posa tutto insieme",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="aggiungendo, gli agganci non si rileggono",
+        file="js/progetto.js",
+        da="""    Fogli.rileggiAgganci();
+    return { mappa: mappa, posa: d };""",
+        a="    return { mappa: mappa, posa: d };",
+        vede="restano accostati: una misura e non due",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="la misura di oggi si sovrascrive con l'angolo del file",
+        file="js/progetto.js",
+        da="    if (stessoPiano(fg) && misurato) {",
+        a="    if (false) {",
+        vede="restano dove li ha messi la macchina",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="la misura si tiene anche su un piano che non e' quello",
+        file="js/progetto.js",
+        da="    if (stessoPiano(fg) && misurato) {",
+        a="    if (misurato) {",
+        vede="vincono gli angoli del file",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="sostituendo, i fogli del file si aggiungono a quelli che c'erano",
+        file="js/progetto.js",
+        da="    State.data.fogli = nuovi;",
+        a="    State.data.fogli = ora.concat(nuovi);",
+        vede="sul piano resta solo il suo",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il gruppo che non ci sta si posa SOPRA invece che di fianco",
+        file="js/fogli.js",
+        da="    return { dx: destra - x0, dy: -y0, dentro: false, piuGrande: piuGrande };",
+        a="    return { dx: -x0, dy: -y0, dentro: false, piuGrande: piuGrande };",
+        vede="va di fianco, non sopra",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="la posa dice sempre che il gruppo ci sta",
+        file="js/fogli.js",
+        da="    return { dx: destra - x0, dy: -y0, dentro: false, piuGrande: piuGrande };",
+        a="    return { dx: destra - x0, dy: -y0, dentro: true, piuGrande: piuGrande };",
+        vede="lo dice prima di scegliere",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="«piu' grande della corsa» si confonde con «non c'e' piu' posto»",
+        file="js/fogli.js",
+        da="    var piuGrande = w > a.w || h > a.h;",
+        a="    var piuGrande = false;",
+        vede="un A4 non ci sta nella corsa percorribile",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="la nota del posto non compare nella finestrella",
+        file="js/progetto.js",
+        da="    nota.hidden = !guaio;",
+        a="    nota.hidden = true;",
+        vede="lo dice prima di scegliere",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il posto che manca si dice fra i messaggi invece che fra gli avvisi",
+        file="js/progetto.js",
+        da="    if (guaio) Log.add('err', 'Attenzione: ' + guaio);",
+        a="    if (guaio) Log.add('msg', 'Attenzione: ' + guaio);",
+        vede="lo ridice fra gli avvisi",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="la nota compare anche quando nella corsa c'e' posto",
+        file="js/progetto.js",
+        da="    if (d.dentro) return null;",
+        a="    if (false) return null;",
+        vede="quando nella corsa c'e` posto non si dice niente",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="un progetto del formato 1 perde il suo foglio",
+        file="js/progetto.js",
+        da="    var u = dati.foglio || { w: State.data.paper.w, h: State.data.paper.h };",
+        a="    var u = { w: State.data.paper.w, h: State.data.paper.h };",
+        vede="formato 1 si apre ancora",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="sullo stesso piano arriva altra carta lo stesso",
+        file="js/progetto.js",
+        da="    if (d.sopra) {",
+        a="    if (false) {",
+        vede="si appoggiano davvero: un foglio solo",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="«lo stesso piano» non guarda le misure, solo quanti sono",
+        file="js/progetto.js",
+        da="""    return ora.length === fg.length && ora.every(function (f, i) {
+      return stessaMisura(f, fg[i]);
+    });""",
+        a="    return ora.length === fg.length;",
+        vede="il progetto si porta dietro il suo foglio",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="la finestrella non dice che i livelli si appoggiano",
+        file="js/progetto.js",
+        da="      (posa.sopra\n        ? 'Aggiungendoli, il piano è già quello di questo progetto",
+        a="      (false\n        ? 'Aggiungendoli, il piano è già quello di questo progetto",
+        vede="la finestrella dice che i livelli si appoggiano",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il registro non dice che non e' arrivata altra carta",
+        file="js/progetto.js",
+        da="            (esito.posa.sopra",
+        a="            (false",
+        vede="il registro dice che non e` arrivata altra carta",
+        prova="prova-progetto.js",
     ),
 ]
 

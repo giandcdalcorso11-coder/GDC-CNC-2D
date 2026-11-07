@@ -1013,7 +1013,7 @@
   </div>
 </div>
 
-<!-- CHE FARE DI UN PROGETTO SALVATO quando sul foglio c'e' gia' del lavoro.
+<!-- CHE FARE DI UN PROGETTO SALVATO quando sul piano c'e' gia' del lavoro.
      Tre strade e non due, e il motivo e' che con due non ci stavano: un
      `confirm` ha due pulsanti, quindi poteva offrire «sostituisco» o «lascio
      stare», e mancava proprio quella che serve a chi pesca pezzi da due
@@ -1024,8 +1024,11 @@
     <div class="modal-body">
       <p class="modal-desc" id="prog-desc"></p>
       <p class="modal-desc" id="prog-coda" hidden></p>
-      <!-- Il foglio diverso: non blocca niente, ma e' la cosa che fa trovare
-           un livello mezzo fuori dal foglio senza capire perche'. -->
+      <!-- Il posto sul piano: non blocca niente, ma la corsa percorribile non
+           e' elastica, e un gruppo di fogli che non ci sta finisce di fianco,
+           fuori dalla corsa. Si dice PRIMA di scegliere. Fino al 2026-11-07
+           qui c'era l'avviso del «foglio diverso», che non serve piu': chi
+           arriva porta il suo foglio. Vedi js/progetto.js. -->
       <p class="modal-nota" id="prog-nota" hidden></p>
     </div>
     <footer class="modal-foot">

@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 77
-**Ultimo aggiornamento:** 2026-11-07 16:15
+**Versione:** 78
+**Ultimo aggiornamento:** 2026-11-07 16:55
 
 ## Regole di co-editing
 
@@ -800,7 +800,7 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 
 ### Step 11 — Unire due progetti salvati: il foglio e la scelta dei livelli
 
-**Stato:** in corso — **metà del problema è sparita invece di essere risolta.** Dal 2026-11-06 i livelli di un progetto salvato si possono **aggiungere** a quelli che ci sono (Step 4). Il **foglio**, che era la rifinitura più grossa, non è più una rifinitura di questo step: con più fogli sul piano (Step 12) due progetti non litigano più per l'unico foglio, e la cosa giusta da fare è che un progetto si porti dietro **il suo**. Succede con la fase 5 dello Step 12, e quel giorno questa metà si chiude da sé. Resta la **scelta dei livelli**.
+**Stato:** in corso — **resta solo la scelta dei livelli.** Dal 2026-11-06 i livelli di un progetto salvato si possono **aggiungere** a quelli che ci sono (Step 4). Il **foglio**, che era la rifinitura più grossa, **si è chiuso il 2026-11-07** con la fase 5 dello Step 12: un progetto salvato si porta dietro i suoi fogli, e se il piano è già quello di quel progetto i livelli si appoggiano sui fogli che ci sono. Resta la **scelta dei livelli**.
 
 **Obiettivo:** prendere pezzi da due progetti salvati senza perdere niente per strada e senza dover ricollocare a mano — né i disegni, né l'attenzione.
 
@@ -813,7 +813,7 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 
 | Cosa | Perché serve |
 |---|---|
-| **Il foglio diverso** | Decidere che fare quando le due misure non combaciano: ricollocare quello che arriva dentro al foglio in uso, oppure offrire di adottare il foglio del file dicendo che quello che c'era si sposta. Oggi si avvisa e basta. |
+| ~~**Il foglio diverso**~~ | **Fatto il 2026-11-07** (fase 5 dello Step 12). Non si è scelto fra «ricollocare» e «adottare il foglio»: le due strade erano i due modi di spartirsi un unico foglio, e l'unico foglio non c'è più. |
 | **La scelta dei livelli** | «Mi servono *alcune parti* da quello»: un elenco con le caselle prima di aggiungere, per prenderne due su otto invece di prenderli tutti e cancellare il resto a mano. |
 
 **Criterio di completamento:** l'utente apre due progetti salvati su fogli di misura diversa, prende da ciascuno solo i livelli che gli servono, e **non deve ricollocare niente a mano** prima di stampare.
@@ -821,10 +821,11 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 **Note (cronologia dello step):**
 - [2026-11-06] Step aperto, e aperto perché una parte è già fatta: l'avviso a tre vie è nello Step 4. Qui restano il foglio e la scelta dei livelli, rimandati dall'utente nello stesso messaggio in cui ha chiesto l'avviso.
 - [2026-11-07] **Il foglio passa allo Step 12, e non per spostare un problema altrove.** L'utente ha chiesto di andare verso più fogli sul piano, e quella direzione *scioglie* questo pezzo invece di rattopparlo: non c'è più un unico foglio per cui litigare. Qui resta la scelta dei livelli — l'elenco con le caselle per prenderne due su otto — che nel frattempo è diventata meno urgente, perché un livello caricato sul foglio sbagliato adesso si trascina su quello giusto (Step 4).
+- [2026-11-07] **Il foglio è chiuso** (fase 5 dello Step 12). Un progetto salvato scrive i suoi fogli nel file e ogni livello dice su quale sta. Riaprendolo: se il piano di oggi è **lo stesso piano** (tanti fogli quanti, delle stesse misure, nello stesso ordine) i livelli si appoggiano sui fogli che ci sono — che è il caso raccontato il 6 novembre, due file sullo stesso formato e le parti da mettere sulla stessa carta; se no, il progetto **porta i suoi fogli** e nessuno si sposta. L'avviso «quel progetto era su un foglio di un'altra misura, controlla dove sono finiti i livelli» è stato cancellato: non c'è più niente da controllare.
 
 ### Step 12 — Più fogli sul piano
 
-**Stato:** in corso — **manca solo l'ultima.** Dal 2026-11-07 si lavora e si stampa su più fogli insieme, telecomando compreso. Resta la fase 5: il progetto salvato.
+**Stato:** in corso — **nel programma è tutto fatto, tutte e cinque le fasi.** Dal 2026-11-07 si lavora e si stampa su più fogli insieme, il telecomando dice a che foglio sta andando, e il progetto salvato si porta dietro i suoi fogli. Resta la prova vera: nove magneti sulla macchina (vedi il criterio di completamento).
 
 **Obiettivo:** mettere sul piano più fogli, anche di misure diverse, lavorarci sopra come su uno solo e stamparli **in una volta**, senza che il numero dei fogli si trasformi in un numero uguale di misure da fare e di cambi penna da aspettare.
 
@@ -840,6 +841,11 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 - **L'ordine di stampa lo sceglie l'utente ogni volta**, con «per penna» proposto di partenza (scelta sua). Per penna, l'ordine delle penne è quello in cui compaiono nell'elenco: non si inventa un ordine «migliore», perché l'ordine dei livelli decide anche che cosa finisce sopra a che cosa.
 - **Con l'ottimizzazione «tutto» il raggruppamento per penna non si può fare**, e si dice invece di farlo male: lì un gruppo è un foglio intero con le sue penne mescolate, e «la penna di questo gruppo» non esiste.
 - **Il controllo dell'ingombro guarda un foglio per volta** durante la procedura, e tutti alla fine. Lamentarsi di un foglio non ancora misurato sarebbe un allarme su una posizione che è ancora un'ipotesi.
+- **Nel file i fogli si salvano, gli AGGANCI no** (fase 5). Chi è accostato a chi *discende* da dove stanno i fogli: un aggancio scritto in un file potrebbe descrivere un giro chiuso che nessuna geometria regge, e `radiceDi` lo dice già in un commento. Il file dice dove sono i fogli; l'accostamento si rilegge da lì. Per lo stesso motivo non si salvano le misure di una stampa — `z`, `cartaSua`, `misurato` — che sono misure della macchina di oggi, non del lavoro.
+- **Il livello salva il NUMERO del suo foglio, non l'id.** Gli id (`fog3`) li conta un contatore che riparte da uno a ogni ricarica: due file salvati in due giorni chiamerebbero `fog1` due fogli che non c'entrano niente. Un indice è una posizione in un elenco che sta nello stesso file, e non può voler dire altro.
+- **Il file resta un SVG che si apre anche altrove**, quindi il disegno dentro passa in coordinate **macchina** (riquadro = tutti i fogli). Nove magneti devono uscire come nove disegni in nove posti, non nove volte sovrapposti nell'angolo. Con un foglio solo il file è **identico** a quello di prima: è l'invariante che protegge i file già salvati, ed è un controllo del banco.
+- **Il formato è il 2, e scrive anche le due chiavi del formato 1** (`foglio` e `angolo`, del primo foglio). Costa due chiavi e salva un file aperto su un computer non aggiornato.
+- **Un piano con più fogli è lavoro da perdere anche senza un livello sopra.** Nove magneti posati uno contro l'altro, magari con l'angolo già misurato, sono mezz'ora: dal 2026-11-07 aprire un progetto con più di un foglio sul piano fa chiedere, come lo faceva un livello.
 
 **Quanto costa, in fermate:** nove magneti con due penne vogliono **17 cambi penna** stampati foglio per foglio e **1** stampati per penna. Non sono secondi di macchina — lo spostamento in più è penna alzata a 3000 mm/min — sono sedici volte che una persona deve alzarsi.
 
@@ -857,7 +863,7 @@ quello che era.
 | 3b | i popup: un angolo per foglio, la spunta delle carte | fatta (2026-11-07) |
 | 3c | la tab «In stampa» col piano intero | fatta (2026-11-07) |
 | 3d | il telecomando: «FOGLIO 3/9» | fatta (2026-11-07) |
-| 5 | il progetto salvato: `fogli[]` nel `.cnc2d.svg` | da fare |
+| 5 | il progetto salvato: `fogli[]` nel `.cnc2d.svg` | fatta (2026-11-07) |
 
 **Criterio di completamento:** l'utente mette nove magneti sul piano, li accosta, fa **tre schermate** di inizio stampa invece di ventisette, stampa tutto con **un** cambio penna, e il telecomando gli dice a che magnete è arrivato. Poi salva il lavoro, lo riapre un altro giorno e ritrova i nove fogli dov'erano.
 
@@ -866,9 +872,48 @@ quello che era.
 - [2026-11-07] **Fase 2, il piano e i magneti.** I nove magneti si posano da soli in una griglia 3 × 3 esatta (`0,0 75,0 0,75 150,0 75,75 0,150 150,75 75,150 150,150`) con **un solo angolo da misurare**.
 - [2026-11-07] **Fase 3, la stampa.** L'ordine per penna, il marcatore `;FOGLIO n/N` gemello di `;PENNA`, i popup per foglio, la tab «In stampa» col piano intero, il telecomando.
 - [2026-11-07] **Sul vetro del telecomando il posto non era libero**, e si è scoperto misurando: fra la percentuale e il tempo che manca passa l'etichetta del tasto STOP (fascia 152-162, a destra di x=154). Per questo, quando il foglio si scrive, il pallino della penna e la percentuale **salgono di quattordici pixel**. Con un foglio solo la schermata resta quella di prima.
-- [2026-11-07] Resta la fase 5. Con `fogli[]` dentro al `.cnc2d.svg` si chiude anche la metà «foglio» dello Step 11.
+- [2026-11-07] **Fase 5, il progetto salvato.** `fogli[]` nel `.cnc2d.svg` e il numero del foglio su ogni livello. Riaprendo: se il piano di oggi è **lo stesso piano** del file i livelli si appoggiano sui fogli che ci sono, se no il progetto **porta i suoi**. Chiusa la metà «foglio» dello Step 11.
+- [2026-11-07] **Un A4 non ci sta nella corsa, e il banco l'ha fatto notare.** 297 > 236: un progetto su A4 non può essere posato «dove c'è posto», e la prima versione reagiva mettendogli i fogli sopra a quelli che c'erano. Adesso un gruppo che non ci sta va **di fianco** a tutto, fuori dalla corsa, e mai sopra: due disegni sulla stessa carta non si vedono, un foglio che sporge sì — e l'elenco dei fogli lo dice già. «Più grande della corsa» e «non c'è più posto libero» si dicono con due frasi diverse, perché la prima non è un errore (con un A4 si stampa un pezzo per volta).
 
 ## Storico sessioni
+
+### [2026-11-07 16:55] (software) Il progetto salvato si porta dietro i suoi fogli, e lo Step 11 si chiude per metà
+
+**Riepilogo:** fase 5 e ultima dello Step 12 — un `.cnc2d.svg` salva l'elenco dei fogli e il numero del foglio di ogni livello, riaprendolo i disegni tornano ognuno sulla sua carta, e aggiungendo un secondo progetto sullo stesso formato i livelli si appoggiano ai fogli che ci sono invece di portare altra carta; chiusa la metà «foglio» dello Step 11, e trovato per strada che un A4 non sta nella corsa.
+
+**Cosa è stato fatto:**
+- **Il formato 2 del file.** Nel `<metadata>` c'è `fogli[]` (misure, nome, angolo di ognuno) e ogni livello scrive il **numero** del suo foglio. Restano anche le due chiavi del formato 1, che dicono del primo foglio: un file salvato oggi si apre anche su una pagina non aggiornata.
+- **Il disegno nel file passa in coordinate macchina.** Il riquadro del SVG è il rettangolo che contiene tutti i fogli, e ogni tracciato ci va dentro sommando l'angolo del suo foglio — la stessa conversione che fa `prepare()` per il G-code. Aperto in un altro programma, un lavoro su nove magneti si vede come nove disegni in nove posti.
+- **Riaprendo, due strade e un solo predicato.** «Lo stesso piano» vuol dire tanti fogli quanti, delle stesse misure, nello stesso ordine. *Sostituendo*: se il piano è lo stesso e un angolo è stato misurato sulla macchina, i fogli restano dove sono — una misura non si sovrascrive con un'ipotesi — e o tutti o nessuno, mai un misto, perché tenere l'angolo del foglio 3 e prendere dal file quello del 4 separerebbe due fogli accostati. *Aggiungendo*: se il piano è lo stesso i livelli si appoggiano ai fogli che ci sono; se no il progetto porta i suoi, posati **tutti insieme di un solo scostamento** (`Fogli.posaGruppo`) perché la loro geometria relativa è un fatto — posandoli uno per volta l'accostamento si perderebbe, e con lui una misura.
+- **Gli agganci non si salvano**, si ricalcolano da dove stanno i fogli: un aggancio scritto in un file potrebbe descrivere un giro chiuso che nessuna geometria regge. Nemmeno `z`, `cartaSua` e `misurato` si salvano: sono misure di una stampa.
+- **Un piano con più fogli fa chiedere anche senza livelli.** Nove magneti posati, magari già misurati, sono lavoro da perdere: «sostituisci tutto» li butterebbe in silenzio.
+- **Banco:** `prova-progetto.js` passa da 18 a 31 controlli (i fogli nel file, le coordinate macchina, l'invariante «con un foglio solo il file è identico a prima», l'accostamento ricalcolato, il gruppo che si posa intero, la misura protetta, il posto che manca, il formato 1 che si apre ancora, il piano uguale, il piano come lavoro da perdere) e `rompi.py` da 131 a **156 mutazioni**, tutte viste.
+
+**Bug: un A4 non ci sta nella corsa, e i fogli arrivati finivano sopra a quelli che c'erano**
+
+**Sintomo:** aggiungendo un progetto su A4 a un piano già occupato, il suo foglio veniva posato in basso a sinistra, sovrapposto a quello che c'era.
+**Causa:** accertata. La posa di un gruppo cercava un posto **dentro la corsa percorribile** (241,23 × 236,06) e, non trovandolo, si arrendeva mettendo il gruppo nell'origine. Ma un A4 è 210 × 297: nella corsa non ci sta **nemmeno da solo**, e non è un errore — con un foglio grande si stampa un pezzo per volta. Quindi la resa capitava sempre, e capitava nel modo peggiore. Trovato dal banco, che pretendeva il contrario.
+**Fix applicato:** un gruppo che non ci sta va **di fianco** a tutto quello che c'è, fuori dalla corsa, e mai sopra. Due disegni sulla stessa carta non si vedono; un foglio che sporge dalla corsa si vede sul piano e l'elenco dei fogli lo conta già. E «più grande della corsa» si dice con una frase diversa da «non c'è più posto libero», perché la prima non chiede di cercare un posto che non esiste.
+
+**Decisioni prese:**
+- Contesto: aggiungendo un progetto salvato, i suoi livelli devono finire su quale foglio?
+- Decisione: **se il piano di oggi è già quello del file, sui fogli che ci sono; se no, il progetto porta i suoi.** Il primo caso è quello raccontato dall'utente il 6 novembre (due file salvati sullo stesso formato, e le parti da mettere sulla stessa carta); il secondo è quello che fa arrivare un disegno sulla carta giusta quando i formati sono diversi.
+- Alternative scartate: *portare sempre un foglio nuovo* — risolverebbe il problema sbagliato nel caso più comune, lasciando due A4 da stampare dove l'utente ne vuole uno; *appoggiare sempre sul foglio in uso* (la decisione del 6 novembre) — è quella che faceva cascare i livelli fuori dal foglio, e **questa voce la supera**; *accoppiare foglio per foglio quando le misure combaciano* — spezzerebbe un gruppo accostato, trasformando una misura in due.
+- Da rivedere se: l'utente si trova spesso a dover separare su due fogli dei livelli arrivati sullo stesso.
+
+**Supera la decisione del: [2026-11-06] «aggiungendo, chi c'era prima è il padrone di casa: del file si prendono solo i livelli»** — era il meglio possibile quando il foglio era uno solo (adottare il foglio del file avrebbe ricentrato i disegni di chi c'era già), e con più fogli sul piano il compromesso non serve più. Con lei è stato cancellato il suo prezzo: l'avviso «quel progetto era su un foglio di un'altra misura, controlla dove sono finiti i livelli».
+
+**File consegnati/modificati:**
+- `webui/js/progetto.js` — formato 2, scrittura e lettura dei fogli, `riquadro`, `fogliDi`, `stessoPiano`, `rimetti`, `accosta`, `dovePosarli`, `strettoia`, `quantiFogli`; finestrella e messaggi riscritti.
+- `webui/js/fogli.js` — `posaGruppo` (scostamento unico per un gruppo, di fianco se non ci sta, `dentro`/`piuGrande`) e `staGruppo`.
+- `webui/js/artwork.js` — `progetto()` scrive il numero del foglio, `daProgetto(ls, aggiungi, fogli)` lo rilegge, `load()` chiede anche con un piano a più fogli.
+- `webui/index.html` — i commenti della finestrella.
+- `webui/tools/prova-progetto.js` — 31 controlli; `webui/tools/rompi.py` — 156 mutazioni.
+- `documento-sessione-cnc-2d.md` — v78.
+
+**Impatto su Vision/Pipeline:** Step 12 — fase 5 fatta, le cinque fasi sono tutte nel programma: resta la prova sulla macchina. Step 11 — chiusa la metà «foglio», resta la scelta dei livelli.
+
+---
 
 ### [2026-11-07 16:15] (software + firmware) Il piano diventa più fogli: dai magneti che si accostano al telecomando che dice a che magnete sei
 

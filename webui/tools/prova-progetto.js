@@ -17,13 +17,40 @@
  *   3. che aggiungendo arrivino le FORME e non i tracciati: le curve sono
  *      esattamente quello che si perderebbe riaprendo lo stesso file come un
  *      SVG qualunque, ed e' il motivo per cui questa strada esiste;
- *   4. che aggiungendo il foglio in uso NON si muova (e' la decisione del 6
- *      novembre: chi c'era prima e' il padrone di casa);
+ *   4. che aggiungendo, chi c'era prima NON si muova di un millimetro —
+ *      e che il progetto arrivato si porti dietro IL SUO foglio invece di
+ *      appoggiare i suoi livelli su quello di un altro (dal 2026-11-07:
+ *      supera la decisione del 6 novembre, vedi js/progetto.js);
  *   5. che «Sostituisci tutto» faccia ancora quello che ha sempre fatto,
- *      foglio compreso — la strada vecchia non si rompe per farne una nuova;
+ *      fogli compresi — la strada vecchia non si rompe per farne una nuova;
  *   6. che due progetti arrivati insieme diano DUE domande. Trascinandone
  *      due, aprire la seconda finestrella sopra la prima perderebbe una
  *      scelta senza dirlo, e il secondo file sparirebbe in silenzio.
+ *
+ * E DAL 2026-11-07 (fase 5 dello Step 12), le cose che un file con PIU'
+ * FOGLI deve saper dire:
+ *   7. che il file li scriva tutti, e che ogni livello dica su quale sta;
+ *   8. che il disegno nel file sia in coordinate MACCHINA — nove magneti
+ *      devono uscire come nove disegni in nove posti, non nove volte
+ *      sovrapposti nell'angolo — e che con un foglio solo non cambi niente
+ *      rispetto a prima;
+ *   9. che riaprendolo l'ACCOSTAMENTO torni, ricalcolato da dove stanno i
+ *      fogli e non riletto dal file: e' quello che fa la differenza fra una
+ *      misura sulla macchina e due;
+ *  10. che aggiungendo, il gruppo che arriva si posi TUTTO INSIEME, cioe'
+ *      che due fogli accostati nel file lo siano ancora sul piano;
+ *  11. che un angolo MISURATO oggi non venga sovrascritto da quello salvato
+ *      nel file, che e' un'ipotesi;
+ *  12. che quando nella corsa non c'e' piu' posto lo si dica PRIMA di
+ *      scegliere, e non dopo;
+ *  13. che un progetto salvato col formato 1 (un foglio solo) si apra
+ *      ancora;
+ *  14. che sullo STESSO piano i livelli si appoggino ai fogli che ci sono
+ *      invece di portare altra carta — e' il caso vero del 6 novembre: due
+ *      file salvati sullo stesso formato, e le parti da mettere sulla
+ *      stessa carta;
+ *  15. che un piano con piu' fogli faccia chiedere anche quando di livelli
+ *      non ce n'e' nessuno: nove magneti posati sono lavoro da perdere.
  *
  * Ogni controllo qui dentro e' stato provato ROMPENDO IL CODICE DI PROPOSITO:
  * un controllo che non si accende quando il codice e' rotto non e' un
@@ -41,6 +68,15 @@ function ok(nome, vero, extra) {
   console.log((vero ? 'ok  ' : 'KO  ') + nome + (extra ? '   ' + extra : ''));
   if (!vero) guai++;
 }
+
+/* I FOGLI PER INDICE, SENZA MORIRE. Qui sotto si guarda il foglio 2 o il 3, e
+   un difetto puo' farne sparire uno: un banco che muore con un TypeError non
+   dice quale controllo non torna -- sembra rotto il banco, non il codice. E'
+   succeduto il 2026-11-07 con la mutazione «lo stesso piano non guarda le
+   misure», che ha lasciato un foglio solo dove il controllo ne pretendeva due.
+   Questo torna una riga di null invece di esplodere: il controllo FALLISCE, e
+   si legge. */
+const FOG = (st, i) => st.fogli[i] || [null, null, null, null, null, null];
 
 /* Due disegni fatti a mano, e fatti a mano per una ragione: il primo ha una
    CURVA vera -- due nodi con le maniglie -- e il disegno di esempio non ne ha
@@ -64,6 +100,13 @@ const STATO = (page) => page.evaluate(() => {
     spessori: p.livelli.map((l) => l.spessore || null),
     cambi: p.livelli.map((l) => !!l.cambioPenna),
     foglio: [State.data.paper.w, State.data.paper.h],
+    /* Il piano intero, e non solo il foglio in uso: dalla fase 5 un progetto
+       si porta dietro i suoi fogli, e le domande sono su quelli. */
+    fogli: State.data.fogli.map((f) => [f.w, f.h, f.origine.x, f.origine.y,
+                                        f.aggancio ? Fogli.indice(f.aggancio) : null,
+                                        f.misurato]),
+    attivo: Fogli.indice(State.data.foglioAttivo),
+    suFoglio: p.livelli.map((l) => l.foglio),
     aperta: !document.getElementById('prog-modal').hidden,
     titolo: document.getElementById('prog-titolo').textContent,
     desc: document.getElementById('prog-desc').textContent,
@@ -91,7 +134,9 @@ const STATO = (page) => page.evaluate(() => {
      spessore scelti a mano -- cioe' le cose che un SVG normale non sa dire. */
   const salvato = await page.evaluate(([CURVO]) => {
     document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
     Paper.setSize(210, 297);
+    Paper.setSheetOrigin(0, 0);
     Artwork.load(CURVO, 'curvo.cnc2d.svg');
     const l = Artwork.livelli();
     Artwork.scegliPenna(l[0].id, '#1f4fa8');
@@ -103,22 +148,34 @@ const STATO = (page) => page.evaluate(() => {
   /* Un secondo progetto, diverso e su un altro foglio: serve alla coda. */
   const altro = await page.evaluate(([DRITTO]) => {
     document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
     Paper.setSize(148, 210);
+    Paper.setSheetOrigin(10, 10);
     Artwork.load(DRITTO, 'dritto.cnc2d.svg');
     return Progetto.testo();
   }, [DRITTO]);
 
-  /* La scena di partenza: il lavoro che c'e' gia' sul foglio, su un A5. */
+  /* La scena di partenza: il lavoro che c'e' gia' sul foglio, su un A5.
+     I FOGLI SI RIMETTONO A UNO. Non e' pulizia di cortesia: dalla fase 5 un
+     progetto aggiunto lascia sul piano i suoi fogli, e una scena che se li
+     portasse dietro farebbe passare o fallire un controllo per quello che e'
+     successo nel controllo precedente. L'angolo si mette a mano per la stessa
+     ragione: i numeri che si pretendono qui sotto partono da li'. */
   const SCENA = async () => page.evaluate(([DRITTO]) => {
     document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
     Paper.setSize(148, 210);
+    Paper.setSheetOrigin(10, 10);
     Artwork.load(DRITTO, 'in corso.svg');
   }, [DRITTO]);
 
   /* ============ 1. SUL FOGLIO VUOTO NON SI CHIEDE NIENTE ============
      Non c'e' nessuna differenza fra sostituire e aggiungere quando non c'e'
      niente da sostituire. */
-  await page.evaluate(() => { document.getElementById('btn-clear-file').click(); });
+  await page.evaluate(() => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+  });
   await page.evaluate(([t]) => Artwork.load(t, 'curvo.cnc2d.svg'), [salvato]);
   await page.waitForTimeout(120);
   r = await STATO(page);
@@ -144,10 +201,20 @@ const STATO = (page) => page.evaluate(() => {
      r.quanti === 1 && r.nomi[0] === 'in corso.svg' &&
      r.foglio[0] === 148 && r.foglio[1] === 210,
      r.quanti + ' livelli (' + r.nomi.join(', ') + '), foglio ' + r.foglio.join('×'));
-  /* Il foglio diverso si dice PRIMA di scegliere: e' la cosa che fa trovare
-     un livello mezzo fuori dal foglio senza capire perche'. */
-  ok('e il foglio diverso e` scritto nella finestrella',
-     r.nota !== null && /210/.test(r.nota) && /148/.test(r.nota), r.nota);
+  /* La finestrella dice quanti fogli porta: dal 2026-11-07 e' la cosa che
+     cambia fra «aggiungi» e «sostituisci», e si legge prima di scegliere. */
+  ok('e la finestrella dice che porta il suo foglio',
+     /un foglio 210 × 297 mm/.test(r.desc) && /porta il suo foglio/.test(r.desc),
+     r.desc.slice(0, 120));
+  /* E DICE CHE UN A4 NON CI STA NELLA CORSA, perche' non ci sta: 297 > 236.
+     Non e' «il posto e' finito», e' «quel foglio e' piu' grande della corsa»
+     — due cose diverse, e la seconda non e' un errore (con un A4 si stampa un
+     pezzo per volta). Dirle con la stessa frase vorrebbe dire far cercare
+     all'operatore un posto libero che non esiste. */
+  ok('e dice che un A4 non ci sta nella corsa percorribile',
+     r.nota !== null && /non ci sta dentro la corsa percorribile/.test(r.nota) &&
+     /un foglio 210 × 297 mm/.test(r.nota) && /un pezzo per volta/.test(r.nota),
+     String(r.nota).slice(0, 150));
 
   /* ============ 3. ANNULLA NON TOCCA NIENTE ============ */
   await page.click('#prog-annulla');
@@ -178,9 +245,30 @@ const STATO = (page) => page.evaluate(() => {
      r.penne[1] === '#1f4fa8' && r.spessori[1] === 0.8 && r.penne[2] === '#c8102e',
      'penne ' + JSON.stringify(r.penne) + ', spessori ' + JSON.stringify(r.spessori));
 
-  /* La decisione del 6 novembre: del file si prendono SOLO i livelli. */
-  ok('e il foglio in uso non si muove', r.foglio[0] === 148 && r.foglio[1] === 210,
-     'foglio ' + r.foglio.join('×'));
+  /* DAL 2026-11-07 CHI ARRIVA PORTA IL SUO FOGLIO, e supera la decisione del
+     6 novembre («del file si prendono solo i livelli»). Le due meta' del
+     controllo sono separate di proposito: quello che c'era non si muove di un
+     millimetro, E il foglio del file si aggiunge invece di essere buttato.
+     Prendere solo i livelli era il meglio possibile quando il foglio era uno;
+     adesso il livello arrivato sta sulla carta su cui stava. */
+  ok('quello che c\'era sul piano non si muove',
+     r.fogli.length === 2 && FOG(r, 0)[0] === 148 && FOG(r, 0)[1] === 210 &&
+     FOG(r, 0)[2] === 10 && FOG(r, 0)[3] === 10,
+     JSON.stringify(r.fogli));
+  /* E L'A4 CHE NON CI STA FINISCE DI FIANCO, NON SOPRA. Il foglio che c'era
+     arriva a X 158: il nuovo comincia da li'. Sovrapporli sarebbe il guaio
+     che non si vede — due disegni sulla stessa carta — mentre un foglio che
+     sporge dalla corsa si vede sul piano e lo dice l'elenco dei fogli. */
+  ok('e il foglio che non ci sta va di fianco, non sopra',
+     FOG(r, 1)[2] === 158 && await page.evaluate(() => Fogli.sovrapposti().length) === 0,
+     'angolo del nuovo X ' + FOG(r, 1)[2] + ' Y ' + FOG(r, 1)[3] +
+     ', coppie sovrapposte ' + await page.evaluate(() => Fogli.sovrapposti().length));
+  ok('e il progetto si porta dietro il suo foglio',
+     r.fogli.length === 2 && FOG(r, 1)[0] === 210 && FOG(r, 1)[1] === 297 &&
+     r.suFoglio[0] === 0 && r.suFoglio[1] === 1 && r.suFoglio[2] === 1 &&
+     r.attivo === 1,
+     'fogli ' + JSON.stringify(r.fogli) + ', livelli su ' +
+     JSON.stringify(r.suFoglio) + ', in uso il ' + (r.attivo + 1));
 
   /* Il primo livello arrivato chiede un cambio penna anche se nel suo file non
      lo chiedeva: la' era il primo di tutti, qui viene dopo il lavoro di
@@ -202,6 +290,11 @@ const STATO = (page) => page.evaluate(() => {
      r.quanti === 2 && r.nomi.every((n) => /curvo\.cnc2d\.svg/.test(n)) &&
      r.foglio[0] === 210 && r.foglio[1] === 297,
      r.quanti + ' livelli (' + r.nomi.join(', ') + '), foglio ' + r.foglio.join('×'));
+  /* E il piano torna a UN foglio: sostituire e' tornare a quel momento, e in
+     quel momento di fogli ce n'era uno. Un foglio di troppo rimasto sul piano
+     sarebbe una misura di troppo a inizio stampa. */
+  ok('e sul piano resta solo il suo', r.fogli.length === 1 &&
+     FOG(r, 0)[2] === 0 && FOG(r, 0)[3] === 0, JSON.stringify(r.fogli));
 
   /* ============ 6. DUE PROGETTI INSIEME, DUE DOMANDE ============
      Trascinandone due, i due FileReader finiscono quando finiscono. Aprire la
@@ -225,11 +318,14 @@ const STATO = (page) => page.evaluate(() => {
      r.aperta && /dritto/.test(r.titolo) && r.coda === null && r.quanti === 3,
      r.titolo + ', ' + r.quanti + ' livelli');
 
-  /* Il secondo progetto e' sullo stesso foglio della scena: il riquadro del
-     foglio diverso NON deve comparire. Un avviso che compare sempre e' un
-     avviso che non si legge piu'. */
-  ok('e del foglio non si dice niente quando e` lo stesso',
-     r.nota === null, String(r.nota));
+  /* La nota si ricalcola per OGNI progetto in coda, e si vede dalla misura
+     che nomina: qui parla dell'A5 che sta arrivando, non dell'A4 di prima.
+     Una nota scritta una volta per tutte direbbe la misura sbagliata — e
+     direbbe «piu' grande della corsa» di un foglio che invece ci starebbe,
+     se solo l'A4 appena aggiunto non si fosse mangiato il piano. */
+  ok('e per il secondo in coda la nota si rifa` da zero',
+     r.nota !== null && /un foglio 148 × 210 mm/.test(r.nota) &&
+     /non c'è più posto libero/.test(r.nota), String(r.nota).slice(0, 130));
 
   await page.click('#prog-aggiungi');
   await page.waitForTimeout(150);
@@ -239,6 +335,15 @@ const STATO = (page) => page.evaluate(() => {
      /dritto/.test(r.nomi[3]) && r.foglio[0] === 148,
      r.quanti + ': ' + r.nomi.join(', ') + ', foglio ' + r.foglio.join('×'));
 
+  /* TRE FOGLI SUL PIANO, uno per progetto, e i quattro livelli ciascuno sul
+     suo. E' l'intera ragione per cui la fase 5 esiste: prima i quattro
+     livelli finivano tutti sull'A5 di chi c'era, quelli dell'A4 alle
+     coordinate dell'A4, cioe' mezzi fuori dal foglio. */
+  ok('e sul piano ci sono i tre fogli, un livello per il suo',
+     r.fogli.length === 3 && FOG(r, 0)[0] === 148 && FOG(r, 1)[0] === 210 &&
+     FOG(r, 2)[0] === 148 && JSON.stringify(r.suFoglio) === '[0,1,1,2]',
+     JSON.stringify(r.fogli) + ' livelli su ' + JSON.stringify(r.suFoglio));
+
   /* Il registro e' la seconda metà dell'avviso: la finestrella si chiude, e
      quello che e' stato deciso deve restare scritto da qualche parte. */
   r = await page.evaluate(() => [...document.querySelectorAll('#log-view .log-line')]
@@ -246,10 +351,367 @@ const STATO = (page) => page.evaluate(() => {
       const s = d.querySelector('span:last-child');
       return s.className.replace('log-', '') + ' ' + s.textContent;
     }));
-  ok('il registro racconta l\'aggiunta e il foglio ignorato',
-     r.some((t) => /^msg Aggiunti 2 livelli dal progetto curvo/.test(t)) &&
-     r.some((t) => /^err Attenzione: quel progetto era su un foglio 210 × 297/.test(t)),
-     r.filter((t) => /Aggiunti|Attenzione/.test(t)).join(' | ').slice(0, 150));
+  ok('il registro racconta l\'aggiunta e il foglio che si e` portata dietro',
+     r.some((t) => /^msg Aggiunti 2 livelli dal progetto curvo/.test(t) &&
+                   /con un foglio 210 × 297 mm/.test(t)),
+     r.filter((t) => /Aggiunti/.test(t)).join(' | ').slice(0, 200));
+
+  /* ================================================================== */
+  /* ============ PIU' FOGLI IN UN FILE (fase 5, 2026-11-07) ============ */
+  /* ================================================================== */
+
+  /* Il blocco <metadata> del file, decodificato. E' l'unica cosa che conta
+     riaprendo: i tracciati disegnati sono un PRODOTTO, li rifa'
+     l'appiattimento delle forme. Per questo qui sotto si manomette il
+     metadata e non il disegno — e per questo le manomissioni si vedono. */
+  const META = (txt) => JSON.parse(
+    txt.match(/<metadata id="gdc-cnc2d-progetto">([^<]*)</)[1]
+       .replace(/&quot;/g, '"').replace(/&lt;/g, '<')
+       .replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
+
+  const CON_META = (txt, st) => {
+    const esc = (x) => String(x).replace(/[&<>"]/g, (c) =>
+      c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;');
+    return txt.replace(/(<metadata id="gdc-cnc2d-progetto">)[^<]*</,
+                       '$1' + esc(JSON.stringify(st)) + '<');
+  };
+
+  /* Il riquadro del file e l'ingombro di ogni disegno dentro di lui. */
+  const RIQUADRO = (txt) =>
+    txt.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
+
+  const DISEGNI = (txt) => txt.split('\n')
+    .filter((l) => l.startsWith('  <g'))
+    .map((l) => {
+      const xs = [], ys = [];
+      l.match(/ d="([^"]*)"/)[1].replace(/[ML]/g, ' ').trim().split(/\s+/)
+        .forEach((v, i) => (i % 2 ? ys : xs).push(+v));
+      return {
+        nome: (l.match(/<title>([^<]*)</) || [])[1],
+        x0: Math.min(...xs), x1: Math.max(...xs),
+        y0: Math.min(...ys), y1: Math.max(...ys)
+      };
+    });
+
+  /* LA COMPOSIZIONE DI PROVA, e le sue misure sono scelte una per una.
+   *   - foglio 1: 75 × 75 all'angolo (20, 30), col disegno curvo;
+   *   - foglio 2: 40 × 40 all'angolo (95, 60), col disegno dritto.
+   * Il secondo tocca il primo sul fianco (95 = 20 + 75) e gli si affaccia per
+   * quaranta millimetri, quindi e' ACCOSTATO: un angolo da misurare e non
+   * due. Ed e' spostato in alto di TRENTA millimetri di proposito: un gruppo
+   * posato un foglio per volta, invece di tutto insieme, metterebbe il
+   * secondo con la base allineata al primo — accostato lo stesso, ma a trenta
+   * millimetri da dove l'operatore l'aveva messo. Senza quel dislivello il
+   * controllo 10 passerebbe anche col codice rotto.
+   */
+  const comp = await page.evaluate(([CURVO, DRITTO]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(75, 75);
+    Paper.setSheetOrigin(20, 30);
+    Artwork.load(CURVO, 'curvo.svg');
+    const f2 = Fogli.aggiungi(40, 40, 'piccolo');
+    Fogli.muovi(f2.id, 95, 60);
+    Fogli.scegli(f2.id);
+    Artwork.load(DRITTO, 'dritto.svg');
+    return Progetto.testo();
+  }, [CURVO, DRITTO]);
+
+  /* ============ 7. IL FILE SCRIVE I FOGLI, E CHI STA SU CHI ============ */
+  let m = META(comp);
+  ok('il file salva tutti i fogli, con le misure e gli angoli',
+     m.versione === 2 && m.fogli.length === 2 &&
+     m.fogli[0].w === 75 && m.fogli[0].angolo.x === 20 && m.fogli[0].angolo.y === 30 &&
+     m.fogli[1].w === 40 && m.fogli[1].angolo.x === 95 && m.fogli[1].angolo.y === 60,
+     JSON.stringify(m.fogli));
+  ok('e ogni livello dice su quale sta, per numero',
+     m.livelli.map((l) => l.foglio).join() === '0,0,1',
+     m.livelli.map((l) => l.nome + '→' + l.foglio).join(', '));
+  /* Le due chiavi del formato 1 restano, e dicono del PRIMO foglio: un file
+     salvato oggi si deve aprire anche su una pagina non aggiornata, che di
+     `fogli` non sa niente. */
+  ok('e le chiavi del formato 1 restano, sul primo foglio',
+     m.foglio && m.foglio.w === 75 && m.angolo && m.angolo.x === 20,
+     JSON.stringify(m.foglio) + ' ' + JSON.stringify(m.angolo));
+
+  /* ============ 8. IL DISEGNO E' IN COORDINATE MACCHINA ============
+     Il riquadro va da (20,30) a (135,105): 115 × 75. E i due disegni non si
+     devono sovrapporre nel file — il secondo sta oltre il confine fra i due
+     fogli (x 75 nel riquadro) e sopra di trenta. Scritti in coordinate del
+     proprio foglio finirebbero uno sopra l'altro nell'angolo, che e'
+     esattamente come si vedrebbe aprendo il file altrove. */
+  let riq = RIQUADRO(comp), dis = DISEGNI(comp);
+  ok('il riquadro del file contiene tutti i fogli',
+     riq[0] === 115 && riq[1] === 75, riq.join(' × '));
+  const SUL = (ds, pezzo) => ds.filter((d) => d.nome.indexOf(pezzo) === 0);
+  ok('e ogni disegno sta nel pezzo di riquadro del suo foglio',
+     dis.length === 3 &&
+     SUL(dis, 'curvo').length === 2 &&
+     SUL(dis, 'curvo').every((d) => d.x1 <= 75) &&
+     SUL(dis, 'dritto').length === 1 &&
+     SUL(dis, 'dritto').every((d) => d.x0 >= 75 && d.y0 >= 30),
+     dis.map((d) => d.nome + ' x ' + d.x0.toFixed(1) + '–' + d.x1.toFixed(1) +
+                    ' y ' + d.y0.toFixed(1) + '–' + d.y1.toFixed(1)).join(' | '));
+
+  /* CON UN FOGLIO SOLO NON CAMBIA NIENTE, e questo e' il controllo che
+     protegge i file salvati prima di oggi: il riquadro torna il foglio e i
+     tracciati restano in coordinate del foglio — l'angolo (20,30) non entra
+     nei numeri. Se entrasse, ogni file vecchio si riaprirebbe spostato. */
+  const solo = await page.evaluate(([CURVO]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(75, 75);
+    Paper.setSheetOrigin(20, 30);
+    Artwork.load(CURVO, 'curvo.svg');
+    return Progetto.testo();
+  }, [CURVO]);
+  riq = RIQUADRO(solo); dis = DISEGNI(solo);
+  ok('con un foglio solo il file e` quello di sempre: niente angolo nei numeri',
+     riq[0] === 75 && riq[1] === 75 && dis.length === 2 &&
+     dis.every((d) => d.x0 >= 0 && d.x1 <= 75 && d.y0 >= 0 && d.y1 <= 75),
+     'riquadro ' + riq.join(' × ') + ', disegni ' +
+     dis.map((d) => 'x ' + d.x0.toFixed(1) + '–' + d.x1.toFixed(1) + ' y ' +
+                    d.y0.toFixed(1) + '–' + d.y1.toFixed(1)).join(' | '));
+
+  /* ============ 9. RIAPRENDO, L'ACCOSTAMENTO SI RICALCOLA ============ */
+  const VUOTO = async (t, nome) => {
+    await page.evaluate(([t, nome]) => {
+      document.getElementById('btn-clear-file').click();
+      while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+      Paper.setSize(148, 210);
+      Artwork.load(t, nome);
+    }, [t, nome]);
+    await page.waitForTimeout(150);
+    return STATO(page);
+  };
+
+  r = await VUOTO(comp, 'comp.cnc2d.svg');
+  ok('riaprendo tornano i due fogli, dove stavano',
+     r.fogli.length === 2 &&
+     FOG(r, 0).slice(0, 4).join() === '75,75,20,30' &&
+     FOG(r, 1).slice(0, 4).join() === '40,40,95,60' &&
+     r.suFoglio.join() === '0,0,1',
+     JSON.stringify(r.fogli) + ' livelli su ' + JSON.stringify(r.suFoglio));
+  ok('e il secondo e` di nuovo accostato al primo: un angolo da misurare',
+     FOG(r, 0)[4] === null && FOG(r, 1)[4] === 0 &&
+     await page.evaluate(() => Fogli.daMisurare().length) === 1,
+     'agganci ' + JSON.stringify([FOG(r, 0)[4], FOG(r, 1)[4]]));
+
+  /* L'ACCOSTAMENTO NON SI LEGGE DAL FILE: si ricalcola da dove stanno i
+     fogli. Lo stesso file con il secondo foglio spostato lontano deve dare
+     DUE angoli da misurare — se l'aggancio arrivasse dal file (o se si
+     fidasse di un campo salvato) il programma direbbe «uno» e la macchina
+     andrebbe a disegnare il secondo magnete dove non c'e'. */
+  const lontano = CON_META(comp, (() => {
+    const st = META(comp);
+    st.fogli[1].angolo = { x: 180, y: 160 };
+    return st;
+  })());
+  r = await VUOTO(lontano, 'lontano.cnc2d.svg');
+  ok('e staccando i fogli nel file gli angoli da misurare diventano due',
+     FOG(r, 1).slice(0, 4).join() === '40,40,180,160' &&
+     FOG(r, 1)[4] === null &&
+     await page.evaluate(() => Fogli.daMisurare().length) === 2,
+     JSON.stringify(r.fogli));
+
+  /* ============ 10. IL GRUPPO SI POSA TUTTO INSIEME ============
+     Due fogli accostati nel file devono essere accostati anche sul piano, e
+     non per caso: il dislivello di trenta millimetri fra i due deve essere
+     ancora trenta. Posati uno per volta si ritroverebbero di fianco con la
+     base allineata — accostati, ma non piu' dove l'operatore li aveva messi,
+     e quindi con i disegni spostati rispetto alla carta vera. */
+  await SCENA();
+  await page.evaluate(([t]) => Artwork.load(t, 'comp.cnc2d.svg'), [comp]);
+  await page.waitForTimeout(120);
+  await page.click('#prog-aggiungi');
+  await page.waitForTimeout(150);
+  r = await STATO(page);
+  ok('aggiungendo, il gruppo di fogli si posa tutto insieme',
+     r.fogli.length === 3 &&
+     FOG(r, 2)[2] - FOG(r, 1)[2] === 75 && FOG(r, 2)[3] - FOG(r, 1)[3] === 30,
+     JSON.stringify(r.fogli));
+  ok('quindi i due arrivati restano accostati: una misura e non due',
+     FOG(r, 2)[4] === 1, 'agganci ' + JSON.stringify(r.fogli.map((f) => f[4])));
+
+  /* ============ 11. LA MISURA NON SI SOVRASCRIVE CON UN'IPOTESI ============
+     Se il piano di oggi e' LO STESSO piano del file — tanti fogli quanti,
+     delle stesse misure, nello stesso ordine — e un angolo e' stato misurato
+     sulla macchina, «Sostituisci tutto» tiene i fogli dove sono. Gli angoli
+     nel file sono dove stavano ieri: un'ipotesi. */
+  r = await page.evaluate(([t]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(75, 75);
+    Fogli.aggiungi(40, 40, 'piccolo');
+    Fogli.poniMisurato(State.data.fogli[0].id, 7, 9);
+    Progetto.applica(Progetto.leggi(t), 'comp.cnc2d.svg', false);
+    return State.data.fogli.map((f) => [f.w, f.h, f.origine.x, f.origine.y, f.misurato]);
+  }, [comp]);
+  ok('sostituendo, i fogli misurati oggi restano dove li ha messi la macchina',
+     r.length === 2 && r[0][2] === 7 && r[0][3] === 9 && r[0][4] === true &&
+     r[1][4] === true, JSON.stringify(r));
+
+  /* E IL CONTRARIO: se il piano di oggi e' un altro piano, non c'e' nessuna
+     misura da proteggere e vincono gli angoli del file. */
+  r = await page.evaluate(([t]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(75, 75);
+    Fogli.poniMisurato(State.data.fogli[0].id, 7, 9);
+    Progetto.applica(Progetto.leggi(t), 'comp.cnc2d.svg', false);
+    return State.data.fogli.map((f) => [f.w, f.h, f.origine.x, f.origine.y, f.misurato]);
+  }, [comp]);
+  ok('ma su un piano diverso vincono gli angoli del file, e nessuno e` misurato',
+     r.length === 2 && r[0][2] === 20 && r[0][3] === 30 &&
+     r[0][4] === false && r[1][4] === false, JSON.stringify(r));
+
+  /* ============ 12. QUANDO NELLA CORSA NON C'E' PIU' POSTO ============
+     Lo si deve dire PRIMA di scegliere. La corsa percorribile e' 241 × 236:
+     un foglio da 240 × 230 la riempie, e per il gruppo da 115 × 75 che arriva
+     non resta niente. */
+  r = await page.evaluate(([DRITTO, t]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(240, 230);
+    Paper.setSheetOrigin(0, 0);
+    Artwork.load(DRITTO, 'in corso.svg');
+    Artwork.load(t, 'comp.cnc2d.svg');
+    return { area: [State.data.area.w, State.data.area.h],
+             nota: document.getElementById('prog-nota').hidden
+               ? null : document.getElementById('prog-nota').textContent };
+  }, [DRITTO, comp]);
+  ok('se nella corsa non c\'e` posto, la finestrella lo dice prima di scegliere',
+     r.nota !== null && /non c'è più posto libero/.test(r.nota) &&
+     /2 fogli/.test(r.nota) && /vanno spostati/.test(r.nota),
+     'corsa ' + r.area.join(' × ') + ' — ' + String(r.nota).slice(0, 110));
+
+  await page.click('#prog-aggiungi');
+  await page.waitForTimeout(150);
+  r = await page.evaluate(() => [...document.querySelectorAll('#log-view .log-line')]
+    .slice(-8).map((d) => {
+      const s = d.querySelector('span:last-child');
+      return s.className.replace('log-', '') + ' ' + s.textContent;
+    }));
+  /* La stessa frase della finestrella, fra gli AVVISI e non fra i messaggi:
+     la finestrella si chiude, e quello che non torna deve restare scritto
+     dove si guarda quando il foglio esce sbagliato. */
+  ok('e dopo lo ridice fra gli avvisi, non fra i messaggi',
+     r.some((t) => /^err Attenzione: sul piano non c'è più posto libero/.test(t) &&
+                   /2 fogli \(75 × 75 mm, 40 × 40 mm\)/.test(t)),
+     r.filter((t) => /posto/.test(t)).join(' | ').slice(0, 120) || r.slice(-2).join(' | '));
+
+  /* E QUANDO IL POSTO C'E' NON SI DICE NIENTE. Un avviso che compare sempre
+     e' un avviso che non si legge piu', e questo e' il caso vero dei magneti:
+     un quadrato sul piano, il gruppo da 115 × 75 che arriva, e nella corsa da
+     241 × 236 ci stanno tutti. */
+  r = await page.evaluate(([DRITTO, t]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(75, 75);
+    Paper.setSheetOrigin(0, 0);
+    Artwork.load(DRITTO, 'in corso.svg');
+    Artwork.load(t, 'comp.cnc2d.svg');
+    return document.getElementById('prog-nota').hidden
+      ? null : document.getElementById('prog-nota').textContent;
+  }, [DRITTO, comp]);
+  ok('e quando nella corsa c\'e` posto non si dice niente', r === null, String(r));
+  await page.click('#prog-aggiungi');
+  await page.waitForTimeout(150);
+  r = await STATO(page);
+  ok('e i tre fogli ci stanno tutti dentro la corsa',
+     r.fogli.length === 3 &&
+     await page.evaluate(() => Fogli.fuoriCorsa().length) === 0 &&
+     await page.evaluate(() => Fogli.sovrapposti().length) === 0,
+     JSON.stringify(r.fogli));
+
+  /* ============ 13. UN PROGETTO DEL FORMATO 1 SI APRE ANCORA ============
+     Un file salvato prima del 7 novembre non ha l'elenco `fogli`: ha un
+     foglio solo, scritto nelle due chiavi di allora. Deve aprirsi come
+     sempre, con il suo foglio e i livelli sopra. */
+  const vecchio = CON_META(salvato, (() => {
+    const st = META(salvato);
+    delete st.fogli;
+    st.versione = 1;
+    st.livelli.forEach((l) => { delete l.foglio; });
+    return st;
+  })());
+  r = await VUOTO(vecchio, 'vecchio.cnc2d.svg');
+  ok('un progetto del formato 1 si apre ancora, col suo foglio solo',
+     r.fogli.length === 1 && FOG(r, 0).slice(0, 2).join() === '210,297' &&
+     r.quanti === 2 && r.suFoglio.join() === '0,0' && r.attivo === 0,
+     JSON.stringify(r.fogli) + ', ' + r.quanti + ' livelli su ' +
+     JSON.stringify(r.suFoglio));
+
+  /* ============ 14. SULLO STESSO PIANO I LIVELLI SI APPOGGIANO ============
+   *
+   * IL CASO VERO, quello del 6 novembre: «carico un file perche' mi servono
+   * alcune parti da quello, poi un altro perche' altre parti mi servono da
+   * quest'altro». Sono due progetti salvati sullo STESSO formato, e le parti
+   * devono finire sulla STESSA carta. Portargli un secondo A4 accanto al
+   * primo risolverebbe il problema sbagliato: due fogli da stampare dove ne
+   * vuole uno.
+   */
+  r = await page.evaluate(([CURVO, t]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(210, 297);
+    Paper.setSheetOrigin(0, 0);
+    Artwork.load(CURVO, 'in corso.svg');
+    Artwork.load(t, 'curvo.cnc2d.svg');
+    return { desc: document.getElementById('prog-desc').textContent,
+             nota: document.getElementById('prog-nota').hidden
+               ? null : document.getElementById('prog-nota').textContent };
+  }, [CURVO, salvato]);
+  ok('sullo stesso piano la finestrella dice che i livelli si appoggiano',
+     /il piano è già quello di questo progetto/.test(r.desc) &&
+     /non arriva altra carta/.test(r.desc) && r.nota === null,
+     r.desc.slice(0, 200));
+
+  await page.click('#prog-aggiungi');
+  await page.waitForTimeout(150);
+  r = await STATO(page);
+  ok('e si appoggiano davvero: un foglio solo, e tutti i livelli sopra',
+     r.fogli.length === 1 && FOG(r, 0).slice(0, 4).join() === '210,297,0,0' &&
+     r.quanti === 4 && r.suFoglio.join() === '0,0,0,0',
+     JSON.stringify(r.fogli) + ', ' + r.quanti + ' livelli su ' +
+     JSON.stringify(r.suFoglio));
+
+  /* E il registro lo dice: i fogli non sono arrivati perche' c'erano gia'. */
+  r = await page.evaluate(() => [...document.querySelectorAll('#log-view .log-line')]
+    .slice(-4).map((d) => {
+      const s = d.querySelector('span:last-child');
+      return s.className.replace('log-', '') + ' ' + s.textContent;
+    }));
+  ok('e il registro dice che non e` arrivata altra carta',
+     r.some((t) => /^msg Aggiunti 2 livelli/.test(t) &&
+                   /sui fogli che c'erano/.test(t) &&
+                   /senza portare altra carta/.test(t)),
+     r.filter((t) => /Aggiunti/.test(t)).join(' | ').slice(0, 170));
+
+  /* ============ 15. UN PIANO CON PIU' FOGLI E' LAVORO DA PERDERE ============
+     Senza livelli sopra non si chiede niente: una domanda con una risposta
+     sola e' un clic in piu'. Ma nove magneti posati uno contro l'altro — e
+     magari con l'angolo misurato — sono mezz'ora di lavoro, e «sostituisci
+     tutto» li butterebbe in silenzio. */
+  r = await page.evaluate(([t]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(75, 75);
+    Paper.setSheetOrigin(0, 0);
+    Fogli.aggiungi(75, 75, 'secondo');
+    Artwork.load(t, 'curvo.cnc2d.svg');
+    return { aperta: !document.getElementById('prog-modal').hidden,
+             fogli: State.data.fogli.length,
+             livelli: Artwork.livelli().length };
+  }, [salvato]);
+  ok('col piano a piu` fogli si chiede anche senza un livello sopra',
+     r.aperta && r.fogli === 2 && r.livelli === 0,
+     'finestrella ' + (r.aperta ? 'aperta' : 'chiusa') + ', ' + r.fogli +
+     ' fogli, ' + r.livelli + ' livelli');
+  await page.click('#prog-annulla');
+  await page.waitForTimeout(120);
+  r = await page.evaluate(() => State.data.fogli.length);
+  ok('e «Annulla» lascia i due fogli dove sono', r === 2, r + ' fogli');
 
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();

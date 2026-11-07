@@ -106,10 +106,19 @@ var Artwork = (function () {
        era salvata. Vedi js/progetto.js. */
     var pg = (typeof Progetto !== 'undefined') ? Progetto.leggi(text) : null;
     if (pg) {
-      /* SUL FOGLIO VUOTO NON SI CHIEDE NIENTE: non c'è nessuna differenza fra
+      /* SUL PIANO VUOTO NON SI CHIEDE NIENTE: non c'è nessuna differenza fra
          sostituire e aggiungere quando non c'è niente da sostituire, e una
-         domanda con una risposta sola è solo un clic in più. */
-      if (!livelli.length) { Progetto.applica(pg, nome); return; }
+         domanda con una risposta sola è solo un clic in più.
+         MA UN PIANO CON PIU' FOGLI E' LAVORO DA PERDERE anche senza un
+         livello sopra, e dal 2026-11-07 può esserci: nove magneti posati uno
+         contro l'altro — e magari con l'angolo già misurato sulla macchina —
+         sono mezz'ora di lavoro che «sostituisci tutto» butterebbe senza
+         chiedere. Il foglio solo e vuoto invece non è lavoro: è lo stato
+         della pagina appena aperta. */
+      if (!livelli.length && State.data.fogli.length < 2) {
+        Progetto.applica(pg, nome);
+        return;
+      }
       /* Con del lavoro sul foglio la scelta è di chi stampa, e sono tre:
          vedi `chiedi` in js/progetto.js. La risposta arriva dopo — la
          finestrella non blocca la pagina come faceva il `confirm` — quindi
@@ -553,9 +562,20 @@ var Artwork = (function () {
      livello prima delle modifiche, perché l'etichetta EDIT serve proprio a
      riguardarla, e riaprendo il lavoro domani è ancora la stessa domanda. */
   function progetto() {
+    /* IL FOGLIO DI UN LIVELLO SI SALVA COME INDICE, non come `id`. Gli id
+       («fog3») sono di questa sessione: li conta un contatore che riparte da
+       uno a ogni ricarica, e due file salvati in due giorni diversi
+       chiamerebbero «fog1» due fogli che non c'entrano niente. L'indice
+       invece è una posizione in un elenco che sta nello stesso file, e non
+       può voler dire altro. */
+    var pos = {};
+    State.data.fogli.forEach(function (f, i) { pos[f.id] = i; });
+
     return {
       livelli: livelli.map(function (l) {
+        var i = pos[foglioDi(l).id];
         return {
+          foglio: i === undefined ? 0 : i,
           nome: l.nome, tol: l.tol, forme: l.forme,
           box: l.box, ritaglio: l.ritaglio, rot: l.rot,
           visibile: l.visibile, cambioPenna: l.cambioPenna, penna: l.penna || null,
@@ -584,7 +604,14 @@ var Artwork = (function () {
    * e non è una dimenticanza: sono indici dentro al percorso ottimizzato, e
    * `refit()` qui sotto il percorso lo rifà. Le svuota lui.
    */
-  function daProgetto(ls, aggiungi) {
+  /* `fogli` è la MAPPA dal numero di foglio scritto nel file all'id del
+     foglio vero sul piano: la prepara chi ha appena rimesso o aggiunto i
+     fogli (vedi `applica` in progetto.js), perché è lui l'unico che sa se
+     quelli del file sono stati creati adesso o se si è tenuto il piano di
+     oggi. Senza mappa — un progetto di prima del 2026-11-07, o una chiamata
+     da altrove — tutto finisce sul foglio in uso, che è dov'era finito
+     comunque quando il foglio era uno solo. */
+  function daProgetto(ls, aggiungi, fogli) {
     if (!aggiungi) {
       livelli = [];
       scelto = null;
@@ -598,7 +625,7 @@ var Artwork = (function () {
     (ls || []).forEach(function (d) {
       var l = {
         id: 'liv' + (++seq),
-        foglio: State.data.foglioAttivo,
+        foglio: (fogli && fogli[+d.foglio || 0]) || State.data.foglioAttivo,
         nome: d.nome || 'livello',
         forme: d.forme || [],
         tol: d.tol || Tracciato.TOLLERANZA,
