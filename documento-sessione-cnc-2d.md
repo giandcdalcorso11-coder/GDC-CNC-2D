@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 76
-**Ultimo aggiornamento:** 2026-11-06 15:32
+**Versione:** 77
+**Ultimo aggiornamento:** 2026-11-07 16:15
 
 ## Regole di co-editing
 
@@ -62,6 +62,27 @@ ruoli diversi, e non si sostituiscono a vicenda:
 La cartella e il file dello sketch restano `cnc2d_dashboard`: l'IDE Arduino
 esige che cartella e sketch abbiano lo stesso nome e non accetta spazi, quindi
 il nome esteso vive nel titolo della pagina e nei README, non nel filesystem.
+
+**Come si provano i controlli (dal 2026-11-02).** *Un controllo va provato
+rompendo il codice di proposito.* Se mutando la riga che quel controllo
+dovrebbe proteggere il controllo non si accende, non è un controllo: è una
+decorazione, e si scopre il giorno in cui serviva. Lo strumento è
+`webui/tools/rompi.py`, che muta un sorgente per volta, ricompone la pagina,
+lancia il collaudo e pretende la riga KO giusta. La regola si è precisata tre
+volte, e le tre precisazioni valgono quanto la regola:
+
+- **[2026-11-03] Anche le mutazioni invecchiano.** Quando il difetto che una
+  mutazione simulava diventa il comportamento giusto, si *toglie* la mutazione
+  e se ne scrive una che rompe la cosa nuova. Non si piega il controllo.
+- **[2026-11-07] Una mutazione può toccare più punti.** Quando la cosa da
+  rompere è difesa in due posti che devono dire la stessa cosa, romperne uno
+  solo lascia il programma corretto: simula un difetto che non è un difetto.
+- **[2026-11-07] Una mutazione che non può cambiare il comportamento misura
+  sé stessa, non il controllo.** Due casi visti: un difetto non raggiungibile
+  (si toglie la mutazione e si scrive nel codice *perché* quella riga resta
+  com'è), e un banco che non può vedere la differenza — il vetro finto del
+  telecomando disegna blocchi al posto delle lettere, quindi «3» e «4» sono
+  identici per costruzione, e quello che lì si può guardare è la larghezza.
 
 **Il repository GitHub si chiama `GDC-CNC-2D`** (rinominato dall'utente il
 2026-10-15; GitHub non accetta spazi nei nomi e li sostituisce con trattini).
@@ -248,6 +269,8 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 
  Il 2026-11-02 l'editor prende due strumenti che mancavano — il **selettore specifico** (lazo che taglia sul bordo) e lo **specchio** —, il marchio della macchina entra nell'intestazione e nel foglio, e la **fine di una stampa** smette di essere una bugia: «fine» aspetta che la macchina si fermi davvero, una stampa fermata diventa uno stato suo, e il racconto scade.
 
+ Il 2026-11-07 **sul piano ci stanno più fogli**, ed è il cambiamento più grosso dai livelli in poi: si aggiungono dalla colonna, si trascinano sul piano e **si agganciano l'uno all'altro** con i magneti, ogni livello sta su UN foglio, l'elenco dei livelli è diviso per foglio e si trascina da un gruppo all'altro. Si stampa su tutti in un colpo, scegliendo se andare **per penna** o **per foglio**; i popup di inizio stampa chiedono un angolo per ogni foglio che sta per conto suo e uno solo per i gruppi accostati; la tab «In stampa» disegna il piano intero e il telecomando dice **«foglio 3 di 9»**. Vedi lo Step 12.
+
  Il 2026-11-06 **due progetti salvati si possono unire**: riaprirne uno con del lavoro già sul foglio non lo sostituisce più d'ufficio, chiede, e fra le strade c'è **«aggiungi i livelli»** — con le forme intere, cioè le curve ancora curve. Quello che di questa cosa resta aperto è lo Step 11.
 
  Il 2026-11-03 l'anteprima smette di essere un disegno e comincia a somigliare al foglio: la **carta ha un colore** (sei carte per nome più il selettore, per misura di foglio e non per profilo) e ogni livello ha lo **spessore del tratto** in millimetri veri, scelto da un trattino accanto al pallino della penna. Nella stessa giornata: la **punta della penna nuova si ritrova** al cambio penna con un `G92`, perché due penne non hanno la punta nello stesso posto; nasce la tab **«In stampa»**, che racconta una stampa mentre succede e resta a raccontarla dopo; e **una penna diventa un colore E uno spessore**, con tutti gli avvisi dei cambi penna rifatti su quella chiave più uno nuovo — la fermata che manca.
@@ -290,6 +313,9 @@ mano a mano che le misure arrivano):
 **Criterio di completamento:** caricare un SVG, vederlo posizionato nel foglio, generare il G-code e farlo eseguire alla macchina
 
 **Note (cronologia dello step):**
+- [2026-11-07] **Il foglio era una parola sola per due cose, e da oggi non lo è più.** «Il foglio» voleva dire insieme *il rettangolo sul piano* e *il sistema di riferimento in cui stanno i numeri dei livelli*: finché ce n'era uno, le due cose coincidevano e nessuno doveva distinguerle. Il lavoro dello Step 12 è, in sostanza, averle separate — e il punto fortunato è che la conversione da coordinate del foglio a coordinate macchina stava **già in un posto solo**: bastava che l'angolo da sommare non fosse più sempre lo stesso.
+- [2026-11-07] **L'elenco dei livelli è diviso per foglio, e i livelli di uno stesso foglio stanno insieme.** Non è presentazione: l'ordine dell'elenco *è* l'ordine di stampa, e tenerli sparsi vorrebbe dire una stampa che salta da un foglio all'altro e torna indietro. Trascinando un livello sotto l'intestazione di un altro foglio, ci va: è la strada per rimediare a «l'ho caricato sul foglio sbagliato» senza ricaricare niente.
+- [2026-11-07] **L'editor mostra solo i livelli del foglio in uso**, e il suo sfondo non attraversa più i fogli. Quella non era una comodità ma un difetto: `daFoglio` porta i tratti nelle coordinate del livello che si modifica, quindi un disegno di un ALTRO foglio finiva disegnato sopra a questo alla distanza sbagliata, come se fosse sulla stessa carta — uno sfondo che dice una cosa falsa proprio mentre lo si usa per mirare.
 - [2026-11-06] **Un progetto salvato si riapre in due modi, e prima ce n'era uno solo.** Riaprire un `.cnc2d.svg` azzerava l'elenco dei livelli: era di proposito — «un progetto non si importa, si riprende» — e giusto per riprendere la giornata di ieri, sbagliato per chi tiene da parte dei pezzi e ne vuole da due file. La domanda c'era già, ma era un `window.confirm`: **due pulsanti, quindi due strade**, e la terza non c'entrava. Adesso è una finestrella sua con *Annulla / Sostituisci tutto / Aggiungi i livelli*, e aggiungendo arrivano le **forme** — curve, nomi, penne, spessori, rotazioni, ritagli — non i tracciati.
 - [2026-11-06] **Perché le forme contano più di tutto il resto.** Lo stesso file, riaperto come un SVG qualunque (togliendo il `<metadata>` a mano), si sarebbe potuto accostare fin dal primo giorno: nel file c'è un `<g>` per livello. Ma i tracciati disegnati lì dentro sono **polilinee già appiattite**, quindi la curva sarebbe tornata una spezzata e l'editor non l'avrebbe più ricurvata, e nome, penna e spessore sarebbero spariti. È il motivo per cui «aggiungi» passa dal `<metadata>` e non dall'importatore.
 - [2026-11-06] **La coda, che non era un dettaglio.** I file arrivano a mazzo: due trascinati insieme sono due `FileReader` che finiscono quando finiscono. Aprire la seconda finestrella sopra la prima avrebbe perso una scelta **senza dirlo** — il secondo progetto sparito e nessuno che sa perché. Si chiede uno per volta, e mentre si sceglie si vede scritto che ce n'è un altro in attesa.
@@ -774,7 +800,7 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 
 ### Step 11 — Unire due progetti salvati: il foglio e la scelta dei livelli
 
-**Stato:** in corso — **la strada c'è, le due rifiniture no.** Dal 2026-11-06 i livelli di un progetto salvato si possono **aggiungere** a quelli che ci sono (Step 4). Restano fuori due cose, rimandate dall'utente in modo esplicito: il **foglio** e la **scelta dei livelli**.
+**Stato:** in corso — **metà del problema è sparita invece di essere risolta.** Dal 2026-11-06 i livelli di un progetto salvato si possono **aggiungere** a quelli che ci sono (Step 4). Il **foglio**, che era la rifinitura più grossa, non è più una rifinitura di questo step: con più fogli sul piano (Step 12) due progetti non litigano più per l'unico foglio, e la cosa giusta da fare è che un progetto si porti dietro **il suo**. Succede con la fase 5 dello Step 12, e quel giorno questa metà si chiude da sé. Resta la **scelta dei livelli**.
 
 **Obiettivo:** prendere pezzi da due progetti salvati senza perdere niente per strada e senza dover ricollocare a mano — né i disegni, né l'attenzione.
 
@@ -794,8 +820,123 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 
 **Note (cronologia dello step):**
 - [2026-11-06] Step aperto, e aperto perché una parte è già fatta: l'avviso a tre vie è nello Step 4. Qui restano il foglio e la scelta dei livelli, rimandati dall'utente nello stesso messaggio in cui ha chiesto l'avviso.
+- [2026-11-07] **Il foglio passa allo Step 12, e non per spostare un problema altrove.** L'utente ha chiesto di andare verso più fogli sul piano, e quella direzione *scioglie* questo pezzo invece di rattopparlo: non c'è più un unico foglio per cui litigare. Qui resta la scelta dei livelli — l'elenco con le caselle per prenderne due su otto — che nel frattempo è diventata meno urgente, perché un livello caricato sul foglio sbagliato adesso si trascina su quello giusto (Step 4).
+
+### Step 12 — Più fogli sul piano
+
+**Stato:** in corso — **manca solo l'ultima.** Dal 2026-11-07 si lavora e si stampa su più fogli insieme, telecomando compreso. Resta la fase 5: il progetto salvato.
+
+**Obiettivo:** mettere sul piano più fogli, anche di misure diverse, lavorarci sopra come su uno solo e stamparli **in una volta**, senza che il numero dei fogli si trasformi in un numero uguale di misure da fare e di cambi penna da aspettare.
+
+**Il numero che decide tutto:** la corsa percorribile è **241,23 × 236,06 mm**. Non è il piano di legno (355 × 400 raggiungibili dentro una tavola 700 × 600): è dove la punta arriva, e tutto quello che si stampa insieme deve starci dentro. Cosa ci sta: **nove magneti 75 × 75** in una griglia 3 × 3 con cinque millimetri di gioco (in altezza per un millimetro); **due A6** affiancati; **un A5** e basta — due non ci stanno, 296 > 241. Il caso vero sono quindi i magneti e i formati piccoli, non due A5.
+
+**Decisioni progettuali:**
+- **Un foglio è un SISTEMA DI RIFERIMENTO**, non un rettangolo da disegnare. I livelli hanno il loro posto in coordinate *del foglio*; `State.data.fogli` è un elenco, e `paper`/`sheetOrigin`/`foglioMisurato` sono diventate **viste sul foglio attivo** invece che campi. È il motivo per cui la fase 1 non si vede: nessuno degli altri otto file è cambiato.
+- **Le misure non traboccano da un foglio all'altro.** Un angolo misurato sul foglio 1 non dice niente del foglio 2. È il difetto peggiore che questa roba potesse avere, perché non si vedrebbe sullo schermo — si vedrebbe sulla carta.
+- **L'accostamento si legge dalla geometria**, non da un interruttore (chiesto dall'utente: «il programma lo deve capire quando creo il file nella tab Disegno»). Due fogli i cui bordi si toccano entro **un millimetro** e che si affacciano per almeno **dieci** sono accostati, e il secondo ricava l'angolo dal vicino. Si guarda **solo indietro nell'elenco**, e non è un'ottimizzazione: è quello che impedisce i giri chiusi, e rende vera la regola «il primo foglio di un gruppo accostato è quello che si misura».
+- **I magneti non sono una comodità.** Un foglio appoggiato a occhio e sbagliato di mezzo millimetro *non* è accostato: chiederà la sua misura e chi l'ha posato non capirà perché. I magneti sono quello che rende il gesto affidabile. La loro tolleranza si misura in **pixel e non in millimetri** — da ingranditi un millimetro è mezzo schermo — e Alt li spegne, come nell'editor.
+- **La misura muove tutta la famiglia.** I fogli accostati sono spinti uno contro l'altro: la loro geometria relativa è un fatto, e la misura dice dove sta il *gruppo*. Spostare solo quello misurato sfascerebbe il gruppo nel momento in cui lo si ancora alla realtà. Da lì si bloccano tutti.
+- **L'altezza di contatto resta UNA**, con la spunta «i fogli sono di carte diverse» per il caso contrario. Nove quadrati dallo stesso cartoncino hanno lo stesso spessore, e misurarla nove volte sarebbe otto gesti per sapere otto volte lo stesso numero. La spunta sta nella colonna e non nel popup: si sa prima di premere Stampa che carte si hanno in mano, e il contatore dei passi deve dire la verità dalla prima schermata.
+- **L'ordine di stampa lo sceglie l'utente ogni volta**, con «per penna» proposto di partenza (scelta sua). Per penna, l'ordine delle penne è quello in cui compaiono nell'elenco: non si inventa un ordine «migliore», perché l'ordine dei livelli decide anche che cosa finisce sopra a che cosa.
+- **Con l'ottimizzazione «tutto» il raggruppamento per penna non si può fare**, e si dice invece di farlo male: lì un gruppo è un foglio intero con le sue penne mescolate, e «la penna di questo gruppo» non esiste.
+- **Il controllo dell'ingombro guarda un foglio per volta** durante la procedura, e tutti alla fine. Lamentarsi di un foglio non ancora misurato sarebbe un allarme su una posizione che è ancora un'ipotesi.
+
+**Quanto costa, in fermate:** nove magneti con due penne vogliono **17 cambi penna** stampati foglio per foglio e **1** stampati per penna. Non sono secondi di macchina — lo spostamento in più è penna alzata a 3000 mm/min — sono sedici volte che una persona deve alzarsi.
+
+**Le fasi.** Erano cinque nel piano iniziale; la 4 (il telecomando) è
+diventata la **3d** perché si è rivelata l'ultimo anello della catena di
+stampa e non un lavoro a parte — il numero del foglio nasce nel generatore e
+arriva al vetro senza mai uscire da quella catena. Il numero 5 è rimasto
+quello che era.
+
+| fase | cosa | stato |
+|---|---|---|
+| 1 | il modello: `fogli[]` e le viste | fatta (2026-11-07) |
+| 2 | il piano, i magneti, i livelli su un foglio | fatta (2026-11-07) |
+| 3a | ordine fra i fogli, marcatori `;FOGLIO`, elenco diviso | fatta (2026-11-07) |
+| 3b | i popup: un angolo per foglio, la spunta delle carte | fatta (2026-11-07) |
+| 3c | la tab «In stampa» col piano intero | fatta (2026-11-07) |
+| 3d | il telecomando: «FOGLIO 3/9» | fatta (2026-11-07) |
+| 5 | il progetto salvato: `fogli[]` nel `.cnc2d.svg` | da fare |
+
+**Criterio di completamento:** l'utente mette nove magneti sul piano, li accosta, fa **tre schermate** di inizio stampa invece di ventisette, stampa tutto con **un** cambio penna, e il telecomando gli dice a che magnete è arrivato. Poi salva il lavoro, lo riapre un altro giorno e ritrova i nove fogli dov'erano.
+
+**Note (cronologia dello step):**
+- [2026-11-07] **Fase 1, il modello.** `paper`, `sheetOrigin` e `foglioMisurato` diventano viste sul foglio attivo: con un foglio solo il comportamento è identico, e il criterio della fase era esattamente quello — tutti i banchi che c'erano passano ancora, senza che nessuno li abbia toccati.
+- [2026-11-07] **Fase 2, il piano e i magneti.** I nove magneti si posano da soli in una griglia 3 × 3 esatta (`0,0 75,0 0,75 150,0 75,75 0,150 150,75 75,150 150,150`) con **un solo angolo da misurare**.
+- [2026-11-07] **Fase 3, la stampa.** L'ordine per penna, il marcatore `;FOGLIO n/N` gemello di `;PENNA`, i popup per foglio, la tab «In stampa» col piano intero, il telecomando.
+- [2026-11-07] **Sul vetro del telecomando il posto non era libero**, e si è scoperto misurando: fra la percentuale e il tempo che manca passa l'etichetta del tasto STOP (fascia 152-162, a destra di x=154). Per questo, quando il foglio si scrive, il pallino della penna e la percentuale **salgono di quattordici pixel**. Con un foglio solo la schermata resta quella di prima.
+- [2026-11-07] Resta la fase 5. Con `fogli[]` dentro al `.cnc2d.svg` si chiude anche la metà «foglio» dello Step 11.
 
 ## Storico sessioni
+
+### [2026-11-07 16:15] (software + firmware) Il piano diventa più fogli: dai magneti che si accostano al telecomando che dice a che magnete sei
+
+**Riepilogo:** sul piano ci stanno più fogli, si agganciano fra loro con i magneti e si stampano in una volta sola scegliendo l'ordine — nove magneti a due penne passano da 17 cambi penna a 1 e da 27 schermate di inizio stampa a 3; fatte quattro fasi su cinque dello Step 12, nuovo.
+
+**Cosa è stato fatto:**
+- **Discussa prima di scrivere una riga**, come chiesto dall'utente, e la discussione ha cambiato il piano: l'accostamento si legge dalla geometria invece di dichiararlo, e i popup dell'angolo si ripetono per foglio invece di misurarne uno solo.
+- **Fase 1 — il modello** (invisibile). `State.data.fogli` è un elenco; `paper`, `sheetOrigin` e `foglioMisurato` diventano viste sul foglio attivo. Nuovo `js/fogli.js` con la geometria: accostamento, famiglie, pose libere, sovrapposizioni, raggiungibilità.
+- **Fase 2 — il piano.** Il piano disegna tutti i fogli, uno è quello in uso; si aggiungono e si tolgono dalla colonna; si trascinano con i **magneti** (bordi degli altri fogli, della corsa e della tavola, con la battuta in basso). I livelli appartengono a un foglio, e il livello scelto e il foglio in uso restano d'accordo **nei due versi**.
+- **Fase 3a — l'ordine e i marcatori.** Selettore «per penna / per foglio» accanto al pulsante Prepara; `;FOGLIO n/N` nel G-code; elenco dei livelli diviso per foglio, con trascinamento da un gruppo all'altro; l'editor limitato al foglio in uso.
+- **Fase 3b — i popup.** Un angolo per ogni foglio indipendente, nessuno per gli accostati; la spunta delle carte diverse; `controllaIngombro` per foglio.
+- **Fase 3c — la tab «In stampa».** Congela tutti i fogli, accende quello in lavorazione, dice «2 di 9».
+- **Fase 3d — il telecomando.** «FOGLIO 3/9» sul vetro, con la catena completa: generatore → Sender → messaggio → firmware.
+- **Banco:** quattro collaudi nuovi (`prova-fogli`, `prova-piano`, `prova-ordine`, più le aggiunte a `prova-stampe`, `prova-telecomando`, `vetro.cpp`) e **131 mutazioni**, tutte viste. Il motore del banco ha imparato a fare mutazioni su **più punti insieme**.
+
+**Bug: il piano si rimpiccioliva sotto il dito mentre si trascinava un foglio**
+
+**Sintomo:** trascinando un foglio verso il bordo, il foglio scappava da sotto il puntatore. Trovato dal collaudo dei magneti, che sbagliava di venti millimetri sempre nella stessa direzione.
+**Causa:** accertata. La didascalia sotto il piano stava nel flusso di una colonna flessibile, quindi la sua altezza la toglieva al disegno; le sue code («la penna ne raggiunge…», «ESCE DALLA TAVOLA…») compaiono e spariscono proprio mentre si trascina verso il bordo. Il difetto **c'era da prima** dei fogli multipli e non se n'era accorto nessuno.
+**Fix applicato:** lo spazio è riservato da `padding-bottom` e la didascalia ci sta dentro fuori dal flusso. Verificato da un controllo che misura l'altezza dell'SVG a ogni movimento del dito.
+
+**Bug: lo sfondo dell'editor attraversava i fogli**
+
+**Sintomo:** modificando un livello, l'editor mostrava dietro anche i disegni di altri fogli, alla distanza sbagliata.
+**Causa:** accertata. `daFoglio` porta i tratti nelle coordinate del livello che si sta modificando: un disegno di un altro foglio, portato lì, finisce sopra a questo come se fosse sulla stessa carta.
+**Fix applicato:** lo sfondo si ferma al foglio. Era uno sfondo che diceva una cosa falsa proprio mentre lo si usa per mirare.
+
+**Bug: la riga «c'è un altro progetto in attesa» non compariva mai** (del 6 novembre, chiuso qui) — vedi la voce precedente.
+
+**Decisioni prese:**
+- Contesto: con più fogli, ogni foglio ha il suo angolo da misurare sulla macchina, e nove magneti vorrebbero nove misure.
+- Decisione: **l'accostamento si legge dalla geometria** e i fogli accostati ricavano l'angolo dal vicino. Un angolo per gruppo, non per foglio.
+- Alternative scartate: **dichiararlo con un interruttore** (l'utente ha chiesto esplicitamente che lo capisca il programma); **misurare sempre tutto** (nove gesti per una cosa che la geometria sa già); **misurare sempre uno solo** (sbagliato quando i fogli sono posati a occhio, che è metà dei casi secondo l'utente).
+- Da rivedere se: i fogli cominciassero a essere posati su una dima, e allora anche i gruppi staccati avrebbero una posizione nota senza misurarla.
+
+- Contesto: stampando su più fogli bisogna decidere se finire un foglio per volta o fare una penna per volta.
+- Decisione: **lo sceglie l'utente ogni volta**, con «per penna» di partenza. Per penna le fermate le decide la penna e non le spunte dei livelli, che erano «fermati prima di questo livello» e con l'ordine nuovo quel livello ha un altro prima.
+- Alternative scartate: **sempre per penna** (toglie la possibilità di staccare un magnete appena finito); **sempre per foglio** (17 cambi penna invece di 1).
+
+- Contesto: il banco del vetro disegna BLOCCHI al posto delle lettere, per scelta dichiarata nella sua intestazione.
+- Decisione: **una differenza fra due glifi non è osservabile su quel banco, e un controllo che dice di guardarla sta misurando sé stesso.** Al suo posto si guarda la LARGHEZZA, che il blocco rende: «3/12» è più lungo di «3/9», e quello cambia solo se i numeri finiscono davvero nella stringa.
+- Da rivedere se: il banco del vetro prendesse un font vero.
+
+- Contesto: più mutazioni non vedevano niente perché la cosa da rompere era difesa in due posti che devono dire la stessa cosa.
+- Decisione: **una mutazione può toccare più punti** (campo `piu` in `rompi.py`). Rompere metà di una difesa doppia simula un difetto che non è un difetto.
+
+**File consegnati/modificati:**
+- `webui/js/fogli.js` — nuovo: la geometria dei fogli
+- `webui/js/state.js` — `fogli[]`, `foglioAttivo`, le viste
+- `webui/js/paper.js` — il piano con N fogli, i magneti, l'elenco nella colonna
+- `webui/js/artwork.js` — livelli legati a un foglio, elenco diviso, ordine fra i fogli, quote per foglio
+- `webui/js/popup.js` — i passi generati: un angolo per foglio indipendente
+- `webui/js/gcode.js` — `;FOGLIO` e le quote per foglio
+- `webui/js/sender.js` — riconosce e ricorda il foglio
+- `webui/js/stampe.js` — la tab col piano intero
+- `webui/js/editor.js` — elenco e sfondo limitati al foglio in uso
+- `webui/js/telecomando.js` — il foglio nel messaggio
+- `webui/css/components.css`, `webui/css/layout.css`, `webui/index.html`
+- `schermo/telecomando/telecomando.ino` — `foglioN`/`foglioDi`, `scriviFoglio`, `vetroDaRifare`
+- `schermo/vetro/vetro.cpp` — sette controlli nuovi
+- `webui/tools/prova-fogli.js`, `prova-piano.js`, `prova-ordine.js` — nuovi
+- `webui/tools/prova-stampe.js`, `prova-telecomando.js` — aggiunte
+- `webui/tools/rompi.py` — 55 mutazioni nuove (131 in tutto) e le mutazioni a più punti
+- `documento-sessione-cnc-2d.md` — v77
+
+**Impatto su Vision/Pipeline:** nelle **Convenzioni** è stata raccolta la pratica «come si provano i controlli», che fino a oggi viveva sparsa in tre voci di storico: la regola del 2026-11-02 e le sue tre precisazioni, due delle quali di oggi. Nuovo **Step 12 — Più fogli sul piano**, con le fasi di cui manca solo l'ultima. Lo **Step 11** cambia stato: la metà «foglio» non è più una sua rifinitura, si chiude da sé con la fase 5 dello Step 12. Lo **Step 4** aggiornato nello stato e con tre note.
+
+---
 
 ### [2026-11-06 15:32] (software) Due progetti salvati sullo stesso foglio: la terza strada che il `confirm` non poteva offrire
 
