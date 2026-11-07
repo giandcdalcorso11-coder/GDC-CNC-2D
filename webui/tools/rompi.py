@@ -559,6 +559,144 @@ MUTAZIONI = [
         vede="il registro racconta l'aggiunta",
         prova="prova-progetto.js",
     ),
+
+    # ---- PIU' FOGLI SUL PIANO, fase 1: il modello (2026-11-07) ----
+    dict(
+        nome="il foglio di partenza non viene dal profilo di stampa",
+        file="js/state.js",
+        da="    w: Profile.stampa().foglio.larghezza,",
+        a="    w: 210,",
+        vede="quello del profilo di stampa",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="`paper` torna a essere una copia del foglio",
+        file="js/state.js",
+        da="""  Object.defineProperty(data, 'paper', {
+    enumerable: true,
+    get: foglio
+  });""",
+        a="""  Object.defineProperty(data, 'paper', {
+    enumerable: true,
+    get: function () {
+      var f = foglio();
+      return { id: f.id, w: f.w, h: f.h, name: f.name, colore: f.colore,
+               origine: f.origine };
+    }
+  });""",
+        vede="non una sua copia",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="`sheetOrigin` si legge ma non si scrive",
+        file="js/state.js",
+        da="    get: function () { return foglio().origine; },\n    set: function (v) { foglio().origine = { x: +v.x, y: +v.y }; }",
+        a="    get: function () { return foglio().origine; }",
+        vede="scrivere `sheetOrigin` intero",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="l'angolo misurato e' della pagina, non del foglio",
+        file="js/state.js",
+        da="    get: function () { return foglio().misurato; },\n    set: function (v) { foglio().misurato = !!v; }",
+        a="    get: function () { return data.fogli[0].misurato; },\n    set: function (v) { data.fogli[0].misurato = !!v; }",
+        vede="NON vale per quello accanto",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="l'origine e' sempre quella del primo foglio",
+        file="js/state.js",
+        da="    get: function () { return foglio().origine; },",
+        a="    get: function () { return data.fogli[0].origine; },",
+        vede="NON vale per quello accanto",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="cambiare foglio ricentra i disegni come un cambio di misura",
+        file="js/artwork.js",
+        da="      if (prima.id !== p.id) { refit(); return; }",
+        a="",
+        vede="non muove i disegni",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="il foglio nuovo si posa staccato invece che accanto",
+        file="js/fogli.js",
+        da="      candidati.push({ x: r.x1, y: r.y0 });       // a destra, stessa base",
+        a="      candidati.push({ x: r.x1 + 5, y: r.y0 });   // a destra, staccato",
+        vede="nasce accostato",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="gli agganci non si rileggono quando un foglio si sposta",
+        file="js/fogli.js",
+        da='       vicino torna a doversi misurare da solo, e nessuno glielo direbbe. */\n    rileggiAgganci();',
+        a='       vicino torna a doversi misurare da solo, e nessuno glielo direbbe. */',
+        vede="torna a doversi misurare da solo",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="un vertice in comune basta per dirsi accostati",
+        file="js/fogli.js",
+        da="  var AFFACCIO = 10;",
+        a="  var AFFACCIO = 0;",
+        vede="si sfiorano in un angolo",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="l'accostamento guarda anche avanti (e fa giri chiusi)",
+        file="js/fogli.js",
+        da='    if (i <= 0) return null;\n    var l = elenco(), f = l[i];\n    for (var j = 0; j < i; j++) {\n      if (accostati(f, l[j])) return l[j].id;\n    }',
+        a='    var l = elenco(), f = l[i];\n    for (var j = 0; j < l.length; j++) {\n      if (j !== i && accostati(f, l[j])) return l[j].id;\n    }',
+        vede="non gira in tondo",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="un foglio nuovo puo' nascere sopra un altro",
+        file="js/fogli.js",
+        da="""      if (x + w > r.x0 + GIOCO && x < r.x1 - GIOCO &&
+          y + h > r.y0 + GIOCO && y < r.y1 - GIOCO) return false;""",
+        a="",
+        vede="senza sovrapporsi",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="toccarsi conta come sovrapporsi",
+        file="js/fogli.js",
+        da="""        if (Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > GIOCO &&
+            Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > GIOCO) {""",
+        a="""        if (Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) >= 0 &&
+            Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) >= 0) {""",
+        vede="non sono «sovrapposti»",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="un foglio fuori dalla corsa non viene nominato",
+        file="js/fogli.js",
+        da="""  function fuoriCorsa() {
+    return elenco().filter(function (f) {""",
+        a="""  function fuoriCorsa() {
+    if (true) return [];
+    return elenco().filter(function (f) {""",
+        vede="esce dalla corsa viene nominato",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="si puo' togliere anche l'ultimo foglio",
+        file="js/fogli.js",
+        da="    if (l.length < 2) return false;",
+        a="",
+        vede="l'ultimo foglio non si toglie",
+        prova="prova-fogli.js",
+    ),
+    dict(
+        nome="togliendo un foglio gli agganci non si rileggono",
+        file="js/fogli.js",
+        da="       foglio che non c'è più. */\n    rileggiAgganci();",
+        a="       foglio che non c'è più. */",
+        vede="non resta orfano",
+        prova="prova-fogli.js",
+    ),
 ]
 
 

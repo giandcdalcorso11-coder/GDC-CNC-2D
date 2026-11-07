@@ -2528,14 +2528,25 @@ var Artwork = (function () {
      * solo l'area percorribile — una corsa, un margine, un rapporto dalla tab
      * Impostazioni —, e fino a oggi toccare un margine della macchina
      * rifaceva da zero la collocazione di tutti i livelli. */
-    foglioUsato = { w: State.data.paper.w, h: State.data.paper.h };
+    foglioUsato = { id: State.data.paper.id,
+                    w: State.data.paper.w, h: State.data.paper.h };
 
     State.on('paper', function () {
       var p = State.data.paper;
       var prima = foglioUsato;
-      foglioUsato = { w: p.w, h: p.h };
+      foglioUsato = { id: p.id, w: p.w, h: p.h };
       if (!livelli.length) return;
       if (!prima) { refit(); return; }
+
+      /* CAMBIARE FOGLIO NON È CAMBIARE LA MISURA DEL FOGLIO, e dal
+         2026-11-07 sono due cose diverse perché i fogli sono più d'uno. Lo
+         spostamento qui sotto vale quando LO STESSO foglio cresce o si
+         stringe: i disegni gli restano attorno al centro. Passare dal foglio
+         1 al foglio 2 non muove niente sul piano — è solo un altro
+         riferimento che diventa quello in uso — e trattarlo come un cambio di
+         misura sposterebbe tutti i disegni di metà della differenza fra due
+         fogli che non c'entrano niente. */
+      if (prima.id !== p.id) { refit(); return; }
 
       var dx = (p.w - prima.w) / 2, dy = (p.h - prima.h) / 2;
       if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005) return;
