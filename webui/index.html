@@ -124,6 +124,17 @@
              che i magneti servono a far scendere. Vedi js/fogli.js. -->
         <div class="fogli-row" id="fogli-row"></div>
         <p class="fogli-nota" id="fogli-nota"></p>
+        <!-- L'ALTEZZA DI CONTATTO SI MISURA UNA VOLTA SOLA, perche' nove
+             magneti ritagliati dallo stesso cartoncino hanno lo stesso
+             spessore e misurarla nove volte sarebbe otto gesti per sapere
+             otto volte lo stesso numero. Questa spunta e' per il caso
+             contrario, e sta QUI e non dentro al popup: si sa prima di
+             premere «Stampa» che carte si hanno in mano, e il contatore dei
+             passi deve dire la verita' gia' dalla prima schermata. -->
+        <label class="carte-diverse" id="carte-diverse" hidden>
+          <input type="checkbox" id="chk-carte-diverse">
+          <span>I fogli sono di carte diverse: misura l'altezza su ciascuno</span>
+        </label>
         <div class="field-row">
           <label>Larghezza (mm) <input type="number" id="paper-w" value="148" min="20" max="400" step="1"></label>
           <label>Altezza (mm) <input type="number" id="paper-h" value="210" min="20" max="400" step="1"></label>

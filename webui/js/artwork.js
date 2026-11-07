@@ -2440,7 +2440,7 @@ var Artwork = (function () {
     /* Il percorso riordinato diventa quello mostrato: l'anteprima deve far
        vedere quello che la macchina farà davvero, non quello che avrebbe
        fatto prima del riordino. */
-    var art = [], di = [], fo = [], auto = [], penne = [], segniFoglio = [];
+    var art = [], di = [], fo = [], auto = [], penne = [], segniFoglio = [], quote = [];
     var ultimoFoglio = null;
     gruppi.forEach(function (g, i) {
       var l = g.id ? trova(g.id) : null;
@@ -2461,6 +2461,14 @@ var Artwork = (function () {
       if (g.polys.length && g.foglio !== ultimoFoglio) {
         ultimoFoglio = g.foglio;
         var ff = Fogli.trova(g.foglio);
+        /* LA QUOTA DI QUESTO FOGLIO, quando ne ha una sua. La misura per
+           foglio si fa solo se le carte sono diverse; se non c'e' si torna
+           a quella generale, e tornare e' importante quanto andare: senza,
+           dopo un foglio di cartoncino tutti gli altri resterebbero alla
+           sua quota. */
+        quote.push({ i: art.length,
+                     foglio: g.foglio,
+                     suaSua: !!(ff && ff.cartaSua && ff.z !== null) });
         segniFoglio.push({
           i: art.length,
           n: Fogli.indice(g.foglio) + 1,
@@ -2550,6 +2558,17 @@ var Artwork = (function () {
       auto: auto,
       penne: penne,
       fogli: segniFoglio,
+      /* Le quote per foglio si fanno NUMERI qui e non prima: l'alzata e il
+         contatto si conoscono solo adesso. Se nessun foglio ha una carta
+         sua l'elenco resta vuoto e il programma non cambia di una riga. */
+      quote: (function () {
+        if (!quote.some(function (q) { return q.suaSua; })) return [];
+        return quote.map(function (q) {
+          var f = Fogli.trova(q.foglio);
+          var giu = (q.suaSua && f) ? f.z : contatto;
+          return { i: q.i, down: giu, up: giu + alzata };
+        });
+      })(),
       opt: {
         penUp: contatto + alzata,
         penDown: contatto,
@@ -2584,6 +2603,7 @@ var Artwork = (function () {
     opt.pause = tutte;
     opt.penne = ultima.penne;
     opt.fogli = ultima.fogli || [];
+    opt.quote = ultima.quote || [];
     prep = Gcode.build(ultima.machine, opt);
     showStats(ultima.r, ultima.ms, tutte.length);
     /* Il pulsante del cambio penna si accende solo quando un programma c'è:

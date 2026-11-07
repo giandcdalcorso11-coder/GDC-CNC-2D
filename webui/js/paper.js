@@ -465,7 +465,14 @@ var Paper = (function () {
 
     var nota = document.getElementById('fogli-nota');
     if (!nota) return;
+    /* Prima del rientro anticipato: con un foglio solo «i fogli sono di
+       carte diverse» non vuol dire niente, e la spunta va NASCOSTA — che è
+       proprio il caso che un `return` messo sopra non farebbe mai. */
+    var cd = document.getElementById('carte-diverse');
+    if (cd) cd.hidden = l.length < 2;
+
     if (l.length < 2) { nota.textContent = ''; return; }
+
     var m = Fogli.daMisurare().length;
     var sovr = Fogli.sovrapposti().length;
     var fuori = Fogli.fuoriCorsa().length;

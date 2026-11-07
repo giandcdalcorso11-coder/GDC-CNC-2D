@@ -14,10 +14,19 @@
  * tre valgono per questa stampa e basta, e dopo un riavvio non valgono più.
  * Per questo stanno in State e non nel profilo.
  *
- * Il programma si rigenera DOPO il terzo passo e non prima: l'origine del
+ * Il programma si rigenera DOPO l'ultimo passo e non prima: l'origine del
  * foglio sposta tutte le coordinate, e l'altezza di contatto sposta la Z.
  * Mandare il G-code preparato con i valori di prima vorrebbe dire disegnare
  * da un'altra parte, o in aria.
+ *
+ * DAL 2026-11-07 NON SONO PIU' TRE. Sul piano i fogli possono essere nove, e
+ * ognuno ha il suo angolo: i passi diventano uno per ogni foglio che sta per
+ * conto suo. Quelli ACCOSTATI non li chiedono — il loro angolo si ricava da
+ * quello del vicino, che e' tutto il motivo per cui l'accostamento esiste —
+ * quindi nove magneti spinti uno contro l'altro restano tre passi, come
+ * prima. L'altezza di contatto resta UNA, perche' nove quadrati ritagliati
+ * dallo stesso cartoncino hanno lo stesso spessore; si ripete solo se la
+ * spunta «i fogli sono di carte diverse» dice il contrario.
  */
 var Popup = (function () {
 
@@ -47,8 +56,157 @@ var Popup = (function () {
 
   /* ------------------------------- i tre passi ---------------------------- */
 
+  /* Il nome con cui un foglio si chiama dentro ai passi. */
+  function nomeFoglio(f) {
+    var eti = f.name && f.name !== 'Personalizzato' ? f.name : f.w + ' × ' + f.h;
+    return 'foglio ' + (Fogli.indice(f.id) + 1) + ' (' + eti + ')';
+  }
+
+  function carteDiverse() {
+    var c = document.getElementById('chk-carte-diverse');
+    return !!(c && c.checked) && State.data.fogli.length > 1;
+  }
+
+  /* L'ALTEZZA DI CONTATTO, un passo per il foglio che tocca. `f` null vuol
+     dire «una sola per tutti», che e' il caso normale. */
+  function passoAltezza(f) {
+    return {
+      nome: f ? 'Altezza di contatto — ' + nomeFoglio(f)
+              : 'Altezza di contatto col foglio',
+      sezioni: { posizione: true, homing: false, assi: f ? true : false, penna: true },
+      testo: (f
+        ? 'Porta la punta sopra al <b>' + esc(nomeFoglio(f)) + '</b> e abbassala'
+        : 'Abbassa la penna') +
+             ' a piccoli passi finché la punta <b>tocca il ' +
+             'foglio e lascia il segno</b>. Non serve premere: appena segna, ' +
+             'sei alla quota giusta.<br><br>' +
+             '<b>Il tappo.</b> Se è ancora infilato, al foglio ci arriva lui e ' +
+             'la quota che leggi non è quella della punta.<br><br>' +
+             'Le quote della penna sono <b>negative</b>: Z0 è in alto, dove ci ' +
+             'sta il tappo, e il foglio sta intorno a Z-21,3.',
+      entra: function () { if (f) Fogli.scegli(f.id); },
+      /* Confermare a penna alzata è l'errore che manda in stampa un disegno
+         fatto in aria, e non se ne accorge nessuno finché il foglio non esce
+         bianco. Si pretende che la penna sia almeno scesa sotto metà alzata.
+         La soglia si conta dal contatto NOMINALE e non da zero: zero è il
+         tappo, in cima, e «z < metà alzata» lì sarebbe vero sempre. */
+      pronto: function () {
+        var alzata = Profile.alzataMm(), contatto = Profile.zContatto();
+        if (alzata === null || contatto === null) return false;
+        return State.data.pos.z < contatto + alzata / 2;
+      },
+      attesa: 'La penna è ancora troppo in alto: così disegneresti in aria.',
+      etichetta: 'Altezza penna completata',
+      esci: function () {
+        var z = State.data.pos.z;
+        if (f) {
+          f.z = z;
+          f.cartaSua = true;
+          Log.add('msg', 'Altezza di contatto del ' + nomeFoglio(f) + ': Z ' +
+                         z.toFixed(2) + ' mm.');
+          /* La prima misura vale anche come quella generale: serve ai
+             livelli che non stanno su nessun foglio misurato e al promemoria
+             nell'intestazione del programma. */
+          if (State.data.altezzaContatto === null) State.data.altezzaContatto = z;
+        } else {
+          State.data.altezzaContatto = z;
+          Log.add('msg', 'Altezza di contatto per questa stampa: Z ' +
+                         z.toFixed(2) + ' mm.');
+        }
+        alzaPenna();     // il passo finisce per definizione con la punta che tocca
+        return true;
+      }
+    };
+  }
+
+  /* L'ANGOLO DI UN FOGLIO. Uno per ogni foglio che non e' accostato a un
+     altro: quelli accostati il loro angolo ce l'hanno gia', come somma. */
+  function passoAngolo(f, quanti) {
+    return {
+      nome: quanti > 1 ? 'Angolo del ' + nomeFoglio(f) : 'Angolo del foglio',
+      sezioni: { posizione: true, homing: false, assi: true, penna: true },
+
+      /* IL TESTO CAMBIA PERCHÉ CAMBIA IL GESTO. Con un foglio più piccolo
+         della corsa si tocca il suo angolo e basta. Con un foglio più grande
+         quell'angolo sta FUORI dalla corsa — la macchina non ci arriva — e
+         chiedere di toccarlo sarebbe chiedere l'impossibile: è la
+         configurazione che l'operatore usa davvero, coi fogli tagliati a
+         mano più larghi della campata. Allora si tocca un punto qualsiasi
+         del foglio che la macchina raggiunge, e si dichiara quanto quel
+         punto dista dai due bordi. */
+      testo: function () {
+        var r = Fogli.raggiungibile(f.id);
+        var quale = quanti > 1 ? ' del <b>' + esc(nomeFoglio(f)) + '</b>' : '';
+        var appesi = Fogli.famiglia(f.id).length - 1;
+        var coda = appesi
+          ? '<br><br>Questa misura vale anche per ' +
+            (appesi === 1 ? 'il foglio accostato a questo'
+                          : 'i ' + appesi + ' fogli accostati a questo') +
+            ': si muovono insieme, perché sono spinti uno contro l\'altro.'
+          : '';
+        if (!r.piuGrande) {
+          return 'Porta la punta sull\'<b>angolo in basso a sinistra' + quale +
+                 '</b>. Se vuoi la conferma, abbassa un attimo la penna: ' +
+                 'adesso la quota di contatto la conosce, quindi un puntino te ' +
+                 'lo dice.' + coda;
+        }
+        return '<b>Questo foglio è più grande della corsa</b>, quindi il suo ' +
+               'angolo in basso a sinistra sta fuori: la macchina non ci ' +
+               'arriva. Porta la punta su un punto del foglio che la macchina ' +
+               'raggiunge — il più comodo è l\'angolo in basso a sinistra del ' +
+               '<b>tratteggio azzurro</b> — e scrivi qui sotto quanto quel ' +
+               'punto dista dal <b>bordo sinistro</b> e dal <b>bordo ' +
+               'inferiore</b> del foglio, col righello sulla carta.' + coda;
+      },
+
+      /* I due scostamenti arrivano precompilati con quelli che si vedono
+         già sullo schermo: nel caso normale l'operatore conferma invece di
+         ricopiare, e se il foglio è nella posizione che voleva sono già
+         quelli giusti. */
+      extra: function () {
+        var r = Fogli.raggiungibile(f.id);
+        return '<div class="pop-off"><p class="muted small">Distanza del punto ' +
+               'toccato dai bordi del foglio</p><div class="field-row">' +
+               '<label>Dal bordo sinistro (mm) <input type="number" id="pop-off-x" ' +
+               'step="0.5" value="' + (r.piuGrande ? r.dax.toFixed(0) : '0') + '"></label>' +
+               '<label>Dal bordo inferiore (mm) <input type="number" id="pop-off-y" ' +
+               'step="0.5" value="' + (r.piuGrande ? r.day.toFixed(0) : '0') + '"></label>' +
+               '</div></div>';
+      },
+
+      /* Il foglio di cui si parla diventa quello in uso: sul piano prende il
+         contorno dell'attivo, ed è l'unico modo per sapere a colpo d'occhio
+         QUALE dei nove si sta misurando. */
+      entra: function () { Fogli.scegli(f.id); },
+      pronto: function () { return State.data.azzerata; },
+      attesa: 'Serve una posizione nota.',
+      etichetta: quanti > 1 ? 'Angolo di questo foglio completato'
+                            : 'Inizio foglio completato',
+      esci: function () {
+        alzaPenna();
+        /* L'angolo del foglio è il punto toccato MENO la distanza dai bordi:
+           con scostamento zero si ricade esattamente nel caso di prima. */
+        var dx = parseFloat((document.getElementById('pop-off-x') || {}).value);
+        var dy = parseFloat((document.getElementById('pop-off-y') || {}).value);
+        /* Si muove tutta la famiglia: i fogli accostati sono spinti uno
+           contro l'altro, quindi la misura dice dove sta il GRUPPO. */
+        Fogli.poniMisurato(f.id,
+                           State.data.pos.x - (isNaN(dx) ? 0 : dx),
+                           State.data.pos.y - (isNaN(dy) ? 0 : dy));
+        /* Da qui quel foglio sullo schermo non è più un'ipotesi: è dove
+           sta davvero, e si blocca — lui e tutti quelli accostati, che si
+           sono mossi con lui. Il lucchetto nella colonna segue il foglio in
+           uso, che è questo. */
+        Paper.fissa(true);
+        if (!controllaIngombro(f)) return false;
+        return true;
+      }
+    };
+  }
+
   function definisci() {
-    return [
+    var daMisurare = Fogli.daMisurare();
+    var passi = [
       {
         nome: 'Origine della macchina',
         sezioni: { posizione: true, homing: true, assi: true, penna: false },
@@ -71,102 +229,27 @@ var Popup = (function () {
         attesa: 'Finché non hai azzerato, la macchina non sa dove si trova.',
         etichetta: 'Origine completata',
         esci: function () { return true; }
-      },
-      {
-        nome: 'Altezza di contatto col foglio',
-        sezioni: { posizione: true, homing: false, assi: false, penna: true },
-        testo: 'Abbassa la penna a piccoli passi finché la punta <b>tocca il ' +
-               'foglio e lascia il segno</b>. Non serve premere: appena segna, ' +
-               'sei alla quota giusta.<br><br>' +
-               '<b>Il tappo.</b> Se è ancora infilato, al foglio ci arriva lui e ' +
-               'la quota che leggi non è quella della punta.<br><br>' +
-               'Le quote della penna sono <b>negative</b>: Z0 è in alto, dove ci ' +
-               'sta il tappo, e il foglio sta intorno a Z-21,3.',
-        entra: function () {},
-        /* Confermare a penna alzata è l'errore che manda in stampa un disegno
-           fatto in aria, e non se ne accorge nessuno finché il foglio non esce
-           bianco. Si pretende che la penna sia almeno scesa sotto metà alzata.
-           La soglia si conta dal contatto NOMINALE e non da zero: zero è il
-           tappo, in cima, e «z < metà alzata» lì sarebbe vero sempre. */
-        pronto: function () {
-          var alzata = Profile.alzataMm(), contatto = Profile.zContatto();
-          if (alzata === null || contatto === null) return false;
-          return State.data.pos.z < contatto + alzata / 2;
-        },
-        attesa: 'La penna è ancora troppo in alto: così disegneresti in aria.',
-        etichetta: 'Altezza penna completata',
-        esci: function () {
-          State.data.altezzaContatto = State.data.pos.z;
-          Log.add('msg', 'Altezza di contatto per questa stampa: Z ' +
-                         State.data.altezzaContatto.toFixed(2) + ' mm.');
-          alzaPenna();     // il passo finisce per definizione con la punta che tocca
-          return true;
-        }
-      },
-      {
-        nome: 'Angolo del foglio',
-        sezioni: { posizione: true, homing: false, assi: true, penna: true },
-
-        /* IL TESTO CAMBIA PERCHÉ CAMBIA IL GESTO. Con un foglio più piccolo
-           della corsa si tocca il suo angolo e basta. Con un foglio più grande
-           quell'angolo sta FUORI dalla corsa — la macchina non ci arriva — e
-           chiedere di toccarlo sarebbe chiedere l'impossibile: è la
-           configurazione che l'operatore usa davvero, coi fogli tagliati a
-           mano più larghi della campata. Allora si tocca un punto qualsiasi
-           del foglio che la macchina raggiunge, e si dichiara quanto quel
-           punto dista dai due bordi. */
-        testo: function () {
-          var r = Paper.raggiungibile();
-          if (!r.piuGrande) {
-            return 'Porta la punta sull\'<b>angolo in basso a sinistra del ' +
-                   'foglio</b>. Se vuoi la conferma, abbassa un attimo la penna: ' +
-                   'adesso la quota di contatto la conosce, quindi un puntino te ' +
-                   'lo dice.';
-          }
-          return '<b>Questo foglio è più grande della corsa</b>, quindi il suo ' +
-                 'angolo in basso a sinistra sta fuori: la macchina non ci ' +
-                 'arriva. Porta la punta su un punto del foglio che la macchina ' +
-                 'raggiunge — il più comodo è l\'angolo in basso a sinistra del ' +
-                 '<b>tratteggio azzurro</b> — e scrivi qui sotto quanto quel ' +
-                 'punto dista dal <b>bordo sinistro</b> e dal <b>bordo ' +
-                 'inferiore</b> del foglio, col righello sulla carta.';
-        },
-
-        /* I due scostamenti arrivano precompilati con quelli che si vedono
-           già sullo schermo: nel caso normale l'operatore conferma invece di
-           ricopiare, e se il foglio è nella posizione che voleva sono già
-           quelli giusti. */
-        extra: function () {
-          var r = Paper.raggiungibile();
-          return '<div class="pop-off"><p class="muted small">Distanza del punto ' +
-                 'toccato dai bordi del foglio</p><div class="field-row">' +
-                 '<label>Dal bordo sinistro (mm) <input type="number" id="pop-off-x" ' +
-                 'step="0.5" value="' + (r.piuGrande ? r.dax.toFixed(0) : '0') + '"></label>' +
-                 '<label>Dal bordo inferiore (mm) <input type="number" id="pop-off-y" ' +
-                 'step="0.5" value="' + (r.piuGrande ? r.day.toFixed(0) : '0') + '"></label>' +
-                 '</div></div>';
-        },
-
-        entra: function () {},
-        pronto: function () { return State.data.azzerata; },
-        attesa: 'Serve una posizione nota.',
-        etichetta: 'Inizio foglio completato',
-        esci: function () {
-          alzaPenna();
-          /* L'angolo del foglio è il punto toccato MENO la distanza dai bordi:
-             con scostamento zero si ricade esattamente nel caso di prima. */
-          var dx = parseFloat((document.getElementById('pop-off-x') || {}).value);
-          var dy = parseFloat((document.getElementById('pop-off-y') || {}).value);
-          Paper.setSheetOrigin(State.data.pos.x - (isNaN(dx) ? 0 : dx),
-                               State.data.pos.y - (isNaN(dy) ? 0 : dy));
-          if (!controllaIngombro()) return false;
-          /* Da qui il foglio sullo schermo non è più un'ipotesi: è dove sta
-             davvero, e si blocca. */
-          Paper.fissa(true);
-          return true;
-        }
       }
     ];
+
+    /* L'ALTEZZA DI CONTATTO: una, o una per foglio se le carte sono
+       diverse. Nel caso normale — nove quadrati dallo stesso cartoncino —
+       resta un passo solo, perché misurarla nove volte sarebbe otto gesti
+       per sapere otto volte lo stesso numero. */
+    if (carteDiverse()) {
+      State.data.fogli.forEach(function (f) { passi.push(passoAltezza(f)); });
+    } else {
+      passi.push(passoAltezza(null));
+    }
+
+    /* UN ANGOLO PER OGNI FOGLIO CHE STA PER CONTO SUO. Quelli accostati non
+       lo chiedono: il loro angolo si ricava dal vicino, ed è tutto il
+       motivo per cui l'accostamento esiste. */
+    daMisurare.forEach(function (f) {
+      passi.push(passoAngolo(f, daMisurare.length));
+    });
+
+    return passi;
   }
 
   /* Il nome di un livello arriva dal nome di un file: può contenere di
@@ -556,16 +639,46 @@ var Popup = (function () {
 
   /* L'unica protezione rimasta finché non ci sono i finecorsa, e si applica
      QUI: col foglio nella posizione vera, non in quella immaginata prima. */
-  function controllaIngombro() {
+  function controllaIngombro(soloQuesto) {
     var art = State.data.art;
     if (!art || !art.length) return true;
-    var b = SvgImport.bbox(art);
-    var r = Profile.stanoDentro(b, State.data.sheetOrigin);
-    if (r.ok) return true;
-    fermati('Con il foglio lì, il disegno esce dall\'area di lavoro ' +
-            r.fuori.join(' e ') + '. Sposta il foglio, o riduci la scala del ' +
-            'disegno, e ricomincia.');
-    return false;
+
+    /* UN FOGLIO PER VOLTA, e non e' un dettaglio: dal 2026-11-07 `art`
+       tiene i tratti di piu' fogli, ciascuno nelle coordinate DEL SUO, e
+       prenderne l'ingombro tutto insieme vorrebbe dire misurare una scatola
+       che contiene pezzi di tre sistemi di riferimento diversi. Un numero
+       che non vuol dire niente, usato per decidere se mandare in stampa.
+
+       `soloQuesto` limita il controllo al foglio appena misurato: gli altri
+       non li si e' ancora toccati, e dire «il disegno del foglio 3 esce
+       dall'area» mentre si sta misurando il foglio 1 sarebbe un allarme su
+       una posizione che e' ancora un'ipotesi. Alla fine, prima di
+       consegnare, si guardano tutti. */
+    var fo = State.data.artFoglio || [];
+    var per = {};
+    for (var i = 0; i < art.length; i++) {
+      var fid = fo[i] || State.data.foglioAttivo;
+      if (soloQuesto && fid !== soloQuesto.id) continue;
+      var b = SvgImport.bbox([art[i]]);
+      var g = per[fid];
+      per[fid] = g ? { x0: Math.min(g.x0, b.x0), y0: Math.min(g.y0, b.y0),
+                       x1: Math.max(g.x1, b.x1), y1: Math.max(g.y1, b.y1) }
+                   : b;
+    }
+
+    for (var id in per) {
+      var f = Fogli.trova(id);
+      if (!f) continue;
+      var r = Profile.stanoDentro(per[id], f.origine);
+      if (r.ok) continue;
+      var quale = State.data.fogli.length > 1
+        ? ' del ' + nomeFoglio(f) : '';
+      fermati('Con il foglio lì, il disegno' + quale + ' esce dall\'area di ' +
+              'lavoro ' + r.fuori.join(' e ') + '. Sposta il foglio, o riduci ' +
+              'la scala del disegno, e ricomincia.');
+      return false;
+    }
+    return true;
   }
 
   /* ------------------------------ la finestra ----------------------------- */
@@ -649,6 +762,9 @@ var Popup = (function () {
   /* Ultimo passo: il programma si rigenera con l'origine del foglio e l'altezza
      di contatto appena misurate, e solo allora si manda. */
   function consegna() {
+    /* Adesso tutti i fogli hanno la loro posizione vera: il controllo
+       dell'ingombro si rifà su tutti, non solo su quello appena misurato. */
+    if (!controllaIngombro()) return;
     Artwork.prepare();
     Log.add('msg', 'Le tre misure sono dentro: programma rigenerato con il ' +
                    'foglio a X ' + State.data.sheetOrigin.x.toFixed(1) +

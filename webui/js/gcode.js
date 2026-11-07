@@ -76,6 +76,15 @@ var Gcode = (function () {
       fogliA[f.i] = f.n + '/' + f.di + ' ' +
                     String(f.nome || '').replace(/[;\r\n]+/g, ' ').trim();
     });
+    /* LE QUOTE CAMBIANO DA UN FOGLIO ALL'ALTRO quando le carte sono
+       diverse: un cartoncino piu' spesso alza il punto in cui la punta
+       tocca. Si cambiano dove il foglio cambia, non a ogni tratto, e il
+       grosso dei programmi non ne ha nemmeno una -- nove magneti ritagliati
+       dallo stesso foglio hanno la stessa quota, e il caso normale non paga
+       niente per questo. */
+    var quoteA = {};
+    (opt.quote || []).forEach(function (q) { quoteA[q.i] = q; });
+
     var penneA = {};
     (opt.penne || []).forEach(function (p) {
       /* Niente «;» e niente a capo nel nome: finirebbero per troncare la
@@ -153,6 +162,12 @@ var Gcode = (function () {
          sul segno di pausa e non legge piu' niente, quindi quello che deve
          sapere PRIMA della domanda va scritto prima. E «su che foglio sto
          per andare» e' esattamente una di quelle cose. */
+      if (quoteA[i]) {
+        zDown = quoteA[i].down;
+        zUp = quoteA[i].up;
+        L.push('; quote di questo foglio: appoggio Z' + n(zDown) +
+               ', alzata Z' + n(zUp));
+      }
       if (fogliA[i]) L.push(SEGNO_FOGLIO + ' ' + fogliA[i]);
       if (penneA[i]) L.push(SEGNO_PENNA + ' ' + penneA[i]);
 

@@ -236,6 +236,43 @@ var Fogli = (function () {
     return f ? f.id : null;
   }
 
+  /* ------------------------- la misura sulla macchina --------------------- */
+
+  /* LA FAMIGLIA DI UN FOGLIO: lui, chi gli e' accostato, chi e' accostato a
+     quelli, e cosi' via. Sono i fogli che si muovono INSIEME, perche' sono
+     spinti uno contro l'altro: la loro geometria relativa e' un fatto, non
+     un'ipotesi. */
+  function famiglia(id) {
+    var r = radiceDi(id);
+    return elenco().filter(function (f) { return radiceDi(f.id) === r; });
+  }
+
+  /* L'ANGOLO DI UN FOGLIO, MISURATO SULLA MACCHINA.
+   *
+   * Non sposta solo lui: sposta tutta la sua famiglia DELLA STESSA
+   * QUANTITA'. E' l'intera ragione per cui l'accostamento esiste — nove
+   * magneti spinti uno contro l'altro sono nove posizioni e una misura
+   * sola, e la misura dice dove sta il gruppo, non dove sta un quadrato.
+   * Spostare solo quello misurato sfascerebbe il gruppo proprio nel momento
+   * in cui lo si sta ancorando alla realta'.
+   *
+   * E da li' in poi non si trascina piu' nessuno di loro: `misurato` non e'
+   * una decorazione, e' il lucchetto. Trascinare un foglio derivato dopo la
+   * misura romperebbe la derivazione senza che niente lo dica.
+   */
+  function poniMisurato(id, x, y) {
+    var f = trova(id);
+    if (!f) return false;
+    var dx = x - f.origine.x, dy = y - f.origine.y;
+    famiglia(id).forEach(function (g) {
+      g.origine = { x: g.origine.x + dx, y: g.origine.y + dy };
+      g.misurato = true;
+    });
+    State.emit('fogli');
+    State.emit('paper');
+    return true;
+  }
+
   /* --------------------------- quello che non va ------------------------- */
 
   /* Le coppie che si sovrappongono. Toccarsi no: quello è accostarsi. */
@@ -286,6 +323,7 @@ var Fogli = (function () {
     aggiungi: aggiungi, togli: togli, muovi: muovi, posaLibera: posaLibera,
     accostati: accostati, aggancioDi: aggancioDi, rileggiAgganci: rileggiAgganci,
     daMisurare: daMisurare, radiceDi: radiceDi,
+    famiglia: famiglia, poniMisurato: poniMisurato,
     sovrapposti: sovrapposti, raggiungibile: raggiungibile, fuoriCorsa: fuoriCorsa
   };
 })();
