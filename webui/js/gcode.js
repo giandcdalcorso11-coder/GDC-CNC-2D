@@ -39,6 +39,16 @@ var Gcode = (function () {
      È facoltativo, quindi un programma salvato prima si legge ancora. */
   var SEGNO_PENNA = ';PENNA';
 
+  /* IL FOGLIO SU CUI SI STA DISEGNANDO, dal 2026-11-07, quando i fogli sul
+     piano sono diventati piu' d'uno.
+     E' il gemello di ;PENNA e serve alla stessa domanda, fatta dall'altra
+     parte: il Sender e il telecomando devono poter dire «foglio 3 di 9»
+     mentre la macchina lavora, e con l'ordine per penna la punta salta da
+     un foglio all'altro continuamente -- guardando le coordinate non si
+     capirebbe. Si scrive quando il foglio CAMBIA, non a ogni tratto.
+     Forma: «;FOGLIO <n>/<quanti> <nome>». */
+  var SEGNO_FOGLIO = ';FOGLIO';
+
   /* Zeri in coda tolti: "93.000" diventa "93". Non si perde niente — un passo
      del motore vale 0,0295 mm, quindi il millesimo è già tre volte più fine di
      quanto la macchina sappia fare. */
@@ -61,6 +71,11 @@ var Gcode = (function () {
        lascerebbe comunque una macchia. */
     var pausaA = {};
     (opt.pause || []).forEach(function (k) { pausaA[k] = true; });
+    var fogliA = {};
+    (opt.fogli || []).forEach(function (f) {
+      fogliA[f.i] = f.n + '/' + f.di + ' ' +
+                    String(f.nome || '').replace(/[;\r\n]+/g, ' ').trim();
+    });
     var penneA = {};
     (opt.penne || []).forEach(function (p) {
       /* Niente «;» e niente a capo nel nome: finirebbero per troncare la
@@ -134,6 +149,11 @@ var Gcode = (function () {
     for (var i = 0; i < polys.length; i++) {
       var p = polys[i];
 
+      /* Prima il foglio, poi la penna: al cambio penna il Sender si ferma
+         sul segno di pausa e non legge piu' niente, quindi quello che deve
+         sapere PRIMA della domanda va scritto prima. E «su che foglio sto
+         per andare» e' esattamente una di quelle cose. */
+      if (fogliA[i]) L.push(SEGNO_FOGLIO + ' ' + fogliA[i]);
       if (penneA[i]) L.push(SEGNO_PENNA + ' ' + penneA[i]);
 
       if (pausaA[i]) {

@@ -548,6 +548,53 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 .fogli-nota { font-size: 10.5px; line-height: 1.4; color: var(--text-dim); margin: 0 0 8px; }
 .fogli-nota:empty { display: none; }
 
+/* L'INTESTAZIONE DI UN FOGLIO DENTRO L'ELENCO DEI LIVELLI.
+   Non e' una riga come le altre: separa due gruppi che stanno su due pezzi
+   di carta diversi, e la differenza fra «il livello sopra» e «il livello
+   sopra ma su un altro foglio» e' tutta qui. */
+.liv-foglio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 3px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.liv-foglio:first-child { margin-top: 0; border-top: 0; }
+.liv-foglio:hover { color: var(--text); }
+.liv-foglio.in-uso { color: var(--accent); }
+.liv-foglio-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0;
+}
+.liv-foglio-nome { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liv-foglio-agg { opacity: .75; letter-spacing: 0; text-transform: none; }
+
+/* Su quale foglio si sta lavorando, in cima all'elenco dell'editor. */
+.ed-foglio {
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
 /* Senza questo, su un dispositivo tattile il trascinamento del foglio fa
    scorrere la pagina invece di spostare il foglio. */
 #bed-svg { touch-action: none; }

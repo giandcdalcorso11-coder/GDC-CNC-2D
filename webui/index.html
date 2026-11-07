@@ -228,6 +228,18 @@
 
       <section class="card">
         <h2>Esecuzione</h2>
+        <!-- L'ordine fra piu' fogli: compare solo quando i fogli sono piu'
+             d'uno, perche' con un foglio solo le due strade sono la stessa
+             strada. Sta qui e non nelle Impostazioni perche' e' la scelta
+             che si vuole poter cambiare guardando il pulsante che si sta
+             per premere. Vedi `prepare()` in js/artwork.js. -->
+        <label class="ordine-fogli" id="ordine-fogli" hidden>
+          <span class="flab">Con piu' fogli, stampa</span>
+          <select id="sel-ordine">
+            <option value="penna">per penna — tutti i fogli con una penna, poi l'altra</option>
+            <option value="foglio">per foglio — un foglio alla volta, finito e via</option>
+          </select>
+        </label>
         <button class="btn btn-primary full" id="btn-generate">Prepara G-code</button>
 
         <div id="prep" hidden>

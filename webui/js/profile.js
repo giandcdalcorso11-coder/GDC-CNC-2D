@@ -314,7 +314,22 @@ var Profile = (function () {
          stampa tutto con la stessa penna.
          «niente» rispetta l'ordine dei file e dei tracciati dentro ai file:
          serve quando l'ordine è una scelta, non un caso. */
-      ottimizza: 'livello'
+      ottimizza: 'livello',
+
+      /* IN CHE ORDINE SI STAMPANO PIU' FOGLI, dal 2026-11-07.
+         'penna': tutto quello che si fa con una penna su TUTTI i fogli, poi
+         si cambia penna una volta sola e si ricomincia. Nove magneti con due
+         penne: due cambi invece di diciotto. Lo spostamento in piu' non
+         costa niente — 3000 mm/min — e un cambio penna costa una persona che
+         si alza.
+         'foglio': un foglio alla volta, finito e via. Si paga un cambio
+         penna per foglio, e in cambio un magnete finito lo puoi gia'
+         togliere.
+         Sta nel profilo di stampa e non nella pagina perche' e' una scelta
+         di come si lavora, non di questa stampa: resta quella che hai
+         lasciato, e il selettore e' accanto al pulsante «Prepara» per
+         cambiarla senza andarla a cercare. */
+      ordineFogli: 'penna'
     };
   }
 

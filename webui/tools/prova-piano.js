@@ -99,6 +99,7 @@ function dentro(p, r, gioco) {
   await page.waitForTimeout(400);
 
   let r;
+  let tornaDove = null;
 
   /* ============ A. IL PIANO LI DISEGNA TUTTI ============ */
 
@@ -392,6 +393,122 @@ function dentro(p, r, gioco) {
   ok('e l\'anteprima sul piano mette ogni disegno sul suo foglio',
      r.tutti > 4 && r.su1 > 0 && r.su2 > 0 && r.su1 + r.su2 === r.tutti,
      r.tutti + ' tratti: ' + r.su1 + ' sul foglio 1, ' + r.su2 + ' sul foglio 2');
+
+  /* ============ D-bis. L'ELENCO DEI LIVELLI E L'EDITOR ============ */
+
+  /* L'elenco dei livelli e' diviso per foglio, e l'intestazione si scrive
+     solo quando i fogli sono piu' d'uno. */
+  r = await page.evaluate(() => {
+    const teste = [...document.querySelectorAll('#livelli [data-testa]')];
+    const righe = [...document.querySelectorAll('#livelli [data-liv]')];
+    return { teste: teste.length, righe: righe.length,
+             fogliDelleRighe: righe.map((x) => x.dataset.fog),
+             inUso: document.querySelectorAll('#livelli .liv-foglio.in-uso').length };
+  });
+  ok('l\'elenco dei livelli e` diviso per foglio',
+     r.teste === 2 && r.righe === 2 && r.inUso === 1 &&
+     r.fogliDelleRighe[0] !== r.fogliDelleRighe[1],
+     r.teste + ' intestazioni, ' + r.righe + ' righe su ' +
+     JSON.stringify(r.fogliDelleRighe));
+
+  /* E I LIVELLI DI UNO STESSO FOGLIO STANNO INSIEME anche se sono arrivati
+     in tre momenti diversi. Tornando sul foglio 1 e caricandoci un altro
+     disegno, l'elenco non deve diventare «foglio 1, foglio 2, foglio 1»:
+     l'ordine dell'elenco e' l'ordine di stampa, e una stampa che salta da
+     un foglio all'altro e torna indietro attraversa il piano due volte per
+     ogni disegno. */
+  r = await page.evaluate((svg) => {
+    Fogli.scegli(State.data.fogli[0].id);
+    Artwork.load(svg, 'tris.svg');
+    return { teste: document.querySelectorAll('#livelli [data-testa]').length,
+             ordine: Artwork.livelli().map((x) => x.foglio),
+             nomi: Artwork.livelli().map((x) => x.nome) };
+  }, DISEGNO('#1f4fa8'));
+  ok('i livelli di uno stesso foglio stanno insieme anche se arrivano dopo',
+     r.teste === 2 && r.ordine[0] === r.ordine[1] && r.ordine[1] !== r.ordine[2],
+     r.teste + ' intestazioni, ordine ' + JSON.stringify(r.nomi));
+
+  /* Rimesso com'era per i controlli dopo. */
+  await page.evaluate(() => {
+    const l = Artwork.livelli();
+    Artwork.rimuovi(l.filter((x) => x.nome === 'tris.svg')[0].id);
+  });
+
+  /* LO SFONDO DELL'EDITOR NON ATTRAVERSA I FOGLI. `daFoglio` porta i tratti
+     nelle coordinate del livello che si modifica: un disegno di un ALTRO
+     foglio, portato li', finirebbe disegnato sopra a questo alla distanza
+     sbagliata, come se fosse sulla stessa carta. Uno sfondo che dice una
+     cosa falsa proprio mentre lo si usa per mirare. */
+  r = await page.evaluate(() => {
+    const l = Artwork.livelli();
+    return { sfondo1: Artwork.sfondoPer(l[0].id).length,
+             sfondo2: Artwork.sfondoPer(l[1].id).length,
+             tratti: l.map((x) => x.tratti) };
+  });
+  ok('lo sfondo dell\'editor non mostra i disegni degli altri fogli',
+     r.sfondo1 === 0 && r.sfondo2 === 0 && r.tratti[0] > 0 && r.tratti[1] > 0,
+     'sfondi ' + r.sfondo1 + ' e ' + r.sfondo2 + ', con ' +
+     JSON.stringify(r.tratti) + ' tratti da mostrare');
+
+  /* E l'elenco dell'editor mostra solo i livelli del foglio in uso. */
+  r = await page.evaluate(() => {
+    const l = Artwork.livelli();
+    Artwork.seleziona(l[1].id);
+    Editor.init && null;
+    document.querySelector('[data-tab="editor"]').click();
+    return { righe: document.querySelectorAll('#ed-livelli [data-ed-liv]').length,
+             intestazione: (document.querySelector('#ed-foglio, .ed-foglio') || {}).textContent || '',
+             tutti: Artwork.livelli().length };
+  });
+  ok('l\'editor mostra solo i livelli del foglio in uso',
+     r.righe === 1 && r.tutti === 2 && /foglio 2/.test(r.intestazione),
+     r.righe + ' righe su ' + r.tutti + ' livelli, intestazione «' +
+     r.intestazione.trim() + '»');
+
+  /* TRASCINANDO UN LIVELLO SOTTO L'INTESTAZIONE DI UN ALTRO FOGLIO, cambia
+     foglio: e' la strada per rimediare a «l'ho caricato sul foglio
+     sbagliato» senza ricaricare niente. */
+  await page.evaluate(() => { document.querySelector('[data-tab="disegno"]').click(); });
+  await page.waitForTimeout(120);
+  {
+    /* La colonna scorre: la maniglia puo' stare sotto il bordo della
+       finestra, e un puntatore mandato li' non preme su niente. */
+    const quale = await page.evaluate(() => Artwork.livelli()[1].id);
+    await page.locator('#livelli [data-presa="' + quale + '"]').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(80);
+    const presa = await page.evaluate(() => {
+      const l = Artwork.livelli();
+      const p = document.querySelector('#livelli [data-presa="' + l[1].id + '"]');
+      const b = p.getBoundingClientRect();
+      const t = document.querySelector('#livelli [data-testa="' +
+                 State.data.fogli[0].id + '"]').getBoundingClientRect();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2,
+               tx: t.x + t.width / 2, ty: t.y + 2, id: l[1].id };
+    });
+    await page.mouse.move(presa.x, presa.y);
+    await page.mouse.down();
+    await page.mouse.move(presa.tx, presa.ty, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    r = await page.evaluate((id) => ({
+      suo: Artwork.foglioDi(id).id,
+      f1: State.data.fogli[0].id,
+      teste: document.querySelectorAll('#livelli [data-testa]').length,
+      ordine: Artwork.livelli().map((x) => x.foglio)
+    }), presa.id);
+    tornaDove = presa.id;
+    ok('trascinando un livello su un altro foglio, ci va',
+       r.suo === r.f1 && r.teste === 1 && r.ordine[0] === r.f1 &&
+       r.ordine[1] === r.f1,
+       'finito sul foglio ' + r.suo + ', ' + r.teste + ' intestazioni, ordine ' +
+       JSON.stringify(r.ordine));
+  }
+
+  /* E si rimette dov'era PER ID, non per posizione: dopo il trascinamento
+     l'ordine e' cambiato, e rimettere «il secondo» rimetterebbe un altro. */
+  await page.evaluate((id) => {
+    Artwork.spostaAFoglio(id, State.data.fogli[1].id);
+  }, tornaDove);
 
   /* ============ E. TOGLIERE UN FOGLIO ============
      I livelli che stanno su un foglio se ne vanno con lui: i loro numeri

@@ -2165,7 +2165,16 @@ var Editor = (function () {
   function renderLivelli() {
     var box = document.getElementById('ed-livelli');
     if (!box || !window.Artwork) return;
-    var ls = Artwork.livelli();
+    /* SOLO I LIVELLI DEL FOGLIO IN USO. Qui si modifica un disegno nelle
+       coordinate del SUO foglio, e gli altri fogli non c'entrano: passare a
+       un livello di un altro foglio e' cambiare foglio, e lo si fa dal
+       piano o dall'elenco della tab Disegno, dove si vede dove si sta
+       andando. Mostrarli tutti qui vorrebbe dire un elenco in cui due righe
+       vicine stanno su due pezzi di carta diversi senza dirlo. */
+    var fid = State.data.foglioAttivo;
+    var ls = Artwork.livelli().filter(function (x) {
+      return (x.foglio || fid) === fid;
+    });
     /* L'ELENCO SI VEDE ANCHE CON UN LIVELLO SOLO. Prima no: con meno di due
        non c'era niente da scegliere e la colonna rubava spazio alla tela.
        Adesso da qui ne nascono — il pulsante «+ livello nuovo» sta sotto
@@ -2174,7 +2183,19 @@ var Editor = (function () {
        passa all'altro, e sembra che il primo sia nato adesso. */
     if (!ls.length) { box.innerHTML = ''; return; }
 
+    /* Su quale foglio si sta lavorando, scritto in cima all'elenco e solo
+       quando i fogli sono piu' d'uno. Senza, i livelli degli altri fogli
+       sembrerebbero spariti. */
     var out = '';
+    if (State.data.fogli.length > 1) {
+      var f = Fogli.trova(fid);
+      var eti = f ? (f.name && f.name !== 'Personalizzato'
+                      ? f.name : f.w + ' \u00d7 ' + f.h) : '?';
+      out += '<div class="ed-foglio" title="Si sta lavorando sul foglio ' +
+             (Fogli.indice(fid) + 1) + '. Gli altri fogli hanno i loro ' +
+             'livelli: si cambia dal piano o dall\'elenco della tab Disegno.">' +
+             'foglio ' + (Fogli.indice(fid) + 1) + ' \u00b7 ' + esc(eti) + '</div>';
+    }
     for (var i = 0; i < ls.length; i++) {
       var l = ls[i];
       out += '<div class="ed-liv' + (l.principale ? ' attivo' : '') +

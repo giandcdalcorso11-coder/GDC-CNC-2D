@@ -192,6 +192,7 @@ var Artwork = (function () {
     }
 
     if (!nati.length) throw new Error('Nessun tracciato trovato nel file.');
+    ordinaPerFoglio();
     scelto = nati[0].id;
     selezionati = [scelto];
 
@@ -534,6 +535,7 @@ var Artwork = (function () {
       l.tol = m.tol || l.tol;
     }
     livelli.push(l);
+    ordinaPerFoglio();
     scelto = l.id;
     selezionati = [l.id];
     refit();
@@ -625,6 +627,7 @@ var Artwork = (function () {
          stessa. Se poi è la stessa, l'elenco dice che la fermata è sprecata e
          si toglie con un clic. */
       if (!primo) nati[0].cambioPenna = true;
+      ordinaPerFoglio();
       /* Si resta su quello che si è appena portato dentro: è quello che si
          sta guardando. */
       scelto = nati[0].id;
@@ -870,7 +873,8 @@ var Artwork = (function () {
 
   function elenco() {
     return livelli.map(function (l, i) {
-      return { id: l.id, nome: l.nome, visibile: l.visibile, colore: tintaDi(l),
+      return { id: l.id, nome: l.nome, foglio: l.foglio || null,
+               visibile: l.visibile, colore: tintaDi(l),
                pennaScelta: l.penna || null, tinta: tintaSoloDalFile(l),
                spessore: l.spessore || null,
                cambioPenna: l.cambioPenna, attivo: l.cambioPenna && i > 0,
@@ -904,6 +908,47 @@ var Artwork = (function () {
 
   /* Dove casca sul piano l'angolo del foglio di quel livello. */
   function origineDi(id) { return foglioDi(id).origine; }
+
+  /* I LIVELLI DI UNO STESSO FOGLIO STANNO INSIEME NELL'ELENCO, nell'ordine
+   * dei fogli. Non è un vezzo di presentazione: l'ordine dell'elenco È
+   * l'ordine di stampa, e tenerli sparsi vorrebbe dire una stampa che salta
+   * da un foglio all'altro e torna indietro — con la punta che attraversa
+   * il piano due volte per ogni disegno. Tenendoli contigui, l'elenco si
+   * disegna con un giro solo (l'intestazione si scrive quando il foglio
+   * cambia) e il riordino per trascinamento continua a lavorare su indici,
+   * come ha sempre fatto.
+   *
+   * L'ordinamento è STABILE: dentro a un foglio nessuno si muove, e
+   * riordinare due volte di fila non cambia niente la seconda. */
+  function ordinaPerFoglio() {
+    var pos = {};
+    State.data.fogli.forEach(function (f, i) { pos[f.id] = i; });
+    var attivo = State.data.foglioAttivo;
+    livelli = livelli
+      .map(function (l, i) { return { l: l, i: i }; })
+      .sort(function (a, b) {
+        var pa = pos[a.l.foglio || attivo], pb = pos[b.l.foglio || attivo];
+        if (pa === undefined) pa = 1e9;
+        if (pb === undefined) pb = 1e9;
+        return pa !== pb ? pa - pb : a.i - b.i;
+      })
+      .map(function (x) { return x.l; });
+  }
+
+  /* Un livello cambia foglio. Il rettangolo NON si tocca: è in millimetri
+     del foglio, e un disegno spostato dal magnete 1 al magnete 4 deve
+     trovarsi nello stesso punto del magnete 4 — non da un'altra parte
+     perché l'angolo è un altro. Se il foglio nuovo è più piccolo il disegno
+     sborda, e si vede sul piano: meglio che correggerlo di nascosto. */
+  function spostaAFoglio(id, fid) {
+    var l = trova(id);
+    if (!l || !Fogli.trova(fid) || l.foglio === fid) return false;
+    l.foglio = fid;
+    ordinaPerFoglio();
+    if (scelto === id) Fogli.scegli(fid);
+    refit();
+    return true;
+  }
 
   /* I livelli che stanno su un foglio se ne vanno con lui. Non è una scelta
      fra le altre: il rettangolo, i tratti e il ritaglio di quei livelli sono
@@ -1086,9 +1131,17 @@ var Artwork = (function () {
      Tutti i visibili e non solo quelli scelti, perché nell'editor è l'occhio
      a dire che cosa si vuole vedere — ed è lo stesso occhio della tab
      Disegno, non un secondo interruttore da tenere d'accordo col primo. */
+  /* SOLO I LIVELLI DELLO STESSO FOGLIO, dal 2026-11-07, e non è una scelta
+     di gusto: `daFoglio` porta i tratti nelle coordinate del livello che si
+     sta modificando, e un disegno che sta su UN ALTRO foglio, portato lì,
+     finisce disegnato sopra a questo — alla distanza sbagliata, come se
+     fosse sulla stessa carta. Sarebbe uno sfondo che dice una cosa falsa
+     proprio mentre lo si usa per mirare. */
   function sfondoPer(id) {
     var out = [];
+    var mio = foglioDi(id).id;
     livelli.forEach(function (l) {
+      if (foglioDi(l).id !== mio) return;
       if (l.id === id || !l.visibile || !l.art.length) return;
       daFoglio(l.art, id).forEach(function (q) { out.push(q); });
     });
@@ -1522,13 +1575,49 @@ var Artwork = (function () {
        modifica di ritardo, che è il modo più sicuro di non farsi credere. */
     notaPenne();
 
+    /* L'INTESTAZIONE DEL FOGLIO si scrive solo quando i fogli sono più
+       d'uno: con un foglio solo sarebbe una riga in cima che dice una cosa
+       che non distingue niente. Si scrive quando il foglio CAMBIA, e si può
+       perché i livelli di uno stesso foglio stanno insieme: vedi
+       ordinaPerFoglio(). */
+    var piuFogli = State.data.fogli.length > 1;
+    var ultimoF = null;
+
+    /* `data-pos` e `data-fog` su ogni riga sono per il trascinamento: dicono
+       dove cadrebbe un livello lasciato lì e su quale foglio finirebbe.
+       Scritti qui, dove si sa già tutt'e due, invece di ricavarli dal DOM
+       ogni volta che il dito si muove. */
     var out = '';
     for (var i = 0; i < livelli.length; i++) {
       var l = livelli[i];
+      var fid = l.foglio || State.data.foglioAttivo;
+      if (piuFogli && fid !== ultimoF) {
+        ultimoF = fid;
+        var f = Fogli.trova(fid);
+        var n = Fogli.indice(fid) + 1;
+        var eti = f ? (f.name && f.name !== 'Personalizzato'
+                        ? f.name : f.w + ' × ' + f.h) : '?';
+        out += '<div class="liv-foglio' +
+               (fid === State.data.foglioAttivo ? ' in-uso' : '') +
+               '" data-testa="' + esc(fid) + '" data-pos="' + i +
+               '" data-fog="' + esc(fid) + '" title="Foglio ' + n + ' — ' +
+               esc(eti) + '. Clicca per lavorare su questo foglio; trascina ' +
+               'qui un livello per spostarcelo.">' +
+               '<span class="liv-foglio-n">' + n + '</span>' +
+               '<span class="liv-foglio-nome">' + esc(eti) + '</span>' +
+               (f && f.aggancio
+                  ? '<span class="liv-foglio-agg" title="L\'angolo di questo ' +
+                    'foglio si ricava da quello del foglio ' +
+                    (Fogli.indice(f.aggancio) + 1) + ': non te lo chiedo a ' +
+                    'inizio stampa.">↳ ' + (Fogli.indice(f.aggancio) + 1) + '</span>'
+                  : '') +
+               '</div>';
+      }
       var preso = selezionati.indexOf(l.id) >= 0;
       out += '<div class="liv-riga' + (preso ? ' scelto' : '') +
              (l.id === scelto && selezionati.length > 1 ? ' primario' : '') +
-             (l.visibile ? '' : ' spento') + '" data-liv="' + l.id + '">' +
+             (l.visibile ? '' : ' spento') + '" data-liv="' + l.id +
+             '" data-pos="' + i + '" data-fog="' + esc(fid) + '">' +
 
              '<span class="liv-presa" data-presa="' + l.id +
              '" title="Trascina per cambiare l\'ordine di stampa">' +
@@ -2092,23 +2181,38 @@ var Artwork = (function () {
 
     box.addEventListener('pointermove', function (e) {
       if (!preso) return;
-      var righe = box.querySelectorAll('[data-liv]');
+      /* LE INTESTAZIONI DEI FOGLI CONTANO COME POSIZIONI, e devono: senza,
+         non ci sarebbe modo di lasciare un livello in CIMA a un gruppo —
+         la posizione appena sopra al primo livello del foglio 2 ha come
+         vicino di sopra l'ultimo del foglio 1, quindi finirebbe là. */
+      var righe = box.querySelectorAll('[data-pos]');
       if (!righe.length) return;
 
       /* Dove cadrebbe adesso: la riga il cui centro sta sotto al puntatore.
          Si guarda il centro e non il bordo perché così lo scambio avviene a
          metà strada, cioè quando a occhio il sorpasso è avvenuto. */
-      var dove = righe.length - 1;
+      var slot = righe[righe.length - 1];
+      var infondo = true;
       for (var i = 0; i < righe.length; i++) {
         var r = righe[i].getBoundingClientRect();
-        if (e.clientY < r.top + r.height / 2) { dove = i; break; }
+        if (e.clientY < r.top + r.height / 2) { slot = righe[i]; infondo = false; break; }
       }
 
       var ora = indice(preso.id);
-      if (ora < 0 || dove === ora) return;
-      var l = livelli.splice(ora, 1)[0];
-      livelli.splice(dove, 0, l);
+      if (ora < 0) return;
+      var dove = infondo ? livelli.length - 1 : +slot.dataset.pos;
+      var fid = infondo ? (livelli[livelli.length - 1].foglio ||
+                           State.data.foglioAttivo) : slot.dataset.fog;
+      var l = livelli[ora];
+      var cambia = (l.foglio || State.data.foglioAttivo) !== fid;
+      if (dove === ora && !cambia) return;
+
+      livelli.splice(ora, 1);
+      /* Togliendo la riga da sopra, tutte quelle sotto scalano di uno. */
+      livelli.splice(dove > ora ? dove - 1 : dove, 0, l);
+      if (cambia) l.foglio = fid;
       preso.mosso = true;
+      preso.foglio = preso.foglio || cambia;
       renderElenco();
       box.classList.add('riordino');
     });
@@ -2122,7 +2226,14 @@ var Artwork = (function () {
         try { box.releasePointerCapture(e.pointerId); } catch (x) { /* già rilasciato */ }
         /* Il ricalcolo UNA VOLTA, alla fine: durante il trascinamento
            l'elenco è già quello giusto, i disegni no, e nessuno li guardava. */
-        if (mosso) refit();
+        if (mosso) {
+          /* L'ordinamento per foglio si rimette a posto UNA VOLTA, alla
+             fine: durante il trascinamento la riga passa per posizioni che
+             non rispettano il raggruppamento, ed è giusto così — è quello
+             che si sta guardando muoversi. */
+          ordinaPerFoglio();
+          refit();
+        }
       });
     });
   }
@@ -2277,13 +2388,87 @@ var Artwork = (function () {
     }
     var ms = Math.round(performance.now() - t0);
 
+    /* ----------------------- L'ORDINE FRA I FOGLI -----------------------
+     *
+     * PER PENNA: tutto quello che si fa con una penna su TUTTI i fogli, poi
+     * si cambia penna una volta sola. Nove magneti con due penne vogliono
+     * DUE cambi invece di diciotto, e la differenza non e' un risparmio di
+     * secondi: e' diciotto volte che qualcuno deve stare li' ad aspettare.
+     * Lo spostamento in piu' fra un foglio e l'altro non costa quasi niente
+     * — 3000 mm/min, e la penna e' alzata.
+     *
+     * L'ordine delle penne e' quello in cui compaiono nell'elenco: la prima
+     * penna del primo foglio resta la prima. Non si inventa un ordine
+     * «migliore», perche' l'ordine dei livelli decide anche che cosa finisce
+     * SOPRA a che cosa, e quella e' una scelta di chi disegna.
+     *
+     * CON L'OTTIMIZZAZIONE «TUTTO» NON SI PUO', e va detto invece di farlo
+     * male: li' un gruppo e' un foglio intero con dentro tutte le sue penne
+     * mescolate, quindi non esiste «la penna di questo gruppo» da cui
+     * ordinare. */
+    var fogliUsati = [];
+    gruppi.forEach(function (g) {
+      if (fogliUsati.indexOf(g.foglio) < 0) fogliUsati.push(g.foglio);
+    });
+    var vuole = (st.ordineFogli || 'penna') === 'penna' && fogliUsati.length > 1;
+    var perPenna = vuole && ambito !== 'tutto';
+    if (vuole && !perPenna) {
+      Log.add('err', 'Ordine «per penna» chiesto con l\'ottimizzazione su ' +
+              '«tutto»: non si può, perché così un gruppo è un foglio intero ' +
+              'con dentro tutte le sue penne mescolate. Stampo foglio per ' +
+              'foglio. Per avere i cambi penna raggruppati metti ' +
+              'l\'ottimizzazione «per livello».');
+    }
+
+    if (perPenna) {
+      var chiavi = [];
+      gruppi.forEach(function (g) {
+        g.penna = chiavePenna(trova(g.id)) || '-';
+        if (chiavi.indexOf(g.penna) < 0) chiavi.push(g.penna);
+      });
+      /* Ordinamento STABILE: dentro a una penna l'ordine di prima non si
+         tocca, cioè i fogli restano nel loro ordine e i livelli nel loro. */
+      gruppi = gruppi
+        .map(function (g, i) { return { g: g, i: i }; })
+        .sort(function (a, b) {
+          var d = chiavi.indexOf(a.g.penna) - chiavi.indexOf(b.g.penna);
+          return d || a.i - b.i;
+        })
+        .map(function (x) { return x.g; });
+    }
+
     /* Il percorso riordinato diventa quello mostrato: l'anteprima deve far
        vedere quello che la macchina farà davvero, non quello che avrebbe
        fatto prima del riordino. */
-    var art = [], di = [], fo = [], auto = [], penne = [];
+    var art = [], di = [], fo = [], auto = [], penne = [], segniFoglio = [];
+    var ultimoFoglio = null;
     gruppi.forEach(function (g, i) {
       var l = g.id ? trova(g.id) : null;
-      if (i > 0 && l && l.cambioPenna) auto.push(art.length);
+
+      /* DOVE SI FERMA PER CAMBIARE PENNA.
+         Per foglio: lo dicono le spunte dei livelli, come sempre.
+         Per penna: lo dice la penna stessa — si ferma dove la penna cambia,
+         e solo lì. Le spunte messe a mano qui non valgono, e non è una
+         dimenticanza: erano «fermati prima di questo livello», e con
+         l'ordine per penna quel livello ha un altro prima. */
+      if (perPenna) {
+        if (i > 0 && g.penna !== gruppi[i - 1].penna) auto.push(art.length);
+      } else if (i > 0 && l && l.cambioPenna) auto.push(art.length);
+
+      /* Su che foglio si sta andando, scritto quando CAMBIA. Con l'ordine
+         per penna cambia di continuo, ed è esattamente il motivo per cui
+         serve: guardando le coordinate non si capirebbe. */
+      if (g.polys.length && g.foglio !== ultimoFoglio) {
+        ultimoFoglio = g.foglio;
+        var ff = Fogli.trova(g.foglio);
+        segniFoglio.push({
+          i: art.length,
+          n: Fogli.indice(g.foglio) + 1,
+          di: State.data.fogli.length,
+          nome: ff ? (ff.name && ff.name !== 'Personalizzato'
+                       ? ff.name : ff.w + 'x' + ff.h) : ''
+        });
+      }
       /* Dove comincia ogni livello, con che penna. Serve al generatore, che
          lo scrive nel file, e da lì al Sender, che mentre stampa sa sempre
          quale penna è montata — e al cambio penna sa quale mostrare. */
@@ -2364,6 +2549,7 @@ var Artwork = (function () {
       machine: machine,
       auto: auto,
       penne: penne,
+      fogli: segniFoglio,
       opt: {
         penUp: contatto + alzata,
         penDown: contatto,
@@ -2397,6 +2583,7 @@ var Artwork = (function () {
 
     opt.pause = tutte;
     opt.penne = ultima.penne;
+    opt.fogli = ultima.fogli || [];
     prep = Gcode.build(ultima.machine, opt);
     showStats(ultima.r, ultima.ms, tutte.length);
     /* Il pulsante del cambio penna si accende solo quando un programma c'è:
@@ -2522,6 +2709,30 @@ var Artwork = (function () {
     if (ins) ins.addEventListener('change', mostraCampi);
     document.getElementById('art-rot').addEventListener('change', ruotaDalCampo);
     document.getElementById('btn-generate').addEventListener('click', prepare);
+
+    /* L'ORDINE FRA PIU' FOGLI, accanto al pulsante che lo usa. Compare solo
+       quando i fogli sono più d'uno: con un foglio solo le due strade sono
+       la stessa strada, e un selettore che non cambia niente è una domanda
+       senza risposta. */
+    var so = document.getElementById('sel-ordine');
+    if (so) {
+      so.value = Profile.stampa().ordineFogli || 'penna';
+      so.addEventListener('change', function () {
+        Profile.stampa().ordineFogli = this.value;
+        Profile.save();
+        Log.add('msg', this.value === 'penna'
+          ? 'Con più fogli si stampa PER PENNA: tutto quello che si fa con ' +
+            'una penna su tutti i fogli, poi si cambia una volta sola.'
+          : 'Con più fogli si stampa PER FOGLIO: uno alla volta, finito e ' +
+            'via, con i suoi cambi penna.');
+      });
+    }
+    function mostraOrdine() {
+      var w = document.getElementById('ordine-fogli');
+      if (w) w.hidden = State.data.fogli.length < 2;
+    }
+    State.on('fogli', mostraOrdine);
+    mostraOrdine();
     document.getElementById('btn-download').addEventListener('click', download);
     document.getElementById('btn-clear-file').addEventListener('click', clear);
 
@@ -2532,6 +2743,11 @@ var Artwork = (function () {
     var box = document.getElementById('livelli');
     if (box) {
       box.addEventListener('click', function (e) {
+        /* L'intestazione di un foglio non è un pulsante ma si clicca: porta
+           a lavorare su quel foglio, che è la cosa che uno vuole fare dopo
+           averla guardata. */
+        var t = e.target.closest('[data-testa]');
+        if (t) { Fogli.scegli(t.dataset.testa); return; }
         var b = e.target.closest('button');
         if (!b) return;
         var d = b.dataset;
@@ -2734,6 +2950,7 @@ var Artwork = (function () {
     prepare: prepare, invia: invia,
     progetto: progetto, daProgetto: daProgetto,
     foglioDi: foglioDi, origineDi: origineDi, svuotaFoglio: svuotaFoglio,
+    spostaAFoglio: spostaAFoglio, ordinaPerFoglio: ordinaPerFoglio,
 
     riquadro: riquadro, riquadroPieno: riquadroPieno,
     collocaA: collocaA, ritagliaA: ritagliaA, ritagliato: ritagliato,
