@@ -381,13 +381,9 @@ MUTAZIONI = [
     dict(
         nome="la nota si scrive dopo le righe, come prima",
         file="js/artwork.js",
-        da="""       modifica di ritardo, che è il modo più sicuro di non farsi credere. */
-    notaPenne();
-
-    var out = '';""",
-        a="""       modifica di ritardo, che è il modo più sicuro di non farsi credere. */
-
-    var out = '';""",
+        da="    notaPenne();\n\n    /* L'INTESTAZIONE DEL FOGLIO",
+        a="\n    /* L'INTESTAZIONE DEL FOGLIO",
+        piu=[("js/artwork.js", '    box.innerHTML = out;\n  }', '    notaPenne();\n    box.innerHTML = out;\n  }')],
         vede="segna la riga dove va messa",
         prova="prova-penne.js",
     ),
