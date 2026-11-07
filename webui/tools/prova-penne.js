@@ -46,9 +46,19 @@ const SCENA = async (page, a, b, fermata) => page.evaluate(([a, b, fermata]) => 
   }
   const el = document.getElementById('liv-penne');
   const bot = document.querySelector('[data-penna="' + l[1].id + '"]');
+  const st = getComputedStyle(bot);
+  /* IL COLORE E L'ANELLO, letti come li vede l'occhio e non come sono
+     scritti nel foglio di stile: «acceso» e «ne manca una» devono
+     distinguersi, e dal 2026-11-08 si distinguono per il COLORE della
+     matita — non per un contorno da un pixel. Serve anche la matita di un
+     livello senza niente, per avere il grigio normale con cui confrontare:
+     senza quello, «il colore e` giusto» non vuol dire niente. */
+  const normale = getComputedStyle(
+    document.querySelector('[data-penna="' + l[0].id + '"]')).color;
   return { nascosto: el.hidden, testo: el.textContent,
            fermata: Artwork.livelli()[1].cambioPenna,
            segnato: bot.className.indexOf('manca') >= 0,
+           colore: st.color, anello: st.boxShadow, normale: normale,
            titolo: bot.title };
 }, [a, b, fermata]);
 
@@ -89,6 +99,17 @@ const NERO = '#1d1d1b', ROSSO = '#c8102e';
      r.segnato === true && /non si ferma/.test(r.titolo),
      r.titolo);
 
+  /* LA FERMATA CHE MANCA SI SEGNA COL QUADRATINO, NON COLORANDO LA MATITA.
+     Detto dall'operatore il 2026-11-08: «colorando la matita mi confonde e
+     non capisco se e` gia` attiva o meno». Prima il giallo era su tutt'e
+     due gli stati e l'unica differenza era un anello da un pixel; adesso il
+     giallo sulla matita vuol dire una cosa sola — la fermata c'e`. */
+  const mancante = { colore: r.colore, anello: r.anello, normale: r.normale };
+  ok('e la segna col quadratino, lasciando la matita del suo colore',
+     mancante.colore === mancante.normale && mancante.anello !== 'none',
+     'matita ' + mancante.colore + ' (normale ' + mancante.normale +
+     '), anello ' + mancante.anello);
+
   /* 4. IL CASO NUOVO, ed e' quello per cui tutto questo esiste: stesso
         colore, spessore diverso. Col vecchio conto per colore qui non
         succedeva niente. */
@@ -104,6 +125,16 @@ const NERO = '#1d1d1b', ROSSO = '#c8102e';
   ok('e con la fermata messa non la chiama sprecata',
      /fra livelli della stessa penna/.test(r.testo) === false,
      r.nascosto ? 'nota spenta' : r.testo.slice(0, 110));
+
+  /* L'ALTRA META' DEL CONFRONTO, e senza di lei la prima non prova niente:
+     con la fermata ATTIVA la matita e` gialla e l'anello non c'e`. I due
+     stati devono differire per il colore, non per un contorno — quindi si
+     pretende anche che i due colori siano DIVERSI fra loro. */
+  ok('con la fermata attiva, invece, la matita e` gialla e senza quadratino',
+     r.colore !== r.normale && r.anello === 'none' &&
+     r.colore !== mancante.colore,
+     'attiva ' + r.colore + ', mancante ' + mancante.colore +
+     ', normale ' + r.normale + ', anello ' + r.anello);
 
   /* Uno spessore scelto su uno solo dei due e' comunque una differenza: la
      penna da 0,8 e quella «non detta» non sono la stessa penna. */

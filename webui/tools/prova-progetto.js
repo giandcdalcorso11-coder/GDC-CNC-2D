@@ -52,6 +52,13 @@
  *  15. che un piano con piu' fogli faccia chiedere anche quando di livelli
  *      non ce n'e' nessuno: nove magneti posati sono lavoro da perdere.
  *
+ * E DAL 2026-11-08, LA SCELTA DEI LIVELLI (l'ultima meta' dello Step 11):
+ *  16. che si possa prenderne due su diciotto, e che arrivino solo quelli;
+ *  17. che arrivino solo i FOGLI che servono a quei due, non tutti e nove;
+ *  18. che senza nessun livello preso i pulsanti si spengano — e che Invio
+ *      non faccia quello che un pulsante spento non fa;
+ *  19. che la spunta sia di QUEL progetto: due file in coda, due scelte.
+ *
  * Ogni controllo qui dentro e' stato provato ROMPENDO IL CODICE DI PROPOSITO:
  * un controllo che non si accende quando il codice e' rotto non e' un
  * controllo, e' una decorazione. Vedi tools/rompi.py.
@@ -712,6 +719,181 @@ const STATO = (page) => page.evaluate(() => {
   await page.waitForTimeout(120);
   r = await page.evaluate(() => State.data.fogli.length);
   ok('e «Annulla» lascia i due fogli dove sono', r === 2, r + ' fogli');
+
+  /* ================================================================== */
+  /* ============ LA SCELTA DEI LIVELLI (2026-11-08) ============ */
+  /* ================================================================== */
+
+  /* Lo stato della finestrella per quello che riguarda la scelta. */
+  const SCELTA = (pg) => pg.evaluate(() => ({
+    aperta: !document.getElementById('prog-scelta').hidden,
+    righe: [...document.querySelectorAll('#prog-elenco .prog-liv')].map((r) => ({
+      nome: r.querySelector('.prog-liv-nome').textContent,
+      preso: r.querySelector('input').checked,
+      fog: r.querySelector('.prog-liv-fog')
+             ? r.querySelector('.prog-liv-fog').textContent : null
+    })),
+    conto: document.getElementById('prog-scelta-n').textContent,
+    agg: document.getElementById('prog-aggiungi').textContent,
+    sos: document.getElementById('prog-sostituisci').textContent,
+    spenti: document.getElementById('prog-aggiungi').disabled &&
+            document.getElementById('prog-sostituisci').disabled
+  }));
+
+  const SPUNTA = (pg, quali) => pg.evaluate(([quali]) => {
+    document.getElementById('prog-nessuno').click();
+    quali.forEach((i) => {
+      const c = document.querySelector('input[data-liv="' + i + '"]');
+      c.checked = true;
+      c.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }, [quali]);
+
+  /* ============ 16. DUE SU SEI, E ARRIVANO SOLO QUELLI ============
+     Il caso dell'operatore del 6 novembre: «mi servono ALCUNE parti da
+     quello». Il progetto qui ha sei livelli su tre fogli — due per foglio —
+     e se ne prendono due, di due fogli diversi. */
+  const tre = await page.evaluate(([CURVO]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(60, 60);
+    Paper.setSheetOrigin(0, 0);
+    Artwork.load(CURVO, 'uno.svg');
+    for (let i = 2; i <= 3; i++) {
+      const f = Fogli.aggiungi(60, 60, 'f' + i);
+      Fogli.scegli(f.id);
+      Artwork.load(CURVO, 'f' + i + '.svg');
+    }
+    return Progetto.testo();
+  }, [CURVO]);
+
+  await SCENA();
+  await page.evaluate(([t]) => Artwork.load(t, 'tre.cnc2d.svg'), [tre]);
+  await page.waitForTimeout(150);
+  let sc = await SCELTA(page);
+  ok('la scelta compare, con tutti i livelli presi di partenza',
+     sc.aperta && sc.righe.length === 6 && sc.righe.every((x) => x.preso) &&
+     /tutti presi/.test(sc.conto) && /Aggiungi i livelli/.test(sc.agg),
+     sc.righe.length + ' righe, «' + sc.conto + '», «' + sc.agg + '»');
+  ok('e ogni riga dice su che foglio di quel progetto sta',
+     sc.righe[0].fog === 'foglio 1' && sc.righe[2].fog === 'foglio 2' &&
+     sc.righe[4].fog === 'foglio 3',
+     sc.righe.map((x) => x.fog).join(', '));
+
+  await SPUNTA(page, [0, 4]);
+  await page.waitForTimeout(100);
+  sc = await SCELTA(page);
+  ok('togliendone, il conto e i pulsanti dicono quanti ne restano',
+     /2 su 6 presi/.test(sc.conto) && /Aggiungi i 2 scelti/.test(sc.agg) &&
+     /Sostituisci con i 2/.test(sc.sos),
+     '«' + sc.conto + '» — «' + sc.agg + '» — «' + sc.sos + '»');
+
+  await page.click('#prog-aggiungi');
+  await page.waitForTimeout(200);
+  r = await STATO(page);
+  ok('e arrivano SOLO i due scelti',
+     r.quanti === 3 && r.nomi[0] === 'in corso.svg' &&
+     /uno\.svg/.test(r.nomi[1]) && /f3\.svg/.test(r.nomi[2]),
+     r.quanti + ': ' + r.nomi.join(', '));
+
+  /* ============ 17. E SOLO I FOGLI CHE SERVONO ============
+     Portarne nove per due livelli vorrebbe dire sette rettangoli vuoti da
+     togliere a mano, e un «;FOGLIO n/N» che conta carta che non si stampa.
+     I due arrivati stanno sul foglio 1 e sul foglio 3 del file, quindi di
+     fogli ne arrivano DUE — e con la geometria che avevano. Nel file i tre
+     fogli stanno a (0,0), (60,0) e (0,60): prendendo il primo e il terzo,
+     quello che arriva dopo deve stare 60 mm PIU' IN ALTO e nella stessa
+     colonna, come stava li`. Il foglio 2 non viene, ma il posto che aveva
+     non si richiude: la geometria che resta e` quella del file. */
+  ok('e con loro arrivano due fogli soli, non tre',
+     r.fogli.length === 3 && FOG(r, 1)[0] === 60 && FOG(r, 2)[0] === 60 &&
+     r.suFoglio.join() === '0,1,2',
+     JSON.stringify(r.fogli) + ' livelli su ' + JSON.stringify(r.suFoglio));
+  ok('e conservano la distanza che avevano nel file',
+     FOG(r, 2)[2] === FOG(r, 1)[2] && FOG(r, 2)[3] - FOG(r, 1)[3] === 60,
+     'angoli ' + JSON.stringify([FOG(r, 1).slice(2, 4), FOG(r, 2).slice(2, 4)]));
+
+  /* Il registro lo dice: quelli lasciati non sono spariti, sono nel file. */
+  r = await page.evaluate(() => [...document.querySelectorAll('#log-view .log-line')]
+    .slice(-4).map((d) => d.querySelector('span:last-child').textContent));
+  ok('e il registro dice quanti ne hai lasciati, e dove sono',
+     r.some((t) => /hai preso 2 livelli su 6/.test(t) &&
+                   /rimasti nel file/.test(t)),
+     r.filter((t) => /hai preso/.test(t)).join(' | ').slice(0, 140));
+
+  /* ============ 18. SENZA NESSUNO PRESO NON SI FA NIENTE ============ */
+  await SCENA();
+  await page.evaluate(([t]) => Artwork.load(t, 'tre.cnc2d.svg'), [tre]);
+  await page.waitForTimeout(150);
+  await page.click('#prog-nessuno');
+  await page.waitForTimeout(100);
+  sc = await SCELTA(page);
+  ok('con nessun livello preso i due pulsanti si spengono',
+     sc.spenti && sc.righe.every((x) => !x.preso), '«' + sc.conto + '»');
+
+  /* E Invio nemmeno: un pulsante spento e un tasto che fa la stessa cosa
+     devono dire la stessa cosa, se no il tasto e` una scorciatoia per
+     saltare un controllo. */
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(150);
+  r = await STATO(page);
+  ok('e Invio non fa quello che il pulsante spento non fa',
+     r.aperta && r.quanti === 1, 'finestrella ' +
+     (r.aperta ? 'aperta' : 'chiusa') + ', ' + r.quanti + ' livelli');
+
+  await page.click('#prog-tutti');
+  await page.waitForTimeout(100);
+  sc = await SCELTA(page);
+  ok('«Tutti» li riprende tutti, e i pulsanti si riaccendono',
+     !sc.spenti && sc.righe.every((x) => x.preso) && /tutti presi/.test(sc.conto),
+     '«' + sc.conto + '»');
+  await page.click('#prog-annulla');
+  await page.waitForTimeout(100);
+
+  /* ============ 19. LA SPUNTA E' DI QUEL PROGETTO ============
+     Due file trascinati insieme: la scelta fatta sul primo non deve
+     ritrovarsi sul secondo, e il secondo deve partire da capo con tutti
+     presi. La spunta sta sulla voce della coda apposta. */
+  await SCENA();
+  await page.evaluate(([a, b]) => {
+    Artwork.load(a, 'tre.cnc2d.svg');
+    Artwork.load(b, 'curvo.cnc2d.svg');
+  }, [tre, salvato]);
+  await page.waitForTimeout(150);
+  await SPUNTA(page, [1]);
+  await page.waitForTimeout(100);
+  await page.click('#prog-aggiungi');
+  await page.waitForTimeout(200);
+  sc = await SCELTA(page);
+  r = await STATO(page);
+  ok('il secondo progetto in coda parte con tutti i suoi presi',
+     r.aperta && /curvo/.test(r.titolo) && sc.righe.length === 2 &&
+     sc.righe.every((x) => x.preso),
+     r.titolo + ', ' + sc.righe.length + ' righe, «' + sc.conto + '»');
+  await page.click('#prog-annulla');
+  await page.waitForTimeout(100);
+  r = await STATO(page);
+  ok('e del primo era arrivato solo il livello scelto',
+     r.quanti === 2 && r.nomi[1] === 'uno.svg · tratto #c8102e',
+     r.quanti + ': ' + r.nomi.join(', '));
+
+  /* Con UN livello solo la casella avrebbe una risposta sola: non compare. */
+  const uno = await page.evaluate(([DRITTO]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(100, 100);
+    Artwork.load(DRITTO, 'solo.svg');
+    return Progetto.testo();
+  }, [DRITTO]);
+  await SCENA();
+  await page.evaluate(([t]) => Artwork.load(t, 'solo.cnc2d.svg'), [uno]);
+  await page.waitForTimeout(150);
+  sc = await SCELTA(page);
+  ok('con un livello solo la scelta non compare',
+     !sc.aperta && sc.righe.length === 0, 'elenco ' +
+     (sc.aperta ? 'visibile' : 'nascosto'));
+  await page.click('#prog-annulla');
+  await page.waitForTimeout(100);
 
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();

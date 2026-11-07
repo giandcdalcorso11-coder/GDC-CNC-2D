@@ -402,6 +402,25 @@
       <button type="button" class="ed-asse" id="ed-specchio-asse"
               title="Asse verticale: ribalta destra-sinistra. Clicca per cambiarlo."
               aria-label="asse dello specchio">&#8596;</button>
+      <!-- RUOTA E SCALA, accanto allo specchio perche' sono lo stesso gesto
+           con un'altra matrice: prendono quello che e' scelto e lo girano o
+           lo ingrandiscono ATTORNO AL SUO CENTRO, cosi' resta dov'e'. Un
+           centro altrove lo farebbe anche volare via, e si dovrebbe
+           rincorrere. Vedi `ruota` e `scala` in js/editor.js. -->
+      <span class="ed-campi">
+        <button type="button" class="btn btn-ghost btn-small" id="ed-ruota"
+                title="Gira quello che è scelto attorno al suo centro">Ruota</button>
+        <input type="number" id="ed-ruota-gradi" value="90" step="15"
+               title="Gradi in senso orario; un numero negativo gira dall'altra parte">
+        <span class="muted small">°</span>
+      </span>
+      <span class="ed-campi">
+        <button type="button" class="btn btn-ghost btn-small" id="ed-scala"
+                title="Ingrandisce o rimpicciolisce quello che è scelto attorno al suo centro">Scala</button>
+        <input type="number" id="ed-scala-pc" value="110" min="1" max="10000" step="5"
+               title="Per cento: 200 raddoppia, 50 dimezza">
+        <span class="muted small">%</span>
+      </span>
       <button type="button" class="btn btn-ghost btn-small" id="ed-elimina">Elimina</button>
       <!-- Taglia, copia e incolla servono a una cosa sola: rimettere una
            linea nel LIVELLO giusto senza spostarla sul foglio. Vedi
@@ -949,6 +968,7 @@
 <script src="js/fogli.js"></script>
 <script src="js/api.js"></script>
 <script src="js/logview.js"></script>
+<script src="js/nome.js"></script>
 <script src="js/font-tratto.js"></script>
 <script src="js/svgpath.js"></script>
 <script src="js/tracciato.js"></script>
@@ -1024,6 +1044,19 @@
     <div class="modal-body">
       <p class="modal-desc" id="prog-desc"></p>
       <p class="modal-desc" id="prog-coda" hidden></p>
+      <!-- LA SCELTA DEI LIVELLI, chiesta dall'operatore il 2026-11-06: «mi
+           servono ALCUNE parti da quello». Senza, l'unica strada era
+           prenderli tutti e cancellare a mano quelli di troppo — e cancellare
+           il livello sbagliato non si disfa. Compare solo da due livelli in
+           su: con uno solo sarebbe una casella con una risposta sola. -->
+      <div class="prog-scelta" id="prog-scelta" hidden>
+        <div class="prog-scelta-testa">
+          <span class="prog-scelta-n" id="prog-scelta-n"></span>
+          <button type="button" class="btn btn-ghost btn-small" id="prog-tutti">Tutti</button>
+          <button type="button" class="btn btn-ghost btn-small" id="prog-nessuno">Nessuno</button>
+        </div>
+        <div class="prog-elenco" id="prog-elenco"></div>
+      </div>
       <!-- Il posto sul piano: non blocca niente, ma la corsa percorribile non
            e' elastica, e un gruppo di fogli che non ci sta finisce di fianco,
            fuori dalla corsa. Si dice PRIMA di scegliere. Fino al 2026-11-07
@@ -1039,6 +1072,29 @@
            dito di chi tira avanti a Invio. -->
       <button class="btn btn-ghost" id="prog-sostituisci">Sostituisci tutto</button>
       <button class="btn btn-primary" id="prog-aggiungi">Aggiungi i livelli</button>
+    </footer>
+  </div>
+</div>
+
+<!-- DARE UN NOME A UNA COSA: una finestrella sola per i livelli e per i
+     fogli. Non e' una casella dentro alla riga perche' gli elenchi di questa
+     pagina si ridisegnano interi a ogni modifica, e si porterebbero via
+     quello che si sta scrivendo. Vedi js/nome.js. -->
+<div class="modal" id="nome-modal" hidden>
+  <div class="modal-box modal-stretto" role="dialog" aria-modal="true"
+       aria-labelledby="nome-titolo">
+    <header class="modal-head"><h2 id="nome-titolo">Nome</h2></header>
+    <div class="modal-body">
+      <input type="text" id="nome-campo" class="nome-campo" spellcheck="false"
+             autocomplete="off" placeholder="nome">
+      <p class="modal-desc" id="nome-desc" hidden></p>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn btn-ghost" id="nome-annulla">Annulla</button>
+      <!-- «Rimetti il nome di prima»: svuotare il campo e confermare fa la
+           stessa cosa, ma un pulsante lo dice. -->
+      <button class="btn btn-ghost" id="nome-vuoto" hidden></button>
+      <button class="btn btn-primary" id="nome-ok">Rinomina</button>
     </footer>
   </div>
 </div>

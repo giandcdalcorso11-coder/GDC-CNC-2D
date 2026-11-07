@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 78
-**Ultimo aggiornamento:** 2026-11-07 16:55
+**Versione:** 79
+**Ultimo aggiornamento:** 2026-11-07 23:55
 
 ## Regole di co-editing
 
@@ -412,6 +412,9 @@ mano a mano che le misure arrivano):
 - [2026-11-03] **Una penna che non si distingue dalla carta non è un difetto dell'anteprima: è una stampa che esce vuota.** L'elenco dei livelli lo dice, col contrasto WCAG sotto 1,6. Succede davvero — nero su cartoncino nero, bianco su carta bianca — e si scopre dopo venti minuti di macchina se nessuno lo dice prima.
 - [2026-11-03] **La tab «In stampa»: il racconto di una stampa, che resta.** Nasce da sola quando parte una stampa, ci si va sopra subito, e a differenza delle altre **si può chiudere** — non è una parte del programma, è il racconto di UNA stampa, e di stampe se ne fanno tante. Dentro: il percorso che avanza sul foglio (grigio il da fare, azzurro il fatto, tratteggiati gli spostamenti, un pallino dove sta la punta), la **riga di G-code in corso** con nove righe prima e nove dopo, i cambi penna segnati dove cadono, e il registro di quella stampa. Finita, la × si accende e la linguetta prende un pallino verde, ambra o rosso. Oltre sei, la più vecchia se ne va. **Ogni tab si porta via una copia della sua stampa** — programma, foglio, carta, colori — ed è la decisione che fa funzionare il resto: leggendo lo stato vivo basterebbe caricare un altro disegno per riscrivere la storia di una stampa già fatta, e una tab aperta diventerebbe un racconto falso, credibile per giunta. Il **percorso si ricava dal G-code** e non dal disegno sul foglio: è quello che la macchina ha davvero ricevuto, ottimizzatore compreso, e ogni tratto sa da quale riga viene, quindi «a che punto siamo» è una corrispondenza esatta invece di una proporzione.
 - [2026-11-03] **Una penna è un colore E uno spessore, e il terzo avviso non c'era.** Finché lo spessore non esisteva, «stessa penna?» si rispondeva col colore; dal giorno dopo quella risposta è sbagliata nel verso peggiore — diceva «questa fermata è inutile, toglila» di una fermata che serve. L'identità è `colore|spessore` e da lì passano tutti gli avvisi. Scavando è venuto fuori che **il caso più caro non lo segnalava nessuno**: due livelli di seguito che vogliono penne diverse e nessuna fermata in mezzo. La macchina tira dritto e il secondo livello esce con la penna del primo — un foglio intero sbagliato, scoperto a stampa finita. Valeva già per i colori; con lo spessore i modi di cascarci raddoppiano. Adesso lo dice, dice **perché** («cambia lo spessore»), e accende il simbolo della penna **sulla riga dove la fermata va messa**: con dodici livelli, sapere che ne manca una senza sapere quale è un lavoro. La fermata non si mette da soli, perché l'ordine dei livelli decide anche cosa finisce sopra a cosa. Lo spessore viaggia anche nel commento `;PENNA` del programma: «monta la nera» non è una risposta se di nere ne hai due.
+- [2026-11-08] **L'editor impara a ruotare e a ingrandire**, chiesto dall'operatore. Nella tab Disegno si faceva già, col riquadro sul foglio, ma quello lavora su **livelli interi**: qui serve girare una freccia e basta. Sono lo stesso gesto dello specchio con un'altra matrice, e come lui lavorano **attorno al centro di quello che è scelto**, così la cosa resta dov'è. Il verso: le coordinate di un livello sono quelle del file da cui viene, cioè di un SVG — la y cresce verso il **basso** — quindi un angolo positivo gira in senso **orario**, ed è quello che dice il campo. Un **testo ingrandito resta un testo** (l'altezza è un numero che la forma tiene), **ruotato diventa tracciati** (una parola storta non si può scrivere da nessuna parte): la stessa regola dello specchio. Un giro intero, il 100% e lo zero non fanno niente e non sporcano la pila dell'annulla.
+- [2026-11-08] **La fermata che manca si segna col quadratino, non colorando la matita.** Detto dall'operatore: «colorando la matita mi confonde e non capisco se è già attiva o meno». Aveva ragione, e il difetto era nel disegno dell'avviso: «la stampa si ferma qui» e «qui dovrebbe fermarsi e non si ferma» sono due cose **opposte**, e portavano tutt'e due il giallo — l'unica differenza era un anello da un pixel, che l'occhio legge dopo il colore. Adesso il giallo sulla matita vuol dire una cosa sola: la fermata c'è. Il banco guardava solo la *classe* CSS e questa regressione non l'avrebbe vista: adesso legge i colori veri (`getComputedStyle`) e pretende che i due stati **differiscano per il colore della matita**, non per il contorno.
+- [2026-11-08] **I nomi si possono scrivere**, livelli e fogli, chiesto dall'operatore. Li metteva il programma — «antei.svg · tratto #1f4fa8», «Personalizzato» — e con diciotto livelli su nove magneti non dicono più niente. Il nome del foglio **esce dalla pagina**: sta nell'intestazione dei livelli, nel marcatore `;FOGLIO n/N nome` del programma e sul vetro del telecomando, cioè è l'unico modo di sapere a stampa iniziata su quale pezzo di carta va la penna.
 - [2026-11-03] **Un difetto vecchio di quattro giorni, trovato lavorando accanto.** Il segno azzurro di «questo pezzo l'ha già fatto» nell'anteprima non si vedeva più **da quando i livelli hanno una penna** (2026-10-29): il colore si scrive come stile sulla riga — deve farlo, se no la regola `.trace-draw` vince e i tratti restano grigi — e uno stile sulla riga batte qualsiasi regola del foglio di stile. Coloriva solo i livelli senza tinta, cioè quelli disegnati a mano, cioè quasi mai: per questo era passato inosservato per quattro giorni.
 
 - [2026-11-01] **Il telecomando ha una scheda sua nelle impostazioni**, invece di stare sparso dentro a «Connessione»: è una scatola a parte, con una rete sua, un collaudo suo e modi suoi di rompersi. Dentro, oltre alla prova in bianco: **una schermata per volta**, dieci pulsanti che mandano uno stato e lo **tengono fermo** finché non ne premi un altro — guardare una schermata con la recita voleva dire aspettare il momento giusto e fotografarlo — e la **spia del dialogo**, una spunta che scrive nel registro ogni messaggio che esce (→) e ogni risposta che torna (←), spenta di suo perché a stampa in corso sono due e mezzo al secondo. Un tasto premuto mentre una schermata è ferma **non fa niente e finisce nel registro**: è il modo di provare un pad per volta. Trovati e chiusi due buchi per strada: una **stampa vera non spegneva la prova** (il controllo si faceva solo premendo, e se la stampa partiva dopo il vetro restava a recitare), e il **campo dell'indirizzo restava vuoto all'avvio** con scritto «Collegato» due righe sotto, perché le impostazioni si accendono prima del telecomando.
@@ -800,7 +803,7 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 
 ### Step 11 — Unire due progetti salvati: il foglio e la scelta dei livelli
 
-**Stato:** in corso — **resta solo la scelta dei livelli.** Dal 2026-11-06 i livelli di un progetto salvato si possono **aggiungere** a quelli che ci sono (Step 4). Il **foglio**, che era la rifinitura più grossa, **si è chiuso il 2026-11-07** con la fase 5 dello Step 12: un progetto salvato si porta dietro i suoi fogli, e se il piano è già quello di quel progetto i livelli si appoggiano sui fogli che ci sono. Resta la **scelta dei livelli**.
+**Stato:** **completato** (2026-11-08). Il **foglio** si è chiuso il 2026-11-07 con la fase 5 dello Step 12 — un progetto salvato si porta dietro i suoi fogli, e se il piano è già quello di quel progetto i livelli si appoggiano sui fogli che ci sono — e la **scelta dei livelli** il 2026-11-08: la finestrella del progetto ha l'elenco con le caselle, e di diciotto livelli se ne prendono due.
 
 **Obiettivo:** prendere pezzi da due progetti salvati senza perdere niente per strada e senza dover ricollocare a mano — né i disegni, né l'attenzione.
 
@@ -814,13 +817,14 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 | Cosa | Perché serve |
 |---|---|
 | ~~**Il foglio diverso**~~ | **Fatto il 2026-11-07** (fase 5 dello Step 12). Non si è scelto fra «ricollocare» e «adottare il foglio»: le due strade erano i due modi di spartirsi un unico foglio, e l'unico foglio non c'è più. |
-| **La scelta dei livelli** | «Mi servono *alcune parti* da quello»: un elenco con le caselle prima di aggiungere, per prenderne due su otto invece di prenderli tutti e cancellare il resto a mano. |
+| ~~**La scelta dei livelli**~~ | **Fatta il 2026-11-08.** L'elenco con le caselle nella finestrella del progetto, e con i livelli arrivano **solo i fogli che servono a loro**: due livelli su diciotto portano due magneti, non nove. |
 
-**Criterio di completamento:** l'utente apre due progetti salvati su fogli di misura diversa, prende da ciascuno solo i livelli che gli servono, e **non deve ricollocare niente a mano** prima di stampare.
+**Criterio di completamento:** l'utente apre due progetti salvati su fogli di misura diversa, prende da ciascuno solo i livelli che gli servono, e **non deve ricollocare niente a mano** prima di stampare. *Soddisfatto nel programma il 2026-11-08; da confermare all'uso.*
 
 **Note (cronologia dello step):**
 - [2026-11-06] Step aperto, e aperto perché una parte è già fatta: l'avviso a tre vie è nello Step 4. Qui restano il foglio e la scelta dei livelli, rimandati dall'utente nello stesso messaggio in cui ha chiesto l'avviso.
 - [2026-11-07] **Il foglio passa allo Step 12, e non per spostare un problema altrove.** L'utente ha chiesto di andare verso più fogli sul piano, e quella direzione *scioglie* questo pezzo invece di rattopparlo: non c'è più un unico foglio per cui litigare. Qui resta la scelta dei livelli — l'elenco con le caselle per prenderne due su otto — che nel frattempo è diventata meno urgente, perché un livello caricato sul foglio sbagliato adesso si trascina su quello giusto (Step 4).
+- [2026-11-08] **La scelta dei livelli, e lo step si chiude.** La finestrella del progetto ha l'elenco con le caselle: tutti presi di partenza, «Tutti» e «Nessuno», il conto («3 su 18 presi») e i due pulsanti che dicono su quanti lavorano e si spengono se non ne resta nessuno. Con i livelli arrivano **solo i fogli che servono a loro**, con la geometria relativa che avevano nel file: il posto del foglio saltato non si richiude. Quelli lasciati restano nel file, e il registro lo dice.
 - [2026-11-07] **Il foglio è chiuso** (fase 5 dello Step 12). Un progetto salvato scrive i suoi fogli nel file e ogni livello dice su quale sta. Riaprendolo: se il piano di oggi è **lo stesso piano** (tanti fogli quanti, delle stesse misure, nello stesso ordine) i livelli si appoggiano sui fogli che ci sono — che è il caso raccontato il 6 novembre, due file sullo stesso formato e le parti da mettere sulla stessa carta; se no, il progetto **porta i suoi fogli** e nessuno si sposta. L'avviso «quel progetto era su un foglio di un'altra misura, controlla dove sono finiti i livelli» è stato cancellato: non c'è più niente da controllare.
 
 ### Step 12 — Più fogli sul piano
@@ -876,6 +880,48 @@ quello che era.
 - [2026-11-07] **Un A4 non ci sta nella corsa, e il banco l'ha fatto notare.** 297 > 236: un progetto su A4 non può essere posato «dove c'è posto», e la prima versione reagiva mettendogli i fogli sopra a quelli che c'erano. Adesso un gruppo che non ci sta va **di fianco** a tutto, fuori dalla corsa, e mai sopra: due disegni sulla stessa carta non si vedono, un foglio che sporge sì — e l'elenco dei fogli lo dice già. «Più grande della corsa» e «non c'è più posto libero» si dicono con due frasi diverse, perché la prima non è un errore (con un A4 si stampa un pezzo per volta).
 
 ## Storico sessioni
+
+### [2026-11-07 23:40] (software) Prendere due livelli su diciotto, girare una forma, e dare un nome alle cose
+
+**Riepilogo:** tre richieste dell'operatore in un colpo — la scelta dei livelli quando si aggiunge un progetto salvato (e con questa lo **Step 11 si chiude**), ruota e scala nell'editor, e la rinomina di livelli e fogli — più il difetto scoperto scrivendo il collaudo: il doppio clic sugli elenchi di questa pagina non arrivava mai.
+
+**Cosa è stato fatto:**
+- **La scelta dei livelli** (Step 11, l'ultima metà). La finestrella del progetto ha l'elenco con le caselle: tutti presi di partenza, «Tutti» e «Nessuno», il conto («3 su 18 presi»), e i due pulsanti che dicono su quanti lavorano e **si spengono** se non ne resta nessuno — Invio compreso, perché un tasto che scavalca un pulsante spento è una scorciatoia per saltare un controllo. Con i livelli arrivano **solo i fogli che servono a loro**: due livelli su diciotto portano due magneti, non nove, e con la distanza che avevano nel file — il posto del foglio saltato non si richiude. Quelli lasciati restano nel file, e il registro lo dice.
+- **Ruota e scala nell'editor.** Due pulsanti con il loro campo (gradi, per cento), accanto allo specchio perché sono lo stesso gesto con un'altra matrice: lavorano **attorno al centro** di quello che è scelto, così la cosa resta dov'è. Un testo ingrandito resta un testo; ruotato diventa tracciati.
+- **La rinomina di livelli e fogli.** Due clic sul nome — nell'elenco della tab Disegno, nell'intestazione del foglio, sulla pasticca del foglio, nella colonna dell'editor — aprono una finestrella con un campo solo. Nuovo `js/nome.js`. Il nome del foglio arriva fino al `;FOGLIO n/N nome` del programma e quindi al telecomando.
+- **La matita dell'avviso.** L'ultima richiesta della serata: la fermata che manca si segna col quadratino giallo e basta, la matita resta del suo grigio. Vedi la nota dello Step 4.
+- **Banco:** nuovo `prova-nomi.js` (17 controlli), `prova-progetto.js` da 31 a 42, `prova-editor.js` da 12 a 21, `prova-penne.js` da 10 a 12 (i colori veri, letti con `getComputedStyle`), e `rompi.py` da 156 a **185 mutazioni**.
+
+**Bug: il doppio clic sugli elenchi non arrivava mai**
+
+**Sintomo:** la rinomina col doppio clic funzionava solo sulla riga **già scelta** — cioè proprio nel caso in cui non serve. Sulle altre non succedeva niente.
+**Causa:** accertata. Il primo clic sceglie il livello (o il foglio) e **ridisegna l'intero elenco**: il bottone su cui si è premuto non esiste più quando arriva il secondo clic, e in quel caso il browser l'evento `dblclick` non lo manda affatto. Trovato scrivendo il collaudo, non usando la pagina.
+**Fix applicato:** i due clic si contano a mano (`Nome.doppio`): stesso bersaglio entro mezzo secondo. Verificato da un controllo che preme due volte davvero, ripescando il bottone fra un clic e l'altro — e dal controllo gemello, che pretende che **un clic solo non rinomini**, perché scegliere un livello è il gesto che si fa cento volte al giorno.
+
+**Decisioni prese:**
+- Contesto: prendendo solo alcuni livelli da un progetto, quali fogli devono arrivare?
+- Decisione: **solo quelli su cui sta almeno un livello scelto**, con la geometria relativa che avevano nel file. «Lo stesso piano» (che decide se i livelli si appoggiano ai fogli che ci sono) continua invece a guardare **tutti** i fogli del file: l'identità di un piano non dipende da quanto se ne prende, e due livelli presi da un progetto di nove magneti devono poter tornare sui magneti su cui stavano.
+- Alternative scartate: *portare tutti i fogli del file* — sette rettangoli vuoti da togliere a mano e un `;FOGLIO n/N` che conta carta che non si stampa.
+- Da rivedere se: capitasse di volere il foglio vuoto, per metterci qualcosa dopo.
+
+- Contesto: dove mettere la rinomina, visto che il doppio clic sulla riga apre già il riquadro di selezione sul foglio.
+- Decisione: **due clic sul NOME**, che è un bersaglio suo; il riquadro resta sul doppio clic su tutto il resto della riga e sul disegno. Zero pulsanti nuovi in una riga che ne ha già dieci.
+- Alternative scartate: *una casella dentro alla riga* — gli elenchi si ridisegnano interi a ogni modifica e se la porterebbero via con dentro quello che si sta scrivendo; *un `prompt()` di sistema* — non si stila e non si prova bene.
+
+**File consegnati/modificati:**
+- `webui/js/nome.js` — **nuovo**: la finestrella del nome e il doppio clic contato a mano.
+- `webui/js/progetto.js` — la scelta dei livelli (elenco, conteggio, pulsanti che dicono quanti), i fogli filtrati sui livelli scelti.
+- `webui/js/editor.js` — `ruota`, `scala`, `gruppoDaTrasformare`, `applicaMatrice`; `Editor.rinfresca`.
+- `webui/js/artwork.js` — `rinominaLivello`, il doppio clic sul nome e sull'intestazione del foglio.
+- `webui/js/paper.js` — `rinominaFoglio`, `apply()` che non calpesta un nome scritto a mano.
+- `webui/js/state.js` — `nomeMio` sul foglio; `webui/js/app.js` — `Nome.init()`.
+- `webui/index.html`, `webui/css/components.css` — le due finestrelle e i due strumenti nuovi.
+- `webui/tools/prova-nomi.js` (nuovo), `prova-progetto.js`, `prova-editor.js`, `prova-penne.js`, `rompi.py`.
+- `documento-sessione-cnc-2d.md` — v79.
+
+**Impatto su Vision/Pipeline:** Step 11 — **completato**. Step 4 — tre note nuove (ruota/scala nell'editor, i nomi, la matita dell'avviso).
+
+---
 
 ### [2026-11-07 16:55] (software) Il progetto salvato si porta dietro i suoi fogli, e lo Step 11 si chiude per metà
 

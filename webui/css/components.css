@@ -1007,13 +1007,56 @@ code {
 }
 .modal-nota[hidden] { display: none; }
 
+/* La finestrella del nome: un campo solo, largo quanto la finestrella. */
+.nome-campo { width: 100%; font-size: 14px; padding: 7px 9px; }
+.modal-stretto { max-width: 420px; }
+
+/* LA SCELTA DEI LIVELLI nella finestrella del progetto. L'elenco scorre e
+   la testa no: con diciotto livelli — nove magneti a due penne — la riga
+   «quanti ne hai presi» deve restare sotto gli occhi mentre si spunta. */
+.prog-scelta {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+}
+.prog-scelta[hidden] { display: none; }
+.prog-scelta-testa {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.prog-scelta-n { flex: 1; font-size: 12px; color: var(--text-dim); }
+.prog-elenco { max-height: 190px; overflow-y: auto; padding: 4px; }
+.prog-liv {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px; border-radius: var(--r-sm);
+  font-size: 12.5px; cursor: pointer;
+}
+.prog-liv:hover { background: var(--bg-raised); }
+.prog-liv input { margin: 0; cursor: pointer; }
+.prog-liv-nome {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Spenta, la riga si legge ancora: dice che cosa NON stai prendendo. */
+.prog-liv.spenta .prog-liv-nome { color: var(--text-dim); text-decoration: line-through; }
+.prog-liv-fog {
+  font-size: 11px; color: var(--text-dim);
+  border: 1px solid var(--line-soft); border-radius: 999px;
+  padding: 0 6px; white-space: nowrap;
+}
+
 .modal-foot {
   padding: 12px 16px;
   border-top: 1px solid var(--line-soft);
   display: flex;
   gap: 8px;
+  /* I pulsanti dicono su quanti livelli lavorano, quindi la loro scritta
+     cambia lunghezza: a terzi fissi «Aggiungi i 12 scelti» usciva dal
+     pulsante. Crescono a riempire la riga, ma non si stringono sotto la
+     loro scritta — piuttosto vanno a capo. */
+  flex-wrap: wrap;
 }
-.modal-foot .btn { flex: 1; }
+.modal-foot .btn { flex: 1 1 auto; min-width: max-content; }
 
 /* Il lucchetto del foglio: dice se la posizione sullo schermo è misurata o
    solo indicativa, ed è l'unico modo di scartare la misura. */
@@ -2316,12 +2359,16 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
 }
 
 /* IL SIMBOLO DELLA PENNA QUANDO LA FERMATA MANCA. Acceso e mancante sono
-   due stati diversi e dicono due cose diverse: acceso e' «qui la stampa si
-   ferma», mancante e' «qui dovrebbe fermarsi e non si ferma». Il secondo e'
-   un avviso, quindi porta il colore degli avvisi e un anello: un simbolo
-   solo colorato si confonderebbe con quello acceso, che e' il contrario. */
+   due stati diversi e dicono due cose OPPOSTE: acceso e' «qui la stampa si
+   ferma», mancante e' «qui dovrebbe fermarsi e non si ferma».
+   SOLO L'ANELLO, E LA MATITA NO. Fino al 2026-11-08 il mancante prendeva il
+   colore degli avvisi *e* l'anello, e l'unica differenza fra i due stati era
+   un contorno da un pixel. Detto dall'operatore: «colorando la matita mi
+   confonde e non capisco se e' gia' attiva o meno» — e ha ragione, il colore
+   si legge prima del contorno. Adesso il giallo sulla matita vuol dire una
+   cosa sola: la fermata c'e'. Il quadratino giallo attorno a una matita
+   normale vuol dire: qui ne manca una. */
 .liv-penna.manca {
-  color: var(--warn);
   box-shadow: inset 0 0 0 1px var(--warn);
   border-radius: 4px;
 }

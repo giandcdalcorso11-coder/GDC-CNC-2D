@@ -962,6 +962,45 @@ var Artwork = (function () {
       .map(function (x) { return x.l; });
   }
 
+  /* ----------------------- il nome di un livello ------------------------
+   *
+   * Chiesto dall'operatore il 2026-11-08. I nomi li mette il programma — il
+   * file e la tinta da cui il livello viene, «antei.svg · tratto #1f4fa8» —
+   * e vanno bene finché i livelli sono due. Con diciotto non dicono più
+   * niente, e il nome si legge in tre posti: questo elenco, la colonna
+   * dell'editor e il commento `;PENNA` del programma, cioè la riga che dice
+   * quale penna montare quando la macchina si ferma.
+   *
+   * Un nome vuoto NON cancella il nome: un livello senza nome è una riga che
+   * non si trova più. Si lascia quello di prima, e lo si dice. */
+  function rinominaLivello(id) {
+    var l = trova(id);
+    if (!l || !window.Nome) return;
+    Nome.chiedi({
+      titolo: 'Nome del livello',
+      desc: 'Lo scrivono questo elenco, la colonna dell\'editor e il commento ' +
+            ';PENNA del programma — la riga che dice quale penna montare ' +
+            'quando la macchina si ferma.',
+      valore: l.nome || '',
+      ok: function (nuovo) {
+        if (!nuovo || nuovo === l.nome) {
+          if (!nuovo) {
+            Log.add('msg', 'Nome lasciato com\'era («' + l.nome + '»): un ' +
+                    'livello senza nome è una riga che non si trova più.');
+          }
+          return;
+        }
+        var prima = l.nome;
+        l.nome = nuovo;
+        renderElenco();
+        if (window.Editor && Editor.rinfresca) Editor.rinfresca();
+        if (window.Selezione) Selezione.ridisegna();
+        Log.add('msg', 'Il livello «' + prima + '» adesso si chiama «' +
+                nuovo + '».');
+      }
+    });
+  }
+
   /* Un livello cambia foglio. Il rettangolo NON si tocca: è in millimetri
      del foglio, e un disegno spostato dal magnete 1 al magnete 4 deve
      trovarsi nello stesso punto del magnete 4 — non da un'altra parte
@@ -2794,7 +2833,17 @@ var Artwork = (function () {
            a lavorare su quel foglio, che è la cosa che uno vuole fare dopo
            averla guardata. */
         var t = e.target.closest('[data-testa]');
-        if (t) { Fogli.scegli(t.dataset.testa); return; }
+        if (t) {
+          /* Due clic sull'intestazione: si rinomina il foglio. Uno solo: ci
+             si va a lavorare. Vedi `Nome.doppio`, che spiega perché i due
+             clic si contano a mano. */
+          if (window.Nome && Nome.doppio('fog:' + t.dataset.testa) && window.Paper) {
+            Paper.rinominaFoglio(t.dataset.testa);
+          } else {
+            Fogli.scegli(t.dataset.testa);
+          }
+          return;
+        }
         var b = e.target.closest('button');
         if (!b) return;
         var d = b.dataset;
@@ -2804,7 +2853,10 @@ var Artwork = (function () {
         if (d.pen) tavolozzaApri(b, d.pen);   // il pallino: anche al clic
         else if (d.spess) spessoriApri(b, d.spess);  // il trattino: lo stesso
         else if (d.sel) seleziona(d.sel, 'aggiungi');
-        else if (d.nome) seleziona(d.nome);
+        else if (d.nome) {
+          if (window.Nome && Nome.doppio('liv:' + d.nome)) rinominaLivello(d.nome);
+          else seleziona(d.nome);
+        }
         else if (d.penna) commutaCambioPenna(d.penna);
         else if (d.edit) commutaOrigine(d.edit);
         else if (d.occhio) commutaVisibile(d.occhio);
@@ -2816,6 +2868,10 @@ var Artwork = (function () {
          col doppio clic sul disegno, e serve quando i disegni sono
          sovrapposti e mirarli col mouse è un terno al lotto. */
       box.addEventListener('dblclick', function (e) {
+        /* Il nome e l'intestazione del foglio hanno già il loro doppio clic,
+           contato dentro al gestore dei clic (vedi sopra): qui si esce,
+           altrimenti due clic sul nome aprirebbero anche il riquadro. */
+        if (e.target.closest('[data-nome]') || e.target.closest('[data-testa]')) return;
         var r = e.target.closest('[data-liv]');
         if (!r || e.target.closest('[data-del]') || e.target.closest('[data-occhio]')) return;
         seleziona(r.dataset.liv);
@@ -3012,6 +3068,7 @@ var Artwork = (function () {
     spessoreLivello: spessoreLivello,
     scegliPenna: scegliPenna,
     seleziona: seleziona, sceltoId: sceltoId, quale: quale,
+    rinominaLivello: rinominaLivello,
     deseleziona: deseleziona, scelti: scelti, segnaOrigine: segnaOrigine,
     principale: principale, daFoglio: daFoglio, sfondoPer: sfondoPer,
     commutaOrigine: commutaOrigine,

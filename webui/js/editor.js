@@ -1858,6 +1858,144 @@ var Editor = (function () {
                      'allo specchio non si riscrive più.' : ''));
   }
 
+  /* --------------------------- ruota e scala ---------------------------
+   *
+   * Chiesti dall'operatore il 2026-11-08: «la possibilità di ingrandire e
+   * ruotare le forme anche nella tab edit». Nella tab Disegno si fa già, col
+   * riquadro sul foglio, ma quello lavora su LIVELLI INTERI: qui serve
+   * girare una freccia e basta, lasciando fermo il resto del disegno.
+   *
+   * Sono lo stesso gesto dello specchio con un'altra matrice, e come lui
+   * lavorano ATTORNO AL CENTRO di quello che è scelto: così la cosa resta
+   * dov'è e cambia soltanto. Un centro altrove — l'origine del livello, per
+   * dire — la farebbe anche volare via, e si dovrebbe rincorrerla.
+   *
+   * UN TESTO RUOTATO SMETTE DI ESSERE UN TESTO, come allo specchio: la forma
+   * `testo` tiene la parola e l'altezza e le lettere si ricostruiscono
+   * dritte ogni volta, quindi non c'è posto dove scrivere «ma storta».
+   * INGRANDITO INVECE RESTA UN TESTO, e non è un'incoerenza: ingrandire un
+   * testo vuol dire scriverlo più grande, e l'altezza è proprio il numero
+   * che la forma tiene. `Tracciato.trasforma` la scala già da sé, con la
+   * radice del determinante.
+   */
+
+  /* Quello che è scelto, pronto da trasformare, o null col motivo già detto
+     nel registro. Un posto solo, perché ruota, scala e specchio devono
+     rifiutare per le stesse ragioni e dirlo con le stesse parole. */
+  function gruppoDaTrasformare(verbo) {
+    var f = forme();
+    if (!f) return null;
+    if (!attivoVisibile()) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio prima ' +
+                     'di ' + verbo + 'ci qualcosa.');
+      return null;
+    }
+    var gruppo = sel.forme.length ? sel.forme.slice()
+               : (sel.forma >= 0 ? [sel.forma] : []);
+    if (!gruppo.length) {
+      Log.add('err', 'Non c\'è nessuna forma scelta: clicca una linea, o ' +
+                     'tienine premuto Shift per prenderne altre. Si lavora su ' +
+                     'forme intere, non su singoli tratti.');
+      return null;
+    }
+    var scelte = gruppo.map(function (i) { return f[i]; })
+                       .filter(function (x) { return !!x; });
+    var b = Tracciato.bbox(scelte, TOL);
+    if (!isFinite(b.w) || !isFinite(b.h)) {
+      Log.add('err', 'Quello che è scelto non ha una misura: non so attorno a ' +
+                     'che cosa girarlo.');
+      return null;
+    }
+    return { f: f, gruppo: gruppo, b: b,
+             cx: b.x0 + b.w / 2, cy: b.y0 + b.h / 2 };
+  }
+
+  /* Applica la matrice alle forme scelte. `testiInTracciati` dice se la
+     trasformazione è di quelle che un testo non sa portarsi dietro. */
+  function applicaMatrice(g, m, testiInTracciati) {
+    segna();
+    var testi = 0;
+    g.gruppo.forEach(function (i) {
+      var forma = g.f[i];
+      if (!forma) return;
+      if (testiInTracciati && forma.tipo === 'testo') {
+        forma = testoInTracciato(forma);
+        testi++;
+      }
+      g.f[i] = Tracciato.trasforma(forma, m);
+    });
+    sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];
+    cambiato();
+    return testi;
+  }
+
+  /* Un numero da leggere, non da stampare: due decimali e via gli zeri in
+     coda. Le unità sono quelle del livello, che non sono millimetri del
+     foglio — un file può avere una scala qualunque — e per questo il
+     messaggio lo dice. */
+  function misura(v) {
+    return String(Math.round(v * 100) / 100);
+  }
+
+  /* IL VERSO. Le coordinate di un livello sono quelle del file da cui viene,
+     cioè quelle di un SVG: la y cresce verso il BASSO, e l'editor le disegna
+     così com'è — per questo nell'editor il disegno si vede dritto come nel
+     file. Quindi un angolo positivo, che sulla carta di un matematico sarebbe
+     antiorario, qui si vede girare in senso ORARIO. È quello che dice il
+     suggerimento del campo, ed è così anche sul foglio: il piano ribalta la
+     y per disegnare, quindi mostra la stessa figura dell'editor. */
+  function ruota() {
+    var gradi = +document.getElementById('ed-ruota-gradi').value || 0;
+    /* Un giro intero è il modo più sicuro di credere che il pulsante sia
+       rotto: non si tocca niente e non si sporca la pila dell'annulla. */
+    if (!(gradi % 360)) {
+      Log.add('err', 'Gradi ' + gradi + ': sarebbe un giro intero, e non ' +
+                     'cambierebbe niente. Scrivi quanto vuoi girarlo — 90, ' +
+                     '45, o un numero negativo per girare dall\'altra parte.');
+      return;
+    }
+    var g = gruppoDaTrasformare('gira');
+    if (!g) return;
+    var a = gradi * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);
+    var m = { a: co, b: si, c: -si, d: co,
+              e: g.cx - co * g.cx + si * g.cy,
+              f: g.cy - si * g.cx - co * g.cy };
+    var testi = applicaMatrice(g, m, true);
+    Log.add('msg', 'Girato di ' + gradi + '° in senso ' +
+            (gradi > 0 ? 'orario' : 'antiorario') + ' attorno al centro di ' +
+            'quello che era scelto: sul foglio non si è spostato.' +
+            (testi ? ' ' + (testi === 1 ? 'Un testo è diventato' : testi +
+                     ' testi sono diventati') + ' tracciati: una parola ' +
+                     'storta non si riscrive più.' : ''));
+  }
+
+  function scala() {
+    var pc = +document.getElementById('ed-scala-pc').value || 0;
+    if (pc <= 0) {
+      Log.add('err', 'Per cento ' + pc + ': non si può. Sotto zero il disegno ' +
+                     'si rovescia, a zero sparisce in un punto — e da un punto ' +
+                     'non torna indietro.');
+      return;
+    }
+    if (pc === 100) {
+      Log.add('err', 'Il 100% è la misura di adesso: non cambierebbe niente. ' +
+                     'Scrivi 200 per raddoppiare, 50 per dimezzare.');
+      return;
+    }
+    var g = gruppoDaTrasformare('ingrandi');
+    if (!g) return;
+    var k = pc / 100;
+    var m = { a: k, b: 0, c: 0, d: k,
+              e: g.cx - k * g.cx, f: g.cy - k * g.cy };
+    applicaMatrice(g, m, false);
+    Log.add('msg', (pc > 100 ? 'Ingrandito' : 'Rimpicciolito') + ' al ' + pc +
+            '% attorno al centro di quello che era scelto: da ' +
+            misura(g.b.w) + ' × ' + misura(g.b.h) + ' a ' +
+            misura(g.b.w * k) + ' × ' + misura(g.b.h * k) +
+            ' nelle unità del livello. I testi restano testi: ingrandire un ' +
+            'testo vuol dire scriverlo più grande.');
+  }
+
   /* ---------------------- taglia, copia, incolla ----------------------
    *
    * A CHE COSA SERVE, perché non è il copia-incolla di un documento: a
@@ -2345,6 +2483,8 @@ var Editor = (function () {
         scriviAiuto();
       }
       else if (b.id === 'ed-specchia') specchia();
+      else if (b.id === 'ed-ruota') ruota();
+      else if (b.id === 'ed-scala') scala();
       else if (b.id === 'ed-specchio-asse') {
         specchioAsse = specchioAsse === 'v' ? 'o' : 'v';
         b.textContent = specchioAsse === 'v' ? '\u2194' : '\u2195';
@@ -2420,7 +2560,17 @@ var Editor = (function () {
       elenco.addEventListener('click', function (e) {
         var b = e.target.closest('button');
         if (!b) return;
-        if (b.dataset.edLiv) cambiaLivello(b.dataset.edLiv);
+        if (b.dataset.edLiv) {
+          /* Due clic sul nome: si rinomina. Qui dentro si passa il tempo a
+             modificare, ed è qui che ci si accorge che «antei.svg · tratto
+             #1f4fa8» non si capisce più: la rinomina deve stare dove nasce
+             il bisogno. Vedi `Nome.doppio` per il perché si contano a mano. */
+          if (window.Nome && Nome.doppio('liv:' + b.dataset.edLiv)) {
+            Artwork.rinominaLivello(b.dataset.edLiv);
+          } else {
+            cambiaLivello(b.dataset.edLiv);
+          }
+        }
         else if (b.dataset.edOcchio) {
           Artwork.commutaVisibile(b.dataset.edOcchio);
           renderLivelli();
@@ -2455,7 +2605,14 @@ var Editor = (function () {
              sel.sub = -1; sel.nodo = -1; sel.maniglia = null; sel.segmenti = [];
              disegna();
            },
-           specchia: specchia,
+           specchia: specchia, ruota: ruota, scala: scala,
+           /* Chi rinomina un livello da fuori (la tab Disegno) deve poter
+              far ridisegnare questa colonna: il nome sta anche qui. */
+           rinfresca: function () {
+             renderLivelli();
+             var l = Artwork.livelli().filter(function (x) { return x.principale; })[0];
+             if (titolo) titolo.textContent = l ? l.nome : '';
+           },
            asseSpecchio: function (v) {
              if (v !== undefined) specchioAsse = (v === 'o') ? 'o' : 'v';
              return specchioAsse;

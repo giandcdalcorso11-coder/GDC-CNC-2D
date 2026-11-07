@@ -500,16 +500,16 @@ MUTAZIONI = [
     dict(
         nome="aggiungendo, il piano di chi c'era si butta lo stesso",
         file="js/progetto.js",
-        da="    var esito = aggiungi ? accosta(fg) : rimetti(fg);",
-        a="    var esito = rimetti(fg);",
+        da="    var esito = aggiungi ? accosta(fg, dati.livelli) : rimetti(fg, dati.livelli);",
+        a="    var esito = rimetti(fg, dati.livelli);",
         vede="quello che c'era sul piano non si muove",
         prova="prova-progetto.js",
     ),
     dict(
         nome="«Annulla» aggiunge lo stesso",
         file="js/progetto.js",
-        da="      if (scelta) applica(v.dati, v.nome, scelta === 'aggiungi');\n      else Log.add('msg', 'Progetto «' + v.nome + '» non aperto: quello che ' +\n                          'c\\'era resta com\\'è.');",
-        a="      applica(v.dati, v.nome, scelta !== 'sostituisci');",
+        da="        applica(conSoloScelti(v), v.nome, scelta === 'aggiungi');",
+        a="        applica(conSoloScelti(v), v.nome, scelta !== 'sostituisci');",
         vede="lascia il foglio com'era",
         prova="prova-progetto.js",
     ),
@@ -542,7 +542,7 @@ MUTAZIONI = [
     dict(
         nome="il registro non dice che foglio si e' portato dietro",
         file="js/progetto.js",
-        da="              : ', con ' + quantiFogli(fg) + ': ogni livello sul foglio su cui ' +",
+        da="              : ', con ' + quantiFogli(portati) + ': ogni livello sul foglio su cui ' +",
         a="              : ': ogni livello sul foglio su cui ' +",
         vede="il registro racconta l'aggiunta",
         prova="prova-progetto.js",
@@ -1210,7 +1210,12 @@ MUTAZIONI = [
         nome="il file non salva l'elenco dei fogli",
         file="js/progetto.js",
         da="""      fogli: fg.map(function (f) {
-        return { w: f.w, h: f.h, nome: f.name || null,
+        /* `nomeMio` viaggia col nome, e senza di lui il nome non durerebbe:
+           riaprendo, il primo ridisegno rimetterebbe quello del formato
+           (vedi `apply()` in paper.js). Una chiave in più non cambia il
+           formato del file: una pagina che non la conosce la ignora, e un
+           file che non ce l'ha vale come «no». */
+        return { w: f.w, h: f.h, nome: f.name || null, nomeMio: !!f.nomeMio,
                  angolo: { x: f.origine.x, y: f.origine.y } };
       }),""",
         a="      fogli: [],",
@@ -1261,12 +1266,12 @@ MUTAZIONI = [
     dict(
         nome="i fogli che arrivano si posano uno per volta",
         file="js/progetto.js",
-        da="""    var mappa = fg.map(function (f) {
-      var n = State.nuovoFoglio({ w: f.w, h: f.h, name: f.nome,
+        da="""      var n = State.nuovoFoglio({ w: f.w, h: f.h, name: f.nome,
+                                  nomeMio: f.nomeMio,
                                   x: f.angolo.x + d.dx, y: f.angolo.y + d.dy });""",
-        a="""    var mappa = fg.map(function (f) {
-      var sola = Fogli.posaLibera(f.w, f.h);
+        a="""      var sola = Fogli.posaLibera(f.w, f.h);
       var n = State.nuovoFoglio({ w: f.w, h: f.h, name: f.nome,
+                                  nomeMio: f.nomeMio,
                                   x: sola.x, y: sola.y });""",
         vede="il gruppo di fogli si posa tutto insieme",
         prova="prova-progetto.js",
@@ -1381,8 +1386,8 @@ MUTAZIONI = [
     dict(
         nome="la finestrella non dice che i livelli si appoggiano",
         file="js/progetto.js",
-        da="      (posa.sopra\n        ? 'Aggiungendoli, il piano è già quello di questo progetto",
-        a="      (false\n        ? 'Aggiungendoli, il piano è già quello di questo progetto",
+        da="        : (posa.sopra",
+        a="        : (false",
         vede="la finestrella dice che i livelli si appoggiano",
         prova="prova-progetto.js",
     ),
@@ -1393,6 +1398,254 @@ MUTAZIONI = [
         a="            (false",
         vede="il registro dice che non e` arrivata altra carta",
         prova="prova-progetto.js",
+    ),
+
+    # ---- LA SCELTA DEI LIVELLI (Step 11, 2026-11-08) ----
+    dict(
+        nome="la scelta compare anche con un livello solo",
+        file="js/progetto.js",
+        da="    sc.hidden = v.dati.livelli.length < 2;",
+        a="    sc.hidden = false;",
+        vede="con un livello solo la scelta non compare",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="si prendono tutti lo stesso, spunte o no",
+        file="js/progetto.js",
+        da="        applica(conSoloScelti(v), v.nome, scelta === 'aggiungi');",
+        a="        applica(v.dati, v.nome, scelta === 'aggiungi');",
+        vede="arrivano SOLO i due scelti",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="arrivano tutti i fogli, anche quelli senza livelli scelti",
+        file="js/progetto.js",
+        da="    fg.forEach(function (f, i) { if (usa[i]) out.push(i); });",
+        a="    fg.forEach(function (f, i) { out.push(i); });",
+        vede="arrivano due fogli soli, non tre",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="i pulsanti restano accesi senza nessun livello preso",
+        file="js/progetto.js",
+        da="    agg.disabled = !quanti;",
+        a="    agg.disabled = false;",
+        vede="i due pulsanti si spengono",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="Invio fa quello che il pulsante spento non fa",
+        file="js/progetto.js",
+        da="    if (scelta && !presi(coda[0]).length) return;",
+        a="",
+        vede="Invio non fa quello che il pulsante spento non fa",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="«Nessuno» li prende tutti",
+        file="js/progetto.js",
+        da="      .addEventListener('click', function () { tutte(false); });",
+        a="      .addEventListener('click', function () { tutte(true); });",
+        vede="i due pulsanti si spengono",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il conto e i pulsanti non si rifanno a ogni spunta",
+        file="js/progetto.js",
+        da="""        if (riga) riga.classList.toggle('spenta', !c.checked);
+        aggiorna();""",
+        a="        if (riga) riga.classList.toggle('spenta', !c.checked);",
+        vede="il conto e i pulsanti dicono quanti ne restano",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="un progetto in coda eredita la spunta di quello prima",
+        file="js/progetto.js",
+        da="      v.scelti = v.dati.livelli.map(function () { return true; });",
+        a="      v.scelti = v.dati.livelli.map(function (l, i) { return i === 0; });",
+        vede="parte con tutti i suoi presi",
+        prova="prova-progetto.js",
+    ),
+    dict(
+        nome="il registro non dice quanti livelli hai lasciato nel file",
+        file="js/progetto.js",
+        da="        if (pre < tot) {",
+        a="        if (false) {",
+        vede="quanti ne hai lasciati",
+        prova="prova-progetto.js",
+    ),
+
+    # ---- RUOTA E SCALA NELL'EDITOR (2026-11-08) ----
+    dict(
+        nome="ruota attorno all'origine invece che al centro",
+        file="js/editor.js",
+        da="""    var m = { a: co, b: si, c: -si, d: co,
+              e: g.cx - co * g.cx + si * g.cy,
+              f: g.cy - si * g.cx - co * g.cy };""",
+        a="    var m = { a: co, b: si, c: -si, d: co, e: 0, f: 0 };",
+        vede="la scatola gira sul posto",
+        prova="prova-editor.js",
+    ),
+    dict(
+        nome="ruota dalla parte sbagliata",
+        file="js/editor.js",
+        da="    var a = gradi * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);",
+        a="    var a = -gradi * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);",
+        vede="gira in senso orario",
+        prova="prova-editor.js",
+    ),
+    dict(
+        nome="scala attorno all'origine invece che al centro",
+        file="js/editor.js",
+        da="""    var m = { a: k, b: 0, c: 0, d: k,
+              e: g.cx - k * g.cx, f: g.cy - k * g.cy };""",
+        a="    var m = { a: k, b: 0, c: 0, d: k, e: 0, f: 0 };",
+        vede="attorno al centro",
+        prova="prova-editor.js",
+    ),
+    dict(
+        nome="un giro intero fa comunque qualcosa",
+        file="js/editor.js",
+        da="    if (!(gradi % 360)) {",
+        a="    if (false) {",
+        vede="non toccano niente",
+        prova="prova-editor.js",
+    ),
+    dict(
+        nome="lo zero per cento passa, e il disegno sparisce in un punto",
+        file="js/editor.js",
+        da="    if (pc <= 0) {",
+        a="    if (pc < 0) {",
+        vede="non toccano niente",
+        prova="prova-editor.js",
+    ),
+    dict(
+        nome="un testo ruotato resta testo, e si raddrizza da se'",
+        file="js/editor.js",
+        da="    var testi = applicaMatrice(g, m, true);",
+        a="    var testi = applicaMatrice(g, m, false);",
+        vede="ruotato diventa tracciati",
+        prova="prova-editor.js",
+    ),
+    dict(
+        nome="un testo ingrandito diventa tracciati per niente",
+        file="js/editor.js",
+        da="    applicaMatrice(g, m, false);",
+        a="    applicaMatrice(g, m, true);",
+        vede="un testo ingrandito resta un testo",
+        prova="prova-editor.js",
+    ),
+    dict(
+        nome="ruota e scala non si possono annullare",
+        file="js/editor.js",
+        da="""  function applicaMatrice(g, m, testiInTracciati) {
+    segna();""",
+        a="""  function applicaMatrice(g, m, testiInTracciati) {""",
+        vede="l'annulla disfa una rotazione",
+        prova="prova-editor.js",
+    ),
+
+    # ---- RINOMINARE LIVELLI E FOGLI (2026-11-08) ----
+    dict(
+        nome="un clic solo sul nome rinomina",
+        file="js/artwork.js",
+        da="""          if (window.Nome && Nome.doppio('liv:' + d.nome)) rinominaLivello(d.nome);
+          else seleziona(d.nome);""",
+        a="          rinominaLivello(d.nome);",
+        vede="un clic solo sul nome non apre niente",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="i due clic non si contano a mano (torna il dblclick del browser)",
+        file="js/nome.js",
+        da="    var si = ultimo.chi === chi && (t - ultimo.t) < 450;",
+        a="    var si = false;",
+        vede="due clic sul nome aprono la finestrella",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="il nome non si ripulisce dagli spazi",
+        file="js/nome.js",
+        da="    return String(s == null ? '' : s).replace(/\\s+/g, ' ').trim().slice(0, MAX);",
+        a="    return String(s == null ? '' : s).slice(0, MAX);",
+        vede="il nome si ripulisce dagli spazi",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="un nome vuoto cancella il nome del livello",
+        file="js/artwork.js",
+        da="        if (!nuovo || nuovo === l.nome) {",
+        a="        if (false) {",
+        vede="un nome vuoto lascia il livello com'era",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="il foglio rinominato non si segna di esserlo",
+        file="js/paper.js",
+        da="        f.nomeMio = !!nuovo;",
+        a="        f.nomeMio = false;",
+        vede="si segna che il nome l'hai messo tu",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="il ridisegno riscrive il nome del foglio dal formato",
+        file="js/paper.js",
+        da="    if (!State.data.paper.nomeMio) {",
+        a="    if (true) {",
+        vede="non glielo ributta via",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="il file non salva che il nome del foglio l'hai messo tu",
+        file="js/progetto.js",
+        da="        return { w: f.w, h: f.h, nome: f.name || null, nomeMio: !!f.nomeMio,",
+        a="        return { w: f.w, h: f.h, nome: f.name || null, nomeMio: false,",
+        vede="il foglio pure, anche dopo un ridisegno",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="Esc conferma invece di lasciar stare",
+        file="js/nome.js",
+        da="      if (e.key === 'Escape') { e.preventDefault(); chiudi(); }",
+        a="      if (e.key === 'Escape') { e.preventDefault(); conferma(this.value); }",
+        vede="Esc chiude senza rinominare",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="«Rimetti» conferma quello che c'e' scritto nel campo",
+        file="js/nome.js",
+        da="    el('nome-vuoto').addEventListener('click', function () { conferma(''); });",
+        a="    el('nome-vuoto').addEventListener('click', function () { conferma(el('nome-campo').value); });",
+        vede="torna al nome del formato",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="il nome del foglio non entra nel marcatore del programma",
+        file="js/artwork.js",
+        da="""          nome: ff ? (ff.name && ff.name !== 'Personalizzato'
+                       ? ff.name : ff.w + 'x' + ff.h) : ''""",
+        a="          nome: ''",
+        vede="finisce nel programma",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="la colonna dell'editor non si rifa' dopo la rinomina",
+        file="js/artwork.js",
+        da="        if (window.Editor && Editor.rinfresca) Editor.rinfresca();",
+        a="",
+        vede="la colonna dell'editor lo riscrive subito",
+        prova="prova-nomi.js",
+    ),
+    dict(
+        nome="la fermata che manca colora anche la matita",
+        file="css/components.css",
+        da=""".liv-penna.manca {
+  box-shadow: inset 0 0 0 1px var(--warn);""",
+        a=""".liv-penna.manca {
+  color: var(--warn);
+  box-shadow: inset 0 0 0 1px var(--warn);""",
+        vede="lasciando la matita del suo colore",
+        prova="prova-penne.js",
     ),
 ]
 

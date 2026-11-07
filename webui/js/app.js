@@ -287,6 +287,7 @@
     Sorgenti.init();
     Editor.init();
     Progetto.init();
+    Nome.init();
     Telecomando.init();
 
     /* «Stampa» non manda niente: apre la procedura dei tre popup, che prende le

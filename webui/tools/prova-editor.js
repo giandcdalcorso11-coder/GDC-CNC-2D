@@ -1,5 +1,6 @@
-/* Il collaudo dei due strumenti nuovi dell'editor: il selettore specifico
- * (il lazo) e lo specchio.
+/* Il collaudo degli strumenti dell'editor che spostano la geometria: il
+ * selettore specifico (il lazo), lo specchio e — dal 2026-11-08 — ruota e
+ * scala.
  *
  * Gira sulla pagina COSTRUITA, nel browser vero, perche' questi due
  * strumenti vivono fra il mouse, l'SVG e il modello: provarli a pezzi
@@ -262,6 +263,152 @@ function lunghezza(punti) {
      r.scarti ? r.scarti.nascoste + ' forme saltate come magazzino' : '?');
   ok('e senza il fondo della maschera', r.scarti && r.scarti.sfondi >= 1,
      r.scarti ? r.scarti.sfondi + ' forme saltate perche` grandi quanto il foglio' : '?');
+
+  /* ---------- 4. ruota e scala (2026-11-08) ----------
+   *
+   * I NUMERI SONO CONTATI A MANO, non ripresi dal codice: una «L» con la
+   * scatola da (20,10) a (70,80) ha il centro in (45,45), e girata di 90°
+   * ogni nodo finisce in (90 - y, x). Scriverli qui vuol dire che una
+   * matrice sbagliata si vede, mentre «il risultato e` quello che da` il
+   * codice» non controlla niente.
+   *
+   * IL VERSO. Le coordinate di un livello sono quelle del file da cui viene,
+   * cioe` di un SVG: la y cresce verso il BASSO. Un angolo positivo, che su
+   * una carta da matematico sarebbe antiorario, qui si vede girare in senso
+   * ORARIO — e il suggerimento del campo lo dice. La «L» ha l'asta in alto e
+   * il piede a destra in basso: dopo 90° l'asta deve puntare a DESTRA dal
+   * suo angolo, e il piede in GIU'. */
+  r = await page.evaluate(() => {
+    const L = Tracciato.daPunti([{ x: 20, y: 10 }, { x: 20, y: 80 },
+                                 { x: 70, y: 80 }], false);
+    PREPARA([L]);
+    const nodi = () => Artwork.forme()[0].sub[0].nodi
+      .map((n) => [Math.round(n.x * 1e6) / 1e6, Math.round(n.y * 1e6) / 1e6]);
+    const scatola = () => {
+      const b = Tracciato.bbox(Artwork.forme(), 0.02);
+      return [b.x0, b.y0, b.w, b.h].map((v) => Math.round(v * 1e4) / 1e4);
+    };
+    const b0 = scatola(), n0 = nodi();
+    Editor.scegliForma(0);
+    document.getElementById('ed-ruota-gradi').value = 90;
+    document.getElementById('ed-ruota').click();
+    const b1 = scatola(), n1 = nodi();
+    /* Altri tre giri da 90: quattro fanno un giro intero e si torna. */
+    for (let i = 0; i < 3; i++) {
+      Editor.scegliForma(0);
+      document.getElementById('ed-ruota').click();
+    }
+    const giro = nodi();
+    return { b0: b0, n0: n0, b1: b1, n1: n1, giro: giro };
+  });
+  ok('ruota di 90° porta ogni nodo dove deve',
+     JSON.stringify(r.n1) === JSON.stringify([[80, 20], [10, 20], [10, 70]]),
+     JSON.stringify(r.n1));
+  ok('e gira in senso orario: l\'asta va a destra, il piede in giu`',
+     r.n1[1][0] < r.n1[0][0] && r.n1[1][1] === r.n1[0][1] &&
+     r.n1[2][0] === r.n1[1][0] && r.n1[2][1] > r.n1[1][1],
+     'angolo ' + JSON.stringify(r.n1[1]) + ', asta ' + JSON.stringify(r.n1[0]) +
+     ', piede ' + JSON.stringify(r.n1[2]));
+  /* LA COSA CHE CONTA DAVVERO: non si sposta. Un centro preso altrove —
+     l'origine del livello, per dire — girerebbe e farebbe anche volare via,
+     e sul foglio il disegno finirebbe da un'altra parte. */
+  ok('e la scatola gira sul posto: stesso centro, lati scambiati',
+     r.b1[2] === r.b0[3] && r.b1[3] === r.b0[2] &&
+     r.b1[0] + r.b1[2] / 2 === r.b0[0] + r.b0[2] / 2 &&
+     r.b1[1] + r.b1[3] / 2 === r.b0[1] + r.b0[3] / 2,
+     'da ' + JSON.stringify(r.b0) + ' a ' + JSON.stringify(r.b1));
+  ok('quattro giri da 90 tornano all\'originale',
+     JSON.stringify(r.giro) === JSON.stringify(r.n0), JSON.stringify(r.giro));
+
+  r = await page.evaluate(() => {
+    const L = Tracciato.daPunti([{ x: 20, y: 10 }, { x: 20, y: 80 },
+                                 { x: 70, y: 80 }], false);
+    PREPARA([L]);
+    const scatola = () => {
+      const b = Tracciato.bbox(Artwork.forme(), 0.02);
+      return [b.x0, b.y0, b.w, b.h].map((v) => Math.round(v * 1e4) / 1e4);
+    };
+    const b0 = scatola();
+    Editor.scegliForma(0);
+    document.getElementById('ed-scala-pc').value = 200;
+    document.getElementById('ed-scala').click();
+    const b1 = scatola();
+    Editor.scegliForma(0);
+    document.getElementById('ed-scala-pc').value = 50;
+    document.getElementById('ed-scala').click();
+    return { b0: b0, b1: b1, b2: scatola() };
+  });
+  ok('scala al 200% raddoppia, e attorno al centro',
+     r.b1[2] === r.b0[2] * 2 && r.b1[3] === r.b0[3] * 2 &&
+     r.b1[0] + r.b1[2] / 2 === r.b0[0] + r.b0[2] / 2 &&
+     r.b1[1] + r.b1[3] / 2 === r.b0[1] + r.b0[3] / 2,
+     'da ' + JSON.stringify(r.b0) + ' a ' + JSON.stringify(r.b1));
+  ok('e il 50% dopo il 200% rimette la misura di partenza',
+     JSON.stringify(r.b2) === JSON.stringify(r.b0), JSON.stringify(r.b2));
+
+  /* UN TESTO INGRANDITO RESTA UN TESTO, uno ruotato no. Non e'
+     un'incoerenza: ingrandire un testo vuol dire scriverlo piu` grande, e
+     l'altezza e` proprio il numero che la forma tiene; girarlo storto
+     invece non si puo` scrivere da nessuna parte, quindi diventa
+     tracciati — una volta sola, e dicendolo. */
+  r = await page.evaluate(() => {
+    PREPARA([Tracciato.testo('AB', 0, 0, 10)]);
+    Editor.scegliForma(0);
+    document.getElementById('ed-scala-pc').value = 200;
+    document.getElementById('ed-scala').click();
+    const dopoScala = { tipo: Artwork.forme()[0].tipo, alt: Artwork.forme()[0].alt };
+    Editor.scegliForma(0);
+    document.getElementById('ed-ruota-gradi').value = 45;
+    document.getElementById('ed-ruota').click();
+    return { dopoScala: dopoScala, dopoRuota: Artwork.forme()[0].tipo };
+  });
+  ok('un testo ingrandito resta un testo, e cresce di altezza',
+     r.dopoScala.tipo === 'testo' && r.dopoScala.alt === 20,
+     JSON.stringify(r.dopoScala));
+  ok('ma ruotato diventa tracciati: una parola storta non si riscrive',
+     r.dopoRuota === 'tracciato', String(r.dopoRuota));
+
+  /* QUELLO CHE NON DEVE FARE NIENTE. Un giro intero e il 100% sono il modo
+     piu` sicuro di credere che il pulsante sia rotto: non cambiano niente, e
+     non devono nemmeno sporcare la pila dell'annulla — se no Ctrl+Z dopo
+     avrebbe un passo che non ha fatto nulla. */
+  r = await page.evaluate(() => {
+    const L = Tracciato.daPunti([{ x: 20, y: 10 }, { x: 20, y: 80 },
+                                 { x: 70, y: 80 }], false);
+    PREPARA([L]);
+    const n0 = JSON.stringify(Artwork.forme()[0].sub[0].nodi.map((n) => [n.x, n.y]));
+    Editor.scegliForma(0);
+    document.getElementById('ed-ruota-gradi').value = 360;
+    document.getElementById('ed-ruota').click();
+    document.getElementById('ed-scala-pc').value = 100;
+    document.getElementById('ed-scala').click();
+    const annullabile = !document.getElementById('ed-annulla').disabled;
+    /* E con lo zero per cento il disegno sparirebbe in un punto, da cui non
+       torna indietro: si rifiuta. */
+    document.getElementById('ed-scala-pc').value = 0;
+    document.getElementById('ed-scala').click();
+    const n1 = JSON.stringify(Artwork.forme()[0].sub[0].nodi.map((n) => [n.x, n.y]));
+    return { uguali: n0 === n1, annullabile: annullabile };
+  });
+  ok('un giro intero, il 100% e lo zero non toccano niente',
+     r.uguali && !r.annullabile,
+     'disegno ' + (r.uguali ? 'fermo' : 'cambiato') + ', annulla ' +
+     (r.annullabile ? 'acceso' : 'spento'));
+
+  /* E l'annulla rimette com'era: ruota e scala passano dalla stessa pila
+     degli altri strumenti, non da una loro. */
+  r = await page.evaluate(() => {
+    const L = Tracciato.daPunti([{ x: 20, y: 10 }, { x: 20, y: 80 },
+                                 { x: 70, y: 80 }], false);
+    PREPARA([L]);
+    const n0 = JSON.stringify(Artwork.forme()[0].sub[0].nodi.map((n) => [n.x, n.y]));
+    Editor.scegliForma(0);
+    document.getElementById('ed-ruota-gradi').value = 30;
+    document.getElementById('ed-ruota').click();
+    Editor.annulla();
+    return n0 === JSON.stringify(Artwork.forme()[0].sub[0].nodi.map((n) => [n.x, n.y]));
+  });
+  ok('e l\'annulla disfa una rotazione', r === true, String(r));
 
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();

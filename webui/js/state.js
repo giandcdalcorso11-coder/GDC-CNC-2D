@@ -50,7 +50,8 @@ var State = (function () {
      *   aggancio             null = sta per conto suo e il suo angolo si misura;
      *                        altrimenti l'id del foglio a cui è ACCOSTATO, e
      *                        allora l'angolo si ricava invece di misurarlo
-     *   cartaSua             «questo foglio è di un'altra carta»: la spunta che
+     *   nomeMio              il nome l'ha scritto l'operatore, non il formato
+   *   cartaSua             «questo foglio è di un'altra carta»: la spunta che
      *                        fa misurare l'altezza di contatto a parte
      *   z                    quell'altezza, quando cartaSua è vero
      *
@@ -110,6 +111,11 @@ var State = (function () {
       w: +d.w || 148,
       h: +d.h || 210,
       name: d.name || null,
+      /* «QUESTO NOME L'HO MESSO IO». Senza, il nome del foglio in uso
+         tornerebbe quello del formato al primo ridisegno: `apply()` in
+         paper.js lo riscrive da `nomeFormato()` a ogni giro, ed è giusto
+         che lo faccia — finché nessuno ha detto il contrario. */
+      nomeMio: !!d.nomeMio,
       colore: null,
       origine: { x: d.x === undefined ? 20 : +d.x,
                  y: d.y === undefined ? 20 : +d.y },

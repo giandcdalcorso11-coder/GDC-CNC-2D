@@ -489,7 +489,13 @@ var Paper = (function () {
   function indiceDi(id) { return Fogli.indice(id); }
 
   function apply() {
-    State.data.paper.name = nomeFormato(State.data.paper.w, State.data.paper.h);
+    /* Il nome del foglio lo fa il formato, SALVO che l'abbia scritto
+       l'operatore: un foglio che si chiama «magnete Gioco» non deve tornare
+       «75 × 75» perché la pagina si è ridisegnata. Vedi `nomeMio` in
+       state.js e la rinomina qui sotto. */
+    if (!State.data.paper.nomeMio) {
+      State.data.paper.name = nomeFormato(State.data.paper.w, State.data.paper.h);
+    }
     /* Il colore nello stato è una COPIA PER COMODITÀ di chi guarda — l'elenco
        dei livelli, che deve dire se la penna si vedrà su questa carta — e si
        riscrive qui a ogni giro, da Profile, perché una copia che si aggiorna
@@ -1074,6 +1080,50 @@ var Paper = (function () {
     renderSheet();
   }
 
+  /* ----------------------- il nome di un foglio -------------------------
+   *
+   * Chiesto dall'operatore il 2026-11-08. Non è una decorazione: il nome del
+   * foglio esce dalla pagina e arriva fino alla macchina — sta
+   * nell'intestazione dei livelli, nel marcatore `;FOGLIO n/N nome` del
+   * programma e sul vetro del telecomando. Con nove magneti sul piano,
+   * «FOGLIO 4/9 75x75» non dice niente e «FOGLIO 4/9 Gioco» dice tutto.
+   *
+   * IL NOME VUOTO RIMETTE QUELLO DEL FORMATO, e per questo serve `nomeMio`:
+   * senza, `apply()` riscriverebbe il nome a ogni ridisegno e la rinomina
+   * durerebbe fino al primo clic. */
+  function rinominaFoglio(id) {
+    var f = Fogli.trova(id);
+    if (!f || !window.Nome) return;
+    var n = Fogli.indice(id) + 1, di = Fogli.elenco().length;
+    var auto = nomeFormato(f.w, f.h);
+    /* Quello che si LEGGE quando il nome non c'è: per un formato ISO è il
+       suo nome, per una misura qualunque sono le misure — «Personalizzato»
+       lo scrive il programma dentro di sé, ma sul pulsante sarebbe il nome
+       di niente. È la stessa regola dell'elenco dei fogli. */
+    var visto = auto !== 'Personalizzato' ? auto : f.w + ' \u00d7 ' + f.h;
+    Nome.chiedi({
+      titolo: 'Nome del foglio ' + n,
+      desc: 'Lo scrivono l\'elenco dei fogli, l\'intestazione dei livelli, il ' +
+            'programma (;FOGLIO ' + n + '/' + di + ' …) e il vetro del ' +
+            'telecomando: è così che si sa, a stampa iniziata, su quale pezzo ' +
+            'di carta sta andando la penna.',
+      valore: f.name && f.name !== 'Personalizzato' ? f.name : '',
+      vuoto: 'Rimetti «' + visto + '»',
+      ok: function (nuovo) {
+        f.nomeMio = !!nuovo;
+        f.name = nuovo || auto;
+        State.emit('fogli');
+        renderFogli();
+        renderSheet();
+        Log.add('msg', nuovo
+          ? 'Il foglio ' + n + ' adesso si chiama «' + nuovo + '»: lo dicono ' +
+            'l\'elenco, il programma e il telecomando.'
+          : 'Il foglio ' + n + ' torna a chiamarsi come il suo formato: «' +
+            visto + '».');
+      }
+    });
+  }
+
   /* Il pulsante dice due cose diverse a seconda di chi contiene chi, e sono
      davvero due operazioni diverse: con un foglio piccolo lo si mette in mezzo
      alla corsa, con un foglio grande si mette la corsa in mezzo al foglio. Il
@@ -1315,7 +1365,17 @@ var Paper = (function () {
         return;
       }
       var sc = e.target.closest('[data-foglio]');
-      if (sc) { Fogli.scegli(sc.dataset.foglio); return; }
+      if (sc) {
+        /* DOPPIO CLIC SULLA PASTICCA: il nome. Un clic solo sceglie il
+           foglio, che è quello che uno vuole comunque prima di
+           rinominarlo. I due clic si contano a mano: vedi `Nome.doppio`. */
+        if (window.Nome && Nome.doppio('fog:' + sc.dataset.foglio)) {
+          rinominaFoglio(sc.dataset.foglio);
+        } else {
+          Fogli.scegli(sc.dataset.foglio);
+        }
+        return;
+      }
       if (e.target.closest('#btn-foglio-add')) {
         var w = Math.round(+document.getElementById('paper-w').value) || 100;
         var h = Math.round(+document.getElementById('paper-h').value) || 100;
@@ -1329,6 +1389,10 @@ var Paper = (function () {
       }
     });
 
+    /* DOPPIO CLIC SULLA PASTICCA: il nome. Il clic singolo sceglie già il
+       foglio, e sovrapporre un secondo gesto allo stesso bersaglio non
+       toglie niente — scegliere quel foglio prima di rinominarlo è quello
+       che uno vuole comunque. */
     /* Il piano e l'elenco seguono i fogli dovunque li si cambi: dai
        pulsanti qui, dal trascinamento, o da un domani in cui li cambierà
        qualcun altro. Un segnale solo, un posto solo che ridisegna. */
@@ -1464,6 +1528,6 @@ var Paper = (function () {
        sulla carta di oggi non lascerebbe niente. */
     colore: colore, coloreDi: coloreDi, carte: function () { return CARTE.slice(); },
     nomeCarta: nomeCarta, chiarezza: chiarezza, contrasto: contrasto,
-    apriColoreFoglio: apriModaleFisso
+    apriColoreFoglio: apriModaleFisso, rinominaFoglio: rinominaFoglio
   };
 })();

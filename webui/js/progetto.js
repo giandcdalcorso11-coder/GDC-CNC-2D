@@ -157,7 +157,12 @@ var Progetto = (function () {
          non quello che è una misura di una stampa: niente `z`, niente
          `cartaSua`, niente `misurato`, niente `aggancio`. */
       fogli: fg.map(function (f) {
-        return { w: f.w, h: f.h, nome: f.name || null,
+        /* `nomeMio` viaggia col nome, e senza di lui il nome non durerebbe:
+           riaprendo, il primo ridisegno rimetterebbe quello del formato
+           (vedi `apply()` in paper.js). Una chiave in più non cambia il
+           formato del file: una pagina che non la conosce la ignora, e un
+           file che non ce l'ha vale come «no». */
+        return { w: f.w, h: f.h, nome: f.name || null, nomeMio: !!f.nomeMio,
                  angolo: { x: f.origine.x, y: f.origine.y } };
       }),
       /* Queste due dicono del PRIMO foglio e sono qui per le pagine che
@@ -253,6 +258,7 @@ var Progetto = (function () {
       return dati.fogli.map(function (f) {
         var a = f.angolo || {};
         return { w: +f.w || 1, h: +f.h || 1, nome: f.nome || null,
+                 nomeMio: !!f.nomeMio,
                  angolo: { x: +a.x || 0, y: +a.y || 0 } };
       });
     }
@@ -306,7 +312,7 @@ var Progetto = (function () {
    * erano accostati — cioè trasformare una misura in due, di nascosto, nel
    * momento esatto in cui si crede di averne salvata una.
    */
-  function rimetti(fg) {
+  function rimetti(fg, livelli) {
     var ora = State.data.fogli;
     var misurato = ora.some(function (f) { return f.misurato; });
 
@@ -314,9 +320,18 @@ var Progetto = (function () {
       return { mappa: ora.map(function (f) { return f.id; }), tenuto: true };
     }
 
-    var nuovi = fg.map(function (f) {
-      return State.nuovoFoglio({ w: f.w, h: f.h, name: f.nome,
-                                 x: f.angolo.x, y: f.angolo.y });
+    /* Anche sostituendo si rimettono solo i fogli che servono: prendendo due
+       livelli su diciotto, «torna a quel progetto» vuol dire tornare ai suoi
+       DUE magneti, non a nove di cui sette vuoti. */
+    var usati = indiciUsati(fg, livelli);
+    var mappa = [];
+    var nuovi = usati.map(function (i) {
+      var f = fg[i];
+      var n = State.nuovoFoglio({ w: f.w, h: f.h, name: f.nome,
+                                  nomeMio: f.nomeMio,
+                                  x: f.angolo.x, y: f.angolo.y });
+      mappa[i] = n.id;
+      return n;
     });
     State.data.fogli = nuovi;
     State.data.foglioAttivo = nuovi[0].id;
@@ -325,7 +340,7 @@ var Progetto = (function () {
        virgola dello stato, e serve a far ridisegnare tutto (le caselle delle
        misure, il piano, l'elenco dei fogli, il percorso) da un posto solo. */
     Paper.setSize(nuovi[0].w, nuovi[0].h);
-    return { mappa: nuovi.map(function (f) { return f.id; }), tenuto: false };
+    return { mappa: mappa, tenuto: false };
   }
 
   /* IL PIANO DI OGGI E' LO STESSO PIANO DEL FILE: tanti fogli quanti, delle
@@ -345,16 +360,42 @@ var Progetto = (function () {
      conto sta in un posto solo perché le due risposte devono combaciare: una
      finestrella che dice «ci stanno» e un'aggiunta che li mette fuori dalla
      corsa è peggio di nessuna delle due. */
-  function dovePosarli(fg) {
+  function dovePosarli(fg, usati) {
     /* Sul piano che è già quello del file non si posa niente: i livelli
-       vanno sui fogli che ci sono. Vedi `accosta`. */
+       vanno sui fogli che ci sono. Vedi `accosta`.
+       Il confronto guarda TUTTI i fogli del file, anche quelli di cui non si
+       prende nessun livello: «lo stesso piano» è l'identità di un piano, non
+       di una scelta. Prendendo due livelli su diciotto da un progetto di
+       nove magneti, quel progetto resta un progetto di nove magneti, e i due
+       livelli vanno sui magneti su cui stavano. */
     if (stessoPiano(fg)) {
       return { dx: 0, dy: 0, dentro: true, piuGrande: false, sopra: true };
     }
-    return Fogli.posaGruppo(fg.map(function (f) {
+    return Fogli.posaGruppo(quali(fg, usati).map(function (f) {
       return { x0: f.angolo.x, y0: f.angolo.y,
                x1: f.angolo.x + f.w, y1: f.angolo.y + f.h };
     }));
+  }
+
+  /* I NUMERI DEI FOGLI SU CUI STA ALMENO UNO DEI LIVELLI CHE ARRIVANO.
+     Prendendo due livelli su diciotto, i fogli che servono sono uno o due, e
+     portarne nove vorrebbe dire sette fogli vuoti sul piano — cioè sette
+     rettangoli da togliere a mano, e un `;FOGLIO n/N` che conta una carta
+     che non si stampa. Tornano in ordine, che è l'ordine del file: la
+     geometria relativa di quelli che restano non cambia. */
+  function indiciUsati(fg, livelli) {
+    var usa = {}, out = [];
+    (livelli || []).forEach(function (l) { usa[+l.foglio || 0] = true; });
+    fg.forEach(function (f, i) { if (usa[i]) out.push(i); });
+    /* Nessun livello (o nessuno con un foglio valido): si tiene il primo,
+       perché un progetto senza fogli non si può applicare. */
+    return out.length ? out : [0];
+  }
+
+  function quali(fg, usati) {
+    if (!usati) return fg;
+    return usati.map(function (i) { return fg[i]; })
+                .filter(function (f) { return !!f; });
   }
 
   /* QUELLO CHE NON TORNA, detto in una riga, o null se tutto torna. Lo dicono
@@ -379,8 +420,9 @@ var Progetto = (function () {
 
   /* AGGIUNGENDO: i fogli del file si posano sul piano, tutti insieme e di un
      solo scostamento, dove c'è posto. Vedi `Fogli.posaGruppo`. */
-  function accosta(fg) {
-    var d = dovePosarli(fg);
+  function accosta(fg, livelli) {
+    var usati = indiciUsati(fg, livelli);
+    var d = dovePosarli(fg, usati);
 
     /* QUANDO IL PIANO E' GIA' QUELLO DEL FILE, i livelli si appoggiano sui
        fogli che ci sono e non nasce niente. È il caso che l'operatore ha
@@ -396,11 +438,18 @@ var Progetto = (function () {
                posa: d };
     }
 
-    var mappa = fg.map(function (f) {
+    /* La mappa è SPARSA: ha un id solo ai posti dei fogli che arrivano. Un
+       livello che indicasse un foglio non portato cadrebbe sul foglio in uso
+       (vedi `daProgetto`), ma non può succedere — i fogli portati sono
+       esattamente quelli dei livelli scelti. */
+    var mappa = [];
+    usati.forEach(function (i) {
+      var f = fg[i];
       var n = State.nuovoFoglio({ w: f.w, h: f.h, name: f.nome,
+                                  nomeMio: f.nomeMio,
                                   x: f.angolo.x + d.dx, y: f.angolo.y + d.dy });
       State.data.fogli.push(n);
-      return n.id;
+      mappa[i] = n.id;
     });
     /* Gli agganci si rileggono con tutti i fogli nuovi già nell'elenco: un
        gruppo che si posa accanto a quello che c'era nasce accostato a lui, e
@@ -425,7 +474,11 @@ var Progetto = (function () {
      ripristinate, o appoggiarle su un foglio che non c'è. */
   function applica(dati, nome, aggiungi) {
     var fg = fogliDi(dati);
-    var esito = aggiungi ? accosta(fg) : rimetti(fg);
+    var esito = aggiungi ? accosta(fg, dati.livelli) : rimetti(fg, dati.livelli);
+    /* I fogli di cui si parla nei messaggi sono quelli che ARRIVANO, non
+       quelli scritti nel file: con due livelli scelti su diciotto, «con 9
+       fogli da 75 × 75» sarebbe una bugia leggibile. */
+    var portati = quali(fg, indiciUsati(fg, dati.livelli));
 
     if (!aggiungi && dati.scala) {
       document.getElementById('art-scale').value = dati.scala;
@@ -447,7 +500,7 @@ var Progetto = (function () {
 
     if (!aggiungi) {
       Log.add('msg', 'Ripreso il progetto ' + nome + ': ' + quanti +
-              ' con le forme come le avevi lasciate, su ' + quantiFogli(fg) +
+              ' con le forme come le avevi lasciate, su ' + quantiFogli(portati) +
               quando(dati) + '. I cambi penna messi a mano no: sono posizioni ' +
               'nel percorso, e il percorso si rifà.' +
               (esito.tenuto
@@ -460,9 +513,9 @@ var Progetto = (function () {
     Log.add('msg', 'Aggiunti ' + quanti + ' dal progetto ' + nome + quando(dati) +
             (esito.posa.sopra
               ? ', sui fogli che c\'erano: il piano è già quello di quel progetto (' +
-                quantiFogli(fg) + '), quindi i livelli si sono appoggiati sopra ' +
+                quantiFogli(portati) + '), quindi i livelli si sono appoggiati sopra ' +
                 'senza portare altra carta.'
-              : ', con ' + quantiFogli(fg) + ': ogni livello sul foglio su cui ' +
+              : ', con ' + quantiFogli(portati) + ': ogni livello sul foglio su cui ' +
                 'stava.') +
             ' Forme, nomi, penne e spessori come li avevi lasciati. Al primo ' +
             'livello arrivato è stato messo un cambio penna, come per un file ' +
@@ -473,7 +526,7 @@ var Progetto = (function () {
        c'era fino al 6 novembre: il foglio diverso non è più un problema —
        arriva col suo — ma la corsa percorribile non è elastica. Nove magneti
        più nove magneti non ci stanno. */
-    var guaio = strettoia(fg, esito.posa);
+    var guaio = strettoia(portati, esito.posa);
     if (guaio) Log.add('err', 'Attenzione: ' + guaio);
   }
 
@@ -508,36 +561,135 @@ var Progetto = (function () {
     mostra();
   }
 
-  function mostra() {
+  /* I LIVELLI SCELTI di quello in cima alla coda. La spunta sta sulla voce
+     della coda e non nel DOM: la finestrella si ridisegna mentre i file
+     arrivano, e una scelta fatta a metà non deve perdersi perché è arrivato
+     un secondo file. */
+  function presi(v) {
+    return v.dati.livelli.filter(function (l, i) { return v.scelti[i]; });
+  }
+
+  /* Una copia della lettura con DENTRO SOLO I LIVELLI SCELTI. Si copia
+     invece di modificare: lo stesso file può tornare in coda, e un elenco
+     potato sul posto sarebbe potato per sempre. */
+  function conSoloScelti(v) {
+    var fuori = {};
+    Object.keys(v.dati).forEach(function (k) { fuori[k] = v.dati[k]; });
+    fuori.livelli = presi(v);
+    return fuori;
+  }
+
+  function disegnaElenco(v) {
+    var box = document.getElementById('prog-elenco');
+    var sc = document.getElementById('prog-scelta');
+    var fg = fogliDi(v.dati);
+    /* Con UN livello solo la casella avrebbe una risposta sola: togliere
+       l'unico livello e poi premere «Aggiungi» non è una scelta, è
+       «Annulla» detto in due mosse. */
+    sc.hidden = v.dati.livelli.length < 2;
+    if (sc.hidden) { box.innerHTML = ''; return; }
+
+    var out = '';
+    v.dati.livelli.forEach(function (l, i) {
+      var nf = +l.foglio || 0;
+      out += '<label class="prog-liv' + (v.scelti[i] ? '' : ' spenta') + '">' +
+             '<input type="checkbox" data-liv="' + i + '"' +
+             (v.scelti[i] ? ' checked' : '') + '>' +
+             '<span class="prog-liv-nome">' + esc(l.nome || 'livello') + '</span>' +
+             (fg.length > 1
+                ? '<span class="prog-liv-fog" title="Sta sul foglio ' + (nf + 1) +
+                  ' di questo progetto">foglio ' + (nf + 1) + '</span>' : '') +
+             '</label>';
+    });
+    box.innerHTML = out;
+  }
+
+  /* Tutto quello che dipende dalle spunte, rifatto da zero a ogni clic:
+     quanti ne hai presi, che fogli arriverebbero, se ci stanno, e che cosa
+     dicono i due pulsanti. Rifare anche l'ELENCO a ogni spunta toglierebbe
+     il fuoco alla casella appena premuta, quindi l'elenco no. */
+  function aggiorna() {
     var v = coda[0];
     if (!v) return;
-
-    /* Quanti livelli ci sono si conta ADESSO e non quando il file è stato
-       letto: mentre questo aspettava in coda, una scelta può averne aggiunti
-       o buttati, e un numero vecchio in una domanda è una bugia. */
     var ci = Artwork.livelli().length;
     var suoi = v.dati.livelli.length;
+    var quanti = presi(v).length;
 
     var fg = fogliDi(v.dati);
     var nf = State.data.fogli.length;
-    var posa = dovePosarli(fg);
+    var usati = indiciUsati(fg, presi(v));
+    var portati = quali(fg, usati);
+    var posa = dovePosarli(fg, usati);
 
-    document.getElementById('prog-titolo').textContent = 'Progetto «' + v.nome + '»';
+    var n = document.getElementById('prog-scelta-n');
+    if (n) {
+      n.textContent = quanti === suoi
+        ? (suoi + ' livelli, tutti presi')
+        : quanti + ' su ' + suoi + (quanti === 1 ? ' preso' : ' presi');
+    }
+
     document.getElementById('prog-desc').textContent =
       (suoi === 1 ? 'Dentro c\'è 1 livello' : 'Dentro ci sono ' + suoi + ' livelli') +
       ' su ' + quantiFogli(fg) + '. Sul piano adesso ' +
       (ci === 1 ? 'c\'è 1 livello' : 'ci sono ' + ci + ' livelli') + ' su ' +
       (nf === 1 ? 'un foglio' : nf + ' fogli') + '. ' +
-      (posa.sopra
-        ? 'Aggiungendoli, il piano è già quello di questo progetto: i livelli si ' +
-          'appoggiano sui fogli che ci sono, con le loro forme, i nomi, le penne ' +
-          'e gli spessori, e non arriva altra carta.'
-        : 'Aggiungendoli, il progetto porta ' +
-          (fg.length === 1 ? 'il suo foglio' : 'i suoi fogli') + ' sul piano, dove ' +
-          'c\'è posto, e i livelli ci restano sopra dov\'erano, con le loro forme, ' +
-          'i nomi, le penne e gli spessori: quello che c\'è adesso non si muove.') +
-      ' Sostituendo tutto si torna a quel progetto com\'era, fogli compresi, e ' +
-      'quello che c\'è adesso si perde.';
+      (!quanti
+        ? 'Non hai preso nessun livello: spunta quelli che ti servono.'
+        : (posa.sopra
+            ? 'Aggiungendo, il piano è già quello di questo progetto: i livelli ' +
+              'scelti si appoggiano sui fogli che ci sono, con le loro forme, i ' +
+              'nomi, le penne e gli spessori, e non arriva altra carta.'
+            : 'Aggiungendo, il progetto porta ' +
+              (quanti === suoi
+                 ? (portati.length === 1 ? 'il suo foglio (' : 'i suoi fogli (')
+                 : (portati.length === 1 ? 'il foglio dei livelli scelti ('
+                                         : 'i ' + portati.length +
+                                           ' fogli dei livelli scelti (')) +
+              quantiFogli(portati) + ') sul piano, dove c\'è posto, e i livelli ' +
+              'ci restano sopra dov\'erano, con le loro forme, i nomi, le penne ' +
+              'e gli spessori: quello che c\'è adesso non si muove.') +
+          ' Sostituendo tutto si torna a quel progetto coi soli livelli scelti, ' +
+          'e quello che c\'è adesso si perde.');
+
+    /* L'UNICA COSA CHE VA DETTA PRIMA DI SCEGLIERE è che il posto è finito.
+       Fino al 6 novembre qui c'era l'avviso del «foglio diverso», e non c'è
+       più perché non c'è più il problema: chi arriva porta il suo foglio.
+       Quello che resta è che la corsa percorribile non è elastica, e un
+       gruppo di fogli che non ci sta finisce di fianco, fuori dalla corsa.
+       Si rifà a ogni spunta: togliendo i livelli di un foglio, quel foglio
+       non arriva più, e il posto può bastare. */
+    var nota = document.getElementById('prog-nota');
+    var guaio = quanti ? strettoia(portati, posa) : null;
+    nota.hidden = !guaio;
+    nota.textContent = !guaio ? '' : 'Aggiungendo: ' + guaio +
+      ' Sostituendo tutto, invece, il piano diventa quello del file.';
+
+    /* I due pulsanti dicono su quanti livelli lavorano, e si spengono se non
+       ce n'è nessuno: un pulsante che non fa niente è peggio di un pulsante
+       spento, perché chi lo preme crede di aver fatto qualcosa. */
+    var agg = document.getElementById('prog-aggiungi');
+    var sos = document.getElementById('prog-sostituisci');
+    var tutti = quanti === suoi;
+    agg.disabled = !quanti;
+    sos.disabled = !quanti;
+    agg.textContent = tutti ? 'Aggiungi i livelli'
+                            : 'Aggiungi ' + (quanti === 1 ? 'il livello scelto'
+                                                          : 'i ' + quanti + ' scelti');
+    sos.textContent = tutti ? 'Sostituisci tutto'
+                            : 'Sostituisci con ' + (quanti === 1 ? 'quello scelto'
+                                                                 : 'i ' + quanti);
+  }
+
+  function mostra() {
+    var v = coda[0];
+    if (!v) return;
+    if (!v.scelti) {
+      v.scelti = v.dati.livelli.map(function () { return true; });
+    }
+
+    document.getElementById('prog-titolo').textContent = 'Progetto «' + v.nome + '»';
+    disegnaElenco(v);
+    aggiorna();
 
     var altri = coda.length - 1;
     var cod = document.getElementById('prog-coda');
@@ -546,18 +698,6 @@ var Progetto = (function () {
       altri === 1 ? 'C\'è un altro progetto in attesa: te lo chiedo dopo questo.'
                   : 'Ci sono altri ' + altri + ' progetti in attesa: te li chiedo ' +
                     'uno per uno dopo questo.';
-
-    /* L'UNICA COSA CHE VA DETTA PRIMA DI SCEGLIERE è che il posto è finito.
-       Fino al 6 novembre qui c'era l'avviso del «foglio diverso», e non c'è
-       più perché non c'è più il problema: chi arriva porta il suo foglio.
-       Quello che resta è che la corsa percorribile non è elastica, e un
-       gruppo che non ci sta va spostato a mano. Un avviso che compare sempre
-       è un avviso che non si legge più: questo compare quando serve. */
-    var nota = document.getElementById('prog-nota');
-    var guaio = strettoia(fg, posa);
-    nota.hidden = !guaio;
-    nota.textContent = !guaio ? '' : 'Aggiungendo: ' + guaio +
-      ' Sostituendo tutto, invece, il piano diventa quello del file.';
 
     document.getElementById('prog-modal').hidden = false;
     document.getElementById('prog-aggiungi').focus();
@@ -568,12 +708,27 @@ var Progetto = (function () {
      che non si riapre più è peggio dell'errore che l'ha fatta chiudere. */
   function rispondi(scelta) {
     if (!coda.length) return;
+    /* Senza nessun livello preso non c'è niente da applicare, e i due
+       pulsanti sono spenti: ci si arriva solo con Invio, e Invio non deve
+       fare quello che un pulsante spento non fa. */
+    if (scelta && !presi(coda[0]).length) return;
     var v = coda.shift();
     document.getElementById('prog-modal').hidden = true;
     try {
-      if (scelta) applica(v.dati, v.nome, scelta === 'aggiungi');
-      else Log.add('msg', 'Progetto «' + v.nome + '» non aperto: quello che ' +
-                          'c\'era resta com\'è.');
+      if (scelta) {
+        var tot = v.dati.livelli.length, pre = presi(v).length;
+        applica(conSoloScelti(v), v.nome, scelta === 'aggiungi');
+        /* Quanti NON ne hai presi si dice dopo, nel registro: la finestrella
+           è sparita, e fra un mese «perché qui ce n'erano otto?» è una
+           domanda senza risposta. Il file non è stato toccato: quelli
+           lasciati stanno ancora lì, e si riaprono quando servono. */
+        if (pre < tot) {
+          Log.add('msg', 'Di «' + v.nome + '» hai preso ' + pre + ' livelli su ' +
+                  tot + ': gli altri ' + (tot - pre) + ' sono rimasti nel file, ' +
+                  'che non è stato toccato — si riaprono quando servono.');
+        }
+      } else Log.add('msg', 'Progetto «' + v.nome + '» non aperto: quello che ' +
+                            'c\'era resta com\'è.');
     } catch (e) {
       Log.add('err', 'Non sono riuscito ad aprire «' + v.nome + '»: ' + e.message);
     }
@@ -583,6 +738,30 @@ var Progetto = (function () {
   function init() {
     var b = document.getElementById('btn-save-prog');
     if (b) b.addEventListener('click', salva);
+
+    /* LE SPUNTE. Un ascoltatore solo sul contenitore, perché l'elenco si
+       ridisegna a ogni progetto che arriva e dei gestori attaccati riga per
+       riga ne resterebbero in giro. */
+    document.getElementById('prog-elenco')
+      .addEventListener('change', function (e) {
+        var c = e.target.closest('input[data-liv]');
+        if (!c || !coda.length) return;
+        coda[0].scelti[+c.dataset.liv] = c.checked;
+        var riga = c.closest('.prog-liv');
+        if (riga) riga.classList.toggle('spenta', !c.checked);
+        aggiorna();
+      });
+
+    function tutte(v) {
+      if (!coda.length) return;
+      coda[0].scelti = coda[0].dati.livelli.map(function () { return v; });
+      disegnaElenco(coda[0]);
+      aggiorna();
+    }
+    document.getElementById('prog-tutti')
+      .addEventListener('click', function () { tutte(true); });
+    document.getElementById('prog-nessuno')
+      .addEventListener('click', function () { tutte(false); });
 
     document.getElementById('prog-aggiungi')
       .addEventListener('click', function () { rispondi('aggiungi'); });
