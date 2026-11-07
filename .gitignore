@@ -1,1 +1,4 @@
 webui/dist/
+
+# Il bytecode di Python non e' codice del progetto.
+__pycache__/

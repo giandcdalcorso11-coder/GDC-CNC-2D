@@ -116,6 +116,14 @@
           </span>
           <button class="btn btn-ghost preset-add" id="btn-paper-add" disabled>+</button>
         </div>
+        <!-- I FOGLI SUL PIANO. Dal 2026-11-07 sono piu' d'uno: il «+»
+             aggiunge un foglio delle misure scritte qui sotto e lo posa dove
+             c'e' posto, accanto a quello che c'e' gia'. Il foglio scelto e'
+             quello su cui si lavora, e i disegni importati vanno li'.
+             La riga sotto dice quanti angoli andranno misurati: e' il numero
+             che i magneti servono a far scendere. Vedi js/fogli.js. -->
+        <div class="fogli-row" id="fogli-row"></div>
+        <p class="fogli-nota" id="fogli-nota"></p>
         <div class="field-row">
           <label>Larghezza (mm) <input type="number" id="paper-w" value="148" min="20" max="400" step="1"></label>
           <label>Altezza (mm) <input type="number" id="paper-h" value="210" min="20" max="400" step="1"></label>

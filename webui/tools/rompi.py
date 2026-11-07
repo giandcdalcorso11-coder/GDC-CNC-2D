@@ -697,6 +697,156 @@ MUTAZIONI = [
         vede="non resta orfano",
         prova="prova-fogli.js",
     ),
+
+    # ---- PIU' FOGLI SUL PIANO, fase 2: il piano e i magneti (2026-11-07) ----
+    dict(
+        nome='il piano disegna solo il foglio in uso',
+        file='js/paper.js',
+        da='    State.data.fogli.forEach(function (f) {\n      var o = f.origine;',
+        a='    [State.data.paper].forEach(function (f) {\n      var o = f.origine;',
+        vede='disegna tutti i fogli',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="nessun foglio e' segnato come quello in uso",
+        file='js/paper.js',
+        da="      if (f.id === attivo.id) cl += ' sheet-attivo';",
+        a='',
+        vede='uno solo e` quello in uso',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='il foglio nuovo non si posa accanto',
+        file='js/fogli.js',
+        da='      candidati.push({ x: r.x1, y: r.y0 });       // a destra, stessa base',
+        a='      candidati.push({ x: r.x1 + 30, y: r.y0 });',
+        vede='posa il foglio nuovo accanto',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='i magneti sono spenti',
+        file='js/paper.js',
+        da='    var tol = 8 * mmPerPixel();',
+        a='    var tol = 0;',
+        vede='porta il bordo ESATTO',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="la tolleranza dei magneti e' in millimetri invece che in pixel",
+        file='js/paper.js',
+        da='    var tol = 8 * mmPerPixel();',
+        a='    var tol = 8;',
+        vede='da ingranditi i magneti',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='le righe che spiegano il magnete non si disegnano',
+        file='js/paper.js',
+        da='    if (vx) guide.push({ x1: vx.r, y1: Math.min(0, y) - 20,\n                         x2: vx.r, y2: Math.max(a.h, y + f.h) + 20 });',
+        a='',
+        vede='si vede perche`',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='le righe di guida restano dopo il gesto',
+        file='js/paper.js',
+        da='    guide = [];\n        /* Gli agganci si rileggono alla fine del gesto',
+        a='    \n        /* Gli agganci si rileggono alla fine del gesto',
+        vede='spariscono quando si lascia',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='Alt non spegne i magneti',
+        file='js/paper.js',
+        da='    if (spenti) return { x: x, y: y };',
+        a='',
+        vede='Alt spegne i magneti',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='anche un foglio misurato si trascina',
+        file='js/paper.js',
+        da='      if (!f || f.misurato) return;',
+        a='      if (!f) return;',
+        # «Il foglio misurato non si muove» e' scritto in due posti che devono
+        # dire la stessa cosa: qui e nello sguardo, che altrimenti si prende
+        # il trascinamento al posto suo. Vanno rotti insieme.
+        piu=[('js/paper.js',
+              '      if (!centrale && suo && !suo.misurato) return;',
+              '      if (!centrale && suo) return;')],
+        vede='misurato non si trascina',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="la didascalia torna a rubare altezza al piano",
+        file="css/components.css",
+        da="  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  min-height: 30px;",
+        a="  min-height: 30px;",
+        vede="non cambia misura mentre si trascina",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='un disegno caricato va sempre sul primo foglio',
+        file='js/artwork.js',
+        da='        foglio: State.data.foglioAttivo,\n        nome: (gruppi.length > 1',
+        a='        foglio: State.data.fogli[0].id,\n        nome: (gruppi.length > 1',
+        vede='va sul foglio in uso',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='scegliere un livello non porta sul suo foglio',
+        file='js/artwork.js',
+        da='    var l = trova(scelto);\n    if (l && l.foglio && l.foglio !== State.data.foglioAttivo) Fogli.scegli(l.foglio);',
+        a='    var l = trova(scelto);',
+        vede='riporta sul suo foglio',
+        prova="prova-piano.js",
+    ),
+    # TOLTA la mutazione «ogni livello si adatta al foglio in uso invece che
+    # al suo»: il difetto che simulava non e' raggiungibile, perche' un
+    # livello senza rettangolo e' un livello appena nato e nasce sul foglio
+    # in uso. Una mutazione che non puo' cambiare il comportamento non
+    # misura un controllo cieco: misura se' stessa. Il motivo per cui la
+    # riga resta scritta com'e' sta nel commento in artwork.js, dove serve.
+    dict(
+        nome='scegliere un foglio lascia scelto un livello di un altro',
+        file='js/artwork.js',
+        da="      if (l && (l.foglio || fid) === fid) return;",
+        a="      if (l) return;",
+        vede='la scelta segue il foglio',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="il G-code somma sempre l'angolo del foglio in uso",
+        file='js/artwork.js',
+        da='      var o = origini[fo[i]] || oAttiva;',
+        a='      var o = oAttiva;',
+        vede='il G-code disegna su tutti e due i fogli',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="l'anteprima somma sempre l'angolo del foglio in uso",
+        file='js/paper.js',
+        da='    function ang(i) { return origini[fo[i]] || oAttiva; }',
+        a='    function ang(i) { return oAttiva; }',
+        vede='mette ogni disegno sul suo foglio',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="l'ottimizzazione «tutto» rimescola i fogli",
+        file='js/artwork.js',
+        da='        var k = l.foglio || State.data.foglioAttivo;\n        if (!(k in perFoglio)) { perFoglio[k] = []; ordine.push(k); }',
+        a="        var k = 'tutti';\n        if (!(k in perFoglio)) { perFoglio[k] = []; ordine.push(k); }",
+        vede='«tutto»: e i gruppi',
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome='togliendo un foglio se ne vanno anche i livelli degli altri',
+        file='js/artwork.js',
+        da='    livelli = livelli.filter(function (l) { return (l.foglio || null) !== fid; });',
+        a='    livelli = [];',
+        vede='e solo quelli',
+        prova="prova-piano.js",
+    ),
 ]
 
 
@@ -748,15 +898,30 @@ def main():
     for i, m in enumerate(MUTAZIONI, 1):
         if soli and i not in soli:
             continue
-        f = ROOT / m["file"]
-        era = f.read_text(encoding="utf-8")
-        if era.count(m["da"]) != 1:
+        # UNA MUTAZIONE PUO' TOCCARE PIU' PUNTI, e serve quando la cosa da
+        # rompere e' difesa in due posti che devono dire la stessa cosa --
+        # per esempio «il foglio misurato non si muove», che e' scritto sia
+        # nel trascinamento sia nello sguardo. Romperne uno solo lascia il
+        # programma corretto, quindi simulerebbe un difetto che non e' un
+        # difetto: la mutazione va fatta su tutt'e due.
+        tagli = [(m["file"], m["da"], m["a"])] + list(m.get("piu", []))
+        testi, manca = {}, None
+        for (rel, da, _) in tagli:
+            if rel not in testi:
+                testi[rel] = (ROOT / rel).read_text(encoding="utf-8")
+            if testi[rel].count(da) != 1:
+                manca = rel
+        if manca:
             print("%2d. %-52s ANCORA: la riga da rompere non c'e' (o ce n'e' "
-                  "piu' d'una) in %s" % (i, m["nome"], m["file"]))
+                  "piu' d'una) in %s" % (i, m["nome"], manca))
             sordi.append(m["nome"] + " (riga non trovata)")
             continue
         try:
-            f.write_text(era.replace(m["da"], m["a"]), encoding="utf-8")
+            rotti = dict(testi)
+            for (rel, da, aa) in tagli:
+                rotti[rel] = rotti[rel].replace(da, aa)
+            for rel in rotti:
+                (ROOT / rel).write_text(rotti[rel], encoding="utf-8")
             if not costruisci():
                 esito, dettaglio = False, "la pagina non si compone"
             else:
@@ -768,7 +933,8 @@ def main():
                     esito = riga.startswith("KO")
                     dettaglio = riga.strip()[:70]
         finally:
-            f.write_text(era, encoding="utf-8")
+            for rel in testi:
+                (ROOT / rel).write_text(testi[rel], encoding="utf-8")
 
         print("%2d. %-52s %s" % (i, m["nome"], "VISTA" if esito else "NON VISTA"))
         if esito:

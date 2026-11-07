@@ -69,8 +69,14 @@ var Paper = (function () {
   /* Il colore della carta che si ha sotto adesso. Non è tenuto in una
      variabile di questo file: la risma vive nel profilo, e una seconda copia
      qui sarebbe la solita coppia di valori che prima o poi non coincidono. */
-  function colore() {
-    return Profile.coloreFoglioEffettivo(State.data.paper.w, State.data.paper.h);
+  function colore() { return coloreDi(State.data.paper); }
+
+  /* La carta di un foglio qualunque. Il padrone del dato resta il profilo,
+     che la tiene per MISURA di foglio: due A6 sul piano sono due fogli ma
+     una risma sola, e dichiararne uno avorio e l'altro no vorrebbe dire
+     sostenere che la stessa carta è di due colori. */
+  function coloreDi(f) {
+    return Profile.coloreFoglioEffettivo(f.w, f.h);
   }
 
   /* IL CONTRASTO FRA DUE TINTE secondo il WCAG. Una penna e una carta che
@@ -314,66 +320,166 @@ var Paper = (function () {
     return f.length ? f : null;
   }
 
+  /* --------------------- il piano con i fogli sopra ---------------------- */
+
+  /* QUANTO DEL FOGLIO LA PENNA RAGGIUNGE, per un foglio qualunque: lo sa
+     Fogli, che e' dove sta la geometria. Qui resta la versione senza
+     argomenti, per il foglio in uso, perche' la chiamano i popup e la
+     didascalia. */
+  function raggiungibileDi(f) { return Fogli.raggiungibile(f.id); }
+
+  function fuoriAppoggioDi(f) {
+    var ap = Profile.appoggioRect();
+    if (!ap) return null;
+    var o = f.origine, l = [];
+    if (o.x < ap.x0)                 l.push('a sinistra di ' + (ap.x0 - o.x).toFixed(0));
+    if (o.y < ap.y0)                 l.push('sotto di ' + (ap.y0 - o.y).toFixed(0));
+    if (o.x + f.w > ap.x0 + ap.w)    l.push('a destra di ' + (o.x + f.w - ap.x0 - ap.w).toFixed(0));
+    if (o.y + f.h > ap.y0 + ap.h)    l.push('sopra di ' + (o.y + f.h - ap.y0 - ap.h).toFixed(0));
+    return l.length ? l : null;
+  }
+
+  /* Le righe che spiegano un magnete, da disegnare finche' il dito e' giu'.
+     Vuote quando non si sta trascinando niente. */
+  var guide = [];
+
   function renderSheet() {
-    var p = State.data.paper, o = State.data.sheetOrigin;
-    var a = State.data.area, r = raggiungibile();
-    var vuoto = r.w <= 0 || r.h <= 0;
-    var fa = fuoriAppoggio();
+    var a = State.data.area;
+    var attivo = State.data.paper;
+    var html = '';
 
-    /* IL COLORE È UNO STILE E NON UN ATTRIBUTO, come per i tratti qui sotto:
-       la regola `.sheet` nel foglio di stile vince su un attributo di
-       presentazione, e il foglio sarebbe rimasto bianco qualunque carta si
-       scegliesse. */
-    var carta = colore();
-    var html = '<rect class="sheet' + (chiarezza(carta) < 0.25 ? ' sheet-scuro' : '') +
-               '" style="fill:' + esc(carta) + '" x="' + o.x + '" y="' + o.y +
-               '" width="' + p.w + '" height="' + p.h + '" rx="0.6"></rect>';
+    State.data.fogli.forEach(function (f) {
+      var o = f.origine;
+      var r = raggiungibileDi(f);
+      var vuoto = r.w <= 0 || r.h <= 0;
+      var fa = fuoriAppoggioDi(f);
+      /* IL COLORE È UNO STILE E NON UN ATTRIBUTO, come per i tratti: la
+         regola `.sheet` nel foglio di stile vince su un attributo di
+         presentazione, e il foglio sarebbe rimasto bianco qualunque carta
+         si scegliesse. */
+      var carta = coloreDi(f);
+      var cl = 'sheet';
+      if (chiarezza(carta) < 0.25) cl += ' sheet-scuro';
+      /* Rosso solo quando c'è qualcosa da correggere. Un foglio più grande
+         della corsa sporge per costruzione: segnarlo in rosso ogni volta
+         vorrebbe dire un allarme sempre acceso, cioè un allarme che non si
+         guarda più. */
+      if (vuoto || (r.sporge && !r.piuGrande)) cl += ' sheet-out';
+      if (fa) cl += ' sheet-giu';
+      if (f.misurato) cl += ' sheet-fisso';
+      if (f.id === attivo.id) cl += ' sheet-attivo';
+      html += '<rect class="' + cl + '" data-foglio="' + esc(f.id) +
+              '" style="fill:' + esc(carta) + '" x="' + o.x + '" y="' + o.y +
+              '" width="' + f.w + '" height="' + f.h + '" rx="0.6"></rect>';
 
-    /* IL RETTANGOLO RAGGIUNGIBILE, disegnato SOPRA la carta.
-       Serve perché un foglio più grande della corsa copre il piano: il
-       riquadro dell'area e il reticolo finiscono sotto il foglio, e senza
-       questo segno non si vedrebbe più dove la penna arriva — che è l'unica
-       cosa che si ha bisogno di sapere guardando questo disegno. */
-    if (!vuoto && r.sporge) {
-      html += '<rect class="reach" x="' + Math.max(0, o.x) + '" y="' + Math.max(0, o.y) +
-              '" width="' + r.w + '" height="' + r.h + '"></rect>';
-    }
+      /* IL RETTANGOLO RAGGIUNGIBILE, disegnato SOPRA la carta. Serve perché
+         un foglio più grande della corsa copre il piano: il riquadro
+         dell'area e il reticolo finiscono sotto il foglio, e senza questo
+         segno non si vedrebbe più dove la penna arriva. */
+      if (!vuoto && r.sporge) {
+        html += '<rect class="reach" x="' + Math.max(0, o.x) + '" y="' +
+                Math.max(0, o.y) + '" width="' + r.w + '" height="' + r.h +
+                '"></rect>';
+      }
+    });
+
+    /* Le righe dei magneti vanno sopra tutto: sono quelle che dicono PERCHÉ
+       il foglio si è fermato lì, e sotto la carta non si vedrebbero. */
+    guide.forEach(function (g) {
+      html += '<line class="sheet-guida" x1="' + g.x1 + '" y1="' + g.y1 +
+              '" x2="' + g.x2 + '" y2="' + g.y2 + '"></line>';
+    });
+
     layerSheet.innerHTML = html;
-
-    /* Rosso solo quando c'è qualcosa da correggere. Un foglio più grande della
-       corsa sporge per costruzione: segnarlo in rosso ogni volta vorrebbe dire
-       un allarme che è sempre acceso, cioè un allarme che non si guarda più.
-       Resta rosso se il foglio è fuori del tutto, o se sporge pur essendo più
-       piccolo dell'area — lì sporgere è una svista, non una necessità. */
-    layerSheet.firstChild.classList.toggle('sheet-out',
-      vuoto || (r.sporge && !r.piuGrande));
-    layerSheet.firstChild.classList.toggle('sheet-giu', !!fa);
-    layerSheet.firstChild.classList.toggle('sheet-fisso', State.data.foglioMisurato);
 
     /* Un decimale: l'area è un numero CALCOLATO (corsa percorribile, cioè
        passi diviso rapporto), quindi ha tutti i decimali del mondo. Stamparli
        tutti non aggiunge informazione — la macchina non li sa fare: un passo
        vale tre centesimi. */
+    var ra = raggiungibileDi(attivo), fa = fuoriAppoggioDi(attivo);
     var coda = '';
-    if (vuoto) {
+    if (ra.w <= 0 || ra.h <= 0) {
       coda = ' · il foglio è tutto fuori dalla corsa';
-    } else if (r.sporge) {
-      coda = ' · la penna ne raggiunge ' + r.w.toFixed(1) + ' × ' + r.h.toFixed(1) +
-             ' mm, da ' + r.dax.toFixed(0) + ' mm dal bordo sinistro e ' +
-             r.day.toFixed(0) + ' dal basso';
+    } else if (ra.sporge) {
+      coda = ' · la penna ne raggiunge ' + ra.w.toFixed(1) + ' × ' + ra.h.toFixed(1) +
+             ' mm, da ' + ra.dax.toFixed(0) + ' mm dal bordo sinistro e ' +
+             ra.day.toFixed(0) + ' dal basso';
     }
-
     if (fa) coda += ' · ESCE DALLA TAVOLA ' + fa.join(' e ') + ' mm';
 
+    /* Quanti fogli ci sono si dice solo quando sono più d'uno: «1 foglio» è
+       una parola in più da leggere ogni volta per non sapere niente. */
+    var n = State.data.fogli.length;
+    var quanti = n > 1 ? ' (' + n + ' fogli sul piano)' : '';
+
     /* Il nome della carta nella didascalia solo se è stato scelto: «carta
-       bianca» su ogni foglio sarebbe una parola in più da leggere ogni volta
-       per non sapere niente di nuovo. */
-    var dichiarato = Profile.coloreFoglio(p.w, p.h);
+       bianca» su ogni foglio sarebbe una parola in più per non sapere
+       niente di nuovo. */
+    var dichiarato = Profile.coloreFoglio(attivo.w, attivo.h);
     caption.textContent =
-      'Area ' + a.w.toFixed(1) + ' × ' + a.h.toFixed(1) + ' mm · foglio ' + p.name +
-      ' ' + p.w + ' × ' + p.h + ' mm' +
+      'Area ' + a.w.toFixed(1) + ' × ' + a.h.toFixed(1) + ' mm · foglio ' +
+      attivo.name + ' ' + attivo.w + ' × ' + attivo.h + ' mm' + quanti +
       (dichiarato ? ', carta ' + nomeCarta(dichiarato) : '') + coda;
   }
+
+  /* ------------------- l'elenco dei fogli, nella colonna ----------------- */
+
+  function renderFogli() {
+    var row = document.getElementById('fogli-row');
+    if (!row) return;
+    var l = State.data.fogli, attivo = State.data.paper.id;
+    var html = '';
+    l.forEach(function (f, i) {
+      /* Un foglio tagliato a mano si chiama con le sue misure, non
+         «Personalizzato»: nove magneti chiamati tutti Personalizzato sono
+         nove etichette che non distinguono niente. */
+      var misure = f.w + ' × ' + f.h;
+      var vero = f.name && f.name !== 'Personalizzato';
+      var nome = vero ? f.name : misure;
+      /* Il foglio che ricava l'angolo da un altro lo dice, perché è la
+         differenza fra «ti chiederò di misurarlo» e «no». Chi vede il
+         numero degli angoli scendere mentre accosta i fogli capisce i
+         magneti senza che nessuno glieli spieghi. */
+      var sotto = f.aggancio
+        ? '<small class="ricavato">↳ dal ' + (indiceDi(f.aggancio) + 1) + '</small>'
+        : (vero ? '<small>' + misure + '</small>' : '');
+      html += '<span class="foglio-wrap">' +
+              '<button class="btn btn-ghost foglio' +
+              (f.id === attivo ? ' is-attivo' : '') + '" data-foglio="' + esc(f.id) +
+              '" title="' + esc(nome + ' — ' + f.w + ' × ' + f.h + ' mm' +
+                 (f.aggancio ? ', angolo ricavato dal foglio ' +
+                    (indiceDi(f.aggancio) + 1) : ', angolo da misurare')) + '">' +
+              (i + 1) + '. ' + esc(nome) + sotto + '</button>';
+      /* Il pulsante per togliere c'è solo quando c'è più di un foglio: su
+         un foglio solo sarebbe un pulsante che non si può premere, cioè un
+         pulsante che sembra rotto. */
+      if (l.length > 1) {
+        html += '<button class="btn btn-ghost foglio-via" data-foglio-via="' +
+                esc(f.id) + '" title="Togli questo foglio">×</button>';
+      }
+      html += '</span>';
+    });
+    html += '<button class="btn btn-ghost preset-add" id="btn-foglio-add" ' +
+            'title="Aggiungi un foglio delle misure qui sotto">+</button>';
+    row.innerHTML = html;
+
+    var nota = document.getElementById('fogli-nota');
+    if (!nota) return;
+    if (l.length < 2) { nota.textContent = ''; return; }
+    var m = Fogli.daMisurare().length;
+    var sovr = Fogli.sovrapposti().length;
+    var fuori = Fogli.fuoriCorsa().length;
+    nota.textContent =
+      l.length + ' fogli, ' + (m === 1 ? 'UN angolo da misurare a inizio stampa'
+                                       : m + ' angoli da misurare a inizio stampa') +
+      (m < l.length ? ': gli altri sono accostati e il loro angolo si ricava.' : '.') +
+      (sovr ? ' ATTENZIONE: ' + sovr + (sovr === 1 ? ' coppia si sovrappone.'
+                                                   : ' coppie si sovrappongono.') : '') +
+      (fuori ? ' ' + fuori + (fuori === 1 ? ' foglio esce' : ' fogli escono') +
+               ' dalla corsa.' : '');
+  }
+
+  function indiceDi(id) { return Fogli.indice(id); }
 
   function apply() {
     State.data.paper.name = nomeFormato(State.data.paper.w, State.data.paper.h);
@@ -384,6 +490,7 @@ var Paper = (function () {
     State.data.paper.colore = colore();
     markPreset();
     etichettaCentra();
+    renderFogli();
     renderBed();
     renderSheet();
     rebuildPath();
@@ -525,7 +632,6 @@ var Paper = (function () {
      spostamenti a penna alzata resi espliciti: sono corsa vera e devono
      comparire nell'anteprima come tutto il resto. */
   function rebuildPath() {
-    var o = State.data.sheetOrigin;
     var art = State.data.art;
     if (!art || !art.length) {
       State.data.path = [];
@@ -533,7 +639,20 @@ var Paper = (function () {
       State.emit('path');
       return;
     }
-    var seg = [], cur = { x: -o.x, y: -o.y };   // lo zero macchina, visto dal foglio
+
+    /* OGNI TRATTO HA IL SUO ANGOLO, perché può stare su un foglio diverso
+       da quello di prima. `cur` — dov'è rimasta la punta — si tiene in
+       coordinate MACCHINA e non del foglio, ed è il cambiamento che fa
+       funzionare tutto il resto: lo spostamento a penna alzata che porta
+       dal magnete 3 al magnete 4 attraversa due sistemi di riferimento, e
+       in coordinate del foglio non si potrebbe nemmeno scrivere. */
+    var fo = State.data.artFoglio || [];
+    var origini = {};
+    State.data.fogli.forEach(function (f) { origini[f.id] = f.origine; });
+    var oAttiva = State.data.sheetOrigin;
+    function ang(i) { return origini[fo[i]] || oAttiva; }
+
+    var seg = [], cur = { x: 0, y: 0 };          // lo zero macchina
 
     /* Ogni segmento si porta dietro il TRATTO a cui appartiene. Serve al
        cursore dell'anteprima per sapere a quale confine fra due tratti
@@ -542,13 +661,14 @@ var Paper = (function () {
     for (var i = 0; i < art.length; i++) {
       var poly = art[i];
       if (poly.length < 2) continue;
-      seg.push({ x1: cur.x + o.x, y1: cur.y + o.y,
+      var o = ang(i);
+      seg.push({ x1: cur.x, y1: cur.y,
                  x2: poly[0].x + o.x, y2: poly[0].y + o.y, draw: false, poly: i });
       for (var j = 1; j < poly.length; j++) {
         seg.push({ x1: poly[j - 1].x + o.x, y1: poly[j - 1].y + o.y,
                    x2: poly[j].x + o.x, y2: poly[j].y + o.y, draw: true, poly: i });
       }
-      cur = poly[poly.length - 1];
+      cur = { x: poly[poly.length - 1].x + o.x, y: poly[poly.length - 1].y + o.y };
     }
 
     State.data.path = seg;
@@ -750,9 +870,13 @@ var Paper = (function () {
          copre tutto lo schermo, non resta niente da afferrare per spostarsi.
          Il tasto centrale sposta lo sguardo sempre, dovunque si prema: è la
          via d'uscita quando il foglio riempie la vista. */
-      var sulFoglio = !!e.target.closest('.sheet');
+      /* Quale foglio: con più fogli sul piano, «il foglio è misurato» è
+         una domanda su QUEL foglio, non sulla pagina. Il foglio libero si
+         prende il trascinamento, quello misurato lo lascia allo sguardo. */
+      var sotto = e.target.closest('.sheet');
+      var suo = sotto ? Fogli.trova(sotto.dataset.foglio) : null;
       var centrale = e.button === 1;
-      if (!centrale && sulFoglio && !State.data.foglioMisurato) return;
+      if (!centrale && suo && !suo.misurato) return;
       if (centrale) e.preventDefault();
 
       var r = svg.getBoundingClientRect();
@@ -783,17 +907,103 @@ var Paper = (function () {
     });
   }
 
+  /* ------------------------------ I MAGNETI ------------------------------
+   *
+   * Trascinando un foglio, i suoi bordi si agganciano a quelli degli altri —
+   * e agli estremi della corsa e della tavola. Non è una comodità: due fogli
+   * ACCOSTATI sono una misura sola invece di due (vedi js/fogli.js), e
+   * l'accostamento si legge dalla geometria. Un foglio appoggiato a occhio,
+   * sbagliato di mezzo millimetro, non è un foglio accostato: è un foglio
+   * che chiederà la sua misura, e chi l'ha posato non capirà perché. I
+   * magneti sono quello che rende il gesto affidabile.
+   *
+   * Si agganciano i BORDI e non i centri, perché quello che conta è che due
+   * fogli COMBACINO. I due assi sono indipendenti: in un gesto solo ci si
+   * può accostare a destra di uno e allineare in basso a un altro, che è
+   * esattamente come si posa una griglia di magneti.
+   *
+   * Alt li spegne tutti, come nell'editor: una via d'uscita che lascia
+   * acceso qualcosa non è una via d'uscita.
+   */
+  function righeMagnete(mio) {
+    var a = State.data.area, ap = Profile.appoggioRect();
+    /* La corsa prima di tutto: è il limite che conta davvero, perché un
+       foglio fuori di lì la penna non lo tocca. Poi la tavola, che è dove il
+       foglio si appoggia — e il suo bordo in basso è una BATTUTA vera, quella
+       contro cui l'operatore spinge la carta per posarla dritta. */
+    var x = [0, a.w], y = [0, a.h];
+    if (ap) { x.push(ap.x0, ap.x0 + ap.w); y.push(ap.y0, ap.y0 + ap.h); }
+    State.data.fogli.forEach(function (f) {
+      if (f.id === mio) return;
+      x.push(f.origine.x, f.origine.x + f.w);
+      y.push(f.origine.y, f.origine.y + f.h);
+    });
+    return { x: x, y: y };
+  }
+
+  /* Quanti millimetri vale un pixel adesso. La tolleranza dei magneti si
+     misura in pixel e non in millimetri: da ingranditi un millimetro è mezzo
+     schermo, e una tolleranza fissa in millimetri aggancerebbe tutto. */
+  function mmPerPixel() {
+    var r = svg.getBoundingClientRect();
+    if (!r.width) return 1;
+    return finestraCorrente().w / r.width;
+  }
+
+  function aggancia(f, x, y, spenti) {
+    guide = [];
+    if (spenti) return { x: x, y: y };
+
+    var tol = 8 * mmPerPixel();
+    var righe = righeMagnete(f.id);
+    var a = State.data.area;
+
+    /* Per ogni asse si prova il bordo basso e quello alto del foglio contro
+       tutte le righe, e vince lo scarto più piccolo: due righe che tirano in
+       versi opposti non si sommano, ne sceglie una. */
+    function miglior(righe, basso, lato) {
+      var vinto = null;
+      [0, lato].forEach(function (d) {
+        righe.forEach(function (r) {
+          var scarto = r - (basso + d);
+          if (Math.abs(scarto) <= tol && (!vinto || Math.abs(scarto) < Math.abs(vinto.s))) {
+            vinto = { s: scarto, r: r };
+          }
+        });
+      });
+      return vinto;
+    }
+
+    var vx = miglior(righe.x, x, f.w);
+    var vy = miglior(righe.y, y, f.h);
+    if (vx) x += vx.s;
+    if (vy) y += vy.s;
+
+    /* La riga che spiega il magnete: attraversa tutta la corsa, perché
+       serve a far vedere CON CHE COSA il foglio si è allineato. */
+    if (vx) guide.push({ x1: vx.r, y1: Math.min(0, y) - 20,
+                         x2: vx.r, y2: Math.max(a.h, y + f.h) + 20 });
+    if (vy) guide.push({ x1: Math.min(0, x) - 20, y1: vy.r,
+                         x2: Math.max(a.w, x + f.w) + 20, y2: vy.r });
+    return { x: x, y: y };
+  }
+
   function enableDrag() {
     var grab = null;
 
     layerSheet.addEventListener('pointerdown', function (e) {
-      /* Foglio misurato = foglio fermo. Trascinarlo dopo averlo misurato
-         sposterebbe il disegno sulla carta vera senza che niente lo dica. */
-      if (State.data.foglioMisurato) return;
       var rect = e.target.closest('.sheet');
       if (!rect) return;
+      var f = Fogli.trova(rect.dataset.foglio);
+      /* Foglio misurato = foglio fermo. Trascinarlo dopo averlo misurato
+         sposterebbe il disegno sulla carta vera senza che niente lo dica. */
+      if (!f || f.misurato) return;
+      /* Prendere un foglio vuol dire metterci mano: diventa quello in uso,
+         se non lo era già. Dover prima sceglierlo in elenco e poi
+         trascinarlo sarebbe un gesto in due tempi per una cosa sola. */
+      Fogli.scegli(f.id);
       var m = toMm(e);
-      grab = { dx: m.x - State.data.sheetOrigin.x, dy: m.y - State.data.sheetOrigin.y };
+      grab = { id: f.id, dx: m.x - f.origine.x, dy: m.y - f.origine.y };
       rect.classList.add('is-dragging');
       layerSheet.setPointerCapture(e.pointerId);
       e.preventDefault();
@@ -801,33 +1011,60 @@ var Paper = (function () {
 
     layerSheet.addEventListener('pointermove', function (e) {
       if (!grab) return;
+      var f = Fogli.trova(grab.id);
+      if (!f) { grab = null; return; }
       var m = toMm(e);
-      /* Arrotondato al millimetro: su una macchina tarata a mano, una
-         posizione con tre decimali sarebbe una precisione finta. */
-      setSheetOrigin(Math.round(m.x - grab.dx), Math.round(m.y - grab.dy));
+      /* Arrotondato al millimetro PRIMA dei magneti: su una macchina tarata
+         a mano una posizione con tre decimali sarebbe una precisione finta,
+         ma un aggancio sì che deve essere esatto — e lo è, perché dopo
+         l'arrotondamento il magnete porta il bordo sulla riga, non vicino. */
+      var q = aggancia(f, Math.round(m.x - grab.dx), Math.round(m.y - grab.dy),
+                       e.altKey);
+      poniFoglio(f, q.x, q.y);
     });
 
     ['pointerup', 'pointercancel'].forEach(function (ev) {
       layerSheet.addEventListener(ev, function (e) {
         if (!grab) return;
         grab = null;
-        var r = layerSheet.querySelector('.sheet');
-        if (r) r.classList.remove('is-dragging');
+        guide = [];
+        /* Gli agganci si rileggono alla fine del gesto e non a ogni
+           movimento: durante il trascinamento un foglio tocca e lascia
+           dieci vicini, e ricalcolare l'albero a ogni pixel direbbe dieci
+           volte una cosa che conta solo quando il dito si alza. */
+        Fogli.rileggiAgganci();
+        State.emit('fogli');
+        renderSheet();
         layerSheet.releasePointerCapture(e.pointerId);
       });
     });
   }
 
-  function setSheetOrigin(x, y) {
-    State.data.sheetOrigin = { x: x, y: y };
-    document.getElementById('sheet-x').value = x;
-    document.getElementById('sheet-y').value = y;
+  /* Un foglio si sposta: si ridisegna il piano e il percorso, e basta. NON
+     si rifà la collocazione dei disegni — i loro rettangoli sono millimetri
+     del foglio, e il foglio è lo stesso: è cambiato solo dove casca. */
+  function poniFoglio(f, x, y) {
+    f.origine = { x: x, y: y };
+    if (f.id === State.data.paper.id) {
+      document.getElementById('sheet-x').value = x;
+      document.getElementById('sheet-y').value = y;
+    }
     renderSheet();
     rebuildPath();
     /* Il disegno sta sulla carta: se la carta si sposta, il riquadro che lo
        circonda si sposta con lei. Il rettangolo in Artwork non cambia — è in
        millimetri del foglio — ma dove cade sullo schermo sì. */
     if (window.Selezione) Selezione.ridisegna();
+  }
+
+  function setSheetOrigin(x, y) {
+    poniFoglio(State.data.paper, x, y);
+    /* Scrivendo i due numeri a mano si può accostare un foglio a un altro
+       tanto quanto trascinandolo: l'accostamento è una proprietà di dove
+       stanno i fogli, non di come ce li hai messi. */
+    Fogli.rileggiAgganci();
+    State.emit('fogli');
+    renderSheet();
   }
 
   /* Il pulsante dice due cose diverse a seconda di chi contiene chi, e sono
@@ -1051,6 +1288,45 @@ var Paper = (function () {
        dell'operatore nascono e muoiono mentre la pagina è aperta, e agganciare
        i listener ai nodi vuol dire ricordarsi di riagganciarli ogni volta —
        cioè dimenticarsene una volta. */
+    document.getElementById('fogli-row').addEventListener('click', function (e) {
+      var via = e.target.closest('[data-foglio-via]');
+      if (via) {
+        var f = Fogli.trova(via.dataset.foglioVia);
+        var suoi = window.Artwork
+          ? Artwork.livelli().filter(function (l) {
+              return Artwork.foglioDi(l.id).id === via.dataset.foglioVia;
+            }).length : 0;
+        /* Togliere un foglio che ha dei disegni sopra li porta via con sé:
+           i loro numeri sono millimetri di QUEL foglio, e non ci sarebbe
+           dove rimetterli. Si chiede, e si dice quanti. */
+        if (suoi && !window.confirm('Sul foglio ' + (Fogli.indice(f.id) + 1) +
+            ' ci ' + (suoi === 1 ? 'è 1 livello' : 'sono ' + suoi + ' livelli') +
+            ': togliendo il foglio se ne ' + (suoi === 1 ? 'va' : 'vanno') +
+            ' anche ' + (suoi === 1 ? 'lui' : 'loro') + '. Procedo?')) return;
+        if (window.Artwork) Artwork.svuotaFoglio(via.dataset.foglioVia);
+        Fogli.togli(via.dataset.foglioVia);
+        return;
+      }
+      var sc = e.target.closest('[data-foglio]');
+      if (sc) { Fogli.scegli(sc.dataset.foglio); return; }
+      if (e.target.closest('#btn-foglio-add')) {
+        var w = Math.round(+document.getElementById('paper-w').value) || 100;
+        var h = Math.round(+document.getElementById('paper-h').value) || 100;
+        var n = Fogli.aggiungi(w, h, nomeFormato(w, h));
+        Fogli.scegli(n.id);
+        Log.add('msg', 'Foglio ' + Fogli.elenco().length + ' aggiunto: ' + w +
+                ' × ' + h + ' mm, posato a X ' + n.origine.x + ' Y ' +
+                n.origine.y + (n.aggancio ? ', accostato al foglio ' +
+                (Fogli.indice(n.aggancio) + 1) + ': il suo angolo si ricava, ' +
+                'non si misura.' : ', da misurare a parte.'));
+      }
+    });
+
+    /* Il piano e l'elenco seguono i fogli dovunque li si cambi: dai
+       pulsanti qui, dal trascinamento, o da un domani in cui li cambierà
+       qualcun altro. Un segnale solo, un posto solo che ridisegna. */
+    State.on('fogli', function () { renderFogli(); renderSheet(); });
+
     document.getElementById('preset-row').addEventListener('click', function (e) {
       var ed = e.target.closest('[data-fog-edit]');
       if (ed) { apriModale(ed.dataset.fogEdit); return; }

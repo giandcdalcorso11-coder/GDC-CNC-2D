@@ -159,6 +159,13 @@ var Artwork = (function () {
 
       var l = {
         id: 'liv' + (++seq),
+        /* SU QUALE FOGLIO. Un disegno importato va su quello in uso: è
+           l'unico che chi guarda stia guardando. Dal 2026-11-07 i fogli sono
+           più d'uno e questo campo è quello che dice, di ogni livello, in
+           che coordinate sono i suoi numeri — il rettangolo, i tratti e il
+           ritaglio sono millimetri DEL SUO FOGLIO, e senza questo campo non
+           si saprebbe di quale. */
+        foglio: State.data.foglioAttivo,
         nome: (gruppi.length > 1 && (accese > 1 || (gr.piena && aLinee)))
           ? nome + ' · ' + gr.nome : nome,
         forme: gr.forme,
@@ -300,7 +307,14 @@ var Artwork = (function () {
     if (modo === 'aggiungi') {
       var i = selezionati.indexOf(id);
       if (i >= 0) selezionati.splice(i, 1);
-      else selezionati.push(id);
+      /* Due livelli su due fogli diversi non hanno un rettangolo in comune:
+         i loro numeri sono millimetri di due angoli diversi, e il riquadro
+         che li circondasse entrambi non circonderebbe niente. Chi ne somma
+         uno di un altro foglio sta cambiando foglio, non allargando la
+         scelta. */
+      else if (selezionati.length && !stessoFoglio(selezionati[0], id)) {
+        selezionati = [id];
+      } else selezionati.push(id);
     } else {
       selezionati = [id];
     }
@@ -308,6 +322,15 @@ var Artwork = (function () {
        rimasto. Senza selezione non c'è principale, e i campi si spengono. */
     scelto = selezionati.indexOf(id) >= 0 ? id
            : (selezionati.length ? selezionati[0] : null);
+    /* IL LIVELLO SCELTO E IL FOGLIO IN USO SONO SEMPRE D'ACCORDO, e questa
+       riga è quello che lo tiene vero. Senza, si potrebbe modificare un
+       disegno che sta sul foglio 2 mentre il riquadro, il ritaglio e
+       l'editor lavorano nelle coordinate del foglio 1: tutto si
+       muoverebbe del disavanzo fra i due angoli, e nessuno saprebbe perché.
+       Per lo stesso motivo la selezione non attraversa i fogli (vedi
+       `seleziona` qui sopra, ramo «aggiungi»). */
+    var l = trova(scelto);
+    if (l && l.foglio && l.foglio !== State.data.foglioAttivo) Fogli.scegli(l.foglio);
     dopoSelezione();
   }
 
@@ -490,6 +513,7 @@ var Artwork = (function () {
     var m = daId ? trova(daId) : null;
     var l = {
       id: 'liv' + (++seq),
+      foglio: (m && m.foglio) || State.data.foglioAttivo,
       nome: nome || 'nuovo disegno',
       forme: [],
       tol: 0.05,
@@ -572,6 +596,7 @@ var Artwork = (function () {
     (ls || []).forEach(function (d) {
       var l = {
         id: 'liv' + (++seq),
+        foglio: State.data.foglioAttivo,
         nome: d.nome || 'livello',
         forme: d.forme || [],
         tol: d.tol || Tracciato.TOLLERANZA,
@@ -857,7 +882,46 @@ var Artwork = (function () {
     });
   }
 
+  function stessoFoglio(a, b) {
+    var x = trova(a), y = trova(b);
+    return !!x && !!y && (x.foglio || null) === (y.foglio || null);
+  }
+
   function sceltoId() { return scelto; }
+
+  /* IL FOGLIO DI UN LIVELLO, sempre uno vero.
+   *
+   * Un livello senza foglio è un livello nato prima del 2026-11-07 — da un
+   * progetto salvato, per esempio — e il suo posto è quello in uso: è dove
+   * sarebbe stato comunque, quando il foglio era uno solo. Tornare null qui
+   * vorrebbe dire far scegliere a ogni chiamante che cosa fare di un caso
+   * che ha una risposta sola. */
+  function foglioDi(id) {
+    var l = typeof id === 'string' ? trova(id) : id;
+    var f = l && l.foglio ? Fogli.trova(l.foglio) : null;
+    return f || State.data.paper;
+  }
+
+  /* Dove casca sul piano l'angolo del foglio di quel livello. */
+  function origineDi(id) { return foglioDi(id).origine; }
+
+  /* I livelli che stanno su un foglio se ne vanno con lui. Non è una scelta
+     fra le altre: il rettangolo, i tratti e il ritaglio di quei livelli sono
+     millimetri di QUEL foglio, e tenerli senza di lui vorrebbe dire tenere
+     dei numeri che non misurano più niente. Chi toglie il foglio lo sa:
+     glielo chiede l'elenco dei fogli, dicendogli quanti sono. */
+  function svuotaFoglio(fid) {
+    var via = livelli.filter(function (l) { return (l.foglio || null) === fid; });
+    if (!via.length) return 0;
+    livelli = livelli.filter(function (l) { return (l.foglio || null) !== fid; });
+    selezionati = selezionati.filter(function (id) { return !!trova(id); });
+    if (!trova(scelto)) scelto = selezionati.length ? selezionati[0]
+                               : (livelli.length ? livelli[0].id : null);
+    if (window.Selezione) Selezione.chiudi();
+    refit();
+    renderElenco();
+    return via.length;
+  }
 
   /* DAL FOGLIO ALLE COORDINATE DI UN LIVELLO.
    *
@@ -1329,7 +1393,21 @@ var Artwork = (function () {
       if (!l.box) {
         var pc = (l.id === scelto)
           ? (+document.getElementById('art-scale').value || 100) : 100;
-        l.box = SvgImport.fitRect(polys, State.data.paper, pc);
+        /* Ci si adatta al PROPRIO foglio, non a quello in uso: un magnete
+           75 × 75 e un A5 sul piano insieme vogliono due adattamenti
+           diversi, e usare qui il foglio attivo vorrebbe dire che un disegno
+           cambia misura a seconda di quale foglio si sta guardando.
+
+           OGGI I DUE COINCIDONO SEMPRE, e va detto perche' chi legge non lo
+           «semplifichi»: un livello senza rettangolo e' un livello appena
+           nato, e un livello nasce sul foglio in uso. Scriverlo con
+           `State.data.paper` non sbaglierebbe niente adesso e sbaglierebbe
+           tutto il giorno in cui un livello senza rettangolo puo' stare
+           altrove — un progetto riaperto, un livello creato da uno di un
+           altro foglio. Il banco delle mutazioni non puo' accorgersene,
+           perche' il difetto non e' raggiungibile: per questo non c'e' una
+           mutazione, e c'e' questo commento. */
+        l.box = SvgImport.fitRect(polys, foglioDi(l), pc);
       }
       if (l.ritaglio) l.ritaglio = dentroA(l.ritaglio, l.box);
 
@@ -2164,21 +2242,36 @@ var Artwork = (function () {
     var gruppi = [];
 
     if (ambito === 'tutto') {
-      /* Un gruppo solo: l'ottimizzatore può spostare un tratto del primo
-         livello in mezzo al terzo. È il più veloce e l'unico che rompe i
-         cambi penna, per questo qui sotto vengono tolti. */
-      var insieme = [];
-      vis.forEach(function (l) { insieme = insieme.concat(l.art); });
-      var r = Optimize.run(insieme, feedDraw, feedTravel);
-      gruppi.push({ id: null, polys: r.polys, prima: r.prima, dopo: r.dopo });
+      /* Un gruppo per FOGLIO, non uno solo. Dentro a un foglio
+         l'ottimizzatore può spostare un tratto del primo livello in mezzo al
+         terzo — è il più veloce, ed è l'unico che rompe i cambi penna, per
+         questo qui sotto vengono tolti. Fra fogli diversi non può: i numeri
+         di due livelli su due fogli sono millimetri di due angoli diversi, e
+         metterli nello stesso elenco vorrebbe dire chiedere
+         all'ottimizzatore quale di due punti è più vicino quando i due punti
+         non sono nemmeno nello stesso sistema di riferimento. Con un foglio
+         solo è il gruppo unico di prima, identico. */
+      var perFoglio = {}, ordine = [];
+      vis.forEach(function (l) {
+        var k = l.foglio || State.data.foglioAttivo;
+        if (!(k in perFoglio)) { perFoglio[k] = []; ordine.push(k); }
+        perFoglio[k] = perFoglio[k].concat(l.art);
+      });
+      ordine.forEach(function (k) {
+        var r = Optimize.run(perFoglio[k], feedDraw, feedTravel);
+        gruppi.push({ id: null, foglio: k, polys: r.polys,
+                      prima: r.prima, dopo: r.dopo });
+      });
     } else {
       vis.forEach(function (l) {
+        var k = l.foglio || State.data.foglioAttivo;
         if (ambito === 'niente') {
           var s = Optimize.stats(l.art, feedDraw, feedTravel);
-          gruppi.push({ id: l.id, polys: l.art, prima: s, dopo: s });
+          gruppi.push({ id: l.id, foglio: k, polys: l.art, prima: s, dopo: s });
         } else {
           var o = Optimize.run(l.art, feedDraw, feedTravel);
-          gruppi.push({ id: l.id, polys: o.polys, prima: o.prima, dopo: o.dopo });
+          gruppi.push({ id: l.id, foglio: k, polys: o.polys,
+                        prima: o.prima, dopo: o.dopo });
         }
       });
     }
@@ -2187,7 +2280,7 @@ var Artwork = (function () {
     /* Il percorso riordinato diventa quello mostrato: l'anteprima deve far
        vedere quello che la macchina farà davvero, non quello che avrebbe
        fatto prima del riordino. */
-    var art = [], di = [], auto = [], penne = [];
+    var art = [], di = [], fo = [], auto = [], penne = [];
     gruppi.forEach(function (g, i) {
       var l = g.id ? trova(g.id) : null;
       if (i > 0 && l && l.cambioPenna) auto.push(art.length);
@@ -2198,7 +2291,7 @@ var Artwork = (function () {
         penne.push({ i: art.length, colore: tintaDi(l),
                      mm: l.spessore || null, nome: l.nome });
       }
-      g.polys.forEach(function (p) { art.push(p); di.push(g.id); });
+      g.polys.forEach(function (p) { art.push(p); di.push(g.id); fo.push(g.foglio); });
     });
 
     if (ambito === 'tutto' && vis.some(function (l) { return l.cambioPenna; })) {
@@ -2209,13 +2302,26 @@ var Artwork = (function () {
 
     State.data.art = art;
     State.data.artDi = di;
+    /* Di quale foglio sono le coordinate di ogni tratto. Non si ricava da
+       `artDi`: con l'ottimizzazione su «tutto» il livello di provenienza è
+       sparito — i tratti sono mescolati — mentre il foglio no, perché i
+       gruppi non lo attraversano mai. */
+    State.data.artFoglio = fo;
     Paper.rebuildPath();
 
     var prima = gruppi.reduce(function (a, g) { return a ? sommaStat(a, g.prima) : g.prima; }, null);
     var dopo = gruppi.reduce(function (a, g) { return a ? sommaStat(a, g.dopo) : g.dopo; }, null);
 
-    var o = State.data.sheetOrigin;
-    var machine = art.map(function (p) {
+    /* DALLE COORDINATE DEL FOGLIO A QUELLE DELLA MACCHINA, foglio per
+       foglio. È l'unico punto in cui il programma passa da «dove sta sulla
+       carta» a «dove va la punta», ed è il motivo per cui mettere nove fogli
+       sul piano non è stata una riscrittura: l'angolo da sommare era già in
+       un posto solo, bastava che non fosse più sempre lo stesso. */
+    var origini = {};
+    State.data.fogli.forEach(function (f) { origini[f.id] = f.origine; });
+    var oAttiva = State.data.sheetOrigin;
+    var machine = art.map(function (p, i) {
+      var o = origini[fo[i]] || oAttiva;
       return p.map(function (q) { return { x: q.x + o.x, y: q.y + o.y }; });
     });
 
@@ -2531,6 +2637,26 @@ var Artwork = (function () {
     foglioUsato = { id: State.data.paper.id,
                     w: State.data.paper.w, h: State.data.paper.h };
 
+    /* L'ACCORDO FRA IL LIVELLO SCELTO E IL FOGLIO IN USO VALE NEI DUE VERSI.
+       Scegliendo un livello si va sul suo foglio: lo fa `seleziona`. Ma si
+       puo' anche scegliere un FOGLIO — dall'elenco nella colonna, o
+       prendendone uno sul piano — e allora la scelta di prima e' su un altro
+       foglio: il riquadro, il ritaglio e l'editor lavorerebbero nelle
+       coordinate sbagliate, e tutto si muoverebbe del disavanzo fra i due
+       angoli senza che niente lo dica. Chi cambia foglio o trova lo stesso
+       disegno sul nuovo, o non ne ha scelto nessuno. */
+    State.on('fogli', function () {
+      var fid = State.data.foglioAttivo;
+      var l = trova(scelto);
+      if (l && (l.foglio || fid) === fid) return;
+      var suo = livelli.filter(function (x) { return (x.foglio || fid) === fid; });
+      scelto = suo.length ? suo[0].id : null;
+      selezionati = scelto ? [scelto] : [];
+      if (window.Selezione) Selezione.chiudi();
+      renderElenco();
+      mostraCampi();
+    });
+
     State.on('paper', function () {
       var p = State.data.paper;
       var prima = foglioUsato;
@@ -2551,7 +2677,11 @@ var Artwork = (function () {
       var dx = (p.w - prima.w) / 2, dy = (p.h - prima.h) / 2;
       if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005) return;
 
+      /* Solo i livelli DI QUEL foglio: gli altri stanno su un foglio che
+         non è cambiato di una virgola, e spostarli sarebbe muovere un
+         disegno perché ne è stato cambiato un altro. */
       livelli.forEach(function (l) {
+        if (l.foglio && l.foglio !== p.id) return;
         if (l.box) { l.box.x += dx; l.box.y += dy; }
         if (l.ritaglio) { l.ritaglio.x += dx; l.ritaglio.y += dy; }
       });
@@ -2603,6 +2733,7 @@ var Artwork = (function () {
     init: init, load: load, clear: clear, refit: refit,
     prepare: prepare, invia: invia,
     progetto: progetto, daProgetto: daProgetto,
+    foglioDi: foglioDi, origineDi: origineDi, svuotaFoglio: svuotaFoglio,
 
     riquadro: riquadro, riquadroPieno: riquadroPieno,
     collocaA: collocaA, ritagliaA: ritagliaA, ritagliato: ritagliato,

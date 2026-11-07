@@ -176,6 +176,11 @@ body.sta-ridimensionando { cursor: col-resize; user-select: none; }
   height: 100%;
   width: 100%;
   min-height: 0;
+  /* Lo spazio della didascalia, riservato qui una volta per tutte: lei ci
+     sta dentro appoggiata al fondo ed e' fuori dal flusso, cosi' non puo'
+     piu' rimpicciolire il piano cambiando lunghezza. Vedi .stage-caption. */
+  position: relative;
+  padding-bottom: 34px;
 }
 
 .scrubber {
