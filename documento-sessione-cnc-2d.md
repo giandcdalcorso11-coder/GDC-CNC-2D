@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 82
-**Ultimo aggiornamento:** 2026-11-08 18:26
+**Versione:** 83
+**Ultimo aggiornamento:** 2026-11-08 19:01
 
 ## Regole di co-editing
 
@@ -228,7 +228,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 
 ### Step 3 — Configurazione FluidNC
 
-**Stato:** in corso — **la macchina esegue e disegna, anche a lungo.** Versi dei due assi riprovati e corretti, quote Z negative applicate e verificate, origine manuale rodata, programmi caricati e lanciati dalla flash. Il blocco delle stampe lunghe ha **causa confermata sulla macchina** il 2026-10-24: è il canale HTTP che il job si tiene aperto per tutta la durata, e lanciando dalla **seriale USB** non si presenta. Finché il SLICER non invia il programma da sé, i disegni lunghi si lanciano dalla seriale: è un rimedio operativo, non una cura.
+**Stato:** in corso — **la macchina esegue e disegna, anche a lungo.** Versi dei due assi riprovati e corretti, quote Z negative applicate e verificate, origine manuale rodata, programmi caricati e lanciati dalla flash. Il blocco delle stampe lunghe ha **causa confermata sulla macchina** il 2026-10-24: è il canale HTTP che il job si tiene aperto per tutta la durata, e lanciando dalla **seriale USB** non si presenta. **Quella frase è stata vera fino al 2026-10-25** e oggi non lo è più: il SLICER il programma lo manda da sé, riga per riga sul WebSocket, che è la cura di quel guasto e non un rimedio operativo. Allo stesso modo `max_rate_mm_per_min`, segnato il 2026-10-19 come «da rivedere al rialzo» perché valeva 2000, nel file è **8000** da un pezzo. Lo stato resta «in corso» perché a dire che questo step è chiuso dev'essere l'utente, non io: le due cose che lo tenevano aperto, per quanto vedo nel repository, non ci sono più.
 
 **Obiettivo:** FluidNC installato e configurato come firmware definitivo della macchina, con movimento coordinato X/Y e pen-lift sul servo
 
@@ -433,6 +433,7 @@ mano a mano che le misure arrivano):
 - [2026-11-03] **Un difetto vecchio di quattro giorni, trovato lavorando accanto.** Il segno azzurro di «questo pezzo l'ha già fatto» nell'anteprima non si vedeva più **da quando i livelli hanno una penna** (2026-10-29): il colore si scrive come stile sulla riga — deve farlo, se no la regola `.trace-draw` vince e i tratti restano grigi — e uno stile sulla riga batte qualsiasi regola del foglio di stile. Coloriva solo i livelli senza tinta, cioè quelli disegnati a mano, cioè quasi mai: per questo era passato inosservato per quattro giorni.
 
 - [2026-11-01] **Il telecomando ha una scheda sua nelle impostazioni**, invece di stare sparso dentro a «Connessione»: è una scatola a parte, con una rete sua, un collaudo suo e modi suoi di rompersi. Dentro, oltre alla prova in bianco: **una schermata per volta**, dieci pulsanti che mandano uno stato e lo **tengono fermo** finché non ne premi un altro — guardare una schermata con la recita voleva dire aspettare il momento giusto e fotografarlo — e la **spia del dialogo**, una spunta che scrive nel registro ogni messaggio che esce (→) e ogni risposta che torna (←), spenta di suo perché a stampa in corso sono due e mezzo al secondo. Un tasto premuto mentre una schermata è ferma **non fa niente e finisce nel registro**: è il modo di provare un pad per volta. Trovati e chiusi due buchi per strada: una **stampa vera non spegneva la prova** (il controllo si faceva solo premendo, e se la stampa partiva dopo il vetro restava a recitare), e il **campo dell'indirizzo restava vuoto all'avvio** con scritto «Collegato» due righe sotto, perché le impostazioni si accendono prima del telecomando.
+- [2026-11-08] **La scheda dei fogli rifatta, e i fogli vuoti nell'elenco.** Due cose chieste dall'utente usando il programma. (1) In cima stanno i **preset** — un elenco di misure che si hanno in casa — e premerne uno **aggiunge** un foglio invece di cambiare le misure di quello in uso: il difetto vero era che un preset premuto con un disegno già sopra cambiava la carta sotto ai piedi. Le due caselle delle misure salgono accanto ai preset col «+» di fianco, e il «+» è uno solo: salva il preset se quelle misure non ce l'hanno già, e aggiunge comunque il foglio. Ogni foglio del piano porta i due comandi dei preset — matita (nome, misure, carta) e cestino — al posto della crocetta sul fianco. (2) **Un foglio senza disegni sopra adesso sta nell'elenco**, segnato vuoto: l'elenco è fatto di FOGLI e non più di livelli con un'intestazione quando il foglio cambia, e il foglio vuoto è esattamente quello su cui si vuole trascinare un livello. Di conseguenza: lasciando sotto a tutto si legge la riga e non l'ultimo livello (se no il livello tornava indietro), e l'elenco si rifà a ogni segnale `fogli` — prima un foglio aggiunto compariva solo al gesto successivo.
 
 ### Step 5 — Struttura meccanica
 
@@ -815,6 +816,7 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 - [2026-11-01] **Antei, set definitivo scelto dall'utente:** `logo antei cnc2d`, `starboy cnc2d (dettagliato)` e `(essenziale)`, `starry angel kid cnc2d (dettagliato)` e `(essenziale)`, in `stampe/antei/` sul branch `claude/quirky-bohr-u9ktwd`. Tenute entrambe le coppie di stile.
 - [2026-11-02] **Magneti: arrivano misure e colori.** Magneti grandi **75 × 75 mm**, piccoli **75 × 25 mm**, angoli arrotondati; i piccoli attuali hanno il nome scritto a pennarello (es. «INTENZIONE»). Colori in foto: azzurro, arancione, verde e un quadrato bianco grande (a cosa serve non ancora chiarito). Le grafiche arrivano dall'utente nel messaggio successivo; poi il mockup con la sequenza delle stampe.
 - [2026-11-05] **Magneti: l'utente rifà a mano i tre grandi, e da lì si ricava la regola delle scritte.** I tre file ritoccati (`stampe/magneti/finali-utente/`) sono i buoni. Il problema era nelle scritte: tracciare il **contorno** della lettera con l'indelebile da **1,5 mm** (predefinito del livello nello SLICER) fa sbordare l'inchiostro di mezzo pennarello e le lettere si impastano. Regola nuova (`stampe/magneti/testo_marker.py`): tratto **dentro** la lettera a metà larghezza di pennarello dal bordo, anelli sovrapposti ~10% solo dentro la stessa lettera, linea di mezzo per le parti sottili, spaziatura fra lettere calcolata sulla forma (≥ ~0,9 mm di vuoto). Applicata ai quattro piccoli e ai tre bianchi, da provare in stampa. Due penne: Tratto Pen (~0,5 mm) e indelebile (1,5 mm); lo spessore lo sceglie l'utente per livello nello SLICER. Il verde «Gioco» ritoccato è un disegno diverso dal mio (podio 1-2-3 con coppa).
+- [2026-11-08] **Magneti chiusi, per ora** (decisione dell'utente). Condiviso il foglio con tutti i magneti rifiniti a mano nello SLICER, `stampe/magneti/finali-utente/tutti_i_magneti.svg` (232 × 313 mm, 19 livelli, penna `#1d1d1b`, spessore 1,5): è il riferimento finale. Fuori Step 10: palla da beach volley a contorni (`stampe/palla-beach-volley.svg`), biglietto Feffi, set Antei. Resta aperto solo il bianco grande rifatto dall'originale, se arriverà il file.
 
 ### Step 11 — Unire due progetti salvati: il foglio e la scelta dei livelli
 
@@ -844,7 +846,7 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 
 ### Step 12 — Più fogli sul piano
 
-**Stato:** in corso — **nel programma è tutto fatto, tutte e cinque le fasi.** Dal 2026-11-07 si lavora e si stampa su più fogli insieme, il telecomando dice a che foglio sta andando, e il progetto salvato si porta dietro i suoi fogli. Resta la prova vera: nove magneti sulla macchina (vedi il criterio di completamento).
+**Stato:** **completato** (2026-11-08). Nel programma erano fatte tutte e cinque le fasi dal 2026-11-07; la prova vera l'ha fatta l'utente sulla macchina il 2026-11-08: «il disegno con più magneti l'ho già fatto, tutto corretto». Vedi la nota di quel giorno per che cosa quella frase copre e che cosa no.
 
 **Obiettivo:** mettere sul piano più fogli, anche di misure diverse, lavorarci sopra come su uno solo e stamparli **in una volta**, senza che il numero dei fogli si trasformi in un numero uguale di misure da fare e di cambi penna da aspettare.
 
@@ -893,9 +895,44 @@ quello che era.
 - [2026-11-07] **Sul vetro del telecomando il posto non era libero**, e si è scoperto misurando: fra la percentuale e il tempo che manca passa l'etichetta del tasto STOP (fascia 152-162, a destra di x=154). Per questo, quando il foglio si scrive, il pallino della penna e la percentuale **salgono di quattordici pixel**. Con un foglio solo la schermata resta quella di prima.
 - [2026-11-07] **Fase 5, il progetto salvato.** `fogli[]` nel `.cnc2d.svg` e il numero del foglio su ogni livello. Riaprendo: se il piano di oggi è **lo stesso piano** del file i livelli si appoggiano sui fogli che ci sono, se no il progetto **porta i suoi**. Chiusa la metà «foglio» dello Step 11.
 - [2026-11-07] **Un A4 non ci sta nella corsa, e il banco l'ha fatto notare.** 297 > 236: un progetto su A4 non può essere posato «dove c'è posto», e la prima versione reagiva mettendogli i fogli sopra a quelli che c'erano. Adesso un gruppo che non ci sta va **di fianco** a tutto, fuori dalla corsa, e mai sopra: due disegni sulla stessa carta non si vedono, un foglio che sporge sì — e l'elenco dei fogli lo dice già. «Più grande della corsa» e «non c'è più posto libero» si dicono con due frasi diverse, perché la prima non è un errore (con un A4 si stampa un pezzo per volta).
-- [2026-11-08] **Magneti chiusi, per ora** (decisione dell'utente). Condiviso il foglio con tutti i magneti rifiniti a mano nello SLICER, `stampe/magneti/finali-utente/tutti_i_magneti.svg` (232 × 313 mm, 19 livelli, penna `#1d1d1b`, spessore 1,5): è il riferimento finale. Fuori Step 10: palla da beach volley a contorni (`stampe/palla-beach-volley.svg`), biglietto Feffi, set Antei. Resta aperto solo il bianco grande rifatto dall'originale, se arriverà il file.
+- [2026-11-08] **Stampato sulla macchina, e va.** Detto dall'utente: «il disegno con più magneti l'ho già fatto, tutto corretto». È il criterio di completamento, e con quella frase lo step si chiude. **Che cosa copre quella frase e che cosa no:** copre la stampa su più fogli in una volta — le schermate di inizio stampa, i cambi penna, il telecomando — perché è quello che si attraversa stampando. Non ho chiesto il dettaglio punto per punto e non lo invento: la metà «salva, riapri un altro giorno e ritrova i nove fogli» resta verificata **nel programma** (2026-11-07: nove fogli, un angolo da misurare, programma identico di 327 righe) e non da una seconda giornata di macchina. Se un giorno riaprendo un progetto i fogli non tornassero, è lì che va guardato.
 
 ## Storico sessioni
+
+### [2026-11-08 19:01] (software) Lo Step 12 si chiude sulla macchina, e la scheda dei fogli rifatta
+
+**Riepilogo:** l'utente ha stampato il disegno con più magneti sulla macchina — «tutto corretto» — e con quella frase lo Step 12 è completato; nella stessa giornata la scheda dei fogli è stata rifatta (preset che aggiungono, matita e cestino su ogni foglio) e i fogli vuoti compaiono nell'elenco dei livelli.
+
+**Cosa è stato fatto:**
+- **Step 12 completato.** La prova vera è passata sulla macchina. Nella nota dello step è scritto che cosa quella conferma copre e che cosa no: non ho chiesto il dettaglio punto per punto, quindi la metà «salva, riapri un altro giorno, ritrova i nove fogli» resta verificata nel programma e non da una seconda giornata di macchina.
+- **La scheda dei fogli**, su richiesta dell'utente: titolo «Preset fogli», un preset che **aggiunge** un foglio invece di cambiare quello in uso, le due caselle delle misure salite accanto ai preset con il «+» unico di fianco (salva il preset solo se è nuovo, aggiunge sempre il foglio), il sottotitolo «Fogli» e su ogni pastiglia la matita (nome, misure, carta) e il cestino al posto della crocetta. Di conseguenza scrivere le misure non ridimensiona più niente, e il formato acceso segue il foglio in uso anche quando cambia senza passare da `apply()`.
+- **I fogli vuoti nell'elenco dei livelli**, in tutt'e due le tab.
+
+  **Bug: un foglio senza disegni spariva dall'elenco**
+
+  **Sintomo:** aggiungendo un foglio e non mettendoci niente sopra, quel foglio non compariva né nell'elenco della tab Disegno né nella colonna dell'editor — quindi non c'era modo di trascinarci un livello.
+  **Causa:** l'elenco si costruiva ciclando i **livelli** e scrivendo l'intestazione quando il foglio cambiava. Un foglio senza livelli non ha righe, quindi non ha intestazione. Accertata.
+  **Fix applicato:** l'elenco si costruisce ciclando i **fogli**, ciascuno coi suoi livelli; `data-pos` di un'intestazione vuota è dove cadrebbe un livello lasciato lì. Verificato nel browser in tutt'e due le tab, trascinamento compreso.
+
+  Due difetti che ne dipendevano, trovati provando: lasciando un livello **sotto a tutto** si leggeva il foglio dell'ultimo *livello* invece che dell'ultima *riga*, quindi lasciandolo sull'intestazione vuota in fondo tornava indietro; e l'elenco **non si rifaceva** sul segnale `fogli`, quindi un foglio aggiunto compariva solo al primo gesto successivo che lo toccava.
+- **Banco: 22 mutazioni nuove, 214 in tutto, tutte viste.** Tre vecchie riallineate alle ancore riscritte. **Tre controlli nuovi passavano guardando la cosa sbagliata** — la crocetta contata con un foglio solo sul piano, dove il cestino non si disegna comunque, e due letture del DOM che facevano *morire* il banco invece di farlo fallire — e una mutazione vecchia era diventata **innocua**: vedi la decisione qui sotto.
+- **Risposta a una domanda dell'utente sui fogli più grandi della corsa**, verificata facendo girare davvero i popup su un 255 × 270 invece di leggere il codice: il terzo popup c'è e cambia gesto (tocca un punto raggiungibile, dichiara quanto dista dai due bordi, campi precompilati 7 e 17); l'angolo esce negativo; poi il programma controlla che il **disegno** stia nella corsa e si ferma prima di mandare qualcosa («esce dall'area di lavoro a sinistra di 49.8 mm», provato). Detto all'utente che quel percorso **non è coperto dal banco** e che il firmware non protegge (`soft_limits: false`, niente finecorsa): la protezione è tutta dell'interfaccia e si basa sui due numeri che scrive lui. Risposta: «va bene così, basta che lo so».
+
+**Decisioni prese:**
+- Contesto: il giro completo delle 214 mutazioni ne ha lasciata fuori una, «sostituendo, gli agganci non si rileggono», che prima si accendeva.
+- Decisione: la mutazione adesso taglia in **due punti**. Non era il controllo a essere cieco: `applica` chiama `Paper.setSize` subito dopo, e da oggi `setSize` rilegge gli agganci da sé — gli servono, perché cambiare le misure di un foglio cambia chi tocca chi. Con un taglio solo il programma restava corretto, cioè la mutazione misurava **se stessa** invece del controllo.
+- Alternative scartate: togliere da `progetto.js` la riga diventata ridondante. Appoggiarsi all'effetto collaterale di `setSize` sarebbe un legame nascosto fra due file che non si parlano.
+- Da rivedere se: `setSize` smette di rileggere gli agganci — allora il secondo taglio non serve più.
+
+**Precisazione alla convenzione del banco** (quarta refinement di stamattina, quinto caso): *una mutazione può diventare innocua col tempo.* Finché misura un comportamento difeso in un punto solo, accusa il controllo; quando una funzione nuova difende la stessa cosa da un'altra parte, accusa se stessa. Si riconosce perché il controllo passa **e il programma è davvero corretto** — e si corregge tagliando tutti i punti, non togliendo la difesa.
+
+**Discrepanza segnalata:** lo **Stato dello Step 3** diceva «finché il SLICER non invia il programma da sé, i disegni lunghi si lanciano dalla seriale». Il SLICER lo manda da sé dal 2026-10-25, e `max_rate_mm_per_min`, segnato il 2026-10-19 come «da rivedere al rialzo» perché valeva 2000, nel file è 8000. Ho corretto la frase nello Stato dicendo da quando non è più vera, ma **ho lasciato lo stato «in corso»**: a dire che quello step è chiuso dev'essere l'utente. — Inoltre la nota «Magneti chiusi, per ora» del fronte stampe (v82) era finita in coda alle note dello **Step 12** mentre parla dello **Step 10**: spostata nello step giusto, testo invariato.
+
+**File consegnati/modificati:** `webui/index.html`, `webui/js/paper.js`, `webui/js/artwork.js`, `webui/js/editor.js`, `webui/css/components.css`, `webui/tools/prova-piano.js`, `webui/tools/rompi.py`; pagina **versione 111** consegnata all'utente; questo documento (v83).
+
+**Impatto su Vision/Pipeline:** Step 12 da «in corso» a **completato**. Step 4: nota del 2026-11-08 sulla scheda dei fogli e sui fogli vuoti. Step 3: corretta la frase vecchia nello Stato, stato invariato.
+
+---
 
 ### [2026-11-08 18:26] (stampe) Magneti chiusi, e la palla da beach volley
 
