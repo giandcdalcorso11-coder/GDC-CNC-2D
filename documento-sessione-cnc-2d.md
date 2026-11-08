@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 80
-**Ultimo aggiornamento:** 2026-11-08 01:10
+**Versione:** 81
+**Ultimo aggiornamento:** 2026-11-08 10:30
 
 ## Regole di co-editing
 
@@ -83,6 +83,21 @@ volte, e le tre precisazioni valgono quanto la regola:
   com'è), e un banco che non può vedere la differenza — il vetro finto del
   telecomando disegna blocchi al posto delle lettere, quindi «3» e «4» sono
   identici per costruzione, e quello che lì si può guardare è la larghezza.
+- **[2026-11-08] Anche un controllo può passare guardando la cosa
+  sbagliata**, ed è l'altra metà della regola: una mutazione non vista
+  accusa il controllo, non sempre sé stessa. Tre casi nello stesso giorno, e
+  tutti e tre davano la risposta giusta **per caso**. *Il testo che compare
+  due volte:* il controllo cercava «un foglio 210 × 297 mm» in un messaggio
+  che scrive la misura in due frasi, quindi passava anche cancellandone una
+  — si cerca la frase intera. *La scena che si appoggia a un avanzo:* il
+  disegno stava sul PRIMO foglio, e il ripiego del codice rotto era proprio
+  l'angolo del primo — si sposta la scena sul secondo. *La scena dove il
+  difetto non può manifestarsi:* due livelli su fogli diversi, dove la
+  selezione si sostituisce comunque, quindi anche il codice rotto rispondeva
+  «uno» — servono due livelli dello stesso foglio. E una quarta, sull'altro
+  versante: **riscrivere l'ancora di una mutazione può svuotarla**. Quando il
+  codice intorno cambia, l'ancora va rimirata sullo *stesso difetto*, non
+  sulla riga più somigliante.
 
 **Il repository GitHub si chiama `GDC-CNC-2D`** (rinominato dall'utente il
 2026-10-15; GitHub non accetta spazi nei nomi e li sostituisce con trattini).
@@ -880,6 +895,26 @@ quello che era.
 - [2026-11-07] **Un A4 non ci sta nella corsa, e il banco l'ha fatto notare.** 297 > 236: un progetto su A4 non può essere posato «dove c'è posto», e la prima versione reagiva mettendogli i fogli sopra a quelli che c'erano. Adesso un gruppo che non ci sta va **di fianco** a tutto, fuori dalla corsa, e mai sopra: due disegni sulla stessa carta non si vedono, un foglio che sporge sì — e l'elenco dei fogli lo dice già. «Più grande della corsa» e «non c'è più posto libero» si dicono con due frasi diverse, perché la prima non è un errore (con un A4 si stampa un pezzo per volta).
 
 ## Storico sessioni
+
+### [2026-11-08 10:30] (banco) Le 192 mutazioni riprovate tutte, e tre controlli che passavano per caso
+
+**Riepilogo:** chiusura del giro di verifica delle due giornate — tutte le mutazioni riprovate contro il codice nuovo, **192 su 192 viste** — e la scoperta che tre controlli passavano guardando la cosa sbagliata; da qui la quarta precisazione della regola del banco.
+
+**Cosa è stato fatto:**
+- **Riprovate tutte le mutazioni contro il codice di oggi**, non solo quelle nuove: le quattro modifiche del 7–8 novembre hanno toccato `artwork.js`, `paper.js`, `editor.js` e `progetto.js`, e un controllo che smette di guardare quello che dice di guardare non si annuncia. Delle 150 più vecchie, 149 erano a posto.
+- **Tre controlli trovati ciechi, e corretti** — il dettaglio di ciascuno sta nella quarta precisazione della convenzione «Come si provano i controlli», in cima a questo documento. In breve: uno cercava un testo che il messaggio scrive **due volte**; uno aveva la scena appoggiata su un **avanzo** lasciato da una sezione precedente del collaudo, che per caso dava la risposta giusta; uno metteva i due livelli su **fogli diversi**, dove il difetto non può manifestarsi.
+- **Una mutazione svuotata riscrivendone l'ancora.** Dopo la scelta dei livelli, il codice intorno a «Annulla aggiunge lo stesso» era cambiato e l'ancora era stata rimirata sulla riga più somigliante invece che sullo stesso difetto: spostava un argomento restando *dentro* al guardiano `if (scelta)`, quindi con Annulla non applicava niente lo stesso. Rimirata sul guardiano.
+- **Tolta una mutazione invecchiata:** «l'editor elenca i livelli di tutti i fogli» descriveva come difetto quello che dal 2026-11-08 è il comportamento giusto. Al suo posto la sua inversa.
+
+**Nota di metodo: fermare il banco per poter committare.** Una corsa completa dura circa tre quarti d'ora e **tiene un sorgente rotto su disco** per tutto il tempo di ogni mutazione: committare mentre gira vuol dire mettere quel difetto nel repository. Si ferma con **`SIGINT`** e non con `SIGTERM`: il primo solleva un'eccezione e fa scattare il `finally` che rimette a posto i file, il secondo no. Dopo, prima di committare, si verifica con i collaudi interi — se un sorgente fosse rimasto mutato, non sarebbero verdi.
+
+**Discrepanza segnalata:** la voce precedente, intestata **[2026-11-08 01:10]**, porta un'ora inventata: quel lavoro è stato fatto fra le 09:30 e le 10:00 dell'8 novembre (commit `6400e09` alle 09:47 e `0cb13dc` alle 09:58). L'intestazione resta com'è, per la regola di non riscrivere le voci passate.
+
+**File consegnati/modificati:** `webui/tools/rompi.py` (192 mutazioni), `webui/tools/prova-progetto.js` e `webui/tools/prova-piano.js` (i controlli resi non ciechi), `documento-sessione-cnc-2d.md` v81.
+
+**Impatto su Vision/Pipeline:** nessun cambio di stato degli step. Aggiunta la quarta precisazione alla convenzione «Come si provano i controlli»: *anche un controllo può passare guardando la cosa sbagliata.*
+
+---
 
 ### [2026-11-08 01:10] (software) Due cose viste usando il programma: l'anteprima che mentiva e la colonna dell'editor
 
