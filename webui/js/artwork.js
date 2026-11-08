@@ -1502,7 +1502,14 @@ var Artwork = (function () {
      percorso. Va richiamata quando cambia un rettangolo, una rotazione, un
      ritaglio, l'ordine, la visibilità o il formato del foglio. */
   function refit() {
-    var art = [], di = [], doppi = 0;
+    /* `fo` DICE SU CHE FOGLIO STA OGNI TRATTO, e senza di lui l'anteprima
+       disegna tutto sul foglio in uso. Fino al 2026-11-08 lo riempiva solo
+       `prepare()`, cioè il pulsante «Prepara»: durante il lavoro normale
+       `State.data.artFoglio` restava vuoto, `rebuildPath()` in paper.js
+       ripiegava sull'angolo del foglio ATTIVO per ogni tratto, e cambiando
+       foglio il disegno di un altro gli saltava addosso. Chi guardava il
+       piano vedeva i disegni seguire il clic. */
+    var art = [], di = [], fo = [], doppi = 0;
 
     for (var i = 0; i < livelli.length; i++) {
       var l = livelli[i];
@@ -1557,11 +1564,16 @@ var Artwork = (function () {
       l.art = pulito;
 
       if (!l.visibile) continue;
-      for (var j = 0; j < l.art.length; j++) { art.push(l.art[j]); di.push(l.id); }
+      for (var j = 0; j < l.art.length; j++) {
+        art.push(l.art[j]);
+        di.push(l.id);
+        fo.push(foglioDi(l).id);
+      }
     }
 
     State.data.art = art.length ? art : null;
     State.data.artDi = di;
+    State.data.artFoglio = fo;
     State.data.artName = nomeComplessivo();
     State.data.artDoppi = doppi;
 

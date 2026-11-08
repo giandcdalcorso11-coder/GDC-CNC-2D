@@ -14,6 +14,11 @@
  *      3 sopra il magnete 1. Si controlla sul G-code, che e' l'unico posto
  *      dove la cosa diventa vera.
  *
+ *   1-bis. CHE L'ANTEPRIMA DICA LA VERITA'. Il G-code e' l'unico posto dove
+ *      la cosa diventa vera, ma il piano e' l'unico posto dove si guarda
+ *      PRIMA di stampare: un'anteprima che disegna tutto sul foglio in uso
+ *      e' una bugia credibile, e si scopre sulla carta.
+ *
  *   2. CHE I MAGNETI AGGANCINO ESATTO. Un foglio appoggiato a occhio e
  *      sbagliato di mezzo millimetro NON e' accostato: chiedera' la sua
  *      misura, e chi l'ha posato non capira' perche'. I magneti sono quello
@@ -529,6 +534,82 @@ function dentro(p, r, gioco) {
      r.fogli === 1,
      'da ' + r.prima + ' a ' + r.dopo + ' livelli (' + r.nome + '), ' +
      r.fogli + ' foglio');
+
+  /* ====== IL DISEGNO RESTA SUL SUO FOGLIO ANCHE SUL PIANO (2026-11-08) ======
+   *
+   * IL DIFETTO, visto dall'operatore: «quando aggiungo un nuovo foglio e ci
+   * clicco sopra, tutto il disegno che ho sul primo foglio si sposta sul
+   * foglio che clicco». Era vero, ed era solo dell'anteprima: nel modello il
+   * livello non si muoveva di un millimetro, e il G-code era giusto.
+   *
+   * LA CAUSA: `rebuildPath()` in paper.js somma a ogni tratto l'angolo del
+   * SUO foglio, e lo legge da `State.data.artFoglio`. Quell'elenco lo
+   * riempiva solo `prepare()` -- il pulsante «Prepara» -- quindi durante il
+   * lavoro normale era vuoto e ogni tratto ripiegava sull'angolo del foglio
+   * ATTIVO. Cambiare foglio spostava tutto.
+   *
+   * SI MISURA DOVE CADONO LE RIGHE DISEGNATE, non dove dice il modello: il
+   * modello era gia' giusto mentre il difetto c'era, quindi un controllo sul
+   * modello non l'avrebbe mai visto. */
+  const INCHIOSTRO = () => page.evaluate(() => {
+    const l = [...document.querySelectorAll('line.trace-draw')];
+    if (!l.length) return null;
+    const xs = [], ys = [];
+    l.forEach((e) => {
+      xs.push(+e.getAttribute('x1'), +e.getAttribute('x2'));
+      ys.push(+e.getAttribute('y1'), +e.getAttribute('y2'));
+    });
+    return [Math.round(Math.min(...xs)), Math.round(Math.min(...ys)),
+            Math.round(Math.max(...xs)), Math.round(Math.max(...ys))];
+  });
+
+  /* IL DISEGNO SI METTE SUL SECONDO FOGLIO, e non sul primo, di proposito.
+     Col disegno sul primo il controllo passava anche col codice rotto: a
+     elenco vuoto `rebuildPath` ripiega sull'angolo del foglio ATTIVO, e un
+     avanzo di `artFoglio` lasciato da una sezione precedente puntava proprio
+     al primo foglio — cioe' dava per caso la risposta giusta. Sul secondo
+     non c'e' caso che tenga: o l'elenco dice il foglio vero, o
+     l'inchiostro casca settantacinque millimetri piu' in la'. */
+  await page.evaluate(([D]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(75, 75);
+    Paper.setSheetOrigin(10, 10);
+    var due = Fogli.aggiungi(75, 75, 'secondo');
+    Fogli.scegli(due.id);
+    Artwork.load(D, 'sul secondo.svg');
+  }, [DISEGNO('#c8102e')]);
+  await page.waitForTimeout(200);
+  const suDue = await INCHIOSTRO();
+  ok('il disegno del secondo foglio casca sul secondo foglio',
+     suDue && suDue[0] === 88, JSON.stringify(suDue));
+
+  await page.evaluate(() => Fogli.scegli(State.data.fogli[0].id));
+  await page.waitForTimeout(200);
+  r = await INCHIOSTRO();
+  ok('cambiare foglio non sposta il disegno che sta su un altro',
+     JSON.stringify(r) === JSON.stringify(suDue),
+     'prima ' + JSON.stringify(suDue) + ', dopo ' + JSON.stringify(r));
+
+  /* E un disegno messo sul PRIMO foglio deve cadere settantacinque
+     millimetri piu' a sinistra: se cadessero nello stesso posto, il
+     controllo di sopra passerebbe anche disegnando tutto nell'angolo. */
+  await page.evaluate(([D]) => Artwork.load(D, 'sul primo.svg'), [DISEGNO('#1f4fa8')]);
+  await page.waitForTimeout(200);
+  r = await page.evaluate(() => {
+    const out = {};
+    [...document.querySelectorAll('line.trace-draw')].forEach((e) => {
+      const c = e.style.stroke || '';
+      const x = Math.min(+e.getAttribute('x1'), +e.getAttribute('x2'));
+      if (!(c in out) || x < out[c]) out[c] = x;
+    });
+    return out;
+  });
+  const tinte = Object.keys(r);
+  ok('e i due disegni cadono su due fogli diversi, a 75 mm l\'uno dall\'altro',
+     tinte.length === 2 &&
+     Math.round(Math.abs(r[tinte[0]] - r[tinte[1]])) === 75,
+     JSON.stringify(r));
 
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();

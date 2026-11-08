@@ -1647,6 +1647,30 @@ MUTAZIONI = [
         vede="lasciando la matita del suo colore",
         prova="prova-penne.js",
     ),
+    dict(
+        nome="l'anteprima non sa su che foglio sta ogni tratto",
+        file="js/artwork.js",
+        da="    State.data.artDi = di;\n    State.data.artFoglio = fo;",
+        a="    State.data.artDi = di;",
+        vede="casca sul secondo foglio",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="l'anteprima mette tutti i tratti sul foglio in uso",
+        file="js/paper.js",
+        da="    function ang(i) { return origini[fo[i]] || oAttiva; }",
+        a="    function ang(i) { return oAttiva; }",
+        vede="non sposta il disegno che sta su un altro",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="l'anteprima mette tutti i tratti sul foglio del primo",
+        file="js/paper.js",
+        da="    function ang(i) { return origini[fo[i]] || oAttiva; }",
+        a="    function ang(i) { return origini[fo[0]] || oAttiva; }",
+        vede="cadono su due fogli diversi",
+        prova="prova-piano.js",
+    ),
 ]
 
 
