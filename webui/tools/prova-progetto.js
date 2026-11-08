@@ -208,11 +208,17 @@ const STATO = (page) => page.evaluate(() => {
      r.quanti === 1 && r.nomi[0] === 'in corso.svg' &&
      r.foglio[0] === 148 && r.foglio[1] === 210,
      r.quanti + ' livelli (' + r.nomi.join(', ') + '), foglio ' + r.foglio.join('×'));
-  /* La finestrella dice quanti fogli porta: dal 2026-11-07 e' la cosa che
-     cambia fra «aggiungi» e «sostituisci», e si legge prima di scegliere. */
+  /* La finestrella dice DUE cose, e le pretende tutt'e due: che cosa c'e'
+     dentro al file (quanti livelli, su che fogli) e che cosa succede
+     aggiungendo. La misura del foglio compare in tutt'e due le frasi, quindi
+     la prima si cerca INTERA: cercando solo «un foglio 210 × 297 mm» il
+     controllo passerebbe anche se quella frase sparisse del tutto, perche' la
+     stessa misura e' scritta venti parole piu' in la'. E' successo il
+     2026-11-08, e lo ha trovato una mutazione rimasta non vista. */
   ok('e la finestrella dice che porta il suo foglio',
-     /un foglio 210 × 297 mm/.test(r.desc) && /porta il suo foglio/.test(r.desc),
-     r.desc.slice(0, 120));
+     /Dentro ci sono 2 livelli su un foglio 210 × 297 mm\. Sul piano adesso/.test(r.desc) &&
+     /porta il suo foglio/.test(r.desc),
+     r.desc.slice(0, 130));
   /* E DICE CHE UN A4 NON CI STA NELLA CORSA, perche' non ci sta: 297 > 236.
      Non e' «il posto e' finito», e' «quel foglio e' piu' grande della corsa»
      — due cose diverse, e la seconda non e' un errore (con un A4 si stampa un
