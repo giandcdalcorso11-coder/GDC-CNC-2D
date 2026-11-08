@@ -90,38 +90,64 @@
     <aside class="sidebar">
 
       <section class="card">
-        <h2>Foglio</h2>
-        <!-- I tre formati ISO stanno nel markup perche' sono costanti del
+        <!-- «PRESET FOGLI» E «FOGLI» SONO DUE COSE, e fino al 2026-11-08
+             questa scheda le chiamava con lo stesso nome. In cima stanno i
+             FORMATI che si hanno in casa — una risma di A4, i quadrati da
+             75 che si tagliano a mano: un elenco di misure, non di fogli —
+             e premerne uno adesso AGGIUNGE un foglio di quelle misure al
+             piano invece di cambiare le misure di quello su cui si sta
+             lavorando. Detto dall'operatore: «quando ne clicco uno vorrei
+             che ne venga creato uno nuovo e non modificato quello in cui
+             sono con la selezione». Sotto, dopo il sottotitolo, stanno i
+             FOGLI veri, quelli posati sul piano.
+             I tre formati ISO stanno nel markup perche' sono costanti del
              mondo (vedi js/profile.js), ma il COLORE della carta no: un A4 lo
              compri bianco, avorio o nero. Per quello hanno anche loro il
              pulsantino, che apre la stessa finestrella dei fogli tagliati a
              mano con nome e misure bloccati: quelli non sono tuoi da cambiare.
-             I fogli dell'operatore li aggiunge js/paper.js, dopo questi tre e
-             prima del «+». -->
+             I fogli dell'operatore li aggiunge js/paper.js, in coda a questi
+             tre. -->
+        <h2>Preset fogli</h2>
         <div class="preset-row" id="preset-row">
           <span class="preset-wrap preset-fisso">
-            <button class="btn btn-ghost preset" data-w="210" data-h="297">A4</button>
+            <button class="btn btn-ghost preset" data-w="210" data-h="297"
+                    title="A4 — 210 × 297 mm · aggiunge un foglio di queste misure al piano">A4</button>
             <button class="mini mini-colore" data-fog-colore="210x297"
                     title="Colore della carta" aria-label="Colore della carta"></button>
           </span>
           <span class="preset-wrap preset-fisso">
-            <button class="btn btn-ghost preset" data-w="148" data-h="210">A5</button>
+            <button class="btn btn-ghost preset" data-w="148" data-h="210"
+                    title="A5 — 148 × 210 mm · aggiunge un foglio di queste misure al piano">A5</button>
             <button class="mini mini-colore" data-fog-colore="148x210"
                     title="Colore della carta" aria-label="Colore della carta"></button>
           </span>
           <span class="preset-wrap preset-fisso">
-            <button class="btn btn-ghost preset" data-w="105" data-h="148">A6</button>
+            <button class="btn btn-ghost preset" data-w="105" data-h="148"
+                    title="A6 — 105 × 148 mm · aggiunge un foglio di queste misure al piano">A6</button>
             <button class="mini mini-colore" data-fog-colore="105x148"
                     title="Colore della carta" aria-label="Colore della carta"></button>
           </span>
-          <button class="btn btn-ghost preset-add" id="btn-paper-add" disabled>+</button>
         </div>
-        <!-- I FOGLI SUL PIANO. Dal 2026-11-07 sono piu' d'uno: il «+»
-             aggiunge un foglio delle misure scritte qui sotto e lo posa dove
-             c'e' posto, accanto a quello che c'e' gia'. Il foglio scelto e'
-             quello su cui si lavora, e i disegni importati vanno li'.
+        <!-- LE MISURE E IL «+», INSIEME: scrivi larghezza e altezza, premi il
+             più, e hai un preset nuovo (se quelle misure non ce l'hanno già)
+             e un foglio di quelle misure sul piano. Prima i due campi stavano
+             in fondo alla scheda e cambiavano le misure del foglio in uso
+             mentre li si batteva — un gesto che adesso ha il suo posto: la
+             matita sulla pastiglia del foglio. -->
+        <div class="field-row preset-nuovo">
+          <label>Larghezza (mm) <input type="number" id="paper-w" value="148" min="20" max="400" step="1"></label>
+          <label>Altezza (mm) <input type="number" id="paper-h" value="210" min="20" max="400" step="1"></label>
+          <button class="btn btn-ghost preset-add" id="btn-paper-add">+</button>
+        </div>
+        <!-- I FOGLI SUL PIANO. Dal 2026-11-07 sono piu' d'uno: il «+» qui
+             sopra, o un preset, aggiunge un foglio e lo posa dove c'e' posto,
+             accanto a quello che c'e' gia'. Il foglio scelto e' quello su cui
+             si lavora, e i disegni importati vanno li'. Ogni pastiglia porta
+             i suoi due comandi come i preset: la matita (nome, misure, carta)
+             e il cestino.
              La riga sotto dice quanti angoli andranno misurati: e' il numero
              che i magneti servono a far scendere. Vedi js/fogli.js. -->
+        <h3>Fogli</h3>
         <div class="fogli-row" id="fogli-row"></div>
         <p class="fogli-nota" id="fogli-nota"></p>
         <!-- L'ALTEZZA DI CONTATTO SI MISURA UNA VOLTA SOLA, perche' nove
@@ -135,10 +161,6 @@
           <input type="checkbox" id="chk-carte-diverse">
           <span>I fogli sono di carte diverse: misura l'altezza su ciascuno</span>
         </label>
-        <div class="field-row">
-          <label>Larghezza (mm) <input type="number" id="paper-w" value="148" min="20" max="400" step="1"></label>
-          <label>Altezza (mm) <input type="number" id="paper-h" value="210" min="20" max="400" step="1"></label>
-        </div>
         <button class="btn btn-ghost full" id="btn-rotate-paper">Ruota foglio</button>
         <div class="field-row">
           <label>Angolo foglio X (mm) <input type="number" id="sheet-x" value="20" min="-400" max="400" step="1"></label>

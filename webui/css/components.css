@@ -63,6 +63,18 @@
   white-space: nowrap;
 }
 
+/* LE MISURE E IL «+», una riga sola: due campi che si allargano e un
+   comando che no. Il piu' si allinea in BASSO perche' i due campi hanno
+   l'etichetta sopra: allineato in alto starebbe accanto alla parola
+   «Larghezza» invece che accanto alla casella in cui si scrive. */
+.preset-nuovo { align-items: flex-end; }
+.preset-nuovo > .preset-add {
+  flex: 0 0 34px;
+  font-size: 16px;
+  line-height: 1;
+  padding: 6px 0;
+}
+
 /* Il «+» non si allarga come gli altri: e' un comando, non un formato. */
 /* Discendente diretto nel selettore, come la regola sopra: con la sola classe
    `.preset-add` quella piu' specifica vinceva e il piu' si allargava come un
@@ -533,18 +545,31 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 }
 
 /* L'elenco dei fogli sul piano, nella colonna di sinistra. */
-.fogli-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-.foglio-wrap { display: inline-flex; align-items: stretch; }
+/* Il gap verticale e' piu' largo di quello orizzontale per una ragione
+   precisa: la matita e il cestino sporgono di sette pixel SOPRA la
+   pastiglia, e con quattro pixel di aria cadrebbero sulla riga di sopra. */
+.fogli-row {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 6px;
+  row-gap: 11px;
+  margin: 7px 0 6px;
+}
+/* `relative` perche' i due comandi sono posizionati sui suoi angoli, e
+   `stretch` perche' la pastiglia riempie la sua altezza. Vedi `.mini`. */
+.foglio-wrap { position: relative; display: inline-flex; align-items: stretch; }
+/* Gli stessi due comandi dei preset, sugli angoli di sopra, visibili
+   passandoci sopra o arrivandoci con la tastiera. */
+.foglio-wrap:hover .mini,
+.foglio-wrap:focus-within .mini { display: flex; }
 .btn.foglio { padding: 3px 7px; font-size: 11px; line-height: 1.25; text-align: left; }
 .btn.foglio small { display: block; font-size: 9.5px; opacity: .65; }
 .btn.foglio.is-attivo { border-color: var(--accent); color: var(--text); }
 .btn.foglio .ricavato { color: var(--accent); }
-.foglio-via {
-  margin-left: -1px;
-  padding: 0 5px;
-  font-size: 11px;
-  line-height: 1;
-}
+/* `.foglio-via` NON C'E' PIU': era la crocetta attaccata al fianco destro
+   della pastiglia, sostituita il 2026-11-08 dal cestino sull'angolo. Quel
+   nome resta nel markup come attributo (`data-foglio-via`), che e' il
+   bersaglio del clic, non una classe da vestire. */
 .fogli-nota { font-size: 10.5px; line-height: 1.4; color: var(--text-dim); margin: 0 0 8px; }
 .fogli-nota:empty { display: none; }
 
@@ -601,6 +626,22 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 }
 .liv-foglio-nome { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .liv-foglio-agg { opacity: .75; letter-spacing: 0; text-transform: none; }
+
+/* UN FOGLIO VUOTO: l'intestazione c'e' ma sotto non ha niente, ed e' lo
+   spazio su cui si trascina un livello per portarcelo. Tratteggiato sotto
+   invece di pieno: dice «qui ci sta qualcosa che non c'e'», che e' la
+   stessa grammatica del pallino della penna che manca. */
+.liv-foglio.vuoto, .ed-foglio.vuoto {
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 7px;
+}
+.liv-foglio-vuoto, .ed-foglio-vuoto {
+  margin-left: 6px;
+  font-size: 9.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-mute);
+}
 
 /* L'intestazione di un foglio nell'elenco dell'editor. Dal 2026-11-08
    l'elenco li porta TUTTI, quindi queste righe non sono piu' una sola in

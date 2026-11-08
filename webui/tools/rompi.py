@@ -30,6 +30,20 @@ ROOT = Path(__file__).resolve().parent.parent
 # che cosa, il pezzo di nome del controllo che deve andare KO, e -- quando non
 # e' quello del foglio -- quale collaudo lo trova.
 PROVA_PREDEFINITA = 'prova-foglio.js'
+
+# Il blocco dei due campi e del «+», per la mutazione che lo rimette sotto ai
+# fogli del piano: scambiare due pezzi di markup in una sostituzione sola
+# vuol dire averne uno scritto qui per intero.
+MISURE = (
+    '        <div class="field-row preset-nuovo">\n'
+    '          <label>Larghezza (mm) <input type="number" id="paper-w" value="148"'
+    ' min="20" max="400" step="1"></label>\n'
+    '          <label>Altezza (mm) <input type="number" id="paper-h" value="210"'
+    ' min="20" max="400" step="1"></label>\n'
+    '          <button class="btn btn-ghost preset-add" id="btn-paper-add">+</button>\n'
+    '        </div>\n'
+)
+
 MUTAZIONI = [
     dict(
         nome="il colore come attributo invece che come stile",
@@ -378,8 +392,8 @@ MUTAZIONI = [
     dict(
         nome="la nota si scrive dopo le righe, come prima",
         file="js/artwork.js",
-        da="    notaPenne();\n\n    /* L'INTESTAZIONE DEL FOGLIO",
-        a="\n    /* L'INTESTAZIONE DEL FOGLIO",
+        da="    notaPenne();\n\n    /* L'ELENCO \u00c8 FATTO DI FOGLI",
+        a="\n    /* L'ELENCO \u00c8 FATTO DI FOGLI",
         piu=[("js/artwork.js", '    box.innerHTML = out;\n  }', '    notaPenne();\n    box.innerHTML = out;\n  }')],
         vede="segna la riga dove va messa",
         prova="prova-penne.js",
@@ -903,8 +917,10 @@ MUTAZIONI = [
     dict(
         nome="l'elenco dei livelli non si divide per foglio",
         file='js/artwork.js',
-        da='      if (piuFogli && fid !== ultimoF) {',
-        a='      if (false) {',
+        da=('    if (!piuFogli) {\n'
+            '      livelli.forEach(function (x, i) { ordine.push({ liv: i }); });'),
+        a=('    if (true) {\n'
+           '      livelli.forEach(function (x, i) { ordine.push({ liv: i }); });'),
         vede='diviso per foglio',
         prova='prova-piano.js',
     ),
@@ -1679,7 +1695,7 @@ MUTAZIONI = [
     dict(
         nome="nell'editor sono accese le intestazioni di tutti i fogli",
         file="js/editor.js",
-        da="        out += '<div class=\"ed-foglio' + (fid === inUso ? ' in-uso' : '') +",
+        da="        out += '<div class=\"ed-foglio' + (tf === inUso ? ' in-uso' : '') +",
         a="        out += '<div class=\"ed-foglio' + ' in-uso' +",
         vede="accende quella del foglio in uso",
         prova="prova-piano.js",
@@ -1704,6 +1720,208 @@ MUTAZIONI = [
   }""",
         vede="trascinando dall'elenco dell'editor",
         prova="prova-piano.js",
+    ),
+    # ---- LA SCHEDA DEI FOGLI: preset, misure, matita, cestino (2026-11-08) ----
+    dict(
+        nome="la scheda torna a chiamarsi «Foglio»",
+        file='index.html',
+        da='<h2>Preset fogli</h2>',
+        a='<h2>Foglio</h2>',
+        vede='si chiama «Preset fogli»',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='i fogli del piano senza il loro sottotitolo',
+        file='index.html',
+        da='        <h3>Fogli</h3>\n',
+        a='',
+        vede='si chiama «Preset fogli»',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='il «+» fuori dalla riga delle misure',
+        file='index.html',
+        da=('          <button class="btn btn-ghost preset-add" id="btn-paper-add">+</button>\n'
+            '        </div>\n'),
+        a=('        </div>\n'
+           '        <button class="btn btn-ghost preset-add" id="btn-paper-add">+</button>\n'),
+        vede='le misure stanno fra i preset e i fogli',
+        prova='prova-piano.js',
+    ),
+    dict(
+        # Nascondere i due campi non e' la regressione da temere: e' che
+        # tornino DOVE STAVANO, sotto ai fogli del piano, dove nessuno
+        # capisce che il «+» accanto a loro aggiunge un foglio. Si toglie il
+        # blocco da dov'e' e lo si rimette la' sotto: due tagli in una
+        # mutazione sola, ed e' a questo che serve `piu`.
+        nome='le misure tornano sotto ai fogli del piano',
+        file='index.html',
+        da=MISURE,
+        a='',
+        piu=[('index.html',
+              '        <p class="fogli-nota" id="fogli-nota"></p>\n',
+              '        <p class="fogli-nota" id="fogli-nota"></p>\n' + MISURE)],
+        vede='le misure stanno fra i preset e i fogli',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='torna la crocetta sul fianco della pastiglia',
+        file='js/paper.js',
+        da="""        html += '<button class="mini mini-del" data-foglio-via="' + esc(f.id) +""",
+        a="""        html += '<button class="btn btn-ghost foglio-via" data-foglio-via="' + esc(f.id) +""",
+        vede='la sua matita e il suo cestino',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='la pastiglia del foglio senza la matita',
+        file='js/paper.js',
+        da="""              '<button class="mini mini-edit" data-fog-ed="' + esc(f.id) +
+              '" title="Nome, misure e carta di questo foglio" ' +
+              'aria-label="Modifica questo foglio">' + MATITA + '</button>';""",
+        a="""              '';""",
+        vede='la sua matita e il suo cestino',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='la matita e il cestino sempre in vista, anche senza passarci sopra',
+        file='css/components.css',
+        da=""".foglio-wrap:hover .mini,
+.foglio-wrap:focus-within .mini { display: flex; }""",
+        a=""".foglio-wrap .mini { display: flex; }""",
+        vede='la sua matita e il suo cestino',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='il cestino anche sull\'ultimo foglio rimasto',
+        file='js/paper.js',
+        da="""      if (l.length > 1) {
+        html += '<button class="mini mini-del" data-foglio-via="'""",
+        a="""      if (true) {
+        html += '<button class="mini mini-del" data-foglio-via="'""",
+        vede="sull'ultimo non c'e'",
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='un preset torna a cambiare le misure del foglio in uso',
+        file='js/paper.js',
+        da='      if (p) aggiungiFoglio(+p.dataset.w, +p.dataset.h);',
+        a='      if (p) setSize(+p.dataset.w, +p.dataset.h);',
+        vede='un preset AGGIUNGE un foglio',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='il formato acceso resta quello del foglio di prima',
+        file='js/paper.js',
+        da="    State.on('fogli', function () { renderFogli(); renderSheet(); markPreset(); });",
+        a="    State.on('fogli', function () { renderFogli(); renderSheet(); });",
+        vede='il formato acceso e` quello del foglio appena aggiunto',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='scrivere le misure torna a ridimensionare il foglio in uso',
+        file='js/paper.js',
+        da="      document.getElementById(id).addEventListener('input', aggiornaPiu);",
+        a="""      document.getElementById(id).addEventListener('input', function () {
+        setSize(+document.getElementById('paper-w').value || 10,
+                +document.getElementById('paper-h').value || 10);
+      });""",
+        vede='scrivere le misure non cambia il foglio in uso',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='il «+» salva il preset e non aggiunge il foglio',
+        file='js/paper.js',
+        da='      aggiungiFoglio(m.w, m.h);\n      if (nato) {',
+        a='      if (nato) {',
+        vede='il «+» salva il preset nuovo e aggiunge il foglio',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='il «+» rifa` il preset anche quando c\'e` gia`',
+        file='js/paper.js',
+        da="      if (nomeFormato(m.w, m.h) === 'Personalizzato') {",
+        a='      if (true) {',
+        vede='senza rifare il preset',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='la matita del foglio scrive nel campo il nome automatico',
+        file='js/paper.js',
+        da="    cn.value = f.nomeMio && f.name ? f.name : '';",
+        a="    cn.value = f.name || '';",
+        vede='apre col nome vuoto e la sua misura',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='la matita del foglio non cambia le misure',
+        file='js/paper.js',
+        da='      misuraFoglio(fg, w, h);\n      renderFormati();',
+        a='      renderFormati();',
+        vede='cambia nome, misure e carta di quel foglio',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='modificare un foglio crea anche un preset',
+        file='js/paper.js',
+        da='    if (inFoglio) {\n      var fg = Fogli.trova(inFoglio);',
+        a='    if (false) {\n      var fg = Fogli.trova(inFoglio);',
+        vede='senza creare preset',
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='il nome vuoto di un foglio resta un nome scelto a mano',
+        file='js/paper.js',
+        da='      fg.nomeMio = !!nome;',
+        a='      fg.nomeMio = true;',
+        vede='il nome vuoto rimette quello del formato',
+        prova='prova-piano.js',
+    ),
+
+    # ---- I FOGLI VUOTI NELL'ELENCO DEI LIVELLI (2026-11-08) ----
+    dict(
+        nome="il foglio vuoto sparisce dall'elenco della tab Disegno",
+        file='js/artwork.js',
+        da="""        ordine.push({ testa: f.id, pos: suoi.length ? suoi[0] : prima,
+                      vuoto: !suoi.length });""",
+        a="""        if (suoi.length) ordine.push({ testa: f.id, pos: suoi[0], vuoto: false });""",
+        vede="un foglio senza niente sopra sta nell'elenco",
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome="il foglio vuoto sparisce dalla colonna dell'editor",
+        file='js/editor.js',
+        da="""        ordine.push({ testa: f.id, pos: suoi.length ? suoi[0] : prima,
+                      vuoto: !suoi.length });""",
+        a="""        if (suoi.length) ordine.push({ testa: f.id, pos: suoi[0], vuoto: false });""",
+        vede="un foglio senza niente sopra sta nell'elenco",
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome="l'intestazione di un foglio vuoto dice di cadere in cima a tutto",
+        file='js/artwork.js',
+        da="""        ordine.push({ testa: f.id, pos: suoi.length ? suoi[0] : prima,
+                      vuoto: !suoi.length });""",
+        a="""        ordine.push({ testa: f.id, pos: suoi.length ? suoi[0] : 0,
+                      vuoto: !suoi.length });""",
+        vede="un foglio senza niente sopra sta nell'elenco",
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome="l'elenco non si rifa` quando si aggiunge un foglio",
+        file='js/artwork.js',
+        da='      ridisegnaElenchi();\n      var fid = State.data.foglioAttivo;',
+        a='      var fid = State.data.foglioAttivo;',
+        vede="un foglio senza niente sopra sta nell'elenco",
+        prova='prova-piano.js',
+    ),
+    dict(
+        nome='lasciando sotto a tutto si torna al foglio dell\'ultimo livello',
+        file='js/artwork.js',
+        da='      var dove = +slot.dataset.pos;\n      var fid = slot.dataset.fog;',
+        a="""      var dove = livelli.length - 1;
+      var fid = livelli[livelli.length - 1].foglio || State.data.foglioAttivo;""",
+        vede="ci si puo' trascinare un livello",
+        prova='prova-piano.js',
     ),
     dict(
         nome="cliccare un livello nell'editor accumula le spunte",

@@ -110,8 +110,14 @@ function dentro(p, r, gioco) {
 
   await AZZERA(page);
   r = await page.evaluate(() => {
-    document.getElementById('btn-foglio-add').click();
-    document.getElementById('btn-foglio-add').click();
+    /* Il gesto vero: le misure nei due campi in cima alla scheda e il
+       «+» accanto a loro. Dal 2026-11-08 il «+» della riga dei fogli non
+       c'e' piu' — ne e' rimasto uno solo, che salva il preset se serve e
+       aggiunge comunque il foglio. */
+    document.getElementById('paper-w').value = 75;
+    document.getElementById('paper-h').value = 75;
+    document.getElementById('btn-paper-add').click();
+    document.getElementById('btn-paper-add').click();
     return {
       rettangoli: document.querySelectorAll('#layer-sheet .sheet').length,
       attivi: document.querySelectorAll('#layer-sheet .sheet-attivo').length,
@@ -522,20 +528,32 @@ function dentro(p, r, gioco) {
     await page.mouse.move(g.tx, g.ty, { steps: 6 });
     await page.mouse.up();
     await page.waitForTimeout(200);
+    /* DUE INTESTAZIONI E NON UNA, dal 2026-11-08: il foglio rimasto senza
+       niente sopra resta nell'elenco, vuoto. Fino a quel giorno spariva, e
+       questo controllo si aspettava `teste === 1` — cioe' descriveva come
+       giusto quello che l'operatore ha chiesto di cambiare: «quando un
+       foglio non ha nessun disegno sopra non c'e' nella lista... vorrei che
+       ci fosse ma vuoto». Il foglio vuoto e' proprio quello su cui si vuole
+       poter trascinare qualcosa. */
     r = await page.evaluate((id) => ({
       suo: Artwork.foglioDi(id).id,
       f1: State.data.fogli[0].id,
       teste: document.querySelectorAll('#ed-livelli [data-ed-testa]').length,
-      inDisegno: document.querySelectorAll('#livelli [data-testa]').length
+      vuote: document.querySelectorAll('#ed-livelli .ed-foglio.vuoto').length,
+      inDisegno: document.querySelectorAll('#livelli [data-testa]').length,
+      vuoteDisegno: document.querySelectorAll('#livelli .liv-foglio.vuoto').length
     }), g.id);
     ok('trascinando dall\'elenco dell\'editor, il livello cambia foglio',
-       r.suo === r.f1 && r.teste === 1,
-       'finito sul foglio ' + r.suo + ', ' + r.teste + ' intestazioni');
+       r.suo === r.f1 && r.teste === 2 && r.vuote === 1,
+       'finito sul foglio ' + r.suo + ', ' + r.teste + ' intestazioni, ' +
+       r.vuote + ' vuota');
     /* E l'elenco dell'altra tab lo sa: sono lo stesso elenco visto da due
        posti, e ridisegnarne uno solo lascerebbe l'altro a raccontare
        l'ordine di prima. */
     ok('e anche l\'elenco della tab Disegno se n\'e` accorto',
-       r.inDisegno === 1, r.inDisegno + ' intestazioni nella tab Disegno');
+       r.inDisegno === 2 && r.vuoteDisegno === 1,
+       r.inDisegno + ' intestazioni nella tab Disegno, ' + r.vuoteDisegno +
+       ' vuota');
     await page.evaluate((id) => {
       Artwork.spostaAFoglio(id, State.data.fogli[1].id);
     }, g.id);
@@ -576,7 +594,7 @@ function dentro(p, r, gioco) {
     }), presa.id);
     tornaDove = presa.id;
     ok('trascinando un livello su un altro foglio, ci va',
-       r.suo === r.f1 && r.teste === 1 && r.ordine[0] === r.f1 &&
+       r.suo === r.f1 && r.teste === 2 && r.ordine[0] === r.f1 &&
        r.ordine[1] === r.f1,
        'finito sul foglio ' + r.suo + ', ' + r.teste + ' intestazioni, ordine ' +
        JSON.stringify(r.ordine));
@@ -718,6 +736,274 @@ function dentro(p, r, gioco) {
      r.uno.length === 1 && r.due.length === 1 && r.due[0] === r.modifica,
      'prima ' + JSON.stringify(r.uno) + ', poi ' + JSON.stringify(r.due) +
      ', si modifica ' + r.modifica);
+
+  /* ============ F. LA SCHEDA DEI FOGLI ============
+   *
+   * Chiesto dall'operatore il 2026-11-08: «al posto di fogli scrivi "preset
+   * fogli" e quando ne clicco uno vorrei che ne venga creato uno nuovo e non
+   * modificato quello in cui sono... sposta i due box per scrivere le
+   * dimensioni di un foglio sopra nella sezione preset fogli e il pulsantino
+   * + mettilo di fianco a questi box... sotto ai preset inserisci la parola
+   * "fogli"... rendile modificabili con la stessa modalita' dei fogli del
+   * preset, quindi con la matitina... e il cestino».
+   *
+   * E' una scheda, quindi meta' di questi controlli guardano del testo e
+   * delle posizioni nel documento. Non e' pignoleria: la differenza fra
+   * «preset» e «fogli» e' la ragione per cui premere un preset adesso
+   * aggiunge invece di cambiare, e una scheda che le chiama con lo stesso
+   * nome rende quel gesto incomprensibile.
+   */
+
+  await AZZERA(page);
+  r = await page.evaluate(() => {
+    const card = document.getElementById('preset-row').closest('.card');
+    const dopo = (a, b) => !!(a.compareDocumentPosition(b) &
+                              Node.DOCUMENT_POSITION_FOLLOWING);
+    const w = document.getElementById('paper-w');
+    return {
+      titolo: card.querySelector('h2').textContent.trim(),
+      sotto: [...card.querySelectorAll('h3')].map((h) => h.textContent.trim()),
+      /* I due campi stanno DOPO i preset e PRIMA dei fogli del piano, e il
+         «+» sta nella loro stessa riga: e' quello che li lega. */
+      dopoIPreset: dopo(document.getElementById('preset-row'), w),
+      primaDeiFogli: dopo(w, document.getElementById('fogli-row')),
+      colPiu: document.getElementById('btn-paper-add').parentNode ===
+              w.closest('.field-row'),
+      /* E nella riga dei fogli non c'e' piu' un secondo «+». */
+      piuNellaRiga: document.querySelectorAll('#fogli-row .preset-add').length
+    };
+  });
+  ok('la scheda si chiama «Preset fogli», e i fogli del piano hanno il loro titolo',
+     r.titolo === 'Preset fogli' && r.sotto.indexOf('Fogli') >= 0,
+     '«' + r.titolo + '», sottotitoli ' + JSON.stringify(r.sotto));
+  ok('le misure stanno fra i preset e i fogli, col «+» nella loro riga',
+     r.dopoIPreset && r.primaDeiFogli && r.colPiu && r.piuNellaRiga === 0,
+     'dopo i preset ' + r.dopoIPreset + ', prima dei fogli ' + r.primaDeiFogli +
+     ', «+» accanto ' + r.colPiu + ', «+» nella riga dei fogli ' + r.piuNellaRiga);
+  /* UN PRESET AGGIUNGE, e non cambia quello in uso. Il controllo guarda
+     tutt'e due le cose, perche' sono due difetti diversi: aggiungerne uno e
+     cambiare anche il vecchio sarebbe peggio di non aggiungerlo. */
+  r = await page.evaluate(() => {
+    const prima = State.data.fogli.map((f) => f.w + 'x' + f.h);
+    document.querySelector('.preset[data-w="105"]').click();
+    const acceso = document.querySelector('.preset.is-active');
+    return { prima: prima,
+             dopo: State.data.fogli.map((f) => f.w + 'x' + f.h),
+             attivo: Fogli.indice(State.data.foglioAttivo),
+             acceso: acceso ? acceso.textContent.trim() : null };
+  });
+  ok('un preset AGGIUNGE un foglio e non tocca quello in uso',
+     r.prima.join(' ') === '75x75' && r.dopo.join(' ') === '75x75 105x148' &&
+     r.attivo === 1,
+     JSON.stringify(r.prima) + ' → ' + JSON.stringify(r.dopo) +
+     ', in uso il ' + (r.attivo + 1));
+  /* E il formato acceso segue il foglio in uso: dice di che formato e'
+     quello su cui si sta lavorando, e dopo un foglio nuovo quello e' un
+     altro. Restava acceso il precedente. */
+  ok('e il formato acceso e` quello del foglio appena aggiunto',
+     r.acceso === 'A6', 'acceso «' + r.acceso + '»');
+
+  /* SCRIVERE LE MISURE NON RIDIMENSIONA NIENTE. Fino al 2026-11-08 ogni
+     cifra battuta cambiava il foglio in uso, col disegno sopra. */
+  r = await page.evaluate(() => {
+    const w = document.getElementById('paper-w'), h = document.getElementById('paper-h');
+    w.value = 60; w.dispatchEvent(new Event('input', { bubbles: true }));
+    h.value = 90; h.dispatchEvent(new Event('input', { bubbles: true }));
+    return { fogli: State.data.fogli.map((f) => f.w + 'x' + f.h),
+             titoloPiu: document.getElementById('btn-paper-add').title };
+  });
+  ok('scrivere le misure non cambia il foglio in uso',
+     r.fogli.join(' ') === '75x75 105x148',
+     JSON.stringify(r.fogli));
+
+  /* IL «+»: il preset se quelle misure non ce l'hanno gia', e comunque il
+     foglio. Due volte di fila, perche' la seconda non deve fare il
+     doppione del preset ma deve fare lo stesso il foglio. */
+  r = await page.evaluate(() => {
+    const quanti = () => Profile.formati().length;
+    const p0 = quanti(), f0 = State.data.fogli.length;
+    document.getElementById('btn-paper-add').click();
+    const p1 = quanti(), f1 = State.data.fogli.length;
+    document.getElementById('btn-paper-add').click();
+    return { p0: p0, p1: p1, p2: quanti(), f0: f0, f1: f1,
+             f2: State.data.fogli.length,
+             nomi: Profile.formati().map((f) => f.nome),
+             ultimo: State.data.fogli[State.data.fogli.length - 1].name,
+             attivo: Fogli.indice(State.data.foglioAttivo) };
+  });
+  ok('il «+» salva il preset nuovo e aggiunge il foglio',
+     r.p1 === r.p0 + 1 && r.f1 === r.f0 + 1 && r.nomi.indexOf('60 × 90') >= 0,
+     r.p0 + '→' + r.p1 + ' preset, ' + r.f0 + '→' + r.f1 + ' fogli, ' +
+     JSON.stringify(r.nomi));
+  ok('e la seconda volta aggiunge il foglio senza rifare il preset',
+     r.p2 === r.p1 && r.f2 === r.f1 + 1 && r.ultimo === '60 × 90' &&
+     r.attivo === r.f2 - 1,
+     r.p2 + ' preset, ' + r.f2 + ' fogli, l\'ultimo «' + r.ultimo + '» e in uso');
+
+  /* LA MATITA E IL CESTINO SULLA PASTIGLIA: ci sono, si vedono passandoci
+     sopra, e non sono gli stessi dei preset (quelli stanno nell'altra
+     riga). */
+  r = await page.evaluate(() => ({
+    /* Il `|| document.body` tiene in piedi il controllo quando la matita
+       non c'e' per niente: senza, `getComputedStyle(null)` lo fa MORIRE
+       invece di farlo fallire, e una matita sparita e' proprio quello che
+       deve trovare. Il corpo della pagina non e' mai «none». */
+    nascosti: getComputedStyle(
+      document.querySelector('#fogli-row [data-fog-ed]') || document.body).display,
+    quante: document.querySelectorAll('#fogli-row [data-fog-ed]').length,
+    cestini: document.querySelectorAll('#fogli-row [data-foglio-via]').length,
+    /* LA CROCETTA SI CONTA QUI e non prima, con quattro fogli sul piano:
+       con un foglio solo non c'e' comunque — il cestino sull'ultimo non si
+       disegna — e un controllo che guarda dove il difetto non puo'
+       manifestarsi passa per caso. */
+    crocette: document.querySelectorAll('#fogli-row .foglio-via').length,
+    fogli: State.data.fogli.length
+  }));
+  await page.hover('#fogli-row .foglio-wrap');
+  await page.waitForTimeout(120);
+  const vista = await page.evaluate(() => getComputedStyle(
+    document.querySelector('#fogli-row [data-fog-ed]') || document.body).display);
+  ok('ogni pastiglia ha la sua matita e il suo cestino, che si vedono passandoci sopra',
+     r.quante === r.fogli && r.cestini === r.fogli && r.crocette === 0 &&
+     r.nascosti === 'none' && vista === 'flex',
+     r.quante + ' matite, ' + r.cestini + ' cestini e ' + r.crocette +
+     ' crocette su ' + r.fogli + ' fogli; fermi «' + r.nascosti +
+     '», sopra «' + vista + '»');
+
+  /* LA MATITA: nome, misure e carta di QUEL foglio. Il nome parte vuoto con
+     la scritta-fantasma — vuoto vuol dire «quello del formato» — e i preset
+     non c'entrano niente: cambiare un foglio non ne crea uno. */
+  r = await page.evaluate(() => {
+    const presetPrima = Profile.formati().length;
+    document.querySelector('#fogli-row [data-fog-ed]').click();
+    const aperta = {
+      titolo: document.getElementById('fog-titolo').textContent,
+      nome: document.getElementById('fog-nome').value,
+      fantasma: document.getElementById('fog-nome').placeholder,
+      w: document.getElementById('fog-w').value,
+      h: document.getElementById('fog-h').value
+    };
+    document.getElementById('fog-nome').value = 'Gioco';
+    document.getElementById('fog-w').value = 80;
+    document.getElementById('fog-h').value = 70;
+    document.querySelector('[data-carta="#c49a6c"]').click();
+    document.getElementById('fog-ok').click();
+    const f = State.data.fogli[0];
+    return { aperta: aperta, nome: f.name, mio: !!f.nomeMio,
+             w: f.w, h: f.h, carta: Profile.coloreFoglio(80, 70),
+             preset: Profile.formati().length - presetPrima,
+             chiusa: document.getElementById('fog-modal').hidden };
+  });
+  ok('la matita del foglio apre col nome vuoto e la sua misura',
+     r.aperta.titolo === 'Foglio 1' && r.aperta.nome === '' &&
+     r.aperta.fantasma === '75 × 75' && r.aperta.w === '75' && r.aperta.h === '75',
+     JSON.stringify(r.aperta));
+  ok('e cambia nome, misure e carta di quel foglio senza creare preset',
+     r.nome === 'Gioco' && r.mio === true && r.w === 80 && r.h === 70 &&
+     r.carta === '#c49a6c' && r.preset === 0 && r.chiusa,
+     '«' + r.nome + '» ' + r.w + '×' + r.h + ', carta ' + r.carta +
+     ', ' + r.preset + ' preset in piu\'');
+
+  /* E il nome vuoto rimette quello del formato: e' il modo di tornare
+     indietro senza doversi ricordare come si chiamava. */
+  r = await page.evaluate(() => {
+    document.querySelector('#fogli-row [data-fog-ed]').click();
+    document.getElementById('fog-nome').value = '   ';
+    document.getElementById('fog-ok').click();
+    const f = State.data.fogli[0];
+    return { nome: f.name, mio: !!f.nomeMio,
+             scritto: document.querySelector('#fogli-row .foglio').textContent };
+  });
+  ok('il nome vuoto rimette quello del formato',
+     r.nome === 'Personalizzato' && r.mio === false && /80 × 70/.test(r.scritto),
+     '«' + r.nome + '», sulla pastiglia «' + r.scritto.trim() + '»');
+
+  /* IL CESTINO toglie il foglio. Sull'ultimo non c'e': un pulsante che non
+     si puo' premere sembra rotto. */
+  r = await page.evaluate(() => {
+    const prima = State.data.fogli.length;
+    document.querySelectorAll('#fogli-row [data-foglio-via]')[1].click();
+    const dopo = State.data.fogli.length;
+    while (State.data.fogli.length > 1) {
+      document.querySelector('#fogli-row [data-foglio-via]').click();
+    }
+    return { prima: prima, dopo: dopo, resta: State.data.fogli.length,
+             cestini: document.querySelectorAll('#fogli-row [data-foglio-via]').length,
+             matite: document.querySelectorAll('#fogli-row [data-fog-ed]').length };
+  });
+  ok('il cestino toglie il foglio, e sull\'ultimo non c\'e\'',
+     r.dopo === r.prima - 1 && r.resta === 1 && r.cestini === 0 && r.matite === 1,
+     r.prima + '→' + r.dopo + ' fogli, resta ' + r.resta + ' con ' +
+     r.cestini + ' cestini e ' + r.matite + ' matita');
+
+  /* ============ G. UN FOGLIO VUOTO STA NELL'ELENCO ============
+   *
+   * Chiesto dall'operatore lo stesso giorno: «quando un foglio non ha
+   * nessun disegno sopra non c'e' nella lista di fogli e livelli, vorrei
+   * che ci fosse ma vuoto, in modo che se voglio spostare un livello di
+   * un'altro foglio in un foglio vuoto ho la possibilita' di farlo».
+   *
+   * Qui il foglio vuoto non ha MAI avuto niente sopra — e' il caso che
+   * prima non si vedeva per niente, mentre quello svuotato trascinando si
+   * vede nella sezione D. */
+  await AZZERA(page);
+  /* Il foglio nuovo si aggiunge e BASTA: niente clic, niente scelta. Cosi'
+     l'unico segnale che l'elenco riceve e' `fogli`, e il controllo guarda
+     anche che l'elenco si rifaccia su quello — un foglio aggiunto che
+     compare solo al gesto successivo e' un foglio che non c'e'. */
+  await page.evaluate(([D]) => {
+    Artwork.load(D, 'solo uno.svg');
+    Fogli.aggiungi(105, 148, 'vuoto');
+  }, [DISEGNO('#1f4fa8')]);
+  await page.waitForTimeout(250);
+  r = await page.evaluate(() => {
+    document.querySelector('[data-tab="editor"]').click();
+    Editor.apri();
+    const conta = (sel) => document.querySelectorAll(sel).length;
+    return {
+      teste: conta('#livelli [data-testa]'), vuote: conta('#livelli .liv-foglio.vuoto'),
+      edTeste: conta('#ed-livelli [data-ed-testa]'),
+      edVuote: conta('#ed-livelli .ed-foglio.vuoto'),
+      /* Senza il `|| {}` il controllo MORIREBBE invece di fallire quando
+         l'intestazione vuota non c'e' — ed e' proprio il caso che deve
+         trovare. Un banco che si interrompe dice molto meno di un banco
+         che dice che cosa non va. */
+      posVuota: (document.querySelector('#livelli .liv-foglio.vuoto') ||
+                 { dataset: {} }).dataset.pos,
+      livelli: Artwork.livelli().length
+    };
+  });
+  ok('un foglio senza niente sopra sta nell\'elenco lo stesso, in tutt\'e due le tab',
+     r.teste === 2 && r.vuote === 1 && r.edTeste === 2 && r.edVuote === 1 &&
+     +r.posVuota === r.livelli && r.posVuota !== undefined,
+     r.teste + '/' + r.edTeste + ' intestazioni, ' + r.vuote + '/' + r.edVuote +
+     ' vuote, la vuota a pos ' + r.posVuota + ' con ' + r.livelli + ' livelli');
+
+  /* E ci si trascina sopra: e' tutta la ragione per cui deve esserci. */
+  {
+    const g = await page.evaluate(() => {
+      const p = document.querySelector('#ed-livelli [data-presa]').getBoundingClientRect();
+      const t = document.querySelector('#ed-livelli .ed-foglio.vuoto').getBoundingClientRect();
+      return { x: p.x + p.width / 2, y: p.y + p.height / 2,
+               tx: t.x + t.width / 2, ty: t.y + t.height - 2 };
+    });
+    await page.mouse.move(g.x, g.y);
+    await page.mouse.down();
+    await page.mouse.move(g.tx, g.ty, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    r = await page.evaluate(() => ({
+      dove: Fogli.indice(Artwork.livelli()[0].foglio),
+      vuote: document.querySelectorAll('#ed-livelli .ed-foglio.vuoto').length,
+      quale: [...document.querySelectorAll('#ed-livelli .ed-foglio')]
+               .map((d) => d.classList.contains('vuoto') ? 'vuoto' : 'pieno')
+    }));
+    await page.evaluate(() => document.querySelector('[data-tab="disegno"]').click());
+    ok('e ci si puo\' trascinare un livello, che e\' la ragione per cui c\'e\'',
+       r.dove === 1 && r.vuote === 1 && r.quale.join(' ') === 'vuoto pieno',
+       'finito sul foglio ' + (r.dove + 1) + ', intestazioni ' +
+       JSON.stringify(r.quale));
+  }
 
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();

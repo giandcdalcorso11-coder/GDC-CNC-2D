@@ -2325,28 +2325,63 @@ var Editor = (function () {
 
     var piuFogli = State.data.fogli.length > 1;
     var inUso = State.data.foglioAttivo;
-    var ultimo = null, out = '';
+    var out = '';
+
+    /* ANCHE I FOGLI VUOTI, dal 2026-11-08, e per la stessa ragione di la':
+       un foglio senza niente sopra e' quello su cui si vuole trascinare un
+       livello, e se non ha una riga non c'e' niente su cui lasciarlo. Il
+       conto delle posizioni e il perche' stanno in `renderElenco` di
+       js/artwork.js, che fa lo stesso elenco per la tab Disegno. */
+    var ordine = [];
+    if (!piuFogli) {
+      ls.forEach(function (x, i) { ordine.push({ liv: i }); });
+    } else {
+      var num = {};
+      State.data.fogli.forEach(function (f, k) { num[f.id] = k; });
+      var suo = ls.map(function (x) {
+        var k = num[x.foglio || inUso];
+        return k === undefined ? Infinity : k;
+      });
+      State.data.fogli.forEach(function (f, k) {
+        var suoi = [], prima = 0;
+        suo.forEach(function (q, i) {
+          if (q === k) suoi.push(i);
+          if (q < k) prima++;
+        });
+        ordine.push({ testa: f.id, pos: suoi.length ? suoi[0] : prima,
+                      vuoto: !suoi.length });
+        suoi.forEach(function (i) { ordine.push({ liv: i }); });
+      });
+      suo.forEach(function (q, i) { if (q === Infinity) ordine.push({ liv: i }); });
+    }
 
     /* `data-pos` e `data-fog` sono per il trascinamento, e sono gli stessi
        dell'elenco della tab Disegno: `Artwork.riordinabile` lavora su quelli
        e non sa ne' vuole sapere in quale dei due elenchi sta guardando.
        `data-pos` e' la posizione nell'elenco INTERO, che e' anche l'ordine
        di stampa: per questo qui si ciclano tutti i livelli. */
-    ls.forEach(function (l, i) {
-      var fid = l.foglio || inUso;
-      if (piuFogli && fid !== ultimo) {
-        ultimo = fid;
-        var f = Fogli.trova(fid);
-        var n = Fogli.indice(fid) + 1;
+    ordine.forEach(function (voce) {
+      if (voce.testa) {
+        var tf = voce.testa;
+        var f = Fogli.trova(tf);
+        var n = Fogli.indice(tf) + 1;
         var eti = f ? (f.name && f.name !== 'Personalizzato'
                         ? f.name : f.w + ' × ' + f.h) : '?';
-        out += '<div class="ed-foglio' + (fid === inUso ? ' in-uso' : '') +
-               '" data-ed-testa="' + esc(fid) + '" data-pos="' + i +
-               '" data-fog="' + esc(fid) + '" title="Foglio ' + n + ' — ' +
-               esc(eti) + '. Clicca per lavorare su questo foglio; trascina ' +
+        out += '<div class="ed-foglio' + (tf === inUso ? ' in-uso' : '') +
+               (voce.vuoto ? ' vuoto' : '') +
+               '" data-ed-testa="' + esc(tf) + '" data-pos="' + voce.pos +
+               '" data-fog="' + esc(tf) + '" title="Foglio ' + n + ' — ' +
+               esc(eti) + (voce.vuoto ? ', senza niente sopra' : '') +
+               '. Clicca per lavorare su questo foglio; trascina ' +
                'qui un livello per spostarcelo; due clic per rinominarlo.">' +
-               'foglio ' + n + ' · ' + esc(eti) + '</div>';
+               'foglio ' + n + ' · ' + esc(eti) +
+               (voce.vuoto ? '<span class="ed-foglio-vuoto">vuoto</span>' : '') +
+               '</div>';
+        return;
       }
+      var i = voce.liv;
+      var l = ls[i];
+      var fid = l.foglio || inUso;
       out += '<div class="ed-liv' + (l.principale ? ' attivo' : '') +
              (l.visibile ? '' : ' spento') + '" data-pos="' + i +
              '" data-fog="' + esc(fid) + '">' +

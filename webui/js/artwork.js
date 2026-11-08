@@ -1653,36 +1653,82 @@ var Artwork = (function () {
        modifica di ritardo, che è il modo più sicuro di non farsi credere. */
     notaPenne();
 
-    /* L'INTESTAZIONE DEL FOGLIO si scrive solo quando i fogli sono più
-       d'uno: con un foglio solo sarebbe una riga in cima che dice una cosa
-       che non distingue niente. Si scrive quando il foglio CAMBIA, e si può
-       perché i livelli di uno stesso foglio stanno insieme: vedi
-       ordinaPerFoglio(). */
+    /* L'ELENCO È FATTO DI FOGLI, non di livelli con un'intestazione ogni
+     * volta che il foglio cambia — e la differenza si vede su un foglio
+     * VUOTO.
+     *
+     * Fino al 2026-11-08 si ciclavano i livelli e l'intestazione si
+     * scriveva quando il foglio del livello non era quello di prima: un
+     * foglio senza disegni sopra non ha nessun livello, quindi nessuna
+     * riga, quindi dall'elenco spariva. Detto dall'operatore: «quando un
+     * foglio non ha nessun disegno sopra non c'è nella lista di fogli e
+     * livelli, vorrei che ci fosse ma vuoto, in modo che se voglio spostare
+     * un livello di un'altro foglio in un foglio vuoto ho la possibilità di
+     * farlo». È il caso che conta più degli altri: un foglio vuoto è
+     * esattamente quello su cui si vuole trascinare qualcosa, e non c'era
+     * niente su cui lasciarlo.
+     *
+     * Quindi si ciclano i FOGLI, nel loro ordine, e sotto ciascuno i suoi
+     * livelli. L'elenco che ne esce è lo stesso di prima — i livelli di uno
+     * stesso foglio stanno insieme, vedi ordinaPerFoglio() — più le
+     * intestazioni dei fogli che non hanno niente sopra. Con un foglio solo
+     * non si scrive nessuna intestazione: sarebbe una riga in cima che non
+     * distingue niente.
+     *
+     * `data-pos` DI UN'INTESTAZIONE VUOTA è dove cadrebbe un livello
+     * lasciato lì: quanti livelli stanno sui fogli che vengono prima, cioè
+     * il primo indice che il suo gruppo avrebbe.
+     */
     var piuFogli = State.data.fogli.length > 1;
-    var ultimoF = null;
+    var ordine = [];
+    if (!piuFogli) {
+      livelli.forEach(function (x, i) { ordine.push({ liv: i }); });
+    } else {
+      var num = {};
+      State.data.fogli.forEach(function (f, k) { num[f.id] = k; });
+      /* Il foglio di ogni livello come NUMERO. Un livello il cui foglio non
+         c'è più non dovrebbe esistere, ma un elenco che perde una riga è
+         peggio di un elenco con una riga in coda: finisce in fondo. */
+      var suo = livelli.map(function (x) {
+        var k = num[x.foglio || State.data.foglioAttivo];
+        return k === undefined ? Infinity : k;
+      });
+      State.data.fogli.forEach(function (f, k) {
+        var suoi = [], prima = 0;
+        suo.forEach(function (q, i) {
+          if (q === k) suoi.push(i);
+          if (q < k) prima++;
+        });
+        ordine.push({ testa: f.id, pos: suoi.length ? suoi[0] : prima,
+                      vuoto: !suoi.length });
+        suoi.forEach(function (i) { ordine.push({ liv: i }); });
+      });
+      suo.forEach(function (q, i) { if (q === Infinity) ordine.push({ liv: i }); });
+    }
 
     /* `data-pos` e `data-fog` su ogni riga sono per il trascinamento: dicono
        dove cadrebbe un livello lasciato lì e su quale foglio finirebbe.
        Scritti qui, dove si sa già tutt'e due, invece di ricavarli dal DOM
        ogni volta che il dito si muove. */
     var out = '';
-    for (var i = 0; i < livelli.length; i++) {
-      var l = livelli[i];
-      var fid = l.foglio || State.data.foglioAttivo;
-      if (piuFogli && fid !== ultimoF) {
-        ultimoF = fid;
-        var f = Fogli.trova(fid);
-        var n = Fogli.indice(fid) + 1;
+    ordine.forEach(function (voce) {
+      if (voce.testa) {
+        var tf = voce.testa;
+        var f = Fogli.trova(tf);
+        var n = Fogli.indice(tf) + 1;
         var eti = f ? (f.name && f.name !== 'Personalizzato'
                         ? f.name : f.w + ' × ' + f.h) : '?';
         out += '<div class="liv-foglio' +
-               (fid === State.data.foglioAttivo ? ' in-uso' : '') +
-               '" data-testa="' + esc(fid) + '" data-pos="' + i +
-               '" data-fog="' + esc(fid) + '" title="Foglio ' + n + ' — ' +
-               esc(eti) + '. Clicca per lavorare su questo foglio; trascina ' +
+               (tf === State.data.foglioAttivo ? ' in-uso' : '') +
+               (voce.vuoto ? ' vuoto' : '') +
+               '" data-testa="' + esc(tf) + '" data-pos="' + voce.pos +
+               '" data-fog="' + esc(tf) + '" title="Foglio ' + n + ' — ' +
+               esc(eti) + (voce.vuoto ? ', senza niente sopra' : '') +
+               '. Clicca per lavorare su questo foglio; trascina ' +
                'qui un livello per spostarcelo.">' +
                '<span class="liv-foglio-n">' + n + '</span>' +
                '<span class="liv-foglio-nome">' + esc(eti) + '</span>' +
+               (voce.vuoto ? '<span class="liv-foglio-vuoto">vuoto</span>' : '') +
                (f && f.aggancio
                   ? '<span class="liv-foglio-agg" title="L\'angolo di questo ' +
                     'foglio si ricava da quello del foglio ' +
@@ -1690,7 +1736,11 @@ var Artwork = (function () {
                     'inizio stampa.">↳ ' + (Fogli.indice(f.aggancio) + 1) + '</span>'
                   : '') +
                '</div>';
+        return;
       }
+      var i = voce.liv;
+      var l = livelli[i];
+      var fid = l.foglio || State.data.foglioAttivo;
       var preso = selezionati.indexOf(l.id) >= 0;
       out += '<div class="liv-riga' + (preso ? ' scelto' : '') +
              (l.id === scelto && selezionati.length > 1 ? ' primario' : '') +
@@ -1785,7 +1835,7 @@ var Artwork = (function () {
              '<button type="button" class="liv-ic liv-del" data-del="' + l.id +
              '" title="togli">' + SEGNI.cestino + '</button>' +
              '</div>';
-    }
+    });
     box.innerHTML = out;
   }
 
@@ -2280,17 +2330,22 @@ var Artwork = (function () {
          Si guarda il centro e non il bordo perché così lo scambio avviene a
          metà strada, cioè quando a occhio il sorpasso è avvenuto. */
       var slot = righe[righe.length - 1];
-      var infondo = true;
       for (var i = 0; i < righe.length; i++) {
         var r = righe[i].getBoundingClientRect();
-        if (e.clientY < r.top + r.height / 2) { slot = righe[i]; infondo = false; break; }
+        if (e.clientY < r.top + r.height / 2) { slot = righe[i]; break; }
       }
 
       var ora = indice(preso.id);
       if (ora < 0) return;
-      var dove = infondo ? livelli.length - 1 : +slot.dataset.pos;
-      var fid = infondo ? (livelli[livelli.length - 1].foglio ||
-                           State.data.foglioAttivo) : slot.dataset.fog;
+      /* ANCHE SOTTO A TUTTO SI LEGGE LA RIGA, e non l'ultimo livello
+         dell'elenco: dal 2026-11-08 l'ultima riga può essere
+         l'intestazione di un foglio VUOTO, e lasciare un livello sotto di
+         lei vuol dire portarlo là. Leggendo il foglio dall'ultimo livello,
+         il livello tornava da dov'era e il gesto sembrava non funzionare.
+         I due casi danno lo stesso numero quando l'ultima riga è un
+         livello: `data-pos` dell'ultimo livello è `livelli.length - 1`. */
+      var dove = +slot.dataset.pos;
+      var fid = slot.dataset.fog;
       var l = livelli[ora];
       var cambia = (l.foglio || State.data.foglioAttivo) !== fid;
       if (dove === ora && !cambia) return;
@@ -2988,6 +3043,13 @@ var Artwork = (function () {
        angoli senza che niente lo dica. Chi cambia foglio o trova lo stesso
        disegno sul nuovo, o non ne ha scelto nessuno. */
     State.on('fogli', function () {
+      /* L'ELENCO SI RIFA' COMUNQUE, prima di ogni altra cosa: dentro ci
+         sono i fogli, non solo i livelli — il loro numero, il loro nome,
+         quelli vuoti — e tutte cose che cambiano senza che un livello si
+         muova. Fino al 2026-11-08 il rientro anticipato qui sotto saltava
+         il ridisegno nel caso più comune, e un foglio aggiunto compariva
+         nell'elenco solo al primo gesto successivo che lo toccava. */
+      ridisegnaElenchi();
       var fid = State.data.foglioAttivo;
       var l = trova(scelto);
       if (l && (l.foglio || fid) === fid) return;
@@ -2995,7 +3057,7 @@ var Artwork = (function () {
       scelto = suo.length ? suo[0].id : null;
       selezionati = scelto ? [scelto] : [];
       if (window.Selezione) Selezione.chiudi();
-      renderElenco();
+      ridisegnaElenchi();
       mostraCampi();
     });
 

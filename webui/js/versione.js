@@ -3,6 +3,6 @@
    hanno toccato webui/. Si conta, non si incrementa: un numero scritto a
    mano prima o poi non viene aggiornato, e allora dice una cosa falsa
    invece di non dire niente. */
-var Versione = { numero: 104, data: '2026-11-07' };
+var Versione = { numero: 110, data: '2026-11-08' };
 
 if (typeof module !== 'undefined') module.exports = Versione;

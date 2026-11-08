@@ -443,24 +443,36 @@ var Paper = (function () {
       var sotto = f.aggancio
         ? '<small class="ricavato">↳ dal ' + (indiceDi(f.aggancio) + 1) + '</small>'
         : (vero ? '<small>' + misure + '</small>' : '');
+      /* LA PASTIGLIA DEL FOGLIO PORTA GLI STESSI DUE COMANDI DEL PRESET,
+         dal 2026-11-08: la matita in alto a sinistra (nome, misure e carta)
+         e il cestino in alto a destra. Prima c'era una crocetta attaccata
+         al fianco destro, che faceva una cosa sola e rubava larghezza a
+         ogni pastiglia; le misure di un foglio invece non si potevano
+         cambiare affatto — si cambiavano quelle del foglio IN USO, dai due
+         campi in fondo alla scheda, che è un'altra cosa. Detto
+         dall'operatore: «rendile modificabili con la stessa modalità dei
+         fogli del preset, quindi con la matitina... e il cestino, negli
+         angoli superiori». */
       html += '<span class="foglio-wrap">' +
               '<button class="btn btn-ghost foglio' +
               (f.id === attivo ? ' is-attivo' : '') + '" data-foglio="' + esc(f.id) +
               '" title="' + esc(nome + ' — ' + f.w + ' × ' + f.h + ' mm' +
                  (f.aggancio ? ', angolo ricavato dal foglio ' +
                     (indiceDi(f.aggancio) + 1) : ', angolo da misurare')) + '">' +
-              (i + 1) + '. ' + esc(nome) + sotto + '</button>';
-      /* Il pulsante per togliere c'è solo quando c'è più di un foglio: su
-         un foglio solo sarebbe un pulsante che non si può premere, cioè un
-         pulsante che sembra rotto. */
+              (i + 1) + '. ' + esc(nome) + sotto + '</button>' +
+              '<button class="mini mini-edit" data-fog-ed="' + esc(f.id) +
+              '" title="Nome, misure e carta di questo foglio" ' +
+              'aria-label="Modifica questo foglio">' + MATITA + '</button>';
+      /* Il cestino c'è solo quando c'è più di un foglio: sull'ultimo
+         sarebbe un pulsante che non si può premere, cioè un pulsante che
+         sembra rotto. */
       if (l.length > 1) {
-        html += '<button class="btn btn-ghost foglio-via" data-foglio-via="' +
-                esc(f.id) + '" title="Togli questo foglio">×</button>';
+        html += '<button class="mini mini-del" data-foglio-via="' + esc(f.id) +
+                '" title="Togli questo foglio dal piano" ' +
+                'aria-label="Togli questo foglio">' + CESTINO + '</button>';
       }
       html += '</span>';
     });
-    html += '<button class="btn btn-ghost preset-add" id="btn-foglio-add" ' +
-            'title="Aggiungi un foglio delle misure qui sotto">+</button>';
     row.innerHTML = html;
 
     var nota = document.getElementById('fogli-nota');
@@ -520,12 +532,27 @@ var Paper = (function () {
     apply();
   }
 
-  function setSize(w, h) {
-    State.data.paper.w = w;
-    State.data.paper.h = h;
-    document.getElementById('paper-w').value = w;
-    document.getElementById('paper-h').value = h;
+  /* LE MISURE DI UN FOGLIO DEL PIANO. Dal 2026-11-08 non toccano piu' i due
+     campi in cima alla scheda: quelli non dicono piu' «quanto misura il
+     foglio su cui sto lavorando» ma «quanto misurera' il foglio che sto per
+     aggiungere», e riscriverli qui vorrebbe dire cambiare sotto le dita il
+     numero che uno ha appena battuto.
+
+     Cambiare le misure cambia la geometria, quindi cambia CHI TOCCA CHI: un
+     foglio allargato tocca il vicino e il suo angolo diventa ricavato, uno
+     stretto si stacca e torna da misurare. Senza rileggere gli agganci
+     l'elenco continuerebbe a dire la verita' di prima. */
+  function misuraFoglio(f, w, h) {
+    if (!f) return;
+    f.w = w;
+    f.h = h;
+    Fogli.rileggiAgganci();
+    State.emit('fogli');
     apply();
+  }
+
+  function setSize(w, h) {
+    misuraFoglio(State.data.paper, w, h);
   }
 
   /* QUALE FORMATO È IN USO si decide dai dati, non dal markup. Prima la classe
@@ -547,18 +574,48 @@ var Paper = (function () {
     aggiornaPiu();
   }
 
-  /* Il «+» è acceso SOLO quando le misure non sono già un formato. Un pulsante
-     che salva un doppione di A5 non serve a niente, e lasciarlo premibile
-     significa riempire la riga di fogli identici con nomi diversi. */
+  /* IL «+» FA DUE COSE E NE DICE DUE, e fino al 2026-11-08 ne faceva una
+     sola: salvava il preset e si spegneva quando le misure erano già un
+     formato — un pulsante spento accanto a due campi appena battuti, che
+     sembra rotto. Adesso aggiunge SEMPRE un foglio al piano, e il preset lo
+     salva solo se quelle misure non ce l'hanno già: un doppione di A5 non
+     serve a nessuno, ma un A5 sul piano sì. Si spegne solo per misure che
+     non sono misure. */
+  function misureScritte() {
+    var w = Math.round(+document.getElementById('paper-w').value);
+    var h = Math.round(+document.getElementById('paper-h').value);
+    return { w: w, h: h,
+             buone: w >= 20 && w <= 400 && h >= 20 && h <= 400 };
+  }
+
   function aggiornaPiu() {
     var b = document.getElementById('btn-paper-add');
     if (!b) return;
-    var nuovo = !document.querySelector('.preset.is-active');
-    b.disabled = !nuovo;
-    b.title = nuovo
-      ? 'Salva ' + State.data.paper.w + ' × ' + State.data.paper.h +
-        ' mm come foglio tuo'
-      : 'Queste misure sono già un formato: cambiale per salvarne uno nuovo';
+    var m = misureScritte();
+    b.disabled = !m.buone;
+    if (!m.buone) {
+      b.title = 'Le misure stanno fra 20 e 400 mm';
+      return;
+    }
+    var gia = nomeFormato(m.w, m.h) !== 'Personalizzato';
+    b.title = gia
+      ? 'Aggiungi al piano un foglio ' + nomeFormato(m.w, m.h) + ' (' +
+        m.w + ' × ' + m.h + ' mm): queste misure sono già un preset'
+      : 'Salva ' + m.w + ' × ' + m.h + ' mm fra i preset e aggiungine ' +
+        'un foglio al piano';
+  }
+
+  /* Un foglio nuovo sul piano, posato dove c'è posto, e lo si prende in
+     mano: chi lo aggiunge lo aggiunge per usarlo. */
+  function aggiungiFoglio(w, h) {
+    var f = Fogli.aggiungi(w, h, nomeFormato(w, h));
+    Fogli.scegli(f.id);
+    Log.add('msg', 'Foglio ' + Fogli.elenco().length + ' aggiunto: ' + w +
+            ' × ' + h + ' mm, posato a X ' + f.origine.x + ' Y ' +
+            f.origine.y + (f.aggancio ? ', accostato al foglio ' +
+            (Fogli.indice(f.aggancio) + 1) + ': il suo angolo si ricava, ' +
+            'non si misura.' : ', da misurare a parte.'));
+    return f;
   }
 
   /* --------------------- i fogli dell'operatore --------------------- */
@@ -583,7 +640,6 @@ var Paper = (function () {
 
   function renderFormati() {
     var row = document.getElementById('preset-row');
-    var piu = document.getElementById('btn-paper-add');
     /* I tre ISO sono nel markup e non si rifanno, ma il loro pallino di carta
        sì: è l'unico pezzo di quelle tre righe che dipende dal profilo. */
     var fissi = row.querySelectorAll('[data-fog-colore]');
@@ -613,7 +669,8 @@ var Paper = (function () {
       var mis = f.larghezza + ' × ' + f.altezza + ' mm';
       html += '<span class="preset-wrap">' +
         '<button class="btn btn-ghost preset" data-w="' + f.larghezza +
-        '" data-h="' + f.altezza + '" title="' + esc(f.nome) + ' — ' + mis + '">' +
+        '" data-h="' + f.altezza + '" title="' + esc(f.nome) + ' — ' + mis +
+        ' · aggiunge un foglio di queste misure al piano">' +
         segnoCarta(f.larghezza, f.altezza) + esc(f.nome) + '</button>' +
         '<button class="mini mini-edit" data-fog-edit="' + f.id +
         '" title="Modifica nome e misure" aria-label="Modifica">' + MATITA + '</button>' +
@@ -621,9 +678,11 @@ var Paper = (function () {
         '" title="Elimina questo foglio" aria-label="Elimina">' + CESTINO + '</button>' +
         '</span>';
     }
-    /* I fogli dell'operatore stanno DOPO i tre fissi e PRIMA del «+», così il
-       più resta in fondo alla fila dove lo si è sempre trovato. */
-    piu.insertAdjacentHTML('beforebegin', html);
+    /* I fogli dell'operatore stanno DOPO i tre fissi, in coda alla riga: dal
+       2026-11-08 il «+» non sta più qui dentro — sta accanto ai due campi
+       delle misure, che è il gesto che lo riguarda — e quindi non è più
+       l'ancora davanti a cui infilare questi. */
+    row.insertAdjacentHTML('beforeend', html);
     markPreset();
   }
 
@@ -1184,7 +1243,13 @@ var Paper = (function () {
      `fisso` è il terzo caso: un A4 non si rinomina e non si ridimensiona — è
      una costante del mondo — ma la carta di cui è fatto si scegli tu, e si
      sceglie da questa stessa finestrella con i due campi bloccati. */
-  var inModifica = null, fisso = null;
+  /* E `inFoglio` è il quarto: un foglio POSATO SUL PIANO, non un formato.
+     Sono due cose diverse e si somigliano abbastanza da confondersi: un
+     preset è una misura che si ha in casa, un foglio è un pezzo di carta che
+     sta in un punto preciso del piano e che può avere dei disegni sopra.
+     Dal 2026-11-08 anche quello si modifica da qui — nome, misure e carta —
+     con la matita sulla sua pastiglia. */
+  var inModifica = null, fisso = null, inFoglio = null;
 
   /* Il colore mentre la finestrella è aperta. Sta qui e non nel profilo
      perché «Annulla» deve annullare: scrivendolo subito nel profilo, la
@@ -1222,6 +1287,7 @@ var Paper = (function () {
     if (id && !f) return;
     inModifica = id || null;
     fisso = null;
+    inFoglio = null;
     var w = f ? f.larghezza : State.data.paper.w;
     var h = f ? f.altezza : State.data.paper.h;
     coloreInCorso = Profile.coloreFoglio(w, h);
@@ -1229,6 +1295,7 @@ var Paper = (function () {
       f ? 'Modifica «' + f.nome + '»' : 'Nuovo foglio';
     document.getElementById('fog-nome').value =
       f ? f.nome : State.data.paper.w + ' × ' + State.data.paper.h;
+    document.getElementById('fog-nome').placeholder = '';
     document.getElementById('fog-w').value = w;
     document.getElementById('fog-h').value = h;
     sbloccaCampi(true);
@@ -1242,11 +1309,13 @@ var Paper = (function () {
   /* La stessa finestrella per un formato ISO: solo la carta. */
   function apriModaleFisso(w, h) {
     inModifica = null;
+    inFoglio = null;
     fisso = { w: w, h: h };
     coloreInCorso = Profile.coloreFoglio(w, h);
     document.getElementById('fog-titolo').textContent =
       'Carta del foglio ' + nomeFormato(w, h);
     document.getElementById('fog-nome').value = nomeFormato(w, h);
+    document.getElementById('fog-nome').placeholder = '';
     document.getElementById('fog-w').value = w;
     document.getElementById('fog-h').value = h;
     sbloccaCampi(false);
@@ -1255,6 +1324,47 @@ var Paper = (function () {
       'carta.';
     renderCarte();
     document.getElementById('fog-modal').hidden = false;
+  }
+
+  /* LA STESSA FINESTRELLA PER UN FOGLIO DEL PIANO: nome, misure e carta.
+   *
+   * Il nome vuoto non è un errore — vuol dire «rimettilo com'era», cioè
+   * torna a chiamarsi come il suo formato — e per questo il campo parte
+   * vuoto quando il nome è ancora quello automatico, con la scritta-fantasma
+   * che dice quale è. È la stessa regola della finestrella dei nomi (vedi
+   * js/nome.js), e l'alternativa — scriverci dentro «75 × 75» — farebbe
+   * diventare un nome scelto a mano una cosa che nessuno ha scelto.
+   *
+   * LA CARTA RESTA DELLA RISMA, non del singolo foglio: la tiene il profilo
+   * per MISURA (vedi `coloreDi`), quindi nove magneti 75 × 75 sono nove
+   * fogli ma una carta sola. Cambiandola qui cambiano tutti, e la nota
+   * dentro la finestrella lo dice invece di lasciarlo scoprire. */
+  function apriModaleFoglio(id) {
+    var f = Fogli.trova(id);
+    if (!f) return;
+    inModifica = null;
+    fisso = null;
+    inFoglio = id;
+    var n = Fogli.indice(id) + 1;
+    var auto = nomeFormato(f.w, f.h);
+    var visto = auto !== 'Personalizzato' ? auto : f.w + ' \u00d7 ' + f.h;
+    coloreInCorso = Profile.coloreFoglio(f.w, f.h);
+    document.getElementById('fog-titolo').textContent = 'Foglio ' + n;
+    var cn = document.getElementById('fog-nome');
+    cn.value = f.nomeMio && f.name ? f.name : '';
+    cn.placeholder = visto;
+    document.getElementById('fog-w').value = f.w;
+    document.getElementById('fog-h').value = f.h;
+    sbloccaCampi(true);
+    document.getElementById('fog-nota').textContent =
+      'Il nome lo dicono l\'elenco, il programma (;FOGLIO ' + n + '/' +
+      Fogli.elenco().length + ' …) e il telecomando; vuoto, torna «' + visto +
+      '». La carta è della risma: cambiandola cambiano tutti i fogli di ' +
+      'queste misure.';
+    renderCarte();
+    document.getElementById('fog-modal').hidden = false;
+    cn.focus();
+    cn.select();
   }
 
   function sbloccaCampi(si) {
@@ -1267,6 +1377,7 @@ var Paper = (function () {
     document.getElementById('fog-modal').hidden = true;
     inModifica = null;
     fisso = null;
+    inFoglio = null;
   }
 
   function salvaModale() {
@@ -1294,9 +1405,37 @@ var Paper = (function () {
     var h = Math.round(+document.getElementById('fog-h').value);
     var nota = document.getElementById('fog-nota');
 
-    if (!nome) { nota.textContent = 'Serve un nome: senza, il pulsante è vuoto.'; return; }
+    if (!nome && !inFoglio) {
+      nota.textContent = 'Serve un nome: senza, il pulsante è vuoto.';
+      return;
+    }
     if (!(w >= 20 && w <= 400 && h >= 20 && h <= 400)) {
       nota.textContent = 'Le misure stanno fra 20 e 400 mm.';
+      return;
+    }
+
+    /* UN FOGLIO DEL PIANO non tocca i preset: le sue misure sono di quel
+       pezzo di carta, non della risma. E non si crea un preset per averle
+       cambiate — se le si vuole anche fra i preset, ci sono i due campi e
+       il «+» in cima alla scheda. */
+    if (inFoglio) {
+      var fg = Fogli.trova(inFoglio);
+      if (!fg) { chiudiModale(); return; }
+      var num = Fogli.indice(inFoglio) + 1;
+      var auto = nomeFormato(w, h);
+      fg.nomeMio = !!nome;
+      fg.name = nome || auto;
+      Profile.setColoreFoglio(w, h, coloreInCorso);
+      chiudiModale();
+      /* Le misure passano da `misuraFoglio` anche quando non cambiano: è
+         lui che rilegge gli agganci, ridisegna il piano e rifà il percorso,
+         e la carta appena scelta si vede solo dopo quel giro. */
+      misuraFoglio(fg, w, h);
+      renderFormati();
+      Log.add('msg', 'Foglio ' + num + ': ' + (nome ? '«' + nome + '»'
+                : 'nome del formato («' + auto + '»)') + ', ' + w + ' × ' + h +
+              ' mm' + (coloreInCorso ? ', carta ' + nomeCarta(coloreInCorso)
+                                     : ', carta non dichiarata') + '.');
       return;
     }
 
@@ -1346,6 +1485,15 @@ var Paper = (function () {
        i listener ai nodi vuol dire ricordarsi di riagganciarli ogni volta —
        cioè dimenticarsene una volta. */
     document.getElementById('fogli-row').addEventListener('click', function (e) {
+      /* La matita e il cestino PRIMA della pastiglia, e non è una
+         precauzione inutile: stanno appoggiati sopra di lei, e un clic che
+         cadesse sulla pastiglia cambierebbe foglio invece di aprire la
+         finestrella. Sono fratelli nel markup — un pulsante dentro un
+         pulsante non è HTML valido — quindi `closest` non li confonde, ma
+         l'ordine resta quello giusto da leggere. */
+      var ed = e.target.closest('[data-fog-ed]');
+      if (ed) { apriModaleFoglio(ed.dataset.fogEd); return; }
+
       var via = e.target.closest('[data-foglio-via]');
       if (via) {
         var f = Fogli.trova(via.dataset.foglioVia);
@@ -1376,17 +1524,6 @@ var Paper = (function () {
         }
         return;
       }
-      if (e.target.closest('#btn-foglio-add')) {
-        var w = Math.round(+document.getElementById('paper-w').value) || 100;
-        var h = Math.round(+document.getElementById('paper-h').value) || 100;
-        var n = Fogli.aggiungi(w, h, nomeFormato(w, h));
-        Fogli.scegli(n.id);
-        Log.add('msg', 'Foglio ' + Fogli.elenco().length + ' aggiunto: ' + w +
-                ' × ' + h + ' mm, posato a X ' + n.origine.x + ' Y ' +
-                n.origine.y + (n.aggancio ? ', accostato al foglio ' +
-                (Fogli.indice(n.aggancio) + 1) + ': il suo angolo si ricava, ' +
-                'non si misura.' : ', da misurare a parte.'));
-      }
     });
 
     /* DOPPIO CLIC SULLA PASTICCA: il nome. Il clic singolo sceglie già il
@@ -1396,7 +1533,12 @@ var Paper = (function () {
     /* Il piano e l'elenco seguono i fogli dovunque li si cambi: dai
        pulsanti qui, dal trascinamento, o da un domani in cui li cambierà
        qualcun altro. Un segnale solo, un posto solo che ridisegna. */
-    State.on('fogli', function () { renderFogli(); renderSheet(); });
+    /* `markPreset` anche qui, e non solo in `apply()`: il preset acceso dice
+       di che formato è il foglio IN USO, e il foglio in uso cambia anche
+       scegliendone un altro o aggiungendone uno — due gesti che non passano
+       da apply(). Senza, restava acceso il formato di un foglio che non si
+       stava più usando. */
+    State.on('fogli', function () { renderFogli(); renderSheet(); markPreset(); });
 
     document.getElementById('preset-row').addEventListener('click', function (e) {
       var ed = e.target.closest('[data-fog-edit]');
@@ -1415,32 +1557,40 @@ var Paper = (function () {
         return;
       }
 
-      /* Scegliere un formato lo mette anche AL CENTRO dell'area di lavoro:
-         è quello che si vuole nove volte su dieci, e le altre si trascina.
-         Non lo fa invece scrivendo a mano larghezza e altezza — lì il foglio
-         scapperebbe sotto le dita a ogni cifra battuta.
-         Un foglio già misurato non si tocca: la sua posizione è una misura. */
+      /* UN PRESET AGGIUNGE UN FOGLIO, dal 2026-11-08: prima cambiava le
+         misure di quello in uso e lo rimetteva al centro dell'area. Detto
+         dall'operatore: «quando ne clicco uno vorrei che ne venga creato
+         uno nuovo e non modificato quello in cui sono con la selezione» — e
+         ha ragione sul caso vero, perché un preset premuto mentre su quel
+         foglio c'è già un disegno gli cambiava la carta sotto ai piedi. Le
+         misure di un foglio adesso si cambiano dalla sua matita, che è
+         dove si cerca una cosa che riguarda lui.
+         Il foglio nuovo lo posa `Fogli.aggiungi` dove c'è posto — accanto a
+         quello più a destra, se ci sta — e non al centro: al centro ci
+         sarebbe già quello di prima. */
       var p = e.target.closest('.preset');
-      if (p) {
-        setSize(+p.dataset.w, +p.dataset.h);
-        if (!State.data.foglioMisurato) centerSheet();
-      }
+      if (p) aggiungiFoglio(+p.dataset.w, +p.dataset.h);
     });
 
-    /* Il «+» salva subito, col nome delle misure: rinominarlo è un click sulla
-       matita, e chiedere un nome prima di aver visto il pulsante sarebbe un
-       passaggio in più per la cosa che si fa più spesso. */
+    /* IL «+» DELLE MISURE: il preset se quelle misure non ce l'hanno già, e
+       poi comunque il foglio sul piano. Il preset si salva col nome delle
+       misure — rinominarlo è un clic sulla matita, e chiedere un nome prima
+       di aver visto il pulsante sarebbe un passaggio in più per la cosa che
+       si fa più spesso. */
     document.getElementById('btn-paper-add').addEventListener('click', function () {
       if (this.disabled) return;
-      var w = State.data.paper.w, h = State.data.paper.h;
-      var f = Profile.aggiungiFormato(w + ' × ' + h, w, h);
-      renderFormati();
-      /* Il nome del foglio si ricalcola in apply(): senza questa chiamata la
-         didascalia sotto il piano continuerebbe a dire «Personalizzato» per un
-         foglio che un nome adesso ce l'ha. */
-      apply();
-      Log.add('msg', 'Foglio «' + f.nome + '» aggiunto. Con la matita gli dai ' +
-                     'un nome, col cestino lo togli.');
+      var m = misureScritte();
+      if (!m.buone) return;
+      var nato = null;
+      if (nomeFormato(m.w, m.h) === 'Personalizzato') {
+        nato = Profile.aggiungiFormato(m.w + ' × ' + m.h, m.w, m.h);
+        renderFormati();
+      }
+      aggiungiFoglio(m.w, m.h);
+      if (nato) {
+        Log.add('msg', 'Preset «' + nato.nome + '» aggiunto. Con la matita gli ' +
+                       'dai un nome, col cestino lo togli.');
+      }
     });
 
     /* Le carte: un ascoltatore sul contenitore, perché i pulsanti si rifanno
@@ -1473,11 +1623,13 @@ var Paper = (function () {
 
     renderFormati();
 
+    /* I DUE CAMPI SONO LE MISURE DEL FOGLIO CHE SI STA PER AGGIUNGERE, e
+       fino al 2026-11-08 cambiavano quelle del foglio in uso a ogni cifra
+       battuta: scrivere «75» per averne uno nuovo ridimensionava quello su
+       cui si stava lavorando, con il disegno sopra. Adesso l'unica cosa che
+       cambia mentre si batte è che cosa farà il «+». */
     ['paper-w', 'paper-h'].forEach(function (id) {
-      document.getElementById(id).addEventListener('input', function () {
-        setSize(+document.getElementById('paper-w').value || 10,
-                +document.getElementById('paper-h').value || 10);
-      });
+      document.getElementById(id).addEventListener('input', aggiornaPiu);
     });
 
     /* `|| 0` sarebbe sbagliato qui: un campo appena svuotato darebbe 0, e lo
