@@ -1255,11 +1255,21 @@ MUTAZIONI = [
         prova="prova-progetto.js",
     ),
     dict(
+        # DUE TAGLI DAL 2026-11-08, e il secondo e' la ragione per cui questa
+        # mutazione era tornata invisibile: `applica` chiama `Paper.setSize`
+        # subito dopo per far ridisegnare tutto, e da quel giorno setSize
+        # rilegge gli agganci da se' — gli servono, perche' cambiare le
+        # misure di un foglio cambia chi tocca chi. Togliendo solo la riga
+        # di progetto.js il programma restava corretto: la mutazione non
+        # misurava piu' il controllo, misurava se stessa.
         nome="sostituendo, gli agganci non si rileggono",
         file="js/progetto.js",
         da="""    State.data.foglioAttivo = nuovi[0].id;
     Fogli.rileggiAgganci();""",
         a="    State.data.foglioAttivo = nuovi[0].id;",
+        piu=[("js/paper.js",
+              "    f.h = h;\n    Fogli.rileggiAgganci();",
+              "    f.h = h;")],
         vede="di nuovo accostato al primo",
         prova="prova-progetto.js",
     ),
