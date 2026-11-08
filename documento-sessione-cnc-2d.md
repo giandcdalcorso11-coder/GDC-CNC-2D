@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 81
-**Ultimo aggiornamento:** 2026-11-08 10:30
+**Versione:** 82
+**Ultimo aggiornamento:** 2026-11-08 18:26
 
 ## Regole di co-editing
 
@@ -796,7 +796,7 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 
 ### Step 10 — Progetti da stampare: i magneti della lavagna d'allenamento
 
-**Stato:** in corso — **avviato 2026-10-29, solo impostazione.** Nessun file prodotto; si aspetta dall'utente la lista degli esercizi e le misure dei magneti.
+**Stato:** concluso per ora (2026-11-08) — magneti consegnati; si riapre se servono altri magneti o grafiche.
 
 **Obiettivo:** un set di quadrati magnetici stampati, con scritti in modo bello e permanente i nomi degli esercizi, così che preparare l'allenamento del giorno si riduca ad **attaccare i magneti in ordine** sulla lavagna. Fronte **non legato alla macchina CNC**: è un uso del lavoro grafico a servizio dell'attività dell'utente (atleta di beach volley); è il fronte `(stampe)`, la terza sessione.
 
@@ -893,8 +893,28 @@ quello che era.
 - [2026-11-07] **Sul vetro del telecomando il posto non era libero**, e si è scoperto misurando: fra la percentuale e il tempo che manca passa l'etichetta del tasto STOP (fascia 152-162, a destra di x=154). Per questo, quando il foglio si scrive, il pallino della penna e la percentuale **salgono di quattordici pixel**. Con un foglio solo la schermata resta quella di prima.
 - [2026-11-07] **Fase 5, il progetto salvato.** `fogli[]` nel `.cnc2d.svg` e il numero del foglio su ogni livello. Riaprendo: se il piano di oggi è **lo stesso piano** del file i livelli si appoggiano sui fogli che ci sono, se no il progetto **porta i suoi**. Chiusa la metà «foglio» dello Step 11.
 - [2026-11-07] **Un A4 non ci sta nella corsa, e il banco l'ha fatto notare.** 297 > 236: un progetto su A4 non può essere posato «dove c'è posto», e la prima versione reagiva mettendogli i fogli sopra a quelli che c'erano. Adesso un gruppo che non ci sta va **di fianco** a tutto, fuori dalla corsa, e mai sopra: due disegni sulla stessa carta non si vedono, un foglio che sporge sì — e l'elenco dei fogli lo dice già. «Più grande della corsa» e «non c'è più posto libero» si dicono con due frasi diverse, perché la prima non è un errore (con un A4 si stampa un pezzo per volta).
+- [2026-11-08] **Magneti chiusi, per ora** (decisione dell'utente). Condiviso il foglio con tutti i magneti rifiniti a mano nello SLICER, `stampe/magneti/finali-utente/tutti_i_magneti.svg` (232 × 313 mm, 19 livelli, penna `#1d1d1b`, spessore 1,5): è il riferimento finale. Fuori Step 10: palla da beach volley a contorni (`stampe/palla-beach-volley.svg`), biglietto Feffi, set Antei. Resta aperto solo il bianco grande rifatto dall'originale, se arriverà il file.
 
 ## Storico sessioni
+
+### [2026-11-08 18:26] (stampe) Magneti chiusi, e la palla da beach volley
+
+**Riepilogo:** l'utente dichiara finito il lavoro sui magneti della lavagna e condivide il foglio con tutti i magneti rifiniti a mano nello SLICER; nello stesso giro è stato fatto un piccolo SVG con i contorni di una palla da beach volley.
+
+**Cosa è stato fatto:**
+- Ricevuto `tutti_i_magneti.svg` (232 × 313 mm, 19 livelli, tutti con la stessa penna e spessore 1,5): salvato come riferimento in `stampe/magneti/finali-utente/`.
+- Palla da beach volley a contorni, senza scritte (`stampe/palla-beach-volley.svg`, 100 × 91 mm, una penna): ellisse adattata ai punti visibili più quattro cuciture curve ricavate dai bordi delle fasce; la cucitura sinistra è in parte stimata (zona in ombra).
+
+**Decisioni prese:**
+- Contesto: dopo due giri di correzioni (due penne a una linea, scritte per l'indelebile) l'utente ha il suo foglio finale.
+- Decisione: lo Step 10 si considera concluso per ora; il foglio dell'utente prevale sui file generati.
+- Da rivedere se: servono altri magneti o nuove grafiche, o arriva l'originale dei tre bianchi.
+
+**File consegnati/modificati:** `stampe/magneti/finali-utente/tutti_i_magneti.svg`, `stampe/palla-beach-volley.svg`; questo documento (v82).
+
+**Impatto su Vision/Pipeline:** Step 10 segnato come concluso per ora.
+
+---
 
 ### [2026-11-08 10:30] (banco) Le 192 mutazioni riprovate tutte, e tre controlli che passavano per caso
 
