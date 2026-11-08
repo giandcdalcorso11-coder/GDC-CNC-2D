@@ -2245,6 +2245,16 @@ var Artwork = (function () {
    * i disegni si rifanno una volta, al rilascio. Tanto l'ordine cambia solo
    * QUANDO si stampa, non dove sta il disegno sul foglio.
    */
+  /* I DUE ELENCHI SONO LO STESSO ELENCO, visto da due tab: quello della tab
+     Disegno e la colonna dell'editor mostrano gli stessi livelli negli
+     stessi gruppi, e dal 2026-11-08 si trascinano tutt'e due. Ridisegnarne
+     uno solo vorrebbe dire che l'altro racconta l'ordine di prima — e si
+     passa dall'uno all'altro con un clic. */
+  function ridisegnaElenchi() {
+    renderElenco();
+    if (window.Editor && Editor.rinfresca) Editor.rinfresca();
+  }
+
   function riordinabile(box) {
     var preso = null;
 
@@ -2291,7 +2301,7 @@ var Artwork = (function () {
       if (cambia) l.foglio = fid;
       preso.mosso = true;
       preso.foglio = preso.foglio || cambia;
-      renderElenco();
+      ridisegnaElenchi();
       box.classList.add('riordino');
     });
 
@@ -2311,6 +2321,7 @@ var Artwork = (function () {
              che si sta guardando muoversi. */
           ordinaPerFoglio();
           refit();
+          ridisegnaElenchi();
         }
       });
     });
@@ -3080,7 +3091,7 @@ var Artwork = (function () {
     spessoreLivello: spessoreLivello,
     scegliPenna: scegliPenna,
     seleziona: seleziona, sceltoId: sceltoId, quale: quale,
-    rinominaLivello: rinominaLivello,
+    rinominaLivello: rinominaLivello, riordinabile: riordinabile,
     deseleziona: deseleziona, scelti: scelti, segnaOrigine: segnaOrigine,
     principale: principale, daFoglio: daFoglio, sfondoPer: sfondoPer,
     commutaOrigine: commutaOrigine,

@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 79
-**Ultimo aggiornamento:** 2026-11-07 23:55
+**Versione:** 80
+**Ultimo aggiornamento:** 2026-11-08 01:10
 
 ## Regole di co-editing
 
@@ -880,6 +880,32 @@ quello che era.
 - [2026-11-07] **Un A4 non ci sta nella corsa, e il banco l'ha fatto notare.** 297 > 236: un progetto su A4 non può essere posato «dove c'è posto», e la prima versione reagiva mettendogli i fogli sopra a quelli che c'erano. Adesso un gruppo che non ci sta va **di fianco** a tutto, fuori dalla corsa, e mai sopra: due disegni sulla stessa carta non si vedono, un foglio che sporge sì — e l'elenco dei fogli lo dice già. «Più grande della corsa» e «non c'è più posto libero» si dicono con due frasi diverse, perché la prima non è un errore (con un A4 si stampa un pezzo per volta).
 
 ## Storico sessioni
+
+### [2026-11-08 01:10] (software) Due cose viste usando il programma: l'anteprima che mentiva e la colonna dell'editor
+
+**Riepilogo:** l'operatore prova la versione nuova e trova in due minuti quello che il banco non vedeva — cambiando foglio, l'anteprima spostava i disegni degli altri fogli sul foglio cliccato (difetto vero, solo nel disegno sullo schermo) — e chiede che la colonna dell'editor mostri **tutti i fogli e tutti i livelli**, trascinabili come nella tab Disegno.
+
+**Bug: l'anteprima disegnava tutto sul foglio in uso**
+
+**Sintomo:** «quando aggiungo un nuovo foglio e ci clicco sopra, tutto il disegno che ho sul primo foglio si sposta sul foglio che clicco».
+**Causa:** accertata. `rebuildPath()` somma a ogni tratto l'angolo del **suo** foglio, letto da `State.data.artFoglio`. Quell'elenco lo riempiva solo `prepare()` — il pulsante «Prepara» — quindi durante il lavoro normale restava vuoto e ogni tratto ripiegava sull'angolo del foglio **attivo**. Nel modello il livello non si muoveva di un millimetro e il G-code era giusto: il difetto era tutto e solo nell'anteprima, che è il posto dove si guarda **prima** di stampare.
+**Fix applicato:** lo riempie anche `refit()`, che è la strada di tutti i giorni. Verificato misurando **dove cadono le righe disegnate**, non quello che dice il modello: un controllo sul modello non l'avrebbe mai visto, perché il modello era già giusto.
+
+**Cosa è stato fatto:**
+- **La colonna dell'editor mostra tutti i fogli e tutti i livelli**, divisi per gruppi con l'intestazione del foglio, quella in uso accesa. Prima filtrava sul foglio in uso, col ragionamento «cambiare foglio si fa dal piano»: ma in quella tab ci si sta dentro, e uscire per cambiare foglio è una strada lunga. Cliccando un livello di un altro foglio, il foglio in uso lo segue.
+- **Si trascina anche da lì**, per cambiare ordine e per spostare un livello da un foglio all'altro: è lo stesso `Artwork.riordinabile` dell'elenco della tab Disegno, sulle stesse `data-pos`/`data-fog`. I due elenchi si ridisegnano insieme, perché sono lo stesso elenco visto da due tab.
+- **Le spunte non si accumulano più** cliccando nell'editor. Il clic sul nome faceva `seleziona(id, 'aggiungi')`: passando da un livello all'altro per modificarli se ne costruiva una selezione multipla che nessuno aveva chiesto. Adesso sostituisce. Le spunte restano quello che sono: la scelta per il riquadro di selezione.
+
+**Decisioni prese:**
+- Contesto: l'elenco dell'editor mostrava solo il foglio in uso, e lo sfondo della tela pure.
+- Decisione: **l'elenco li mostra tutti, lo sfondo resta al suo foglio.** Sono due cose diverse: l'elenco dice *che cosa c'è*, lo sfondo serve a *mirare* — e un disegno di un altro foglio, portato nelle coordinate di questo, finirebbe alla distanza sbagliata (è il difetto chiuso il 2026-11-07).
+- *Supera la decisione del 2026-11-07* («solo i livelli del foglio in uso, perché due righe vicine starebbero su due pezzi di carta diversi senza dirlo»): il problema non era il filtro, era che mancava l'intestazione. Con i gruppi, le due righe lo dicono.
+
+**File consegnati/modificati:** `webui/js/artwork.js` (`artFoglio` in `refit`, `ridisegnaElenchi`, `riordinabile` esportata), `webui/js/editor.js` (l'elenco intero, il trascinamento, il clic che non accumula), `webui/js/paper.js`, `webui/css/components.css`, `webui/tools/prova-piano.js` (otto controlli nuovi), `webui/tools/rompi.py` (**192 mutazioni**: sette nuove, una tolta perché descriveva come difetto quello che adesso è il comportamento giusto), `documento-sessione-cnc-2d.md` v80.
+
+**Impatto su Vision/Pipeline:** nessun cambio di stato: Step 4 e Step 12 restano dov'erano.
+
+---
 
 ### [2026-11-07 23:40] (software) Prendere due livelli su diciotto, girare una forma, e dare un nome alle cose
 

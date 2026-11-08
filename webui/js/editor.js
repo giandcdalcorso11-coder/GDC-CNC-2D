@@ -2303,57 +2303,77 @@ var Editor = (function () {
   function renderLivelli() {
     var box = document.getElementById('ed-livelli');
     if (!box || !window.Artwork) return;
-    /* SOLO I LIVELLI DEL FOGLIO IN USO. Qui si modifica un disegno nelle
-       coordinate del SUO foglio, e gli altri fogli non c'entrano: passare a
-       un livello di un altro foglio e' cambiare foglio, e lo si fa dal
-       piano o dall'elenco della tab Disegno, dove si vede dove si sta
-       andando. Mostrarli tutti qui vorrebbe dire un elenco in cui due righe
-       vicine stanno su due pezzi di carta diversi senza dirlo. */
-    var fid = State.data.foglioAttivo;
-    var ls = Artwork.livelli().filter(function (x) {
-      return (x.foglio || fid) === fid;
-    });
-    /* L'ELENCO SI VEDE ANCHE CON UN LIVELLO SOLO. Prima no: con meno di due
-       non c'era niente da scegliere e la colonna rubava spazio alla tela.
-       Adesso da qui ne nascono — il pulsante «+ livello nuovo» sta sotto
-       all'elenco — e il livello che diventerà «quello di prima» va visto
-       prima, non dopo: altrimenti l'elenco compare nel momento in cui si
-       passa all'altro, e sembra che il primo sia nato adesso. */
+
+    /* TUTTI I FOGLI E TUTTI I LIVELLI, dal 2026-11-08.
+     *
+     * Fino a quel giorno qui si vedevano solo i livelli del foglio in uso,
+     * e il ragionamento era: «passare a un livello di un altro foglio e'
+     * cambiare foglio, e lo si fa dal piano». Detto dall'operatore: «nella
+     * tab edit non vedo la lista dei fogli... ci sono sempre tutti i fogli e
+     * tutti i livelli». Ha ragione, e il motivo e' che in questa tab ci si
+     * sta dentro: uscire per cambiare foglio e poi rientrare e' una strada
+     * lunga per una cosa che l'elenco puo' dire da se'. Il foglio si vede
+     * comunque, perche' ogni gruppo ha la sua intestazione — che e' quello
+     * che mancava, non il filtro.
+     *
+     * Cliccando un livello di un altro foglio, il foglio in uso lo segue:
+     * lo fa `Artwork.seleziona`, che tiene d'accordo il livello scelto e il
+     * foglio, perche' l'editor lavora nelle coordinate di UN foglio.
+     */
+    var ls = Artwork.livelli();
     if (!ls.length) { box.innerHTML = ''; return; }
 
-    /* Su quale foglio si sta lavorando, scritto in cima all'elenco e solo
-       quando i fogli sono piu' d'uno. Senza, i livelli degli altri fogli
-       sembrerebbero spariti. */
-    var out = '';
-    if (State.data.fogli.length > 1) {
-      var f = Fogli.trova(fid);
-      var eti = f ? (f.name && f.name !== 'Personalizzato'
-                      ? f.name : f.w + ' \u00d7 ' + f.h) : '?';
-      out += '<div class="ed-foglio" title="Si sta lavorando sul foglio ' +
-             (Fogli.indice(fid) + 1) + '. Gli altri fogli hanno i loro ' +
-             'livelli: si cambia dal piano o dall\'elenco della tab Disegno.">' +
-             'foglio ' + (Fogli.indice(fid) + 1) + ' \u00b7 ' + esc(eti) + '</div>';
-    }
-    for (var i = 0; i < ls.length; i++) {
-      var l = ls[i];
+    var piuFogli = State.data.fogli.length > 1;
+    var inUso = State.data.foglioAttivo;
+    var ultimo = null, out = '';
+
+    /* `data-pos` e `data-fog` sono per il trascinamento, e sono gli stessi
+       dell'elenco della tab Disegno: `Artwork.riordinabile` lavora su quelli
+       e non sa ne' vuole sapere in quale dei due elenchi sta guardando.
+       `data-pos` e' la posizione nell'elenco INTERO, che e' anche l'ordine
+       di stampa: per questo qui si ciclano tutti i livelli. */
+    ls.forEach(function (l, i) {
+      var fid = l.foglio || inUso;
+      if (piuFogli && fid !== ultimo) {
+        ultimo = fid;
+        var f = Fogli.trova(fid);
+        var n = Fogli.indice(fid) + 1;
+        var eti = f ? (f.name && f.name !== 'Personalizzato'
+                        ? f.name : f.w + ' × ' + f.h) : '?';
+        out += '<div class="ed-foglio' + (fid === inUso ? ' in-uso' : '') +
+               '" data-ed-testa="' + esc(fid) + '" data-pos="' + i +
+               '" data-fog="' + esc(fid) + '" title="Foglio ' + n + ' — ' +
+               esc(eti) + '. Clicca per lavorare su questo foglio; trascina ' +
+               'qui un livello per spostarcelo; due clic per rinominarlo.">' +
+               'foglio ' + n + ' · ' + esc(eti) + '</div>';
+      }
       out += '<div class="ed-liv' + (l.principale ? ' attivo' : '') +
-             (l.visibile ? '' : ' spento') + '">' +
+             (l.visibile ? '' : ' spento') + '" data-pos="' + i +
+             '" data-fog="' + esc(fid) + '">' +
+             '<span class="ed-presa" data-presa="' + l.id +
+             '" title="Trascina per cambiare l\'ordine di stampa, o per ' +
+             'portarlo su un altro foglio">' + SEGNI_PRESA + '</span>' +
              '<button type="button" class="ed-liv-nome" data-ed-liv="' + l.id +
              '" title="' + esc(l.nome) + ' — ' +
-             (l.principale ? 'è questo che stai modificando'
-                           : 'clicca per modificare questo') + '">' +
+             (l.principale ? 'e` questo che stai modificando'
+                           : 'clicca per modificare questo') +
+             '. Due clic: rinomina.">' +
              esc(l.nome) + '</button>' +
              '<button type="button" class="liv-ic" data-ed-occhio="' + l.id +
              '" title="' + (l.visibile ? 'Nascondi' : 'Mostra') + '">' +
              (l.visibile ? SEGNI_OCCHIO : SEGNI_CHIUSO) + '</button>' +
              '</div>';
-    }
+    });
     box.innerHTML = out;
   }
 
-  /* Gli stessi due segni della tab Disegno. Ripetuti e non importati: sono
-     due stringhe, e un modulo che per disegnare un occhio deve chiamarne un
+  /* Gli stessi segni della tab Disegno. Ripetuti e non importati: sono
+     tre stringhe, e un modulo che per disegnare un occhio deve chiamarne un
      altro è un legame che costa più di quello che risparmia. */
+  var SEGNI_PRESA =
+    '<svg viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.1"/><circle cx="7" cy="3" r="1.1"/>' +
+    '<circle cx="3" cy="7" r="1.1"/><circle cx="7" cy="7" r="1.1"/>' +
+    '<circle cx="3" cy="11" r="1.1"/><circle cx="7" cy="11" r="1.1"/></svg>';
   var SEGNI_OCCHIO =
     '<svg viewBox="0 0 18 14"><path d="M1 7c2.6-4 5.3-6 8-6s5.4 2 8 6c-2.6 4-5.3 6-8 6S3.6 11 1 7z"/>' +
     '<circle cx="9" cy="7" r="2.4"/></svg>';
@@ -2365,12 +2385,17 @@ var Editor = (function () {
      scelti ci entra. La storia dell'annulla è PER LIVELLO, perché un passo
      indietro deve riportare indietro il disegno su cui si stava lavorando e
      non un altro. */
+  /* SI SCEGLIE QUESTO E BASTA, dal 2026-11-08. Prima il clic qui dentro
+     AGGIUNGEVA alla selezione della tab Disegno (`seleziona(id,
+     'aggiungi')`): passando da un livello all'altro per modificarli si
+     costruiva una selezione multipla senza chiederla, e le spunte di la'
+     finivano per dire una cosa che nessuno aveva scelto. Detto
+     dall'operatore: le spunte servono al riquadro di selezione, non a dire
+     che cosa si modifica. `seleziona(id)` senza modo sostituisce la
+     selezione, e porta con se' il foglio in uso. */
   function cambiaLivello(id) {
     if (!window.Artwork || id === Artwork.sceltoId()) return;
-    var scelti = Artwork.livelli().filter(function (x) { return x.scelto; });
-    var dentro = scelti.some(function (x) { return x.id === id; });
-    if (!dentro) Artwork.seleziona(id, 'aggiungi');
-    Artwork.principale(id);
+    Artwork.seleziona(id);
     attivo = id;
     storia = storie[id] || (storie[id] = []);
     rifare = rifari[id] || (rifari[id] = []);
@@ -2557,7 +2582,26 @@ var Editor = (function () {
 
     var elenco = document.getElementById('ed-livelli');
     if (elenco) {
+      /* Trascinare anche da qui: lo stesso meccanismo dell'elenco della tab
+         Disegno, sulle stesse `data-pos`/`data-fog`. Chiesto
+         dall'operatore — «anche qui spostabili di ordine e tra fogli». */
+      if (window.Artwork && Artwork.riordinabile) Artwork.riordinabile(elenco);
+
       elenco.addEventListener('click', function (e) {
+        /* L'INTESTAZIONE DEL FOGLIO VA GUARDATA PRIMA del pulsante: non e'
+           un pulsante, e' un `div`, quindi `closest('button')` qui sotto
+           tornerebbe null e il clic finirebbe nel nulla. Un clic porta a
+           lavorare su quel foglio, due lo rinominano — come nella tab
+           Disegno. */
+        var te = e.target.closest('[data-ed-testa]');
+        if (te) {
+          if (window.Nome && Nome.doppio('fog:' + te.dataset.edTesta) && window.Paper) {
+            Paper.rinominaFoglio(te.dataset.edTesta);
+          } else {
+            Fogli.scegli(te.dataset.edTesta);
+          }
+          return;
+        }
         var b = e.target.closest('button');
         if (!b) return;
         if (b.dataset.edLiv) {

@@ -932,14 +932,6 @@ MUTAZIONI = [
         vede='non mostra i disegni degli altri fogli',
         prova='prova-piano.js',
     ),
-    dict(
-        nome="l'editor elenca i livelli di tutti i fogli",
-        file='js/editor.js',
-        da='    var ls = Artwork.livelli().filter(function (x) {\n      return (x.foglio || fid) === fid;\n    });',
-        a='    var ls = Artwork.livelli();',
-        vede='solo i livelli del foglio in uso',
-        prova='prova-piano.js',
-    ),
 
     # ---- PIU' FOGLI, fase 3b: i popup di inizio stampa (2026-11-07) ----
     dict(
@@ -1669,6 +1661,56 @@ MUTAZIONI = [
         da="    function ang(i) { return origini[fo[i]] || oAttiva; }",
         a="    function ang(i) { return origini[fo[0]] || oAttiva; }",
         vede="cadono su due fogli diversi",
+        prova="prova-piano.js",
+    ),
+
+    # ---- L'ELENCO DELL'EDITOR: tutti i fogli, tutti i livelli (2026-11-08) ----
+    dict(
+        nome="l'editor torna a mostrare solo il foglio in uso",
+        file="js/editor.js",
+        da="    var ls = Artwork.livelli();\n    if (!ls.length) { box.innerHTML = ''; return; }",
+        a="""    var ls = Artwork.livelli().filter(function (x) {
+      return (x.foglio || State.data.foglioAttivo) === State.data.foglioAttivo;
+    });
+    if (!ls.length) { box.innerHTML = ''; return; }""",
+        vede="mostra tutti i livelli, divisi per foglio",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="nell'editor sono accese le intestazioni di tutti i fogli",
+        file="js/editor.js",
+        da="        out += '<div class=\"ed-foglio' + (fid === inUso ? ' in-uso' : '') +",
+        a="        out += '<div class=\"ed-foglio' + ' in-uso' +",
+        vede="accende quella del foglio in uso",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="le righe dell'editor non si trascinano",
+        file="js/editor.js",
+        da="      if (window.Artwork && Artwork.riordinabile) Artwork.riordinabile(elenco);",
+        a="",
+        vede="trascinando dall'elenco dell'editor",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="il riordino non ridisegna la colonna dell'editor",
+        file="js/artwork.js",
+        da="""  function ridisegnaElenchi() {
+    renderElenco();
+    if (window.Editor && Editor.rinfresca) Editor.rinfresca();
+  }""",
+        a="""  function ridisegnaElenchi() {
+    renderElenco();
+  }""",
+        vede="trascinando dall'elenco dell'editor",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="cliccare un livello nell'editor accumula le spunte",
+        file="js/editor.js",
+        da="    Artwork.seleziona(id);\n    attivo = id;",
+        a="    Artwork.seleziona(id, 'aggiungi');\n    attivo = id;",
+        vede="due livelli dello STESSO foglio",
         prova="prova-piano.js",
     ),
 ]

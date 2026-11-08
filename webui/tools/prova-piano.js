@@ -455,20 +455,93 @@ function dentro(p, r, gioco) {
      'sfondi ' + r.sfondo1 + ' e ' + r.sfondo2 + ', con ' +
      JSON.stringify(r.tratti) + ' tratti da mostrare');
 
-  /* E l'elenco dell'editor mostra solo i livelli del foglio in uso. */
+  /* L'ELENCO DELL'EDITOR LI MOSTRA TUTTI, dal 2026-11-08, divisi per foglio
+     come quello della tab Disegno. Prima mostrava solo il foglio in uso, e
+     detto dall'operatore: «nella tab edit non vedo la lista dei fogli... ci
+     sono sempre tutti i fogli e tutti i livelli». Lo sfondo invece resta al
+     suo foglio — vedi il controllo qui sopra: sono due cose diverse,
+     l'elenco dice che cosa c'e', lo sfondo dove mirare. */
   r = await page.evaluate(() => {
     const l = Artwork.livelli();
     Artwork.seleziona(l[1].id);
-    Editor.init && null;
     document.querySelector('[data-tab="editor"]').click();
+    Editor.apri();
+    const teste = [...document.querySelectorAll('#ed-livelli [data-ed-testa]')];
     return { righe: document.querySelectorAll('#ed-livelli [data-ed-liv]').length,
-             intestazione: (document.querySelector('#ed-foglio, .ed-foglio') || {}).textContent || '',
+             teste: teste.map((t) => t.textContent.trim()),
+             accesa: (teste.filter((t) => t.classList.contains('in-uso'))[0] || {}).textContent,
+             prese: document.querySelectorAll('#ed-livelli [data-presa]').length,
              tutti: Artwork.livelli().length };
   });
-  ok('l\'editor mostra solo i livelli del foglio in uso',
-     r.righe === 1 && r.tutti === 2 && /foglio 2/.test(r.intestazione),
-     r.righe + ' righe su ' + r.tutti + ' livelli, intestazione «' +
-     r.intestazione.trim() + '»');
+  ok('l\'editor mostra tutti i livelli, divisi per foglio',
+     r.righe === r.tutti && r.teste.length === 2 &&
+     /foglio 1/.test(r.teste[0]) && /foglio 2/.test(r.teste[1]),
+     r.righe + ' righe su ' + r.tutti + ' livelli, intestazioni ' +
+     JSON.stringify(r.teste));
+  ok('e accende quella del foglio in uso, non le altre',
+     /foglio 2/.test(String(r.accesa)), String(r.accesa).trim());
+  ok('e ogni riga ha la sua presa, per trascinarla da qui',
+     r.prese === r.tutti, r.prese + ' prese su ' + r.tutti + ' righe');
+
+  /* Cliccando un livello di un ALTRO foglio, il foglio in uso lo segue:
+     l'editor lavora nelle coordinate di UN foglio, e il riquadro, il
+     ritaglio e la tela devono essere quelle dello stesso. */
+  r = await page.evaluate(() => {
+    /* Le righe si ripescano DOPO ogni clic: il clic ridisegna l'elenco, e
+       il nodo di prima e` gia` staccato dal documento — premerlo non fa
+       niente. E` lo stesso inciampo del doppio clic della rinomina. */
+    const riga = (i) =>
+      [...document.querySelectorAll('#ed-livelli [data-ed-liv]')][i];
+    riga(0).click();
+    const primo = Fogli.indice(State.data.foglioAttivo);
+    riga(1).click();
+    return { primo: primo, poi: Fogli.indice(State.data.foglioAttivo),
+             modifica: (Artwork.livelli().find((l) => l.principale) || {}).nome };
+  });
+  ok('e il foglio in uso segue il livello che si modifica',
+     r.primo === 0 && r.poi === 1, 'foglio ' + (r.primo + 1) + ' poi ' +
+     (r.poi + 1) + ', si modifica ' + r.modifica);
+
+  /* TRASCINARE DA QUI, che e' la cosa chiesta: «anche qui spostabili di
+     ordine e tra fogli». Si prende la presa del secondo livello e la si
+     porta sull'intestazione del primo foglio. */
+  {
+    await page.locator('#ed-livelli [data-presa]').last().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(80);
+    const g = await page.evaluate(() => {
+      const l = Artwork.livelli();
+      const p = document.querySelector('#ed-livelli [data-presa="' + l[1].id + '"]');
+      const b = p.getBoundingClientRect();
+      const t = document.querySelector('#ed-livelli [data-ed-testa="' +
+                 State.data.fogli[0].id + '"]').getBoundingClientRect();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2,
+               tx: t.x + t.width / 2, ty: t.y + 2, id: l[1].id };
+    });
+    await page.mouse.move(g.x, g.y);
+    await page.mouse.down();
+    await page.mouse.move(g.tx, g.ty, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    r = await page.evaluate((id) => ({
+      suo: Artwork.foglioDi(id).id,
+      f1: State.data.fogli[0].id,
+      teste: document.querySelectorAll('#ed-livelli [data-ed-testa]').length,
+      inDisegno: document.querySelectorAll('#livelli [data-testa]').length
+    }), g.id);
+    ok('trascinando dall\'elenco dell\'editor, il livello cambia foglio',
+       r.suo === r.f1 && r.teste === 1,
+       'finito sul foglio ' + r.suo + ', ' + r.teste + ' intestazioni');
+    /* E l'elenco dell'altra tab lo sa: sono lo stesso elenco visto da due
+       posti, e ridisegnarne uno solo lascerebbe l'altro a raccontare
+       l'ordine di prima. */
+    ok('e anche l\'elenco della tab Disegno se n\'e` accorto',
+       r.inDisegno === 1, r.inDisegno + ' intestazioni nella tab Disegno');
+    await page.evaluate((id) => {
+      Artwork.spostaAFoglio(id, State.data.fogli[1].id);
+    }, g.id);
+    await page.evaluate(() => document.querySelector('[data-tab="disegno"]').click());
+    await page.waitForTimeout(120);
+  }
 
   /* TRASCINANDO UN LIVELLO SOTTO L'INTESTAZIONE DI UN ALTRO FOGLIO, cambia
      foglio: e' la strada per rimediare a «l'ho caricato sul foglio
@@ -610,6 +683,41 @@ function dentro(p, r, gioco) {
      tinte.length === 2 &&
      Math.round(Math.abs(r[tinte[0]] - r[tinte[1]])) === 75,
      JSON.stringify(r));
+
+  /* ====== LE SPUNTE NON SI ACCUMULANO CLICCANDO NELL'EDITOR ======
+   *
+   * Prima il clic sul nome, nella colonna dell'editor, AGGIUNGEVA alla
+   * selezione della tab Disegno: passando da un livello all'altro per
+   * modificarli se ne costruiva una multipla senza chiederla, e le spunte
+   * di la' dicevano una cosa che nessuno aveva scelto. Detto
+   * dall'operatore: le spunte servono al riquadro di selezione.
+   *
+   * SERVONO DUE LIVELLI DELLO STESSO FOGLIO, ed e' il punto del controllo:
+   * su due fogli diversi la selezione si sostituisce comunque — non
+   * esiste un riquadro che circondi due fogli — quindi li' anche il codice
+   * rotto darebbe la risposta giusta. */
+  r = await page.evaluate(([D]) => {
+    document.getElementById('btn-clear-file').click();
+    while (State.data.fogli.length > 1) Fogli.togli(State.data.fogli[1].id);
+    Paper.setSize(75, 75);
+    Artwork.load(D, 'primo.svg');
+    Artwork.load(D, 'secondo.svg');
+    document.querySelector('[data-tab="editor"]').click();
+    Editor.apri();
+    const riga = (i) =>
+      [...document.querySelectorAll('#ed-livelli [data-ed-liv]')][i];
+    riga(0).click();
+    const uno = Artwork.livelli().filter((l) => l.scelto).map((l) => l.nome);
+    riga(1).click();
+    const due = Artwork.livelli().filter((l) => l.scelto).map((l) => l.nome);
+    document.querySelector('[data-tab="disegno"]').click();
+    return { uno: uno, due: due,
+             modifica: (Artwork.livelli().find((l) => l.principale) || {}).nome };
+  }, [DISEGNO('#1d1d1b')]);
+  ok('cliccando due livelli dello STESSO foglio la selezione resta UNA',
+     r.uno.length === 1 && r.due.length === 1 && r.due[0] === r.modifica,
+     'prima ' + JSON.stringify(r.uno) + ', poi ' + JSON.stringify(r.due) +
+     ', si modifica ' + r.modifica);
 
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
