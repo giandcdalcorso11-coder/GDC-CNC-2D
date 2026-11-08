@@ -601,7 +601,7 @@ mano a mano che le misure arrivano):
 
 ### Step 6 — Modulo penna e interfaccia utensili
 
-**Stato:** **completato quanto alla funzione** — dal 2026-10-23 il modulo disegna, e la procedura di inserimento della penna è rodata e scritta: si porta il servo alla quota di contatto già decisa (`G0 Z-21.271`), si infila la penna finché tocca il foglio e si stringe lì. I quattro angoli (battuta 17°, foglio 25°, alzata 34°, tappo 90°) sono stabili e il tratto esce costante su metri di disegno. Resta da misurare il **gioco**, che nel profilo vale 0,30 mm come valore nominale e non è mai stato rilevato su questa macchina
+**Stato:** **completato quanto alla funzione** — dal 2026-10-23 il modulo disegna, e la procedura di inserimento della penna è rodata e scritta: si porta il servo alla quota di contatto già decisa (`G0 Z-21.271`), si infila la penna finché tocca il foglio e si stringe lì. I quattro angoli (battuta 17°, foglio 25°, alzata 34°, tappo 90°) sono stabili e il tratto esce costante su metri di disegno. Il **gioco** d'ingranamento **non si misura, per decisione presa il 2026-10-22** su obiezione dell'utente: la procedura che c'era è stata tolta e il perché sta scritto in `misure/accensione-e-taratura.md` §A2.1 — il modulo è in presa rigida, i 0,30 mm valgono 0,92° di servo contro una banda morta di 0,9°, nessuna impostazione dipende da quel numero, e a fare quel lavoro al posto suo sono le prove 7 e 11 del disegno di collaudo, che guardano la stessa cosa sulla carta. Il valore nel profilo è di **sola lettura** (`gioco: {x: 0.30, y: 0.30}`): spiega gli artefatti, non compensa niente, e nessuna riga di G-code lo usa
 
 **Obiettivo:** la penna si appoggia e si solleva in modo ripetibile, con pressione costante, e il modulo è intercambiabile con altri utensili senza ritarare la macchina
 
@@ -926,11 +926,13 @@ quello che era.
 
 **Precisazione alla convenzione del banco** (quarta refinement di stamattina, quinto caso): *una mutazione può diventare innocua col tempo.* Finché misura un comportamento difeso in un punto solo, accusa il controllo; quando una funzione nuova difende la stessa cosa da un'altra parte, accusa se stessa. Si riconosce perché il controllo passa **e il programma è davvero corretto** — e si corregge tagliando tutti i punti, non togliendo la difesa.
 
+**Seconda discrepanza, trovata rispondendo all'utente:** lo **Stato dello Step 6** diceva «resta da misurare il gioco… non è mai stato rilevato su questa macchina», e su quella frase gli avevo proposto di misurarlo. Ha risposto che il gioco è misurato da un pezzo — e ha ragione due volte: quella misura **era già stata tolta dalla lista il 2026-10-22**, su sua obiezione, con il perché scritto in `misure/accensione-e-taratura.md` §A2.1 (presa rigida, 0,92° contro una banda morta di 0,9°, nessuna impostazione che dipenda da quel numero), e il valore nel profilo è di sola lettura — nessuna riga di G-code lo usa. Stato corretto; lo step resta «completato quanto alla funzione». **Da qui una cosa più grossa:** in una giornata ho trovato **due** Stati della Pipeline che descrivono un mondo di due settimane fa, e tutt'e due mi hanno fatto proporre lavoro che non esisteva. Gli Stati vanno riconciliati con la realtà uno per uno.
+
 **Discrepanza segnalata:** lo **Stato dello Step 3** diceva «finché il SLICER non invia il programma da sé, i disegni lunghi si lanciano dalla seriale». Il SLICER lo manda da sé dal 2026-10-25, e `max_rate_mm_per_min`, segnato il 2026-10-19 come «da rivedere al rialzo» perché valeva 2000, nel file è 8000. Ho corretto la frase nello Stato dicendo da quando non è più vera, ma **ho lasciato lo stato «in corso»**: a dire che quello step è chiuso dev'essere l'utente. — Inoltre la nota «Magneti chiusi, per ora» del fronte stampe (v82) era finita in coda alle note dello **Step 12** mentre parla dello **Step 10**: spostata nello step giusto, testo invariato.
 
 **File consegnati/modificati:** `webui/index.html`, `webui/js/paper.js`, `webui/js/artwork.js`, `webui/js/editor.js`, `webui/css/components.css`, `webui/tools/prova-piano.js`, `webui/tools/rompi.py`; pagina **versione 111** consegnata all'utente; questo documento (v83).
 
-**Impatto su Vision/Pipeline:** Step 12 da «in corso» a **completato**. Step 4: nota del 2026-11-08 sulla scheda dei fogli e sui fogli vuoti. Step 3: corretta la frase vecchia nello Stato, stato invariato.
+**Impatto su Vision/Pipeline:** Step 12 da «in corso» a **completato**. Step 4: nota del 2026-11-08 sulla scheda dei fogli e sui fogli vuoti. Step 3 e Step 6: corretta in ciascuno una frase vecchia nello Stato, stati invariati.
 
 ---
 
