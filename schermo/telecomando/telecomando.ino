@@ -2166,6 +2166,9 @@ char corpo[640];
 void serviCliente() {
   WiFiClient c = server.available();
   if (!c) return;
+#if CRONOMETRO
+  unsigned long reqDa = millis();
+#endif
 
   char riga[96];
   int n = 0, lunghezza = 0;
@@ -2197,6 +2200,10 @@ void serviCliente() {
     c.println();
     delay(2);
     c.stop();
+#if CRONOMETRO
+    Serial.print("REQ altro "); Serial.print((long)(millis() - reqDa));
+    Serial.println(" ms");
+#endif
     return;
   }
 
@@ -2243,6 +2250,13 @@ void serviCliente() {
   c.print(risposta);
   delay(2);
   c.stop();
+#if CRONOMETRO
+  /* Il tempo di una richiesta servita per intero, dal momento in cui il
+     modulo WiFi l'ha consegnata al giro: se qui ci sono 1500 ms vuol dire
+     che il corpo non e' arrivato e si e' aspettato fino alla scadenza. */
+  Serial.print("REQ post "); Serial.print((long)(millis() - reqDa));
+  Serial.print(" ms, stato "); Serial.println(S.stato);
+#endif
 }
 
 /* ===================================================================
@@ -2397,11 +2411,97 @@ void setup() {
   schermoDisegnato = NESSUNA;
 }
 
+/* ===================================================================
+ * IL CRONOMETRO DEL GIRO
+ *
+ * ACCESO PER CERCARE UN GUASTO PRECISO, e si spegne mettendo CRONOMETRO a
+ * 0. Il guasto, visto dall'operatore il 2026-11-09: appena parte una
+ * stampa il telecomando smette di rispondere — il SLICER scrive
+ * «ha accettato la connessione e non ha risposto entro 2,5 s» — e il
+ * vetro resta fermo sulla schermata di PRIMA, «PRONTA · al punto home».
+ *
+ * QUELLE DUE COSE INSIEME DICONO GIA' MOLTO: se il giro principale
+ * girasse, dopo sei secondi senza messaggi il vetro direbbe «IN ATTESA»
+ * da solo. Non lo dice, quindi il giro non gira — mentre il modulo WiFi,
+ * che ha una sua pila TCP e vive per conto suo, continua ad accettare le
+ * connessioni. Resta da sapere DOVE si pianta, e questo lo dice solo la
+ * scheda: qui si misura ogni pezzo del giro e si scrive sul seriale
+ * quello che costa troppo.
+ *
+ * Tre righe diverse, e ognuna risponde a una domanda:
+ *   LENTA <lettera> <ms>  — un pezzo del giro ha preso piu' di 150 ms
+ *   REQ <verbo> <ms>      — quanto e' costato servire una richiesta
+ *   VIVO <giri> <stato>   — il battito del giro, ogni due secondi
+ * Se il giro muore, le righe smettono: l'ULTIMA LETTERA stampata e
+ * l'ultimo VIVO dicono dove e quando.
+ * =================================================================== */
+#define CRONOMETRO 1
+
+#if CRONOMETRO
+const unsigned long FASE_LENTA = 150;    // oltre, la fase si scrive
+const unsigned long GIRO_LENTO = 300;    // oltre, si scrive tutto il giro
+char faseOra = '?';
+unsigned long faseDa = 0, giroDa = 0, giri = 0, ultimoVivo = 0;
+
+/* Le lettere: s servi, w wifi, t tasti, u suoni, p spina, c carica,
+   f finestra, l luce, r richiamo, v vetro.
+ *
+ * LA LETTERA SI SCRIVE QUANDO LA FASE COMINCIA, non quando finisce, e
+ * qui sta tutto il punto: una fase che non torna piu' non scriverebbe
+ * mai la propria durata, e il monitor resterebbe muto senza dire DOVE.
+ * Scrivendola prima, l'ultima lettera arrivata e' il posto in cui il
+ * giro si e' fermato.
+ *
+ * Solo durante una stampa, pero': a riposo sarebbero dieci lettere per
+ * giro per sempre, e il guasto succede li'. */
+static bool inStampa() {
+  return !strcmp(S.stato, "invio") || !strcmp(S.stato, "pausa") ||
+         !strcmp(S.stato, "cambio");
+}
+
+static void fase(char c) {
+  unsigned long ora = millis();
+  if (faseDa) {
+    unsigned long d = ora - faseDa;
+    if (d >= FASE_LENTA) {
+      Serial.print("\nLENTA "); Serial.print(faseOra);
+      Serial.print(' '); Serial.println((long)d);
+    }
+  }
+  faseOra = c;
+  faseDa = ora;
+  if (inStampa()) Serial.print(c);
+}
+
+static void fineGiro() {
+  unsigned long ora = millis();
+  giri++;
+  if (giroDa && ora - giroDa >= GIRO_LENTO) {
+    Serial.print("GIRO "); Serial.print((long)(ora - giroDa));
+    Serial.print(" ms, ultima fase "); Serial.println(faseOra);
+  }
+  giroDa = ora;
+  /* IL BATTITO DEL GIRO: serve a sapere QUANDO si e' fermato, non solo
+     che si e' fermato. Due secondi, che e' poco rispetto ai tre minuti
+     di una stampa e abbastanza da non riempire il monitor. */
+  if (ora - ultimoVivo >= 2000) {
+    ultimoVivo = ora;
+    Serial.print("VIVO "); Serial.print((long)giri);
+    Serial.print(" giri, stato "); Serial.println(S.stato);
+  }
+}
+#else
+#define fase(c)
+#define fineGiro()
+#endif
+
 void loop() {
+  fase('s');
   serviCliente();
 
   /* Se la rete cade, il telecomando si rimette in piedi da solo: una
      stampa dura venti minuti e nessuno sta lì a riavviarlo. */
+  fase('w');
   if (WiFi.status() != WL_CONNECTED) {
     static unsigned long riprova = 0;
     if (millis() - riprova > 10000) {
@@ -2425,17 +2525,24 @@ void loop() {
      al giro dopo quella dello stop. Due schermate intere una dietro
      l'altra: è lo «sfarfallio, come se passasse prima per altre
      schermate» visto alla prima stampa vera, il 2026-10-31. */
+  fase('t');
   leggiTasti(quale());
   schermoOra = quale();
+  fase('u');
   suoni();
+  fase('p');
   leggiSpina(false);
+  fase('c');
   leggiCarica(false);
+  fase('f');
   finestra(false);
   if (Serial.available()) finestraLunga();
+  fase('l');
   gestisciLuce(schermoOra);
 
   /* Il richiamo: il cambio penna finché non vieni, il problema per tre
      minuti. Vedi «IL RICHIAMO». */
+  fase('r');
   richiama();
 
   /* La carica cambia senza che cambi schermata. Dove la pila si vede per
@@ -2463,6 +2570,7 @@ void loop() {
 
   if (vetroDaRifare()) schermoDisegnato = NESSUNA;
 
+  fase('v');
   if (schermoOra != schermoDisegnato) {
     disegnaTutto(schermoOra);
     accendiLed(schermoOra);
@@ -2478,4 +2586,5 @@ void loop() {
   } else {
     aggiornaPezzi(schermoOra);
   }
+  fineGiro();
 }
