@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 88
-**Ultimo aggiornamento:** 2026-11-09 19:18
+**Versione:** 89
+**Ultimo aggiornamento:** 2026-11-09 19:34
 
 ## Regole di co-editing
 
@@ -941,7 +941,7 @@ dove gli conviene, e l'importatore distingue già la **tinta di bordo** dalla
 un livello spento ma recuperabile. Quello che manca:
 
 - la forma chiusa **di fatto ma non col `Z`**: primo e ultimo nodo coincidenti entro tolleranza, caso frequentissimo nei file esportati;
-- i **buchi**. Un SVG li fa con `fill-rule` (`evenodd` o `nonzero`), e oggi quella proprietà **non è letta in nessun punto del codice**: una ciambella verrebbe riempita tutta, tappo compreso. È il primo vero lavoro di questo step, non un dettaglio;
+- i **buchi**. Un SVG li fa con `fill-rule` (`evenodd` o `nonzero`), e oggi quella proprietà **non è letta in nessun punto del codice**: una ciambella verrebbe riempita tutta, tappo compreso. *Scritto la mattina come «il primo vero lavoro di questo step», e **declassato la sera stessa**:* col riempimento che parte dal click (vedi le decisioni) i buchi vengono giusti **senza che `fill-rule` venga mai letto**, perché il riempimento non può attraversare l'inchiostro. `fill-rule` resta necessario solo sulla strada all'ingrosso, quella dei livelli pieni importati;
 - le forme che **si auto-intersecano**, dove «dentro» non è una domanda con una risposta sola;
 - i tracciati **disegnati nell'editor**, che chiusi non nascono: va deciso se li chiude l'utente con un gesto o se li chiudiamo noi quando i capi si toccano.
 
@@ -957,16 +957,28 @@ valore:
 5. **Spirale**, pulita sulle forme convesse e problematica sulle altre.
 6. **Punti (stippling)** e **scarabocchio**: resa artistica più che copertura, da fare per ultime.
 
-**Decisioni progettuali (da prendere — nessuna è ancora presa):**
+**Decisioni progettuali** — **prese il 2026-11-09**, discusse con l'utente prima di scrivere una riga di codice: il disegno dell'interazione è suo, il resto è stato concordato («sono d'accordo con tutto»). Si costruisce quando lo dirà lui.
+
+- **Il riempimento si comanda dalla tab edit, con un pulsante suo** che apre una finestrella con i parametri e il tipo. Poi **il mouse anticipa il riempimento** della regione sotto il puntatore e **il click lo disegna**. È il disegno dell'utente, e supera la prima idea di questo step (un interruttore «riempi» sul livello): *il click dice la cosa che la geometria non può sapere — **quale** degli spazi chiusi si intende*. Sulla A in grassetto il corpo si riempie coi buchi già giusti, e il triangolo è una regione come le altre: un secondo click.
+- **Lo stampino.** All'apertura della finestrella tutti i tratti **visibili** del foglio si disegnano su una tela fuori schermo a **un decimo di millimetro per pixel**, con gli spessori veri delle penne, e **tutte le regioni si etichettano una volta sola**. Così il passaggio del mouse non calcola niente: legge l'etichetta sotto il puntatore, e il tratteggio di una regione si calcola una volta e si tiene. Il **bordo del foglio fa da argine**; **griglia e magneti no**, altrimenti si riempirebbero i quadretti.
+- **Un decimo di millimetro basta, e l'errore va nascosto sotto l'inchiostro.** Sono tre passi di motore e un quarto di punta di penna; e i capi del tratteggio **devono comunque infilarsi sotto il contorno** di un paio di decimi, altrimenti fra riempimento e bordo resta una riga bianca. Quindi l'imprecisione dello stampino finisce dove non si vede, per costruzione.
+- **La fessura è il modo in cui questa cosa si rompe**, e si difende due volte: una **tolleranza di chiusura** nella finestrella (i tratti si ingrassano di N decimi *solo* nello stampino, così i buchi fino a quella misura si tappano), e un **guardiano** — se la regione tocca il bordo del foglio o ne supera una fetta, il riempimento **non si disegna**: si dice che il contorno ha una fessura e si mostra **dove è scappato**. Un guasto che si annuncia, invece di un foglio allagato.
+- **Nella finestrella ci va anche il tempo.** Un A4 tratteggiato a 0,4 mm sono circa **150 metri di penna**: oltre un'ora, più le alzate. Metri e minuti scritti **prima** del click costano niente e togliono la brutta sorpresa — ed è anche l'argomento che mette la serpentina subito dopo il tratteggio.
+- **Due porte, un motore solo.** Il click serve a comporre; un logo importato con quaranta forme piene sarebbero quaranta click, quindi resta anche la strada all'ingrosso («riempi questo livello pieno» dall'elenco dei livelli). Le due porte usano **gli stessi generatori di tratteggio**, e `fill-rule` serve solo alla seconda.
 - **Il passo del tratteggio non è un numero libero: nasce dallo spessore del tratto della penna**, che il livello porta già dal 2026-11-03. Passo uguale allo spessore = copertura piena; passo maggiore = trama che si vede. Quindi il comando naturale all'utente è una **copertura** (o un passo in multipli del tratto), non millimetri staccati dalla penna che è montata davvero. Si lega al controllo «si vedrà?» offerto nello Step 4: un tratteggio più fine del tratto della penna non è un tratteggio, è una macchia.
 - **Il riempimento non sostituisce il contorno.** Una forma piena *con* bordo li vuole entrambi, e sono due interruttori, non uno.
 - **Il riempimento si deve vedere in anteprima**, altrimenti l'utente lo scopre a penna in mano. Ma il tratteggio vero di una forma grande sono centinaia di segmenti: va deciso se l'anteprima li disegna tutti o ne mostra un campione.
 - Il generatore lavora **a valle dell'appiattimento**, su polilinee e non su curve: è lì che vive già tutto il resto della catena.
 
-**Criterio di completamento:** una forma piena importata da un SVG — **compreso un disegno con buchi** — esce riempita sulla carta, col tipo di riempimento scelto dall'elenco dei livelli; l'anteprima mostra quello che poi fa la penna; e il tempo di stampa resta un numero che l'utente accetta prima di premere.
+**Due domande ancora aperte**, da chiudere prima di scrivere il codice:
+1. **Il riempimento va in un livello suo o dentro al livello del contorno?** Propendo per **un livello suo**: così può avere una penna diversa — il pennarello grosso per il pieno e la punta fine per il bordo — e si spegne o si butta da solo. Il costo è una riga in più nell'elenco per ogni riempimento.
+2. **Se poi il contorno si muove o si modifica, il riempimento si rifà?** L'architettura del progetto dice di sì: *le forme si tengono, le polilinee si ricavano ogni volta* (`tracciato.js`), quindi il riempimento sarebbe una forma nuova il cui appiattimento è il tratteggio stesso — con la ricetta (tipo, angolo, passo, punto cliccato, tolleranza) al posto della geometria, i segmenti tenuti in cache e il guardiano della fessura che, se ricalcolando perde, **tiene l'ultimo buono** e lo segnala invece di allagare. Sarebbe il primo caso di una forma il cui appiattimento dipende da **altre** forme, e questo va detto chiaro prima di farlo. L'alternativa è la geometria congelata al momento del click, più semplice e più stupida: muovi la lettera e il riempimento resta dov'era.
+
+**Criterio di completamento:** due prove, una per porta. (1) Dalla tab edit: una **A in grassetto** si riempie nel corpo e, con un secondo click, anche nel triangolo; il mouse mostrava prima del click quello che poi è uscito dalla penna. (2) All'ingrosso: una forma piena importata da un SVG — **compreso un disegno con buchi** — esce riempita sulla carta col tipo scelto dall'elenco dei livelli. In entrambi i casi il tempo di stampa è un numero che l'utente ha letto **prima** di premere, e un contorno con una fessura non allaga il foglio: lo dice.
 
 **Note (cronologia dello step):**
 - [2026-11-09] Step aperto su richiesta dell'utente, con due metà dette da lui: «riconoscimento forme chiuse e riempimenti di diversi tipi». Nessuna riga di codice scritta. Lo stato di partenza è quello scritto qui sopra: `chiuso` c'è, le tinte piene ci sono come livelli spenti, lo spessore della penna in millimetri c'è, `fill-rule` **non** c'è.
+- [2026-11-09] **Disegno deciso in conversazione, prima di costruire** — come chiesto dall'utente: «prima di costruirlo decidiamo, lo implementiamo la settimana prossima», e poi «sono d'accordo con tutto, teniamo tutto in pipeline per quando te lo farò fare». L'interazione (pulsante nella tab edit, finestrella dei parametri, anteprima sotto il mouse, click che disegna, regioni lette dai tratti che ci sono) è sua; lo stampino, la tolleranza di chiusura, il guardiano della fessura, il tempo nella finestrella e le due porte sono il come. **Lo step resta «da fare» e non si comincia finché non lo dice lui.** Due domande restano aperte, scritte qui sopra.
 
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
@@ -996,7 +1008,7 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 ## Storico sessioni
 
-### [2026-11-09 19:18] (telecomando) Tre difetti incastrati, e una stampa che finisce col telecomando acceso
+### [2026-11-09 19:34] (telecomando) Tre difetti incastrati, e una stampa che finisce col telecomando acceso
 
 **Riepilogo:** caricato il firmware, il telecomando moriva a ogni stampa; sotto c'erano **tre difetti che si tenevano in piedi a vicenda** — un cursore che mostrava un numero falso, una risposta che nessuno leggeva, e un'attesa senza uscita dentro al cicalino — più un quarto, la schermata della stampa che con più fogli si sovrapponeva a sé stessa. Alla fine una stampa a due fogli, a batteria, col telecomando che racconta tutto: «tutto ha funzionato correttamente».
 
@@ -1043,7 +1055,7 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 **File consegnati/modificati:** `schermo/telecomando/telecomando.ino` (consegnato tre volte all'utente da caricare: diagnosi, correzione del cicalino, disposizione nuova), `schermo/vetro/vetro.cpp`, `schermo/vetro/geometria.py`, `schermo/vetro/vetro.sh`, `webui/js/telecomando.js`, `webui/js/settings.js`, `webui/tools/prova-telecomando.js`, `webui/tools/rompi.py`; pagina **v114** consegnata; questo documento (v86).
 
-**Impatto su Vision/Pipeline:** Step 13 da uno a **due lavori fatti su cinque** (il tasto e il firmware ricaricato); Step 12 con il criterio **completo**, telecomando compreso; note nuove allo Step 4 (il cursore che mentiva) e allo Step 9 (il cicalino che piantava il giro). Aperti due step su richiesta dell'utente: lo **Step 14 — I riempimenti** (riconoscere le forme chiuse e riempirle in più modi, lavoro sul SLICER che stava solo fra le righe di `webui/README.md`) e lo **Step 15 — Pulizia su GitHub** (una scansione di tutto quello che c'è in repository, file per file, per decidere cosa resta e cosa va via), da fare **per ultima**, dopo tutti gli altri lavori. La pulizia era nata come Step 14 ed è stata rinumerata subito, perché deve restare l'ultima della fila.
+**Impatto su Vision/Pipeline:** Step 13 da uno a **due lavori fatti su cinque** (il tasto e il firmware ricaricato); Step 12 con il criterio **completo**, telecomando compreso; note nuove allo Step 4 (il cursore che mentiva) e allo Step 9 (il cicalino che piantava il giro). Aperti due step su richiesta dell'utente: lo **Step 14 — I riempimenti** (riconoscere le forme chiuse e riempirle in più modi, lavoro sul SLICER che stava solo fra le righe di `webui/README.md`) e lo **Step 15 — Pulizia su GitHub** (una scansione di tutto quello che c'è in repository, file per file, per decidere cosa resta e cosa va via), da fare **per ultima**, dopo tutti gli altri lavori. La pulizia era nata come Step 14 ed è stata rinumerata subito, perché deve restare l'ultima della fila. Dello Step 14 è stato **deciso tutto il disegno in conversazione, senza scrivere codice**: il riempimento si comanda da un pulsante della tab edit con anteprima sotto il mouse e click che disegna, e le regioni si leggono dai tratti che ci sono — il che **declassa `fill-rule`** da primo lavoro a dettaglio della sola strada all'ingrosso.
 
 ---
 
