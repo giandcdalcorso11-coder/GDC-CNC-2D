@@ -1,0 +1,6 @@
+{
+  "_nota": "Il colore e' l'identificativo del livello nello SLICER (un livello per colore); la penna vera e lo spessore li assegna l'utente li'. Lo spessore qui serve solo all'anteprima.",
+  "nero":       {"colore": "#111111", "spessore": 0.4, "nome": "Tratto Pen nero (~0,5 mm)"},
+  "grigio":     {"colore": "#8a8a8a", "spessore": 0.4, "nome": "Tratto Pen grigio (~0,5 mm)"},
+  "indelebile": {"colore": "#6b6b6b", "spessore": 1.5, "nome": "pennarello indelebile (1,5 mm)"}
+}
