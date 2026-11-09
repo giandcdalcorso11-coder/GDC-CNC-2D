@@ -536,12 +536,48 @@ const uint8_t BUZZER_PIN = 7;        // D7 = PA21 = TCC0/WO[7]
 int volumeCicalino = 10;             // 0 muto, 10 pieno. Lo manda il SLICER.
 int modoCicalino = 0;                // 0 niente, 1 tone(), 2 PWM
 
-static void sincroTCC0() { while (TCC0->SYNCBUSY.reg) { /* aspetta */ } }
+/* L'ATTESA CHE FINISCE SEMPRE, e il perche' e' costato una stampa.
+ *
+ * Qui c'era `while (TCC0->SYNCBUSY.reg) { }`, senza uscita. Se il timer
+ * non risponde — non ha il clock, e' in reset, il core non gliel'ha
+ * collegato — quel giro non finisce MAI: il telecomando si pianta dentro
+ * al suono, il vetro resta sulla schermata di prima, e il modulo WiFi,
+ * che la sua pila TCP ce l'ha dentro, continua ad accettare le
+ * connessioni e a non rispondere. E' esattamente quello che l'operatore
+ * ha visto il 2026-11-09, con il volume a 2 — cioe' sulla strada del PWM,
+ * che su questa scheda non era mai stata percorsa.
+ *
+ * SI CONTANO I GIRI, NON I MILLISECONDI. Un'attesa a tempo vuole
+ * `micros()`, e `micros()` al banco non avanza: il controllo che prova
+ * questa uscita resterebbe appeso proprio come il firmware. Ventimila
+ * giri su un processore a 48 MHz sono qualche millisecondo, ed e' un
+ * numero che non dipende da quale orologio sta girando.
+ *
+ * E QUANDO NON RISPONDE NON SI RINUNCIA AL SUONO: si torna a `tone()`,
+ * cioe' al volume pieno. Un cicalino troppo forte e' un fastidio; un
+ * telecomando che non risponde e' una stampa senza telecomando. */
+static bool sincroTCC0() {
+  for (int i = 0; i < 20000; i++) {
+    if (!TCC0->SYNCBUSY.reg) return true;
+  }
+  return false;
+}
+
+bool pwmRotto = false;               // il timer non risponde: solo tone()
+
+static void tornaATone(const char* dove) {
+  pwmRotto = true;
+  pinMode(BUZZER_PIN, OUTPUT);
+  modoCicalino = 1;
+  Serial.print("Cicalino: il PWM non risponde (");
+  Serial.print(dove);
+  Serial.println("), torno al volume pieno.");
+}
 
 void taci() {
   if (modoCicalino == 2) {
     TCC0->CC[7].reg = 0;
-    sincroTCC0();
+    if (!sincroTCC0()) tornaATone("silenzio");
   } else {
     carrier.Buzzer.noSound();
   }
@@ -550,7 +586,10 @@ void taci() {
 void canta(int hz) {
   if (hz <= 0 || volumeCicalino <= 0) { taci(); return; }
 
-  if (volumeCicalino >= 10) {
+  /* `pwmRotto` sta qui dentro e non in cima: una volta che il timer si e'
+     rifiutato, TUTTI i volumi suonano pieni, perche' l'alternativa e'
+     non suonare affatto. */
+  if (volumeCicalino >= 10 || pwmRotto) {
     if (modoCicalino != 1) {
       /* Il piedino torna un'uscita normale: `pinMode` rifa' il
          collegamento interno, che il PWM aveva spostato sul timer. */
@@ -573,9 +612,9 @@ void canta(int hz) {
   uint32_t alto = (per + 1) * (uint32_t)volumeCicalino / 20;
   if (alto < 1) alto = 1;
   TCC0->PER.reg = per;
-  sincroTCC0();
+  if (!sincroTCC0()) { tornaATone("periodo"); carrier.Buzzer.sound(hz); return; }
   TCC0->CC[7].reg = alto;
-  sincroTCC0();
+  if (!sincroTCC0()) { tornaATone("parte alta"); carrier.Buzzer.sound(hz); return; }
 }
 
 const Nota* inSuono = nullptr;

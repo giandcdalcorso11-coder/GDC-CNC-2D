@@ -175,6 +175,56 @@ function ok(nome, vero, extra) {
      'solo la percentuale: ' + r.soloPercento + ' messaggi, col foglio: ' +
      r.cambioFoglio);
 
+  /* ============ IL CURSORE DEL VOLUME DICE LA VERITA' ============
+   *
+   * Il 2026-11-09 l'operatore: «il volume nelle impostazioni mi segna 10,
+   * l'altro giorno avevo provato ad abbassarlo a 2, ma chiudendo lo slicer
+   * e' rimasto quello senza possibilita' di rimodificarlo». Era vero, e il
+   * motivo e' l'ordine: `Settings.init()` costruisce il cursore PRIMA che
+   * `Telecomando.init()` legga il valore salvato, quindi il cursore
+   * mostrava il predefinito. Rimetterlo a 10 non mandava niente, perche' a
+   * 10 ci era gia': il comando non si poteva piu' dare, e ogni stampa
+   * partiva col volume 2 — la strada del PWM, quella che piantava il
+   * telecomando.
+   *
+   * SERVE UNA PAGINA NUOVA, con il valore gia' nel localStorage prima che
+   * la pagina parta: e' l'unico modo di rifare l'ordine vero. */
+  {
+    const p2 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    const err2 = [];
+    p2.on('pageerror', (e) => err2.push(String(e)));
+    await p2.addInitScript(() => {
+      try { localStorage.setItem('cnc2d-telecomando-volume', '2'); } catch (e) { /* privata */ }
+    });
+    await p2.goto(PAGINA);
+    await p2.waitForTimeout(400);
+    await p2.click('.tab[data-tab="impostazioni"]');
+    await p2.waitForTimeout(200);
+    const v = await p2.evaluate(() => ({
+      cursore: document.getElementById('set-tele-volume').value,
+      scritto: document.getElementById('set-tele-volume-n').textContent,
+      inVigore: Telecomando.volume()
+    }));
+    ok('il cursore del volume mostra quello salvato, non il predefinito',
+       v.cursore === '2' && v.scritto === '2' && v.inVigore === 2,
+       'cursore ' + v.cursore + ', scritto ' + v.scritto +
+       ', in vigore ' + v.inVigore);
+
+    /* E QUANDO I DUE NUMERI NON COINCIDONO LO DICE. Il telecomando rimanda
+       il volume in ogni risposta apposta; fino al 2026-11-09 nessuno lo
+       leggeva, e una differenza fra quello chiesto e quello in vigore non
+       si vedeva da nessuna parte. */
+    const nota = await p2.evaluate(() => {
+      State.set('telecomando', Object.assign({}, State.data.telecomando,
+                                             { volume: 10, volumeVero: 2 }));
+      return document.getElementById('set-tele-volume-nota').textContent;
+    });
+    ok('e dice quando il telecomando ne ha un altro',
+       /telecomando dice di avere 2/.test(nota), nota.slice(0, 80));
+    ok('nessun errore nella pagina del volume', err2.length === 0, err2.join(' | '));
+    await p2.close();
+  }
+
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
   console.log(guai ? '\n' + guai + ' controlli KO' : '\ntutto a posto');

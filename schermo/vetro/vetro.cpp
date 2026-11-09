@@ -476,6 +476,56 @@ int main() {
   if (TCC0->CC[7].reg != 0) {
     fprintf(stderr, "KO a zero non tace: parte alta %lu\n", TCC0->CC[7].reg); exit(1);
   }
+
+  /* ============ IL TIMER CHE NON RISPONDE ============
+     Qui c'era un `while (TCC0->SYNCBUSY.reg) { }` senza uscita, e il
+     2026-11-09 e' costato una stampa: col volume a 2 il telecomando si e'
+     piantato dentro al suono della partenza, il vetro e' rimasto sulla
+     schermata di prima e il modulo WiFi ha continuato ad accettare
+     connessioni a cui nessuno rispondeva.
+
+     SE IL CODICE TORNA ROTTO QUESTO CONTROLLO NON FALLISCE: SI PIANTA.
+     E' l'unico modo di provare un'uscita che non c'e', e il banco delle
+     mutazioni se ne accorge lo stesso perche' aspetta ogni prova con un
+     tempo massimo. */
+  volumeCicalino = 2;
+  pwmRotto = false;
+  modoCicalino = 0;
+  BUZ_HZ = 0;
+  TCC0->SYNCBUSY.reg = 1;            /* il timer non si sincronizza piu' */
+  canta(2500);
+  TCC0->SYNCBUSY.reg = 0;
+  if (!pwmRotto) {
+    fprintf(stderr, "KO il timer non rispondeva e il firmware non se n'e' accorto\n");
+    exit(1);
+  }
+  if (BUZ_HZ != 2500) {
+    fprintf(stderr, "KO caduto il PWM, il cicalino e' rimasto muto invece di "
+                    "suonare pieno: hz %d\n", BUZ_HZ); exit(1);
+  }
+  /* E DA LI' IN POI TUTTI I VOLUMI SUONANO PIENI: la nota dopo non deve
+     tornare a provare il PWM e ripiantarsi.
+
+     SI GUARDA IL REGISTRO, non la nota: dopo la caduta il suono esce
+     pieno in tutt'e due i casi — anche riprovando il PWM si finisce in
+     `tornaATone`, che suona lo stesso. L'unica differenza visibile e' che
+     il periodo viene RISCRITTO, cioe' che ci ha riprovato. Il primo giro
+     di questo controllo guardava la nota e passava anche col codice
+     rotto. */
+  TCC0->SYNCBUSY.reg = 1;
+  BUZ_HZ = 0;
+  TCC0->PER.reg = 0;
+  canta(2227);
+  TCC0->SYNCBUSY.reg = 0;
+  if (TCC0->PER.reg != 0) {
+    fprintf(stderr, "KO dopo la caduta riprova il PWM: ha riscritto il "
+                    "periodo a %lu\n", TCC0->PER.reg); exit(1);
+  }
+  if (BUZ_HZ != 2227 || modoCicalino != 1) {
+    fprintf(stderr, "KO dopo la caduta il cicalino non suona: hz %d, modo %d\n",
+            BUZ_HZ, modoCicalino); exit(1);
+  }
+  volumeCicalino = 10; pwmRotto = false; modoCicalino = 0; taci();
   volumeCicalino = 10; modoCicalino = 0; BUZ_HZ = 0;
 
   /* LO SFARFALLIO DOPO LO STOP. Tenuto il dito, il telecomando manda

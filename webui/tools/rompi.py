@@ -31,6 +31,12 @@ ROOT = Path(__file__).resolve().parent.parent
 # e' quello del foglio -- quale collaudo lo trova.
 PROVA_PREDEFINITA = 'prova-foglio.js'
 
+# Quanto si aspetta un collaudo prima di dirlo piantato. Il piu' lento
+# (prova-piano.js) sta sotto il minuto: cinque sono larghi per una
+# macchina carica e stretti abbastanza da non perdere un'ora su un giro
+# che non finisce.
+TEMPO_MASSIMO = 300
+
 # Il blocco dei due campi e del «+», per la mutazione che lo rimette sotto ai
 # fogli del piano: scambiare due pezzi di markup in una sostituzione sola
 # vuol dire averne uno scritto qui per intero.
@@ -1731,6 +1737,72 @@ MUTAZIONI = [
         vede="trascinando dall'elenco dell'editor",
         prova="prova-piano.js",
     ),
+    # ---- IL CURSORE DEL VOLUME CHE MENTIVA (2026-11-09) ----
+    dict(
+        nome='il cursore del volume si legge una volta sola, alla partenza',
+        file='js/settings.js',
+        da="""      allinea();
+      State.on('telecomando', allinea);""",
+        a="""      vol.value = String(Telecomando.volume());
+      notaVolume(Telecomando.volume());""",
+        vede='il cursore del volume mostra quello salvato',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome='il volume non viaggia nel segnale',
+        file='js/telecomando.js',
+        da='      volume: volume,\n      volumeVero: volumeVero,',
+        a='',
+        vede='il cursore del volume mostra quello salvato',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome="nessuno legge il volume che il telecomando rimanda",
+        file='js/settings.js',
+        da='      if (typeof vero === \'number\' && vero !== v) {',
+        a='      if (false) {',
+        vede='dice quando il telecomando ne ha un altro',
+        prova='prova-telecomando.js',
+    ),
+
+    # ---- IL CICALINO CHE PIANTAVA IL TELECOMANDO (2026-11-09) ----
+    dict(
+        # Questa mutazione NON fa fallire il collaudo: lo fa PIANTARE,
+        # perche' rimette il giro senza uscita ed e' li' che il controllo
+        # entra. Vale lo stesso: dal 2026-11-09 un collaudo che non
+        # finisce entro il tempo massimo conta come visto.
+        nome="l'attesa del timer torna senza uscita",
+        file='../schermo/telecomando/telecomando.ino',
+        da="""static bool sincroTCC0() {
+  for (int i = 0; i < 20000; i++) {
+    if (!TCC0->SYNCBUSY.reg) return true;
+  }
+  return false;
+}""",
+        a="""static bool sincroTCC0() {
+  while (TCC0->SYNCBUSY.reg) { }
+  return true;
+}""",
+        vede='il timer non rispondeva',
+        prova='vetro.sh',
+    ),
+    dict(
+        nome='caduto il PWM, il cicalino resta muto',
+        file='../schermo/telecomando/telecomando.ino',
+        da='  if (!sincroTCC0()) { tornaATone("periodo"); carrier.Buzzer.sound(hz); return; }',
+        a='  if (!sincroTCC0()) { tornaATone("periodo"); return; }',
+        vede="e' rimasto muto invece di suonare pieno",
+        prova='vetro.sh',
+    ),
+    dict(
+        nome='dopo la caduta il PWM si riprova a ogni nota',
+        file='../schermo/telecomando/telecomando.ino',
+        da='  if (volumeCicalino >= 10 || pwmRotto) {',
+        a='  if (volumeCicalino >= 10) {',
+        vede='dopo la caduta riprova il PWM',
+        prova='vetro.sh',
+    ),
+
     # ---- IL TASTO CHE CHIUDE IL RACCONTO DI FINE STAMPA (2026-11-09) ----
     dict(
         nome="il racconto si chiude solo col tempo, non col tasto",
@@ -2038,7 +2110,18 @@ def collauda(prova=PROVA_PREDEFINITA):
         cmd = ["bash", str(ROOT.parent / "schermo" / "vetro" / prova)]
     else:
         cmd = ["node", str(ROOT / "tools" / prova)]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=TEMPO_MASSIMO)
+    except subprocess.TimeoutExpired:
+        """UN BANCO CHE NON FINISCE È UN BANCO CHE FALLISCE, e dal 2026-11-09
+        questo conta: una mutazione può togliere l'uscita da un giro — è
+        successo davvero, `while (TCC0->SYNCBUSY.reg) {}` nel firmware — e
+        il controllo che la prende non può fare altro che piantarsi insieme
+        al codice. Senza questa scadenza si pianterebbe il banco delle
+        mutazioni, cioè si perderebbe il giro intero invece di guadagnare
+        una riga."""
+        return ("KO il collaudo non è finito entro %d s: si è piantato"
+                % TEMPO_MASSIMO), False
     return (r.stdout + r.stderr), r.returncode == 0
 
 
@@ -2097,7 +2180,11 @@ def main():
             else:
                 uscita = collauda(m.get("prova", PROVA_PREDEFINITA))[0]
                 riga = riga_del(uscita, m["vede"])
-                if riga is None:
+                if uscita.startswith("KO il collaudo non è finito"):
+                    # Il collaudo si e' piantato: la mutazione e' stata vista,
+                    # ed e' l'unico modo di vedere un giro senza uscita.
+                    esito, dettaglio = True, uscita
+                elif riga is None:
                     esito, dettaglio = False, "il controllo «%s» non c'e'" % m["vede"]
                 else:
                     esito = riga.startswith("KO")

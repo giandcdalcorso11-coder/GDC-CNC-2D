@@ -81,6 +81,7 @@ var Telecomando = (function () {
   var inVoloDa = 0;
   var firma = '';            // lo stato dell'ultima volta, per mandare subito se cambia
   var visto = false;         // il telecomando ha risposto almeno una volta
+  var volumeVero = null;     // il volume che il telecomando dice di avere
   var batteria = null;
   /* Come sta messo con la corrente, con la parola che manda lui:
      `batteria`, `carica`, `piena`, `ferma` (attaccato ma non carica). */
@@ -235,6 +236,12 @@ var Telecomando = (function () {
         Log.add('msg', 'Telecomando collegato su ' + indirizzo + '.');
       }
       if (spiona) Log.add('msg', '← telecomando ' + JSON.stringify(risposta));
+      /* IL VOLUME CHE TORNA INDIETRO. Il telecomando lo rimanda in ogni
+         risposta apposta — «perché il cursore possa dire la verità invece
+         della propria ultima idea», dice il firmware dal 2026-11-02 — e
+         fino al 2026-11-09 nessuno lo leggeva: la rete di sicurezza era
+         stata tesa da una parte sola. */
+      volumeVero = (typeof risposta.volume === 'number') ? risposta.volume : null;
       batteria = (typeof risposta.batteria === 'number') ? risposta.batteria : null;
       /* Il telecomando vecchio (prima del 2026-10-31) non manda `carica`, e
          deve continuare a funzionare: null vuol dire «non lo dice», che è
@@ -622,12 +629,31 @@ var Telecomando = (function () {
 
   /* --------------------------- lo stato per la UI --------------------------- */
 
+  /* IL VOLUME STA NEL SEGNALE, dal 2026-11-09, e non è un di più: il
+   * cursore delle Impostazioni si costruisce PRIMA che questo modulo
+   * legga il suo valore salvato (`Settings.init()` viene prima di
+   * `Telecomando.init()` in app.js), quindi leggendolo una volta sola
+   * alla partenza prendeva il valore predefinito — 10 — mentre quello in
+   * vigore era un altro.
+   *
+   * L'operatore ci è cascato dentro per giorni: aveva messo 2 una volta,
+   * il cursore diceva 10, e rimetterlo a 10 non faceva niente perché a 10
+   * ci era già. Ogni stampa partiva col volume 2, cioè sulla strada del
+   * PWM — quella che piantava il telecomando. Un numero sbagliato su un
+   * cursore non è un dettaglio di presentazione: è il comando che non si
+   * può più dare.
+   *
+   * `volumeVero` è quello che il telecomando dice di avere, nella sua
+   * risposta. Serve a far vedere la differenza invece di lasciarla
+   * sottoterra. */
   function segnala() {
     State.set('telecomando', {
       attivo: !!indirizzo,
       visto: visto,
       batteria: batteria,
       carica: carica,
+      volume: volume,
+      volumeVero: volumeVero,
       prova: !!timerProva,
       posa: posaOra,
       spia: spiona
@@ -681,6 +707,9 @@ var Telecomando = (function () {
      sta in una stanza dove a volte si dorme. */
   function vol(v) {
     if (v === undefined) return volume;
+    /* Si segnala anche quando non cambia niente: è il modo in cui il
+       cursore si riallinea dopo essere stato costruito con un valore
+       vecchio. */
     var n = Math.round(+v);
     volume = Math.max(0, Math.min(10, isNaN(n) ? 10 : n));
     try { localStorage.setItem(CHIAVE_VOL, String(volume)); } catch (e) { /* privata */ }
@@ -688,6 +717,7 @@ var Telecomando = (function () {
        secondi dopo non si collegano fra loro, e si finisce a trascinarlo
        avanti e indietro per capire se ha fatto qualcosa. */
     firma = '';
+    segnala();
     manda();
     return volume;
   }

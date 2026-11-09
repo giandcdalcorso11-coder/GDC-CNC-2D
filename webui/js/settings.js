@@ -458,9 +458,19 @@ var Settings = (function () {
     var vol = document.getElementById('set-tele-volume');
     var volN = document.getElementById('set-tele-volume-n');
     var volNota = document.getElementById('set-tele-volume-nota');
-    function notaVolume(v) {
+    function notaVolume(v, vero) {
       if (volN) volN.textContent = v;
       if (!volNota) return;
+      /* QUELLO CHE IL TELECOMANDO DICE DI AVERE, quando non è quello che
+         gli abbiamo chiesto. Il firmware rimanda il volume in ogni
+         risposta proprio per questo, e finché nessuno lo guardava una
+         differenza fra i due numeri non si vedeva da nessuna parte. */
+      if (typeof vero === 'number' && vero !== v) {
+        volNota.textContent = 'Il telecomando dice di avere ' + vero +
+          ': il ' + v + ' non gli è ancora arrivato. Muovi il cursore per ' +
+          'mandarglielo.';
+        return;
+      }
       volNota.textContent =
         v === 0  ? 'Muto: il telecomando resta un vetro che si guarda.'
       : v === 10 ? 'Pieno: onda quadra intera, come prima che questo cursore ' +
@@ -471,8 +481,28 @@ var Settings = (function () {
         'la scala è il seno, non una proporzione.';
     }
     if (vol && window.Telecomando) {
-      vol.value = String(Telecomando.volume());
-      notaVolume(Telecomando.volume());
+      /* IL CURSORE SEGUE IL SEGNALE, non una lettura sola alla partenza.
+         Fino al 2026-11-09 qui c'era `vol.value = Telecomando.volume()` e
+         basta: ma questa funzione gira PRIMA di `Telecomando.init()` (vedi
+         l'ordine in app.js), quindi leggeva il valore predefinito — 10 —
+         mentre un attimo dopo il modulo ne caricava un altro dal
+         localStorage. Il cursore diceva 10 e il telecomando riceveva 2, e
+         rimetterlo a 10 non mandava niente perché a 10 ci era già: il
+         comando non si poteva più dare. Il valore salvato è rimasto in
+         vigore per giorni, e con lui la strada del PWM che piantava il
+         telecomando a ogni stampa.
+
+         Mentre il dito è sopra al cursore non lo si tocca: riscriverlo
+         sotto le dita è il modo più sicuro di farlo saltare di una
+         tacca. */
+      function allinea() {
+        var t = State.data.telecomando || {};
+        if (typeof t.volume !== 'number') return;
+        if (document.activeElement !== vol) vol.value = String(t.volume);
+        notaVolume(t.volume, t.volumeVero);
+      }
+      allinea();
+      State.on('telecomando', allinea);
       vol.addEventListener('input', function () { notaVolume(+this.value); });
       vol.addEventListener('change', function () {
         notaVolume(Telecomando.volume(+this.value));
