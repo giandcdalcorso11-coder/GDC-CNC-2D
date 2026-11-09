@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 84
-**Ultimo aggiornamento:** 2026-11-08 23:23
+**Versione:** 85
+**Ultimo aggiornamento:** 2026-11-09 08:40
 
 ## Regole di co-editing
 
@@ -897,11 +897,11 @@ quello che era.
 - [2026-11-07] **Sul vetro del telecomando il posto non era libero**, e si è scoperto misurando: fra la percentuale e il tempo che manca passa l'etichetta del tasto STOP (fascia 152-162, a destra di x=154). Per questo, quando il foglio si scrive, il pallino della penna e la percentuale **salgono di quattordici pixel**. Con un foglio solo la schermata resta quella di prima.
 - [2026-11-07] **Fase 5, il progetto salvato.** `fogli[]` nel `.cnc2d.svg` e il numero del foglio su ogni livello. Riaprendo: se il piano di oggi è **lo stesso piano** del file i livelli si appoggiano sui fogli che ci sono, se no il progetto **porta i suoi**. Chiusa la metà «foglio» dello Step 11.
 - [2026-11-07] **Un A4 non ci sta nella corsa, e il banco l'ha fatto notare.** 297 > 236: un progetto su A4 non può essere posato «dove c'è posto», e la prima versione reagiva mettendogli i fogli sopra a quelli che c'erano. Adesso un gruppo che non ci sta va **di fianco** a tutto, fuori dalla corsa, e mai sopra: due disegni sulla stessa carta non si vedono, un foglio che sporge sì — e l'elenco dei fogli lo dice già. «Più grande della corsa» e «non c'è più posto libero» si dicono con due frasi diverse, perché la prima non è un errore (con un A4 si stampa un pezzo per volta).
-- [2026-11-08] **Stampato sulla macchina, e va.** Detto dall'utente: «il disegno con più magneti l'ho già fatto, tutto corretto». È il criterio di completamento, e con quella frase lo step si chiude. **Che cosa copre quella frase e che cosa no:** copre la stampa su più fogli in una volta — le schermate di inizio stampa, i cambi penna, il telecomando — perché è quello che si attraversa stampando. Non ho chiesto il dettaglio punto per punto e non lo invento: la metà «salva, riapri un altro giorno e ritrova i nove fogli» resta verificata **nel programma** (2026-11-07: nove fogli, un angolo da misurare, programma identico di 327 righe) e non da una seconda giornata di macchina. Se un giorno riaprendo un progetto i fogli non tornassero, è lì che va guardato. **E un dubbio in più, venuto fuori la sera stessa riconciliando la Pipeline:** il criterio dice anche «il telecomando gli dice a che magnete è arrivato», ma il «FOGLIO 3/9» sul vetro è arrivato col firmware del 2026-11-07 e **l'ultimo caricamento confermato sul MKR è del 2026-11-03** — l'utente dice che sulla scheda c'è ancora una versione vecchia (Step 13). Se non l'ha ricaricato, quella riga del criterio non può essere passata: è da chiedergli, e nel frattempo resta scritta qui invece che data per buona.
+- [2026-11-08] **Stampato sulla macchina, e va.** Detto dall'utente: «il disegno con più magneti l'ho già fatto, tutto corretto». È il criterio di completamento, e con quella frase lo step si chiude. **Che cosa copre quella frase e che cosa no:** copre la stampa su più fogli in una volta — le schermate di inizio stampa, i cambi penna, il telecomando — perché è quello che si attraversa stampando. Non ho chiesto il dettaglio punto per punto e non lo invento: la metà «salva, riapri un altro giorno e ritrova i nove fogli» resta verificata **nel programma** (2026-11-07: nove fogli, un angolo da misurare, programma identico di 327 righe) e non da una seconda giornata di macchina. Se un giorno riaprendo un progetto i fogli non tornassero, è lì che va guardato. **E un dubbio in più, venuto fuori la sera stessa riconciliando la Pipeline:** il criterio dice anche «il telecomando gli dice a che magnete è arrivato», ma il «FOGLIO 3/9» sul vetro è arrivato col firmware del 2026-11-07 e **l'ultimo caricamento confermato sul MKR è del 2026-11-03** — l'utente dice che sulla scheda c'è ancora una versione vecchia (Step 13). Se non l'ha ricaricato, quella riga del criterio non può essere passata: è da chiedergli, e nel frattempo resta scritta qui invece che data per buona. **Chiesto e risposto il 2026-11-09: non l'aveva caricato.** Quindi quella riga del criterio non è passata sulla macchina — lo step resta completato (la stampa su più fogli, che è la sostanza, ha funzionato), ma il numero del foglio sul vetro si vedrà solo dalla prossima stampa, col firmware nuovo.
 
 ### Step 13 — Il telecomando, seconda tornata: la SD, i dispositivi, l'alimentazione
 
-**Stato:** da fare — cinque lavori elencati dall'utente il 2026-11-08. Nessuno è stato cominciato, e **nessuno era nella Pipeline**: tre vivevano solo in `schermo/README.md`, due solo nella testa dell'utente. Lo Step 9 resta completato, perché il suo criterio — una stampa a due colori chiusa senza toccare il portatile — è passato il 2026-11-03: questo è il giro dopo.
+**Stato:** in corso — cinque lavori elencati dall'utente il 2026-11-08, **il quinto fatto il 2026-11-09** (il tasto che chiude il racconto) e in attesa di essere caricato sulla scheda insieme al terzo. Nessuno è stato cominciato, e **nessuno era nella Pipeline**: tre vivevano solo in `schermo/README.md`, due solo nella testa dell'utente. Lo Step 9 resta completato, perché il suo criterio — una stampa a due colori chiusa senza toccare il portatile — è passato il 2026-11-03: questo è il giro dopo.
 
 **Obiettivo:** che il telecomando smetta di essere solo un vetro che racconta e diventi anche **il posto da cui il lavoro parte** (la pagina, i disegni, i progetti), che si accenda e si spenga come un oggetto, e che il firmware sulla scheda sia quello del repository.
 
@@ -922,8 +922,34 @@ quello che era.
 
 **Note (cronologia dello step):**
 - [2026-11-08] Step aperto, elencato dall'utente. I tre lavori della SD erano già progettati in `schermo/README.md` dal 2026-10-28 ma non erano mai entrati nella Pipeline: è il tipo di lavoro che si perde, perché sta scritto in un posto che si legge solo quando si lavora lì.
+- [2026-11-09] **Lavoro 5 fatto: il tasto che chiude il racconto.** `FINE` e `FERMATA` hanno un tasto in alto a sinistra che riporta alla schermata Pronta; i tre minuti restano, e sono per chi passa domani. Consegnato all'utente il file da caricare, che porta anche il **lavoro 3** — il firmware sulla scheda è fermo al 2026-11-03, quindi con lo stesso caricamento arrivano il «FOGLIO 3/9» della fase 3d e tutto quello di mezzo. **L'utente ha confermato che non l'aveva ancora caricato:** il dubbio aperto nello Step 12 è quindi sciolto nel verso previsto — durante la stampa dei nove magneti il vetro il numero del foglio NON l'ha detto, perché quel firmware non c'era.
 
 ## Storico sessioni
+
+### [2026-11-09 08:40] (telecomando) Il tasto che chiude il racconto, e la geometria che non guardava i simboli
+
+**Riepilogo:** FINE e FERMATA hanno il tasto che l'utente aveva chiesto — si torna alla schermata base senza aspettare i tre minuti — e cercando dove metterlo è venuto fuori che il controllo della geometria del vetro guardava solo le parole, quindi non avrebbe visto l'etichetta finire sopra alla pila o sopra al simbolo.
+
+**Cosa è stato fatto:**
+- **Il tasto.** Un terzo mestiere per i tasti del telecomando (`chiude`), accanto a «manda una parola al SLICER» e «arma lo stop»: non manda niente a nessuno, perché il racconto è roba del vetro e il SLICER continuerà a dire «fine» finché non parte un'altra stampa. `raccontoChiuso` torna `false` al primo cambio di stato — senza, chiusa una volta, la fine della stampa dopo non si vedrebbe **mai più**.
+- **Dove metterlo l'ha deciso il banco, due volte.** In basso al centro, dove stanno gli altri «fatto» di questo telecomando, l'etichetta cade sulla **pila** della batteria scarica (y 196, alta 13). In alto a sinistra «CHIUDI» è larga 70 pixel e arriva a x 110, e lì comincia il **simbolo** (il cerchio del divieto parte da 96, la spunta da 98). Quindi: in alto a sinistra, e **«OK»**, due lettere.
+- **Il controllo della geometria adesso conosce anche quello che non è una parola:** la pila e i due simboli. Prima diceva «nessun contatto» con l'etichetta addosso a tutt'e due. Due mutazioni nuove lo provano rimettendo l'etichetta dove sbatte.
+- **Il banco del vetro sa fingere il FRONTE di un tocco** (`DOWN_FINTO`): `onTouchDown` tornava sempre `false`, quindi nessuna prova poteva **premere** un tasto — si collaudava quello che il vetro disegna, non quello che fa un dito. Da qui le cinque prove nuove: il tasto chiude la fine, chiude la fermata, non manda niente al SLICER, un pad qualunque **non** chiude, e la stampa dopo si vede lo stesso.
+- **La schermata FERMATA adesso si disegna**: era l'unica di cui nessuno avesse mai guardato il ritratto.
+- Consegnato all'utente il file da caricare sul MKR.
+
+**Decisioni prese:**
+- Contesto: l'utente voleva chiudere «fatto»/«fermata» con un tasto invece di aspettare la scadenza.
+- Decisione: **le due strade convivono.** Il tasto non sostituisce i tre minuti: la scadenza serve a chi passa la mattina dopo e trova il vetro che racconta ieri, il tasto a chi è lì adesso, ha letto, e vuole il telecomando pronto.
+- Alternative scartate: **un pad qualunque chiude** (appoggiare il telecomando sul tavolo cancellerebbe il racconto senza che nessuno l'abbia letto); **azzerare `raccontaDa`** invece di tenere una variabile a parte (si perderebbe anche il momento in cui la stampa è finita, e un altro messaggio con lo stesso stato farebbe ricominciare il racconto da capo).
+
+**Precisazione al metodo:** un controllo che guarda una **categoria** di cose — qui «le parole» — è cieco su tutto il resto della stessa superficie, e la cecità non si vede finché qualcuno non ci mette dentro qualcosa di nuovo. Non è il caso «passa guardando la cosa sbagliata» di ieri: è «passa guardando solo metà delle cose che ci sono».
+
+**File consegnati/modificati:** `schermo/telecomando/telecomando.ino` (consegnato all'utente da caricare), `schermo/vetro/geometria.py`, `schermo/vetro/vetro.cpp`, `schermo/vetro/vetro.sh`, `webui/tools/rompi.py`; questo documento (v85).
+
+**Impatto su Vision/Pipeline:** Step 13 da «da fare» a «in corso», lavoro 5 fatto. Step 12: sciolto il dubbio sul firmware — l'utente non l'aveva caricato, quindi il numero del foglio sul vetro non è stato visto durante la stampa dei magneti.
+
+---
 
 ### [2026-11-08 19:01] (software) Lo Step 12 si chiude sulla macchina, e la scheda dei fogli rifatta
 
