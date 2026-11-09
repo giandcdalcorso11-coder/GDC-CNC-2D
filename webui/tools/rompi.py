@@ -1160,21 +1160,16 @@ MUTAZIONI = [
         vede='non scrive su che foglio sta',
         prova='vetro.sh',
     ),
-    dict(
-        nome='la schermata non si alza per far posto al foglio',
-        file='../schermo/telecomando/telecomando.ino',
-        da='      pallino(S.penna, diceIlFoglio() ? 60 : 74);',
-        a='      pallino(S.penna, 74);',
-        piu=[('../schermo/telecomando/telecomando.ino',
-              '      scrivi(n, diceIlFoglio() ? 82 : 96, 6, TESTO);',
-              '      scrivi(n, 96, 6, TESTO);')],
-        vede='tocca la percentuale',
-        prova='vetro.sh',
-    ),
+    # TOLTA IL 2026-11-09: «la schermata non si alza per far posto al
+    # foglio». Descriveva come difetto quello che adesso e' il
+    # comportamento giusto — la schermata non si alza piu', perche' la
+    # targhetta del foglio e' andata nell'angolo in alto a destra e non
+    # spinge piu' niente. Il suo `a` era parola per parola il codice di
+    # oggi. Chi la cerca: `git show` di questo commit.
     dict(
         nome='il vetro non scrive su che foglio sta',
         file='../schermo/telecomando/telecomando.ino',
-        da='      scriviFoglio(132);',
+        da='      scriviFoglio(74);',
         a='',
         vede='non scrive su che foglio sta',
         prova='vetro.sh',
@@ -1763,6 +1758,53 @@ MUTAZIONI = [
         a='      if (false) {',
         vede='dice quando il telecomando ne ha un altro',
         prova='prova-telecomando.js',
+    ),
+
+    # ---- LA SCHERMATA DELLA STAMPA CON PIU' FOGLI (2026-11-09) ----
+    dict(
+        nome="l'aggiornamento del numero scrive a una quota sua",
+        file='../schermo/telecomando/telecomando.ino',
+        da='      int y = quotaPercento();',
+        a='      int y = 82;',
+        vede='non torna come lo disegnerebbe un giro intero',
+        prova='vetro.sh',
+    ),
+    dict(
+        # Il numero grande spostato in GIU' invece che in su: i corridoi
+        # sono due, e uno solo provato non dice niente dell'altro.
+        nome="la percentuale scende sull'etichetta dello STOP",
+        file='../schermo/telecomando/telecomando.ino',
+        da='int quotaPercento() { return 96; }',
+        a='int quotaPercento() { return 110; }',
+        vede="fra la percentuale e l'etichetta dello STOP non c'e' corridoio",
+        prova='vetro.sh',
+    ),
+    dict(
+        nome='la percentuale torna a stare addosso a PAUSA',
+        file='../schermo/telecomando/telecomando.ino',
+        da='int quotaPercento() { return 96; }',
+        a='int quotaPercento() { return 82; }',
+        vede='si toccano',
+        prova='controlla.sh',
+    ),
+    dict(
+        nome='la targhetta del foglio torna in mezzo al vetro',
+        file='../schermo/telecomando/telecomando.ino',
+        da='      scriviFoglio(74);',
+        a='      scriviFoglio(132);',
+        vede="non e' nell'angolo in alto a destra",
+        prova='vetro.sh',
+    ),
+    dict(
+        # La targhetta alla quota giusta ma CENTRATA invece che nell'angolo:
+        # i corridoi restano liberi — sta fra loro — e quello che si accorge
+        # e' solo il controllo che la cerca dove deve stare.
+        nome="la targhetta del foglio centrata invece che nell'angolo",
+        file='../schermo/telecomando/telecomando.ino',
+        da='  carrier.display.setCursor((CX + dx) - w, y);',
+        a='  carrier.display.setCursor(CX - w / 2, y);',
+        vede="non e' nell'angolo in alto a destra",
+        prova='vetro.sh',
     ),
 
     # ---- IL CICALINO CHE PIANTAVA IL TELECOMANDO (2026-11-09) ----

@@ -1168,11 +1168,43 @@ void simboloSenzaRete(int y, uint16_t c) {
    caso di ogni programma scritto prima del 2026-11-07. */
 bool diceIlFoglio() { return S.foglioDi >= 2 && S.foglioN >= 1; }
 
-/* «FOGLIO 3/9». Sotto la percentuale: non e' la cosa che si guarda per
-   prima -- quella e' quanto manca -- ma e' quella che dice se il magnete
-   che hai davanti e' finito.
-   DOVE STA NON E' LIBERO. Sul vetro, fra la percentuale e il tempo che
-   manca, ci passa l'etichetta del tasto STOP: occupa la fascia 152-162 a
+/* DOVE STA LA PERCENTUALE, e sta in UNA funzione perche' la sanno in due:
+   il disegno intero della schermata e l'aggiornamento del solo numero.
+   Finche' erano due numeri scritti a mano, il giorno in cui uno dei due
+   si e' mosso — la riga del foglio, che alzava tutto di quattordici pixel
+   — l'altro e' rimasto indietro, e sul vetro si sono visti due numeri
+   sovrapposti. Adesso la quota e' una sola in tutt'e due i sensi: una
+   per chi la scrive, e una sola disposizione con e senza fogli. */
+int quotaPercento() { return 96; }
+
+/* «3/9» NELL'ANGOLO IN ALTO A DESTRA, dal 2026-11-09.
+ *
+ * STAVA IN MEZZO, SOTTO LA PERCENTUALE, e per starci aveva alzato di
+ * quattordici pixel tutto quello che aveva sopra — il pallino della penna
+ * e la percentuale. Il conto non tornava e nessuno l'aveva fatto: la
+ * percentuale a corpo 6 e' alta 48 pixel, e fra il bordo basso
+ * dell'etichetta PAUSA (90) e la riga del foglio (132) ce ne sono 42. Il
+ * risultato sulla macchina, visto dall'operatore il 2026-11-09 con due
+ * fogli: «la schermata con il cerchio e la % era frammentata, come se ci
+ * fossero due numeri uno sopra l'altro». Non erano due numeri: era la
+ * prima cifra della percentuale appoggiata sopra alla parola PAUSA.
+ *
+ * NELL'ANGOLO CI STA, e ci sta per costruzione: e' il posto di
+ * un'etichetta di tasto, allineata a destra come loro, e in alto a destra
+ * durante una stampa non c'e' nessun tasto. Da li' non spinge piu' niente
+ * verso l'alto, quindi la percentuale torna a stare dove stava — **una
+ * disposizione sola, con e senza fogli**, che e' anche il modo di non far
+ * tornare mai piu' questa classe di difetto.
+ *
+ * E PERDE LA PAROLA «FOGLIO»: in quell'angolo ci stanno quattro caratteri
+ * («3/12»), non dieci. Non e' una perdita — il numero sta sulla schermata
+ * della stampa, accanto alla percentuale, e «3/9» li' dentro non puo'
+ * voler dire nient'altro.
+ *
+ * Quello che segue e' il ragionamento di quando stava in mezzo, tenuto
+ * perche' spiega perche' da li' e' dovuto andarsene: fra la percentuale e
+ * il tempo che manca ci passa l'etichetta del tasto STOP, che occupa la
+ * fascia 152-162 a
    destra di x=154, e una riga larga come questa ci sbatte dentro. Per
    questo quando il foglio si scrive TUTTO SI ALZA di quattordici pixel --
    il pallino della penna e la percentuale -- e la riga nuova sta nel posto
@@ -1180,9 +1212,16 @@ bool diceIlFoglio() { return S.foglioDi >= 2 && S.foglioN >= 1; }
    quella di prima, che e' il caso della maggior parte delle stampe. */
 void scriviFoglio(int y) {
   if (!diceIlFoglio()) return;
-  char t[18];
-  snprintf(t, sizeof(t), "FOGLIO %d/%d", S.foglioN, S.foglioDi);
-  scrivi(t, y, 2, FIOCO);
+  char t[10];
+  snprintf(t, sizeof(t), "%d/%d", S.foglioN, S.foglioDi);
+  /* Allineata a destra come le etichette dei tasti di quel lato, e alla
+     loro stessa quota: e' il posto che il vetro tiene libero li'. */
+  int w = largo(t, 2);
+  int dx = (int)(R_TESTI * cos(30.0 * DEG_TO_RAD));
+  carrier.display.setTextSize(2);
+  carrier.display.setTextColor(FIOCO);
+  carrier.display.setCursor((CX + dx) - w, y);
+  carrier.display.print(t);
 }
 
 void scriviRimanente(int y) {
@@ -1219,10 +1258,10 @@ void disegnaTutto(Schermata s) {
 
     case STAMPA:
       anello(S.percento, BLU, true);
-      pallino(S.penna, diceIlFoglio() ? 60 : 74);
+      pallino(S.penna, 74);
       snprintf(n, sizeof(n), "%d%%", S.percento < 0 ? 0 : S.percento);
-      scrivi(n, diceIlFoglio() ? 82 : 96, 6, TESTO);
-      scriviFoglio(132);
+      scrivi(n, quotaPercento(), 6, TESTO);
+      scriviFoglio(74);
       scriviRimanente(174);
       break;
 
@@ -1383,9 +1422,23 @@ void aggiornaPezzi(Schermata s) {
   if (s == STAMPA) {
     anello(S.percento, BLU, false);
     if (S.percento != pcDisegnato) {
-      pulisci(96, 48);
+      /* LA STESSA QUOTA DEL DISEGNO INTERO, e dal 2026-11-09 si legge da
+         un posto solo. Qui c'era 96 scritto a mano mentre `disegnaTutto`
+         usa `diceIlFoglio() ? 82 : 96`: con piu' di un foglio la
+         percentuale nasceva a 82 e ogni aggiornamento la ripuliva e la
+         riscriveva a 96. Il risultato sul vetro era la cima del numero
+         vecchio che restava sopra a quello nuovo — «due numeri uno sopra
+         l'altro», detto dall'operatore il 2026-11-09 — e il numero nuovo
+         che andava a sbattere sulla riga del foglio.
+
+         Un difetto che si vede SOLO con piu' fogli: e' nato con la fase
+         3d dello Step 12, che ha alzato di quattordici pixel tutto quello
+         che sta sopra alla riga del foglio, e questa funzione non l'ha
+         saputo. */
+      int y = quotaPercento();
+      pulisci(y, 48);
       snprintf(n, sizeof(n), "%d%%", S.percento < 0 ? 0 : S.percento);
-      scrivi(n, 96, 6, TESTO);
+      scrivi(n, y, 6, TESTO);
       pulisci(174, 16);
       scriviRimanente(174);
       pcDisegnato = S.percento;

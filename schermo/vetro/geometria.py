@@ -19,6 +19,16 @@ SRC = open(os.path.join(QUI, '..', 'telecomando', 'telecomando.ino'),
            encoding='utf-8').read()
 R, C = 93.0, 120
 
+# La quota della percentuale sulla schermata della stampa, letta dal
+# firmware invece che ricopiata: `quotaPercento()` la tiene in un posto
+# solo, e questo controllo la legge da li'.
+_q = re.search(r'int quotaPercento\(\) \{ return (\d+); \}', SRC)
+QUOTA_PC = int(_q.group(1)) if _q else 96
+_p = re.search(r'pallino\(S\.penna, (\d+)\)', SRC)
+QUOTA_PALLINO = int(_p.group(1)) if _p else 74
+_f = re.search(r'scriviFoglio\((\d+)\)', SRC)
+QUOTA_FOGLIO = int(_f.group(1)) if _f else 74
+
 largo = lambda s, k: len(s) * 6 * k - k
 alto = lambda k: 8 * k
 # Ogni casella porta anche un GRUPPO: due righe della stessa etichetta si
@@ -123,8 +133,24 @@ for nome, c in casi(DISEGNA).items():
         fisse.append(centrata('al 100%', int(m.group(1)), int(m.group(2))))
 
     if 'snprintf(n, sizeof(n), "%d%%"' in piatto:   # il peggiore e' "100%"
-        k, y = (6, 96) if nome == 'STAMPA' else (2, 174)
-        fisse.append(centrata('100%', y, k))
+        if nome == 'STAMPA':
+            fisse.append(centrata('100%', QUOTA_PC, 6))
+            # IL PALLINO DELLA PENNA e la TARGHETTA DEL FOGLIO non sono
+            # parole scritte con `scrivi`, quindi nessuno le guardava. Sono
+            # loro due le vicine della percentuale, ed e' li' che il
+            # 2026-11-09 si e' scoperto che non ci stava: la targhetta
+            # stava in mezzo e spingeva tutto in su, fino a infilare la
+            # prima cifra dentro all'etichetta PAUSA.
+            fisse.append(('il pallino', C - 7, QUOTA_PALLINO - 7,
+                          C + 7, QUOTA_PALLINO + 7, None))
+            # Il caso peggiore e' «12/12»: cinque caratteri, allineati a
+            # destra come le etichette di quel lato.
+            w = largo('12/12', 2)
+            dx = int(R * math.cos(math.radians(30)))
+            fisse.append(('12/12', (C + dx) - w, QUOTA_FOGLIO,
+                          C + dx, QUOTA_FOGLIO + alto(2), None))
+        else:
+            fisse.append(centrata('100%', 174, 2))
 
     m = re.search(r'scriviRimanente\((\d+)\)', piatto)
     if m:

@@ -223,6 +223,28 @@ static int accesiNellaFascia(int y, int h, int x0, int x1) {
   return n;
 }
 
+/* Quanti pixel, DENTRO al cerchio delle parole, non sono come dovevano.
+   Fuori c'e' l'anello, che si disegna a pezzi di proposito. */
+static int DIV_X0, DIV_Y0, DIV_X1, DIV_Y1;
+static int diversiDentro(const uint16_t* atteso) {
+  int n = 0;
+  DIV_X0 = DIV_Y0 = 9999; DIV_X1 = DIV_Y1 = -1;
+  for (int y = 0; y < 240; y++) {
+    for (int x = 0; x < 240; x++) {
+      float dx = x - 120.0f, dy = y - 120.0f;
+      if (dx * dx + dy * dy > 93.0f * 93.0f) continue;
+      if (FB[y * 240 + x] != atteso[y * 240 + x]) {
+        n++;
+        if (x < DIV_X0) DIV_X0 = x;
+        if (y < DIV_Y0) DIV_Y0 = y;
+        if (x > DIV_X1) DIV_X1 = x;
+        if (y > DIV_Y1) DIV_Y1 = y;
+      }
+    }
+  }
+  return n;
+}
+
 static void schermata(Schermata s, const char* nome) {
   disegnaTutto(s);
   salva(nome);
@@ -286,13 +308,33 @@ int main() {
   S.foglioN = 3; S.foglioDi = 9;
   disegnaTutto(STAMPA);
 
-  /* E LA RIGA NUOVA NON DEVE TOCCARE NEMMENO LA PERCENTUALE, che e'
-     l'altra meta' del perche' tutto si alza: senza lo spostamento il
-     numero grande arriva fin dove comincia la riga del foglio, e si
-     leggono due scritte sovrapposte. Si pretende un corridoio vuoto anche
-     sopra. */
-  if (accesiNellaFascia(126, 5, 40, 200) != 0) {
-    fprintf(stderr, "KO la riga del foglio tocca la percentuale\n"); exit(1);
+  /* LA TARGHETTA DEL FOGLIO STA NELL'ANGOLO IN ALTO A DESTRA, dal
+     2026-11-09, e questi controlli sono stati rifatti con lei: prima
+     stava in mezzo, sotto la percentuale, e per starci alzava di
+     quattordici pixel tutto quello che aveva sopra. Il conto non tornava
+     — fra il bordo basso di PAUSA (90) e la riga del foglio (132) ci sono
+     42 pixel e la percentuale a corpo 6 ne e' alta 48 — e sulla macchina
+     la prima cifra finiva dentro alla parola PAUSA.
+
+     PRIMO CORRIDOIO: fra la targhetta (e il pallino) e la percentuale.
+     Cinque righe vuote da 91 a 95, per tutta la larghezza. */
+  if (accesiNellaFascia(91, 5, 40, 200) != 0) {
+    fprintf(stderr, "KO fra la targhetta del foglio e la percentuale non "
+                    "c'e' corridoio\n"); exit(1);
+  }
+  /* E LA TARGHETTA C'E' DAVVERO, nell'angolo: senza questo il corridoio
+     qui sopra sarebbe vuoto anche se la targhetta non si disegnasse per
+     niente. */
+  /* LA FINESTRA SI FERMA A 196 E NON A 205, ed e' tutta la differenza fra
+     un controllo e una decorazione: oltre quel bordo, a questa altezza,
+     comincia l'ANELLO (raggio 95,5), che e' acceso sempre. Con la
+     finestra larga fino a 205 questa riga contava i pixel dell'anello e
+     non sarebbe mai stata zero: passava anche con la targhetta disegnata
+     in mezzo al vetro. L'ha trovato il banco delle mutazioni, il
+     2026-11-09, un'ora dopo averla scritta. */
+  if (accesiNellaFascia(74, 16, 150, 196) == 0) {
+    fprintf(stderr, "KO la targhetta del foglio non e' nell'angolo in alto "
+                    "a destra\n"); exit(1);
   }
 
   schermata(STAMPA, "stampa-foglio");
@@ -300,14 +342,86 @@ int main() {
   /* IL NUMERO CAMBIA SENZA CHE CAMBI LA SCHERMATA, ed e' il caso che con
      l'ordine per penna capita di continuo: se il vetro si rifacesse solo
      al cambio di schermata, resterebbe «3/9» fino alla fine della stampa. */
-  /* LA RIGA NUOVA NON DEVE TOCCARE L'ETICHETTA DEL TASTO STOP, che sta
-     nella fascia 152-162 a destra di x=154. E' il motivo per cui scrivendo
-     il foglio tutto il resto si alza: senza, una riga larga come questa ci
-     sbatterebbe dentro e sul vetro si leggerebbero due scritte sovrapposte.
-     Si pretende un corridoio vuoto fra le due. */
-  if (accesiNellaFascia(146, 4, 40, 200) != 0) {
-    fprintf(stderr, "KO la riga del foglio tocca l'etichetta dello STOP\n");
+  /* SECONDO CORRIDOIO: sotto la percentuale e sopra l'etichetta del tasto
+     STOP, che sta nella fascia 150-166 a destra di x=154. Il numero grande
+     finisce a 144: quattro righe vuote fra i due. */
+  if (accesiNellaFascia(145, 4, 40, 200) != 0) {
+    fprintf(stderr, "KO fra la percentuale e l'etichetta dello STOP non c'e' "
+                    "corridoio\n");
     exit(1);
+  }
+  /* E LA PERCENTUALE NON TOCCA L'ETICHETTA PAUSA, che e' il difetto vero
+     del 2026-11-09: PAUSA occupa la fascia 74-90 a sinistra di x=98, e la
+     prima cifra del numero ci finiva dentro. Il corridoio di sopra lo
+     dice gia' per la sua fascia; questo guarda proprio l'angolo. */
+  if (accesiNellaFascia(82, 9, 40, 98) == 0) {
+    fprintf(stderr, "KO l'etichetta PAUSA non c'e' piu': il controllo "
+                    "guarderebbe un angolo vuoto\n"); exit(1);
+  }
+
+  /* ============ AGGIORNARE NON E' RIDISEGNARE A META' ============
+   *
+   * Il 2026-11-09, con due fogli sul piano: «la schermata con il cerchio
+   * e la % era frammentata, come se ci fossero due numeri uno sopra
+   * l'altro». Era vero: il disegno intero metteva la percentuale a 82 —
+   * alzata di quattordici pixel per far posto alla riga del foglio, fase
+   * 3d dello Step 12 — e l'aggiornamento del solo numero la ripuliva e la
+   * riscriveva a 96, dove stava PRIMA di quella fase. Restava la cima del
+   * numero vecchio, e quello nuovo finiva sulla riga del foglio.
+   *
+   * LA REGOLA, ed e' piu' generale del difetto: dopo un aggiornamento il
+   * vetro deve essere IDENTICO a come lo disegnerebbe un giro intero.
+   * Qualunque cosa si muova, se le due strade non dicono la stessa cosa
+   * una delle due ha torto. */
+  {
+    S.foglioN = 3; S.foglioDi = 9;
+    S.percento = 41;
+    disegnaTutto(STAMPA);
+    static uint16_t ATTESO[240 * 240];
+    memcpy(ATTESO, FB, sizeof(ATTESO));
+
+    S.percento = 37;
+    disegnaTutto(STAMPA);
+    pcDisegnato = 37;
+    S.percento = 41;
+    aggiornaPezzi(STAMPA);
+
+    /* SI GUARDA DENTRO AL CERCHIO DELLE PAROLE, raggio 93, e l'anello
+       resta fuori apposta: l'anello si disegna A PEZZI di proposito — solo
+       il settore nuovo, per non farlo tremolare a ogni punto percentuale —
+       quindi sul suo bordo le due strade danno qualche pixel diverso ed e'
+       giusto cosi'. Dentro, invece, non c'e' niente che si possa
+       permettere di essere diverso. */
+    int diversi = diversiDentro(ATTESO);
+    if (diversi) {
+      salva("stampa-aggiornata");
+      fprintf(stderr, "KO aggiornando la percentuale il vetro non torna "
+                      "come lo disegnerebbe un giro intero: %d pixel diversi "
+                      "fra x %d-%d e y %d-%d (vedi fuori/stampa-aggiornata.ppm)\n",
+              diversi, DIV_X0, DIV_X1, DIV_Y0, DIV_Y1);
+      exit(1);
+    }
+
+    /* E con UN foglio solo, dove la percentuale sta piu' in basso, deve
+       valere lo stesso: le due quote sono due, e un controllo su una sola
+       non direbbe niente dell'altra. */
+    S.foglioN = 0; S.foglioDi = 0;
+    S.percento = 41;
+    disegnaTutto(STAMPA);
+    memcpy(ATTESO, FB, sizeof(ATTESO));
+    S.percento = 37;
+    disegnaTutto(STAMPA);
+    pcDisegnato = 37;
+    S.percento = 41;
+    aggiornaPezzi(STAMPA);
+    diversi = diversiDentro(ATTESO);
+    if (diversi) {
+      fprintf(stderr, "KO con un foglio solo l'aggiornamento lascia %d "
+                      "pixel diversi\n", diversi);
+      exit(1);
+    }
+    S.foglioN = 3; S.foglioDi = 9; S.percento = 67;
+    disegnaTutto(STAMPA);
   }
 
   /* I NUMERI ARRIVANO DAVVERO NELLA SCRITTA. Il vetro finto disegna
