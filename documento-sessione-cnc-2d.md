@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 86
-**Ultimo aggiornamento:** 2026-11-09 18:55
+**Versione:** 87
+**Ultimo aggiornamento:** 2026-11-09 19:04
 
 ## Regole di co-editing
 
@@ -927,9 +927,34 @@ quello che era.
 - [2026-11-09] **Lavori 3 e 5 fatti, e provati sulla macchina.** Il firmware è stato caricato dall'utente e una stampa a due fogli è andata in porto **a batteria**: «tutto ha funzionato correttamente». Con quel caricamento sono arrivate sulla scheda anche tutte le correzioni di mezzo — vedi la voce di storico del 2026-11-09, perché fra il caricamento e la stampa buona ci sono stati due guasti e tre difetti trovati.
 - [2026-11-09] **Lavoro 5 fatto: il tasto che chiude il racconto.** `FINE` e `FERMATA` hanno un tasto in alto a sinistra che riporta alla schermata Pronta; i tre minuti restano, e sono per chi passa domani. Consegnato all'utente il file da caricare, che porta anche il **lavoro 3** — il firmware sulla scheda è fermo al 2026-11-03, quindi con lo stesso caricamento arrivano il «FOGLIO 3/9» della fase 3d e tutto quello di mezzo. **L'utente ha confermato che non l'aveva ancora caricato:** il dubbio aperto nello Step 12 è quindi sciolto nel verso previsto — durante la stampa dei nove magneti il vetro il numero del foglio NON l'ha detto, perché quel firmware non c'era.
 
+### Step 14 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
+
+**Stato:** da fare — **da cominciare quando gli altri lavori sono chiusi**, per decisione dell'utente il 2026-11-09. Si segna adesso perché è il tipo di lavoro che non si ricorda da sé, e perché farlo prima della fine vorrebbe dire buttare via roba che serve ancora.
+
+**Obiettivo:** avere chiaro, file per file, che cosa contiene il repository, e che di ogni file si sappia dire una delle tre cose: **serve** (e a che cosa), **è storia** (non serve più ma racconta come ci siamo arrivati, quindi resta), **è superato** (va via). A fine step il repository non ha file che nessuno sa spiegare.
+
+**Come si farà:** una **scansione completa** — oggi sono 192 file censiti, divisi in `webui/` (63), `stampe/` (30), `gcode/` (30), `schermo/` (22), `firmware/` (21), `misure/` (7), `content/` (7), `logo/` (5), `modulo-penna/` (3) e 4 in radice — con una proposta per ciascuno, e **la decisione la prende l'utente**: io porto l'elenco diviso nei tre gruppi, con il perché di ogni riga, e non cancello niente prima della sua risposta.
+
+I sospetti, da verificare quando si arriva allo step e non prima:
+- i **G-code generati** in `gcode/`, che sono il prodotto di una stampa già fatta e si rigenerano dal SLICER in un secondo;
+- i **disegni di collaudo** sostituiti da versioni più nuove;
+- gli **sketch e le configurazioni di passaggio** del firmware, dove una prova di bring-up può essere stata soppiantata da quella definitiva;
+- i **README di cartella** che si sono disallineati dal codice che descrivono — qui il lavoro non è cancellare, è correggere;
+- i **banchi di prova** in `webui/tools/`, che invece **non** sono candidati: un collaudo vecchio è una rete di sicurezza, non un residuo.
+
+**Decisioni progettuali:**
+- **Togliere un file da GitHub non è perderlo.** La storia resta: un file cancellato si rilegge con `git show <commit>:<percorso>`, come già accaduto alle tre varianti del logo del 27 ottobre (`git show 5c50952`). Quindi «va via» significa *sparisce dalla cartella di lavoro*, e il costo dell'errore è basso — ma per questo la cancellazione va **sempre accompagnata dal commit che la contiene**, citato nel documento, altrimenti nessuno sa dove ripescarla.
+- **Non si cancella per fare ordine estetico.** Un file si toglie se è *superato* (c'è qualcosa che fa la stessa cosa meglio) o se è *rigenerabile in un gesto*. Un file brutto ma unico resta.
+- **Il peso non è il motivo.** Il repository sta in 350 kB compressi: non c'è nessun problema di spazio da risolvere. Il motivo è uno solo — **poter aprire una cartella e capirla**.
+
+**Criterio di completamento:** l'utente scorre l'elenco e per ogni riga sa dire se tiene o toglie; le righe da togliere sono tolte in uno o pochi commit che le elencano; e in radice c'è una mappa breve delle cartelle, così che la domanda «cosa c'è qui dentro?» non richieda un'altra scansione fra un mese.
+
+**Note (cronologia dello step):**
+- [2026-11-09] Step aperto su richiesta dell'utente, da fare **per ultimo**: «lo faremo quando avremo finito, intanto segnatela». Nessuna scansione fatta: a questo punto c'è solo il censimento grossolano per cartella scritto qui sopra.
+
 ## Storico sessioni
 
-### [2026-11-09 18:55] (telecomando) Tre difetti incastrati, e una stampa che finisce col telecomando acceso
+### [2026-11-09 19:04] (telecomando) Tre difetti incastrati, e una stampa che finisce col telecomando acceso
 
 **Riepilogo:** caricato il firmware, il telecomando moriva a ogni stampa; sotto c'erano **tre difetti che si tenevano in piedi a vicenda** — un cursore che mostrava un numero falso, una risposta che nessuno leggeva, e un'attesa senza uscita dentro al cicalino — più un quarto, la schermata della stampa che con più fogli si sovrapponeva a sé stessa. Alla fine una stampa a due fogli, a batteria, col telecomando che racconta tutto: «tutto ha funzionato correttamente».
 
@@ -976,7 +1001,7 @@ quello che era.
 
 **File consegnati/modificati:** `schermo/telecomando/telecomando.ino` (consegnato tre volte all'utente da caricare: diagnosi, correzione del cicalino, disposizione nuova), `schermo/vetro/vetro.cpp`, `schermo/vetro/geometria.py`, `schermo/vetro/vetro.sh`, `webui/js/telecomando.js`, `webui/js/settings.js`, `webui/tools/prova-telecomando.js`, `webui/tools/rompi.py`; pagina **v114** consegnata; questo documento (v86).
 
-**Impatto su Vision/Pipeline:** Step 13 da uno a **due lavori fatti su cinque** (il tasto e il firmware ricaricato); Step 12 con il criterio **completo**, telecomando compreso; note nuove allo Step 4 (il cursore che mentiva) e allo Step 9 (il cicalino che piantava il giro).
+**Impatto su Vision/Pipeline:** Step 13 da uno a **due lavori fatti su cinque** (il tasto e il firmware ricaricato); Step 12 con il criterio **completo**, telecomando compreso; note nuove allo Step 4 (il cursore che mentiva) e allo Step 9 (il cicalino che piantava il giro). Aperto lo **Step 14 — Pulizia su GitHub**, su richiesta dell'utente: una scansione di tutto quello che c'è in repository per decidere file per file cosa resta e cosa va via, da fare **per ultima**, dopo gli altri lavori.
 
 ---
 
