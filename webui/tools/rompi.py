@@ -1731,6 +1731,82 @@ MUTAZIONI = [
         vede="trascinando dall'elenco dell'editor",
         prova="prova-piano.js",
     ),
+    # ---- IL TASTO CHE CHIUDE IL RACCONTO DI FINE STAMPA (2026-11-09) ----
+    dict(
+        nome="il racconto si chiude solo col tempo, non col tasto",
+        file='../schermo/telecomando/telecomando.ino',
+        da='bool raccontoFinito() { return raccontoChiuso || raccontoScaduto(); }',
+        a='bool raccontoFinito() { return raccontoScaduto(); }',
+        vede='il tasto non chiude il racconto della fine',
+        prova='vetro.sh',
+    ),
+    dict(
+        nome='le schermate di fine stampa tornano senza tasti',
+        file='../schermo/telecomando/telecomando.ino',
+        da="""    case FINE:
+    case FERMATA:
+      out[0] = { ALTO_SX, "OK", BLU, "", "", true };
+      return 1;""",
+        a='',
+        vede='il tasto non chiude il racconto della fine',
+        prova='vetro.sh',
+    ),
+    dict(
+        nome='il tasto c\'e` sulla fine ma non sulla fermata',
+        file='../schermo/telecomando/telecomando.ino',
+        da="""    case FINE:
+    case FERMATA:
+      out[0] = { ALTO_SX, "OK", BLU, "", "", true };""",
+        a="""    case FINE:
+      out[0] = { ALTO_SX, "OK", BLU, "", "", true };""",
+        vede='il tasto non chiude il racconto della fermata',
+        prova='vetro.sh',
+    ),
+    dict(
+        nome="il tasto che chiude torna a essere un tasto qualunque",
+        file='../schermo/telecomando/telecomando.ino',
+        da="""    if (t[i].chiude) {""",
+        a="""    if (false) {""",
+        vede='il tasto non chiude il racconto della fine',
+        prova='vetro.sh',
+    ),
+    dict(
+        nome='il racconto chiuso una volta resta chiuso per sempre',
+        file='../schermo/telecomando/telecomando.ino',
+        da='                 ? millis() : 0;\n    raccontoChiuso = false;',
+        a='                 ? millis() : 0;',
+        vede="chiuso una volta, la fine non si vede mai piu'",
+        prova='vetro.sh',
+    ),
+    dict(
+        nome='qualunque pad preme qualunque tasto',
+        file='../schermo/telecomando/telecomando.ino',
+        da='    if (!carrier.Buttons.onTouchDown(padDi(t[i].dove))) continue;',
+        a='    if (!carrier.Buttons.onTouchDown(padDi(BASSO_DX))) continue;',
+        vede='un pad qualunque chiude il racconto',
+        prova='vetro.sh',
+    ),
+    # La geometria del vetro la guarda controlla.sh, non vetro.sh: sono due
+    # banchi diversi sullo stesso firmware, e questa mutazione serve a
+    # provare che il controllo della geometria conosce la pila e i simboli
+    # — cioe' le due cose su cui questo tasto stava per finire sopra.
+    dict(
+        nome='il tasto di fine stampa messo in basso, sopra alla pila',
+        file='../schermo/telecomando/telecomando.ino',
+        da='      out[0] = { ALTO_SX, "OK", BLU, "", "", true };',
+        a='      out[0] = { BASSO, "OK", BLU, "", "", true };',
+        vede='si toccano',
+        prova='controlla.sh',
+    ),
+    dict(
+        nome='la parola lunga del tasto, addosso al simbolo',
+        file='../schermo/telecomando/telecomando.ino',
+        da='      out[0] = { ALTO_SX, "OK", BLU, "", "", true };',
+        a='      out[0] = { ALTO_SX, "CHIUDI", BLU, "", "", true };',
+        vede='si toccano',
+        prova='controlla.sh',
+    ),
+
     # ---- LA SCHEDA DEI FOGLI: preset, misure, matita, cestino (2026-11-08) ----
     dict(
         nome="la scheda torna a chiamarsi «Foglio»",

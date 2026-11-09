@@ -117,8 +117,13 @@ enum Spina { A_BATTERIA, IN_CARICA, PIENA, FERMA };
 /* `sotto` è la SECONDA RIGA, quando una parola sola non basta a dire che
    cosa fa il tasto. Sta in fondo apposta: le etichette di una riga si
    scrivono come prima e il campo resta vuoto da sé. */
+/* `chiude` e' il terzo mestiere che un tasto puo' fare, dopo «manda una
+   parola al SLICER» e «arma lo stop»: chiudere il racconto di fine stampa
+   senza mandare niente a nessuno. Sta in fondo alla struttura apposta —
+   i tasti scritti prima del 2026-11-09 non lo nominano e lo prendono
+   `false` da se', che e' quello che facevano gia'. */
 struct Tasto { Posto dove; const char* parola; uint16_t colore;
-               const char* manda; const char* sotto; };
+               const char* manda; const char* sotto; bool chiude; };
 const int MAX_TASTI = 2;
 
 struct Nota { int hz; int ms; };    // hz = 0: silenzio
@@ -238,6 +243,26 @@ bool raccontoScaduto() {
   return raccontaDa && (millis() - raccontaDa > RACCONTO_MS);
 }
 
+/* E IL RACCONTO SI PUO' CHIUDERE A MANO, dal 2026-11-09, chiesto
+ * dall'operatore: «poter cliccare uno dei pulsanti dopo la fine o
+ * l'annullamento della stampa per tornare alla schermata base».
+ *
+ * I tre minuti restano, e non sono in concorrenza: la scadenza serve a chi
+ * passa la mattina dopo e trova il vetro che racconta ieri, il tasto serve
+ * a chi e' li' davanti, ha letto, e vuole il telecomando pronto adesso.
+ * Due modi di arrivare allo stesso posto, uno per il tempo e uno per le
+ * dita.
+ *
+ * E' una variabile e non un `raccontaDa = 0`, che sarebbe stato piu'
+ * corto: azzerare l'orologio vorrebbe dire anche dimenticare QUANDO la
+ * stampa e' finita, e quel momento serve a `raccontoScaduto()` — se poi
+ * arriva un altro messaggio con lo stesso stato «fine», senza l'orologio
+ * il racconto ricomincerebbe da capo. Si rimette a `false` al primo
+ * cambio di stato: vedi dove si scrive `raccontaDa`. */
+bool raccontoChiuso = false;
+
+bool raccontoFinito() { return raccontoChiuso || raccontoScaduto(); }
+
 Schermata quale() {
   if (armato)  return tenendo ? STOP_TIENI : STOP_ARMATO;
   if (!vivo()) return ATTESA;
@@ -258,8 +283,8 @@ Schermata quale() {
     if (S.passo >= 2) return PENNA3;
     return S.passo >= 1 ? PENNA2 : PENNA1;
   }
-  if (!strcmp(S.stato, "fermata")) return raccontoScaduto() ? PRONTA : FERMATA;
-  if (!strcmp(S.stato, "fine"))       return raccontoScaduto() ? PRONTA : FINE;
+  if (!strcmp(S.stato, "fermata")) return raccontoFinito() ? PRONTA : FERMATA;
+  if (!strcmp(S.stato, "fine"))       return raccontoFinito() ? PRONTA : FINE;
   if (!strcmp(S.stato, "errore")) return ERRORE;
   return PRONTA;
 }
@@ -345,8 +370,30 @@ int tastiDi(Schermata s, Tasto* out) {
     case STOP_TIENI:
       out[0] = { BASSO_DX, "TIENI",    ROSSO, "" };
       return 1;
+    /* LE DUE SCHERMATE DI FINE HANNO UN TASTO SOLO, e sta IN ALTO A
+       SINISTRA e non in basso al centro come gli altri «fatto» di questo
+       telecomando. Il motivo e' che in basso, qui, c'e' gia' roba: su
+       FERMATA la percentuale a cui la stampa si e' interrotta (y 158) e su
+       tutt'e due la pila rossa sotto il 20% (y 196). Un'etichetta in basso
+       al centro cadrebbe sopra l'una o sopra l'altra — cioe' coprirebbe
+       l'unico numero per cui quella schermata esiste.
+       Il colore e' BLU come PAUSA e RIPRENDI: e' un'azione che non tocca
+       la macchina, e il verde e il rosso qui vogliono dire altro.
+       E LA PAROLA E' CORTA PER FORZA: «CHIUDI» larga settanta pixel
+       arrivava a x 110, e li' comincia il simbolo — il cerchio del
+       divieto sta da 96 a 144, la spunta da 98. Due lettere ci stanno
+       senza toccare niente, e su una schermata che dice gia' FATTO o
+       FERMATA al 43%, «OK» non ha bisogno di spiegare altro. Il
+       controllo della geometria (`schermo/vetro/geometria.py`) adesso
+       conosce i simboli e la pila, quindi questa collisione la trova da
+       se': l'ha trovata davvero, due volte, mentre si sceglieva dove
+       mettere questo tasto. */
+    case FINE:
+    case FERMATA:
+      out[0] = { ALTO_SX, "OK", BLU, "", "", true };
+      return 1;
     default:
-      return 0;   // Pronta, Finita, Errore, In attesa: nessun tasto vivo
+      return 0;   // Pronta, Errore, In attesa: nessun tasto vivo
   }
 }
 
@@ -2076,9 +2123,14 @@ void leggiMessaggio(const char* corpo) {
     if (strcmp(S.stato, "invio") && strcmp(S.stato, "pausa") &&
         strcmp(S.stato, "cambio")) fermandoDa = 0;
 
-    /* E il racconto comincia adesso: tre minuti e il vetro torna Pronta. */
+    /* E il racconto comincia adesso: tre minuti e il vetro torna Pronta.
+       `raccontoChiuso` si rimette a false QUI e non altrove: lo stato e'
+       cambiato, quindi quello che si era chiuso riguardava la stampa di
+       prima. Senza questa riga, chiuso una volta il racconto, la fine
+       della stampa dopo non si vedrebbe mai piu'. */
     raccontaDa = (!strcmp(S.stato, "fine") || !strcmp(S.stato, "fermata"))
                  ? millis() : 0;
+    raccontoChiuso = false;
   }
   if (S.passo != passoPrima) sveglia();
 }
@@ -2247,7 +2299,13 @@ void leggiTasti(Schermata s) {
     if (!carrier.Buttons.onTouchDown(padDi(t[i].dove))) continue;
     sveglia();
     fermaRichiamo();                 // sei arrivato: il richiamo smette
-    if (t[i].manda[0]) {
+    if (t[i].chiude) {
+      /* Non si manda niente al SLICER: il racconto e' roba del vetro, e
+         il SLICER di questa schermata non sa nulla — continuera' a dire
+         «fine» finche' non parte un'altra stampa. */
+      raccontoChiuso = true;
+      schermoDisegnato = NESSUNA;
+    } else if (t[i].manda[0]) {
       manda(t[i].manda);
     } else {
       /* L'unico tasto senza parola da mandare è STOP, che qui non manda

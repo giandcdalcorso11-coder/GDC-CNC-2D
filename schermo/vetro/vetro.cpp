@@ -101,8 +101,16 @@ void Leds::setPixelColor(int, int, int, int) {}
 void Leds::show() {}
 bool Qtouch::update() { return true; }
 int TOCCO_FINTO = -1;                /* quale pad e' toccato, -1 nessuno */
+/* IL FRONTE, cioe' «premuto proprio adesso», e non il livello: e' quello
+   che guardano i tasti veri (`onTouchDown` in `leggiTasti`), mentre
+   `getTouch` lo guardano solo il richiamo e la tenuta dello stop. Finche'
+   questo tornava sempre `false` nessuna prova poteva premere un tasto:
+   si poteva collaudare quello che il vetro DISEGNA, non quello che fa un
+   dito. Resta -1 quando nessuno lo tocca, quindi le prove scritte prima
+   non cambiano di una virgola. */
+int DOWN_FINTO = -1;
 bool Qtouch::getTouch(touchButtons p) { return (int)p == TOCCO_FINTO; }
-bool Qtouch::onTouchDown(touchButtons) { return false; }
+bool Qtouch::onTouchDown(touchButtons p) { return (int)p == DOWN_FINTO; }
 bool Qtouch::onTouchUp(touchButtons) { return false; }
 int BUZ_HZ = 0;                      /* l'ultima nota chiesta a tone() */
 void Buz::sound(int f) { BUZ_HZ = f; }
@@ -349,6 +357,11 @@ int main() {
   schermata(FERMANDO, "fermando");
   S.percento = 67;
   schermata(FINE, "fine");
+  /* E la FERMATA, che fino al 2026-11-09 non si disegnava: era
+     l'unica schermata di cui nessuno aveva mai guardato il ritratto,
+     ed e' una di quelle che adesso porta un tasto. */
+  { int pc = S.percento; S.percento = 43;
+    schermata(FERMATA, "fermata"); S.percento = pc; }
   schermata(ERRORE, "errore");
   schermata(ATTESA, "attesa");
 
@@ -503,6 +516,72 @@ int main() {
   if (quale() != PRONTA) {
     fprintf(stderr, "KO dopo tre minuti racconta ancora la fine\n"); exit(1);
   }
+  /* ============ IL TASTO CHE CHIUDE IL RACCONTO ============
+     Chiesto dall'operatore il 2026-11-09: dopo la fine o l'annullamento
+     di una stampa si deve poter tornare alla schermata base con un tasto,
+     invece di aspettare i tre minuti. Le due strade convivono: la
+     scadenza e' per chi passa domani, il tasto per chi e' li' adesso. */
+  raccontoChiuso = false;
+  strcpy(S.stato, "fine"); raccontaDa = OROLOGIO; ultimoMessaggio = OROLOGIO;
+  if (quale() != FINE) { fprintf(stderr, "KO la fine non si vede\n"); exit(1); }
+
+  /* UN PAD QUALUNQUE NON CHIUDE NIENTE. Il tasto e' uno, scritto sul
+     vetro: se bastasse un pad qualsiasi, appoggiare il telecomando sul
+     tavolo cancellerebbe il racconto senza che nessuno l'abbia letto. */
+  DOWN_FINTO = (int)padDi(BASSO_DX);
+  leggiTasti(FINE);
+  DOWN_FINTO = -1;
+  if (quale() != FINE) {
+    fprintf(stderr, "KO un pad qualunque chiude il racconto\n"); exit(1);
+  }
+
+  /* E IL TASTO LO CHIUDE. */
+  daMandare[0] = 0;
+  DOWN_FINTO = (int)padDi(ALTO_SX);
+  leggiTasti(FINE);
+  DOWN_FINTO = -1;
+  if (quale() != PRONTA) {
+    fprintf(stderr, "KO il tasto non chiude il racconto della fine\n"); exit(1);
+  }
+  /* E NON MANDA NIENTE AL SLICER. Il racconto e' roba del vetro: una
+     parola che partisse di qui arriverebbe a un programma che non sa che
+     cosa farsene, e il protocollo e' quello che tiene insieme i due. */
+  if (daMandare[0]) {
+    fprintf(stderr, "KO chiudendo il racconto ha mandato «%s» al SLICER\n",
+            daMandare); exit(1);
+  }
+
+  /* LO STESSO SULLA FERMATA, che e' l'altra meta' della richiesta: una
+     stampa annullata e' proprio quella che non vuoi vederti davanti per
+     tre minuti. */
+  raccontoChiuso = false;
+  strcpy(S.stato, "fermata"); raccontaDa = OROLOGIO;
+  if (quale() != FERMATA) { fprintf(stderr, "KO la fermata non si vede\n"); exit(1); }
+  DOWN_FINTO = (int)padDi(ALTO_SX);
+  leggiTasti(FERMATA);
+  DOWN_FINTO = -1;
+  if (quale() != PRONTA) {
+    fprintf(stderr, "KO il tasto non chiude il racconto della fermata\n"); exit(1);
+  }
+
+  /* E LA STAMPA DOPO SI VEDE LO STESSO. E' la trappola di una variabile
+     che si accende e non si spegne: chiuso il racconto una volta, senza
+     il ritorno a `false` al cambio di stato la fine della stampa
+     successiva non comparirebbe MAI piu' — e il telecomando smetterebbe
+     di dire l'unica cosa per cui lo guardi da lontano. */
+  /* Si passa dal vero parsing del messaggio, `leggiMessaggio`, e non si
+     scrive `S.stato` a mano: il ritorno a `false` sta proprio nel giro che
+     si accorge del cambio di stato, e scrivendo la variabile da fuori
+     quel giro non succederebbe — la prova direbbe «va bene» guardando un
+     codice che non e' stato eseguito. */
+  leggiMessaggio("{\"stato\":\"invio\",\"percento\":10}");
+  leggiMessaggio("{\"stato\":\"fine\"}");
+  ultimoMessaggio = OROLOGIO;
+  if (quale() != FINE) {
+    fprintf(stderr, "KO chiuso una volta, la fine non si vede mai piu'\n"); exit(1);
+  }
+  raccontoChiuso = false; raccontaDa = 0;
+
   /* I TRE PASSI DEL CAMBIO PENNA. Dal 2026-11-03 sono tre e non due: dopo
      aver montato la penna nuova si va a ritrovarne la PUNTA, che non sta
      dove stava quella di prima. Senza il terzo caso qui sotto il vetro

@@ -34,8 +34,22 @@ DISEGNA = blocco('void disegnaTutto(')
 TASTIDI = blocco('int tastiDi(')
 
 def casi(testo):
+    """I `case` di uno switch, col corpo di ciascuno.
+
+    DUE `case` DI FILA CONDIVIDONO IL CORPO — `case FINE: case FERMATA:`
+    sono la stessa schermata vista da due stati — e il primo dei due qui
+    risulterebbe vuoto: cioe' una schermata senza tasti, cioe' un
+    controllo che non guarda niente. Il corpo si prende dal primo `case`
+    successivo che ne ha uno."""
     out, pezzi = {}, re.split(r'\n\s*case (\w+):', testo)
-    for nome, corpo in zip(pezzi[1::2], pezzi[2::2]):
+    nomi = list(pezzi[1::2])
+    corpi = list(pezzi[2::2])
+    for i, nome in enumerate(nomi):
+        corpo = corpi[i]
+        j = i
+        while corpo.strip() == '' and j + 1 < len(corpi):
+            j += 1
+            corpo = corpi[j]
         out[nome] = corpo
     return out
 
@@ -61,7 +75,12 @@ def etichetta(parola, posto, sotto=''):
     return fuori
 
 # posto, parola, e la seconda riga se c'e'
-TASTI = {n: re.findall(r'\{\s*(\w+),\s*"([^"]*)",\s*\w+,\s*"[^"]*"(?:,\s*"([^"]*)")?\s*\}', c)
+# posto, parola, e la seconda riga se c'e'. I campi dopo la seconda riga
+# (`chiude`, dal 2026-11-09) non riguardano la geometria e si saltano: ma
+# vanno PREVISTI, se no la riga non viene riconosciuta affatto e il tasto
+# sparisce dal controllo senza che nessuno lo dica.
+TASTI = {n: re.findall(r'\{\s*(\w+),\s*"([^"]*)",\s*\w+,\s*"[^"]*"'
+                       r'(?:,\s*"([^"]*)")?(?:,\s*\w+)*\s*\}', c)
          for n, c in casi(TASTIDI).items()}
 ko = 0
 
@@ -94,6 +113,15 @@ for nome, c in casi(DISEGNA).items():
         w = largo(t, k) + 10 + 14
         fisse.append((t + ' ●', C - w // 2, y, C - w // 2 + w, y + alto(k), None))
 
+    # FERMATA: «al 100%», il caso peggiore della riga che dice a che punto
+    # la stampa si e' interrotta. Si scrive con `snprintf(dove, ...)`, non
+    # con `n`, quindi la riga qui sotto non la vedeva: il controllo diceva
+    # «FERMATA 1 parola» e un'etichetta messa li' sopra sarebbe passata.
+    m = re.search(r'snprintf\(dove, sizeof\(dove\), "al %d%%".*?scrivi\(dove,\s*(\d+),\s*(\d+)',
+                  piatto)
+    if m:
+        fisse.append(centrata('al 100%', int(m.group(1)), int(m.group(2))))
+
     if 'snprintf(n, sizeof(n), "%d%%"' in piatto:   # il peggiore e' "100%"
         k, y = (6, 96) if nome == 'STAMPA' else (2, 174)
         fisse.append(centrata('100%', y, k))
@@ -101,6 +129,32 @@ for nome, c in casi(DISEGNA).items():
     m = re.search(r'scriviRimanente\((\d+)\)', piatto)
     if m:
         fisse.append(centrata('~999 min', int(m.group(1)), 2))
+
+    # NEMMENO I SIMBOLI SONO PAROLE, e sono grossi: il divieto e' un
+    # cerchio di raggio 24 attorno all'asse, la spunta un segno largo 46 e
+    # alto 33. Sono il secondo ostacolo che un'etichetta nuova rischia di
+    # investire, dopo la pila — ed e' successo davvero: «CHIUDI» in alto a
+    # sinistra arrivava a x 110 e il cerchio del divieto comincia a 96.
+    # Le misure sono quelle di `simboloDivieto` e `simboloSpunta`.
+    for y in re.findall(r'simboloDivieto\((\d+)', piatto):
+        y = int(y)
+        fisse.append(('il divieto', C - 24, y - 24, C + 24, y + 24, None))
+    for y in re.findall(r'simboloSpunta\((\d+)', piatto):
+        y = int(y)
+        fisse.append(('la spunta', C - 22, y - 14, C + 24, y + 19, None))
+
+    # LA PILA NON E' UNA PAROLA, ma occupa vetro come una — ed e' lei che
+    # stava per farsi investire: un'etichetta in basso al centro su FINE o
+    # FERMATA sarebbe caduta esattamente sul disegno della batteria scarica
+    # (y 196, alta 13). Le misure sono quelle di `pila()` nel firmware:
+    # 26 x 13 piu' 4 di becco, centrata, con il numero accanto quando si
+    # scrive anche quello.
+    for y, num in re.findall(r'pila\(batteria,\s*(\d+),\s*(true|false)\)', piatto):
+        y = int(y)
+        wn = largo('100%', 2) + 6 if num == 'true' else 0
+        w = 26 + 4 + wn
+        x = C - w // 2
+        fisse.append(('la pila', x, y, x + w, y + 13, None))
 
     for posto, parola, sotto in TASTI.get(nome, []):
         fisse.extend(etichetta(parola, posto, sotto))
