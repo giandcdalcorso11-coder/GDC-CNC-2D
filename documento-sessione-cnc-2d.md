@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 87
-**Ultimo aggiornamento:** 2026-11-09 19:04
+**Versione:** 88
+**Ultimo aggiornamento:** 2026-11-09 19:18
 
 ## Regole di co-editing
 
@@ -927,7 +927,48 @@ quello che era.
 - [2026-11-09] **Lavori 3 e 5 fatti, e provati sulla macchina.** Il firmware è stato caricato dall'utente e una stampa a due fogli è andata in porto **a batteria**: «tutto ha funzionato correttamente». Con quel caricamento sono arrivate sulla scheda anche tutte le correzioni di mezzo — vedi la voce di storico del 2026-11-09, perché fra il caricamento e la stampa buona ci sono stati due guasti e tre difetti trovati.
 - [2026-11-09] **Lavoro 5 fatto: il tasto che chiude il racconto.** `FINE` e `FERMATA` hanno un tasto in alto a sinistra che riporta alla schermata Pronta; i tre minuti restano, e sono per chi passa domani. Consegnato all'utente il file da caricare, che porta anche il **lavoro 3** — il firmware sulla scheda è fermo al 2026-11-03, quindi con lo stesso caricamento arrivano il «FOGLIO 3/9» della fase 3d e tutto quello di mezzo. **L'utente ha confermato che non l'aveva ancora caricato:** il dubbio aperto nello Step 12 è quindi sciolto nel verso previsto — durante la stampa dei nove magneti il vetro il numero del foglio NON l'ha detto, perché quel firmware non c'era.
 
-### Step 14 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
+### Step 14 — I riempimenti: riconoscere le forme chiuse e riempirle
+
+**Stato:** da fare — aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
+
+**Obiettivo:** che un livello «pieno» si possa stampare **pieno**, con un tipo di riempimento scelto, e non solo come contorno vuoto.
+
+**Prima metà: riconoscere le forme chiuse.** Un pezzo c'è già e non va rifatto:
+ogni sotto-tracciato porta il suo `chiuso`, preso dal comando `Z` del file
+(`svgpath.js`), l'ottimizzatore lo usa già per cominciare un contorno chiuso da
+dove gli conviene, e l'importatore distingue già la **tinta di bordo** dalla
+**tinta di riempimento** (`svgimport.js`, `piena: true`), mettendo le piene in
+un livello spento ma recuperabile. Quello che manca:
+
+- la forma chiusa **di fatto ma non col `Z`**: primo e ultimo nodo coincidenti entro tolleranza, caso frequentissimo nei file esportati;
+- i **buchi**. Un SVG li fa con `fill-rule` (`evenodd` o `nonzero`), e oggi quella proprietà **non è letta in nessun punto del codice**: una ciambella verrebbe riempita tutta, tappo compreso. È il primo vero lavoro di questo step, non un dettaglio;
+- le forme che **si auto-intersecano**, dove «dentro» non è una domanda con una risposta sola;
+- i tracciati **disegnati nell'editor**, che chiusi non nascono: va deciso se li chiude l'utente con un gesto o se li chiudiamo noi quando i capi si toccano.
+
+**Seconda metà: i tipi di riempimento.** Ognuno è un generatore che prende un
+poligono con i suoi buchi e restituisce tratti, che poi passano
+dall'ottimizzatore già esistente — salda i contigui e riordina. In ordine di
+valore:
+
+1. **Tratteggio** a un angolo e un passo: il caso base, e la base di tutti gli altri.
+2. **Serpentina**: lo stesso tratteggio, ma unito ai capi — un tratto solo invece di N. Non è un vezzo: ogni alzata di penna costa circa mezzo secondo, e la regola dell'ottimizzazione in questo progetto è **il tempo, non la distanza**. Su una forma grande è la differenza fra un minuto e dieci.
+3. **Tratteggio incrociato**, due passate a un angolo fra loro, per coprire di più senza stringere il passo.
+4. **Contorni concentrici** (offset verso l'interno): seguono la forma invece di tagliarla, ed è la resa che somiglia al disegno a mano.
+5. **Spirale**, pulita sulle forme convesse e problematica sulle altre.
+6. **Punti (stippling)** e **scarabocchio**: resa artistica più che copertura, da fare per ultime.
+
+**Decisioni progettuali (da prendere — nessuna è ancora presa):**
+- **Il passo del tratteggio non è un numero libero: nasce dallo spessore del tratto della penna**, che il livello porta già dal 2026-11-03. Passo uguale allo spessore = copertura piena; passo maggiore = trama che si vede. Quindi il comando naturale all'utente è una **copertura** (o un passo in multipli del tratto), non millimetri staccati dalla penna che è montata davvero. Si lega al controllo «si vedrà?» offerto nello Step 4: un tratteggio più fine del tratto della penna non è un tratteggio, è una macchia.
+- **Il riempimento non sostituisce il contorno.** Una forma piena *con* bordo li vuole entrambi, e sono due interruttori, non uno.
+- **Il riempimento si deve vedere in anteprima**, altrimenti l'utente lo scopre a penna in mano. Ma il tratteggio vero di una forma grande sono centinaia di segmenti: va deciso se l'anteprima li disegna tutti o ne mostra un campione.
+- Il generatore lavora **a valle dell'appiattimento**, su polilinee e non su curve: è lì che vive già tutto il resto della catena.
+
+**Criterio di completamento:** una forma piena importata da un SVG — **compreso un disegno con buchi** — esce riempita sulla carta, col tipo di riempimento scelto dall'elenco dei livelli; l'anteprima mostra quello che poi fa la penna; e il tempo di stampa resta un numero che l'utente accetta prima di premere.
+
+**Note (cronologia dello step):**
+- [2026-11-09] Step aperto su richiesta dell'utente, con due metà dette da lui: «riconoscimento forme chiuse e riempimenti di diversi tipi». Nessuna riga di codice scritta. Lo stato di partenza è quello scritto qui sopra: `chiuso` c'è, le tinte piene ci sono come livelli spenti, lo spessore della penna in millimetri c'è, `fill-rule` **non** c'è.
+
+### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
 **Stato:** da fare — **da cominciare quando gli altri lavori sono chiusi**, per decisione dell'utente il 2026-11-09. Si segna adesso perché è il tipo di lavoro che non si ricorda da sé, e perché farlo prima della fine vorrebbe dire buttare via roba che serve ancora.
 
@@ -951,10 +992,11 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 **Note (cronologia dello step):**
 - [2026-11-09] Step aperto su richiesta dell'utente, da fare **per ultimo**: «lo faremo quando avremo finito, intanto segnatela». Nessuna scansione fatta: a questo punto c'è solo il censimento grossolano per cartella scritto qui sopra.
+- [2026-11-09] **Era lo Step 14, rinumerato a 15** nella stessa giornata quando è arrivato il lavoro sui riempimenti: la pulizia deve restare l'ultima della fila, e il numero lo dice senza doverlo spiegare.
 
 ## Storico sessioni
 
-### [2026-11-09 19:04] (telecomando) Tre difetti incastrati, e una stampa che finisce col telecomando acceso
+### [2026-11-09 19:18] (telecomando) Tre difetti incastrati, e una stampa che finisce col telecomando acceso
 
 **Riepilogo:** caricato il firmware, il telecomando moriva a ogni stampa; sotto c'erano **tre difetti che si tenevano in piedi a vicenda** — un cursore che mostrava un numero falso, una risposta che nessuno leggeva, e un'attesa senza uscita dentro al cicalino — più un quarto, la schermata della stampa che con più fogli si sovrapponeva a sé stessa. Alla fine una stampa a due fogli, a batteria, col telecomando che racconta tutto: «tutto ha funzionato correttamente».
 
@@ -1001,7 +1043,7 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 **File consegnati/modificati:** `schermo/telecomando/telecomando.ino` (consegnato tre volte all'utente da caricare: diagnosi, correzione del cicalino, disposizione nuova), `schermo/vetro/vetro.cpp`, `schermo/vetro/geometria.py`, `schermo/vetro/vetro.sh`, `webui/js/telecomando.js`, `webui/js/settings.js`, `webui/tools/prova-telecomando.js`, `webui/tools/rompi.py`; pagina **v114** consegnata; questo documento (v86).
 
-**Impatto su Vision/Pipeline:** Step 13 da uno a **due lavori fatti su cinque** (il tasto e il firmware ricaricato); Step 12 con il criterio **completo**, telecomando compreso; note nuove allo Step 4 (il cursore che mentiva) e allo Step 9 (il cicalino che piantava il giro). Aperto lo **Step 14 — Pulizia su GitHub**, su richiesta dell'utente: una scansione di tutto quello che c'è in repository per decidere file per file cosa resta e cosa va via, da fare **per ultima**, dopo gli altri lavori.
+**Impatto su Vision/Pipeline:** Step 13 da uno a **due lavori fatti su cinque** (il tasto e il firmware ricaricato); Step 12 con il criterio **completo**, telecomando compreso; note nuove allo Step 4 (il cursore che mentiva) e allo Step 9 (il cicalino che piantava il giro). Aperti due step su richiesta dell'utente: lo **Step 14 — I riempimenti** (riconoscere le forme chiuse e riempirle in più modi, lavoro sul SLICER che stava solo fra le righe di `webui/README.md`) e lo **Step 15 — Pulizia su GitHub** (una scansione di tutto quello che c'è in repository, file per file, per decidere cosa resta e cosa va via), da fare **per ultima**, dopo tutti gli altri lavori. La pulizia era nata come Step 14 ed è stata rinumerata subito, perché deve restare l'ultima della fila.
 
 ---
 
