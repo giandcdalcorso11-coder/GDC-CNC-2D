@@ -2527,7 +2527,11 @@ void setup() {
  * Se il giro muore, le righe smettono: l'ULTIMA LETTERA stampata e
  * l'ultimo VIVO dicono dove e quando.
  * =================================================================== */
-#define CRONOMETRO 1
+/* SPENTO il 2026-11-09, a guasto trovato: il cicalino che piantava il
+ * giro. Si rimette a 1 e si ricarica — e' l'unico strumento che dice DOVE
+ * si ferma un telecomando che non risponde piu'. Il codice resta qui
+ * apposta: la prossima volta che serve, serve subito. */
+#define CRONOMETRO 0
 
 #if CRONOMETRO
 const unsigned long FASE_LENTA = 150;    // oltre, la fase si scrive
