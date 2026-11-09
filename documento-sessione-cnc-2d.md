@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 89
-**Ultimo aggiornamento:** 2026-11-09 19:34
+**Versione:** 90
+**Ultimo aggiornamento:** 2026-11-09 21:51
 
 ## Regole di co-editing
 
@@ -1006,7 +1006,60 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-09] Step aperto su richiesta dell'utente, da fare **per ultimo**: «lo faremo quando avremo finito, intanto segnatela». Nessuna scansione fatta: a questo punto c'è solo il censimento grossolano per cartella scritto qui sopra.
 - [2026-11-09] **Era lo Step 14, rinumerato a 15** nella stessa giornata quando è arrivato il lavoro sui riempimenti: la pulizia deve restare l'ultima della fila, e il numero lo dice senza doverlo spiegare.
 
+### Step 16 — Metodo di lavoro delle stampe: scheda, catalogo, controllo
+
+**Stato:** in corso — struttura costruita e collaudata (2026-11-09); manca la skill.
+
+**Obiettivo:** che un nuovo lavoro di stampa parta da specifiche precise e si chiuda senza giri a vuoto: l'utente dice ingresso, stile, dettaglio, foglio, penne e testi, e il risultato esce già controllato.
+
+**Decisioni progettuali:**
+- **Catalogo con nomi fissi:** **Rilievo** (da modello 3D o screenshot), **Onde** e **Poligoni** (da foto), **Linea** (da icona/logo, quello dei magneti), più **Tratti** tenuto solo come nome, sconsigliato per la macchina. Dettaglio sempre su tre livelli: essenziale, medio, dettagliato.
+- **Modulo, non testo libero:** a ogni lavoro faccio io le domande a scelta (ingresso, stile, dettaglio, foglio) e poi quelle libere (penne, testi, da non fare, vista, ritaglio). Scelta dell'utente.
+- **Un punto d'ingresso, motori invariati:** `stampe/lavoro.py` legge la scheda JSON e chiama i motori già esistenti; i file non sono stati spostati, per non rompere gli import.
+- **Controllo prima di consegnare** (`stampe/controlla.py`): ingombro nel foglio e nel margine, sollevamenti di penna, tratti sovrapposti (>1,8×), tratti più corti di 0,15 mm; legge anche i file dello SLICER con lo spessore vero dei livelli.
+- **Testi sotto il disegno:** se la scheda ha dei testi, il disegno si ferma 4 mm sopra la scritta più alta.
+- **Skill:** si fa quando tutto è definito (decisione dell'utente).
+
+**Criterio di completamento:** l'utente conferma il modulo e il catalogo su un lavoro vero fatto con la scheda, e la skill lo richiama.
+
+**Note (cronologia dello step):**
+- [2026-11-09] Costruiti `lavoro.py`, `controlla.py`, `linea.py` (lo stile Linea come script a sé), `testo.js`, `penne.json`, `catalogo.py` (pagina `stampe/catalogo/index.html` con le anteprime dei file veri) e il README riscritto. `rilievo.py` accetta il passo come `L<n>` (n livelli) e il margine da ambiente.
+
 ## Storico sessioni
+
+### [2026-11-09 21:51] (stampe) La struttura di lavoro: scheda, script unico, controllo e catalogo
+
+**Riepilogo:** dopo la chiusura dei magneti l'utente ha chiesto di definire una tipologia di lavoro per le stampe; è nata una scheda lavoro (modulo di domande), un solo script che sceglie il motore giusto, un controllo automatico dei file e una pagina-catalogo con le anteprime degli stili, tutto collaudato su file veri.
+
+**Cosa è stato fatto:**
+- Proposto e approvato il catalogo (Rilievo, Onde, Poligoni, Linea, Tratti) e il metodo: scheda, modulo, catalogo, skill più avanti.
+- `stampe/lavoro.py`: dalla scheda JSON alla generazione, con i parametri per livello di dettaglio, i testi col font a tratto singolo e il controllo; scrive `<nome>.svg`, `scheda.json` e `report.txt`. Collaudato su cinque schede reali (linea da icona, onde e poligoni da foto, rilievo da 3D essenziale e dettagliato, rilievo da screenshot) in 16 s in parallelo, e su una scheda sbagliata, che viene respinta con il motivo.
+- `stampe/controlla.py`, `linea.py`, `testo.js`, `penne.json`, `render_png.js`, `catalogo.py`; `stampe/README.md` riscritto con modulo, scheda, regole fisse e mappa degli strumenti.
+- `stampe/catalogo/index.html`: 1,2 MB, un solo file, con miniature dei file consegnati e numeri veri (tratti, lunghezza, livelli); controllato in largo e a larghezza telefono.
+
+**Bug: i testi finivano sopra il disegno**
+
+**Sintomo:** nella prova di Rilievo con «STARRY» sotto l'angioletto, la scritta cadeva dentro il disegno.
+**Causa:** il disegno veniva centrato in tutto il foglio, senza riservare lo spazio dei testi.
+**Fix applicato:** se la scheda ha testi nella metà bassa, il disegno si ferma 4 mm sopra il più alto; verificato sul giro successivo (KIRA / PER FEFFI sotto il disegno, in essenziale e in dettagliato).
+
+**Bug: miniatura del catalogo vuota per i file dello SLICER**
+
+**Sintomo:** nel catalogo il biglietto Feffi compariva bianco.
+**Causa:** i file dello SLICER citano la parola `<metadata>` dentro un commento; il filtro che toglieva i metadati cancellava dal commento fino alla fine e lasciava il commento aperto, che inghiottiva il disegno.
+**Fix applicato:** si tolgono prima i commenti; verificato, la miniatura ora si vede.
+
+**Decisioni prese:**
+- Contesto: serviva un modo ripetibile di dare le specifiche e restare allineati.
+- Decisione: modulo di domande all'inizio di ogni lavoro; nomi degli stili confermati dall'utente; pagina di catalogo sì; skill dopo.
+- Alternative scartate: riorganizzare le cartelle di `stampe/` in un solo pacchetto (rischio di rompere gli import dei motori, che restano dove sono).
+- Da rivedere se: la scheda si dimostra scomoda su un lavoro vero, o servono testi sopra il disegno.
+
+**File consegnati/modificati:** `stampe/lavoro.py`, `controlla.py`, `linea.py`, `testo.js`, `penne.json`, `render_png.js`, `catalogo.py`, `catalogo/index.html`, `README.md`, `rilievo.py` (passo `L<n>`, margine); questo documento (v90). I file di stampa stanno sul branch `claude/quirky-bohr-u9ktwd`.
+
+**Impatto su Vision/Pipeline:** aggiunto Step 16; Vision invariata.
+
+---
 
 ### [2026-11-09 19:34] (telecomando) Tre difetti incastrati, e una stampa che finisce col telecomando acceso
 
