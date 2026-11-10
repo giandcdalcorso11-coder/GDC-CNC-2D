@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 90
-**Ultimo aggiornamento:** 2026-11-09 21:51
+**Versione:** 91
+**Ultimo aggiornamento:** 2026-11-10 10:18
 
 ## Regole di co-editing
 
@@ -970,15 +970,23 @@ valore:
 - **Il riempimento si deve vedere in anteprima**, altrimenti l'utente lo scopre a penna in mano. Ma il tratteggio vero di una forma grande sono centinaia di segmenti: va deciso se l'anteprima li disegna tutti o ne mostra un campione.
 - Il generatore lavora **a valle dell'appiattimento**, su polilinee e non su curve: è lì che vive già tutto il resto della catena.
 
-**Due domande ancora aperte**, da chiudere prima di scrivere il codice:
-1. **Il riempimento va in un livello suo o dentro al livello del contorno?** Propendo per **un livello suo**: così può avere una penna diversa — il pennarello grosso per il pieno e la punta fine per il bordo — e si spegne o si butta da solo. Il costo è una riga in più nell'elenco per ogni riempimento.
-2. **Se poi il contorno si muove o si modifica, il riempimento si rifà?** L'architettura del progetto dice di sì: *le forme si tengono, le polilinee si ricavano ogni volta* (`tracciato.js`), quindi il riempimento sarebbe una forma nuova il cui appiattimento è il tratteggio stesso — con la ricetta (tipo, angolo, passo, punto cliccato, tolleranza) al posto della geometria, i segmenti tenuti in cache e il guardiano della fessura che, se ricalcolando perde, **tiene l'ultimo buono** e lo segnala invece di allagare. Sarebbe il primo caso di una forma il cui appiattimento dipende da **altre** forme, e questo va detto chiaro prima di farlo. L'alternativa è la geometria congelata al momento del click, più semplice e più stupida: muovi la lettera e il riempimento resta dov'era.
+**Le due domande, chiuse il 2026-11-10 dall'utente:**
+
+1. **Il riempimento ha un livello suo.** Confermato: così porta la sua penna — il pennarello grosso per il pieno, la punta fine per il bordo — e si spegne o si butta da solo.
+2. **Il livello del riempimento è un SOTTOLIVELLO del disegno che riempie.** È la proposta dell'utente, accolta. Risolve più cose di quelle per cui è stata proposta, e però **non** risolve da sé quella per cui è stata proposta: la distinzione va tenuta chiara, perché è lì che si sbaglia.
+   - **Quello che la parentela dà.** Dice senza ambiguità *quale* disegno quel riempimento riempie — cosa che il click, da solo, non registra da nessuna parte. Il riempimento si sposta, si spegne e si butta col padre, e un contorno cancellato non lascia un riempimento orfano a mezz'aria sul foglio. L'elenco dei livelli lo mostra rientrato sotto al suo, invece di una riga di cui non si capisce l'appartenenza. E il gruppo **si ordina da sé in stampa**: prima il figlio, poi il padre, perché il contorno disegnato per ultimo copre le sbavature del tratteggio che gli si infila sotto.
+   - **Quello che la parentela NON dà**, ed è proprio seguire una *modifica* del contorno. Spostare e ruotare sono trasformazioni: lì i segmenti del riempimento si muovono rigidamente col padre e non si ricalcola niente. Ma se si trascina un nodo e il triangolo della A cambia forma, il tratteggio **va rigenerato** — non esiste trasformazione che lo faccia. Lo stesso per la scala, anche uniforme: raddoppiando la lettera il passo raddoppia e la copertura si dimezza, quindi la scala ricalcola. Quello che fa seguire il riempimento è **la ricetta tenuta nel figlio** (tipo, angolo, passo, punto cliccato, tolleranza di chiusura) più l'avviso che arriva dal padre quando cambia. La parentela è il posto dove la ricetta abita e il filo che dice *quando* rifarla; la ricetta è il come.
+   - **Quando si rifà: al rilascio, mai durante il trascinamento.** Mentre si modifica, il riempimento vecchio resta visibile sbiadito e la riga nell'elenco si segna **da rifare**; si rigenera quando il gesto finisce, perché costa un decimo di secondo. E **un riempimento segnato da rifare non si stampa**: o si rigenera prima, o lo si dice all'utente. Un foglio stampato da una ricetta vecchia è il genere di bugia che si scopre a penna in mano.
+   - **Se ricalcolando perde** — un nodo trascinato ha aperto il contorno — vale il guardiano già deciso: si **tiene l'ultimo riempimento buono**, si segna la riga e si dice dove è scappato. Non si allaga il foglio e non si butta il lavoro fatto.
+   - **Il confine può non essere di un solo livello.** Dopo l'importazione per tinte, una regione può essere chiusa da tratti di due o tre livelli diversi. Il padre allora è **uno solo** — il livello attivo nell'editor al momento del click — ma la ricetta tiene anche l'**elenco dei livelli che hanno fatto da confine**: se cambia uno qualsiasi di quelli, il figlio è da rifare. Questa è una scelta mia, non dell'utente, e si può ribaltare.
+   - **Un riempimento non è padre di niente:** un livello solo di profondità, altrimenti si finisce a discutere di alberi invece di disegnare.
 
 **Criterio di completamento:** due prove, una per porta. (1) Dalla tab edit: una **A in grassetto** si riempie nel corpo e, con un secondo click, anche nel triangolo; il mouse mostrava prima del click quello che poi è uscito dalla penna. (2) All'ingrosso: una forma piena importata da un SVG — **compreso un disegno con buchi** — esce riempita sulla carta col tipo scelto dall'elenco dei livelli. In entrambi i casi il tempo di stampa è un numero che l'utente ha letto **prima** di premere, e un contorno con una fessura non allaga il foglio: lo dice.
 
 **Note (cronologia dello step):**
 - [2026-11-09] Step aperto su richiesta dell'utente, con due metà dette da lui: «riconoscimento forme chiuse e riempimenti di diversi tipi». Nessuna riga di codice scritta. Lo stato di partenza è quello scritto qui sopra: `chiuso` c'è, le tinte piene ci sono come livelli spenti, lo spessore della penna in millimetri c'è, `fill-rule` **non** c'è.
-- [2026-11-09] **Disegno deciso in conversazione, prima di costruire** — come chiesto dall'utente: «prima di costruirlo decidiamo, lo implementiamo la settimana prossima», e poi «sono d'accordo con tutto, teniamo tutto in pipeline per quando te lo farò fare». L'interazione (pulsante nella tab edit, finestrella dei parametri, anteprima sotto il mouse, click che disegna, regioni lette dai tratti che ci sono) è sua; lo stampino, la tolleranza di chiusura, il guardiano della fessura, il tempo nella finestrella e le due porte sono il come. **Lo step resta «da fare» e non si comincia finché non lo dice lui.** Due domande restano aperte, scritte qui sopra.
+- [2026-11-09] **Disegno deciso in conversazione, prima di costruire** — come chiesto dall'utente: «prima di costruirlo decidiamo, lo implementiamo la settimana prossima», e poi «sono d'accordo con tutto, teniamo tutto in pipeline per quando te lo farò fare». L'interazione (pulsante nella tab edit, finestrella dei parametri, anteprima sotto il mouse, click che disegna, regioni lette dai tratti che ci sono) è sua; lo stampino, la tolleranza di chiusura, il guardiano della fessura, il tempo nella finestrella e le due porte sono il come. **Lo step resta «da fare» e non si comincia finché non lo dice lui.**
+- [2026-11-10] **Chiuse le due domande aperte**, e con la seconda è arrivata la proposta dell'utente: i riempimenti nascono come **sottolivelli** del disegno che riempiono. Accolta, con la precisazione scritta qui sopra — la parentela dà l'appartenenza, l'ordine di stampa e la cancellazione in blocco; a far seguire una modifica del contorno è la ricetta, e il ricalcolo si fa al rilascio del gesto. Sempre zero righe di codice: «teniamo tutto in pipeline per quando te lo farò fare».
 
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
@@ -1026,6 +1034,29 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-09] Costruiti `lavoro.py`, `controlla.py`, `linea.py` (lo stile Linea come script a sé), `testo.js`, `penne.json`, `catalogo.py` (pagina `stampe/catalogo/index.html` con le anteprime dei file veri) e il README riscritto. `rilievo.py` accetta il passo come `L<n>` (n livelli) e il margine da ambiente.
 
 ## Storico sessioni
+
+### [2026-11-10 10:18] (software) I riempimenti come sottolivelli, e il confine fra parentela e ricetta
+
+**Riepilogo:** chiuse in conversazione le due domande rimaste aperte sullo Step 14 — il riempimento ha un livello suo, e quel livello è un **sottolivello** del disegno che riempie (proposta dell'utente) — con la precisazione che quella parentela risolve l'appartenenza, l'ordine di stampa e la cancellazione in blocco, ma non fa seguire da sé una modifica del contorno: a quello serve la ricetta tenuta nel figlio, rifatta al rilascio del gesto. Nessuna riga di codice scritta, per scelta dell'utente.
+
+**Cosa è stato fatto:**
+
+- **Chiusa la prima domanda:** il riempimento ha un **livello suo**, così porta la sua penna (pennarello grosso per il pieno, punta fine per il bordo) e si spegne o si butta da solo.
+- **Chiusa la seconda con una proposta dell'utente:** il livello del riempimento è un **sottolivello** di quello riempito. Accolta — e separata in due metà, perché le due si confondono: la parentela dice *quale* disegno quel riempimento riempie (cosa che il click non registra da nessuna parte), lo fa spostare, spegnere e cancellare col padre, lo mostra rientrato nell'elenco e **ordina il gruppo in stampa da sé** — prima il figlio, poi il padre, perché il contorno disegnato per ultimo copre le sbavature del tratteggio che gli si infila sotto. Ma a far seguire una *modifica* del contorno è la **ricetta** (tipo, angolo, passo, punto cliccato, tolleranza), non la parentela: spostare e ruotare si risolvono trasformando i segmenti, mentre un nodo trascinato o una scala — anche uniforme, perché il passo cresce e la copertura si dimezza — **obbligano a rigenerare**.
+- **Scritte le tre regole che ne derivano:** il ricalcolo si fa **al rilascio** del gesto e mai durante (durante, il riempimento vecchio resta sbiadito e la riga si segna «da rifare»); **un riempimento da rifare non si stampa**; e se il ricalcolo perde per un contorno aperto si **tiene l'ultimo buono**, si segna la riga e si dice dove è scappato.
+- **Deciso il caso del confine su più livelli** (dopo l'importazione per tinte una regione può essere chiusa da tratti di livelli diversi): il padre è uno solo — il livello attivo al click — ma la ricetta tiene l'elenco dei livelli che hanno fatto da confine, e se cambia uno qualsiasi di quelli il figlio è da rifare. Scelta mia, segnata come ribaltabile.
+
+**Decisioni prese:**
+- Contesto: deciso il 2026-11-09 che il riempimento si comanda col click nella tab edit, restava da capire dove vive il risultato e che cosa succede quando il contorno cambia.
+- Decisione: **livello proprio, figlio del livello riempito, con la ricetta dentro** e il ricalcolo al rilascio del gesto.
+- Alternative scartate: la **geometria congelata** al momento del click (muovi la lettera e il riempimento resta dov'era: più semplice, e sbagliata appena si modifica qualcosa); il riempimento **dentro** al livello del contorno (una riga in meno nell'elenco, ma addio penna diversa per il pieno); il ricalcolo **continuo** durante il trascinamento (un decimo di secondo per fotogramma, per vedere una cosa che si guarda alla fine).
+- Da rivedere se: il ricalcolo al rilascio si rivelasse più lento del previsto su una forma grande — allora il riempimento resta «da rifare» fino a un comando esplicito —, o se l'elenco dei livelli con i sottolivelli diventasse illeggibile su un disegno importato con molte tinte.
+
+**File consegnati/modificati:** `documento-sessione-cnc-2d.md` (Step 14 e questa voce).
+
+**Impatto su Vision/Pipeline:** Step 14 — le due domande aperte diventano decisioni, e si aggiungono le regole su quando il riempimento si rifà, sull'ordine di stampa del gruppo, sul confine fatto da più livelli e sul limite di un solo livello di profondità. Lo stato resta **da fare**: si costruisce quando lo dirà l'utente.
+
+---
 
 ### [2026-11-09 21:51] (stampe) La struttura di lavoro: scheda, script unico, controllo e catalogo
 
