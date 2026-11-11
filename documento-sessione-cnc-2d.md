@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 91
-**Ultimo aggiornamento:** 2026-11-10 10:18
+**Versione:** 92
+**Ultimo aggiornamento:** 2026-11-11 10:25
 
 ## Regole di co-editing
 
@@ -437,6 +437,7 @@ mano a mano che le misure arrivano):
 - [2026-11-08] **L'interfaccia per schermi piccoli è un lavoro dichiarato**, non un dettaglio di stile: la pagina è disegnata per uno schermo largo, e il giorno in cui il telecomando la servirà da un indirizzo solo (Step 13) un telefono la aprirà senza poterla usare. Sta qui perché è lavoro sul SLICER, ma dipende dallo Step 13 e va dopo.
 - [2026-11-09] **Un cursore che mostra il valore sbagliato non è un difetto di presentazione: è un comando che non si può più dare.** Il cursore del volume del telecomando si costruisce in `Settings.init()`, che gira PRIMA di `Telecomando.init()`: leggeva il valore predefinito (10) mentre in vigore c'era il 2 salvato giorni prima. E rimetterlo a 10 non mandava niente, perché a 10 ci era già. Adesso il volume viaggia nel segnale `telecomando` e il cursore lo segue, quindi l'ordine dei moduli non c'entra più; e la risposta del telecomando — che il volume vero lo rimanda da sempre — adesso viene letta, e quando i due numeri non coincidono la nota sotto al cursore lo dice. Conseguenze: vedi la voce del 2026-11-09, perché quel 2 teneva il telecomando su una strada che lo piantava a ogni stampa.
 - [2026-11-08] **La scheda dei fogli rifatta, e i fogli vuoti nell'elenco.** Due cose chieste dall'utente usando il programma. (1) In cima stanno i **preset** — un elenco di misure che si hanno in casa — e premerne uno **aggiunge** un foglio invece di cambiare le misure di quello in uso: il difetto vero era che un preset premuto con un disegno già sopra cambiava la carta sotto ai piedi. Le due caselle delle misure salgono accanto ai preset col «+» di fianco, e il «+» è uno solo: salva il preset se quelle misure non ce l'hanno già, e aggiunge comunque il foglio. Ogni foglio del piano porta i due comandi dei preset — matita (nome, misure, carta) e cestino — al posto della crocetta sul fianco. (2) **Un foglio senza disegni sopra adesso sta nell'elenco**, segnato vuoto: l'elenco è fatto di FOGLI e non più di livelli con un'intestazione quando il foglio cambia, e il foglio vuoto è esattamente quello su cui si vuole trascinare un livello. Di conseguenza: lasciando sotto a tutto si legge la riga e non l'ultimo livello (se no il livello tornava indietro), e l'elenco si rifà a ogni segnale `fogli` — prima un foglio aggiunto compariva solo al gesto successivo.
+- [2026-11-11] **Due difetti nella MIRA del piano e nella spunta dei livelli, diagnosticati e rimandati** su decisione dell'utente («aspettiamo anche per queste modifiche»): si aggiusteranno insieme ai riempimenti dello Step 14. L'utente li ha descritti usando il programma: «ogni tanto non prendo la forma», e «la spunta ogni tanto deseleziona quella precedente e ogni tanto le seleziona entrambe». **(1) La mira è nel sistema di riferimento sbagliato.** `quale(p)` in `artwork.js` confronta il punto col `box` di ogni livello, che è in millimetri del SUO foglio, ma il punto arriva da `paper.js` misurato dall'angolo del foglio **in uso**: con più fogli sul piano la mira è spostata della distanza fra i due angoli. Provato al banco — due fogli, il disegno sul secondo, il primo in uso, doppio clic esattamente al centro del disegno: la funzione risponde `null`, non prende niente; nel sistema del suo foglio risponde correttamente. Quando i fogli sono vicini a volte prende la cosa giusta per caso. **È lo stesso errore corretto nell'anteprima il 2026-11-08** (`artFoglio`, i disegni che seguivano il clic): nell'anteprima è stato visto perché si guarda, nella mira è sopravvissuto perché nessuno l'aveva guardata. **(2) La mira guarda il rettangolo, non l'inchiostro:** un clic nel vuoto dentro al rettangolo prende il disegno, e il rettangolo di un disegno grande ruba il clic a quello piccolo che sta sotto (il piccolo si raggiunge solo ripetendo il doppio clic nello stesso punto, dal secondo in poi). **(3) La spunta non ha difetti, ha una regola muta:** commuta, e un livello di un ALTRO foglio fa ricominciare la scelta da lì — provato — perché una selezione a cavallo di due fogli non ha un rettangolo in comune (regola del 2026-11-07, da tenere). Manca solo che venga detto. Contorno stretto di gesti: la spunta è **18 × 18 px**, il nome — che sostituisce la scelta per disegno — sta 33 px più in là, e un doppio clic sulla riga sostituisce la scelta e apre il riquadro. **Le correzioni proposte:** la mira prende millimetri del PIANO e sottrae l'angolo di ogni livello; fra i livelli il cui rettangolo contiene il punto vince quello con un tratto entro un paio di millimetri (costanti in pixel di schermo), col ripiego di oggi se nessuno è vicino; e il cambio di foglio si dice, col quadratino dei livelli di altri fogli segnato in modo diverso.
 
 ### Step 5 — Struttura meccanica
 
@@ -1034,6 +1035,35 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-09] Costruiti `lavoro.py`, `controlla.py`, `linea.py` (lo stile Linea come script a sé), `testo.js`, `penne.json`, `catalogo.py` (pagina `stampe/catalogo/index.html` con le anteprime dei file veri) e il README riscritto. `rilievo.py` accetta il passo come `L<n>` (n livelli) e il margine da ambiente.
 
 ## Storico sessioni
+
+### [2026-11-11 10:25] (software) La mira del piano guarda nel foglio sbagliato: diagnosi, e si aspetta
+
+**Riepilogo:** l'utente ha segnalato due cose notate usando il programma — a volte il doppio clic non prende la forma, e la spunta dei livelli a volte somma e a volte sostituisce la scelta; la prima è un **difetto vero** (la mira confronta il punto con i rettangoli dei livelli mescolando due sistemi di riferimento, provato al banco: risponde `null` sul centro esatto del disegno), la seconda è una regola corretta ma **muta**. Nessuna riga cambiata: su decisione dell'utente le correzioni aspettano e si faranno insieme allo Step 14.
+
+**Cosa è stato fatto:**
+
+**Bug: con più fogli sul piano il doppio clic non prende il disegno**
+
+**Sintomo:** «ogni tanto non prendo la forma» quando si entra in modifica col doppio clic sul piano. Riproducibile: due fogli, il disegno sul secondo, il primo in uso, doppio clic al centro esatto del disegno — non viene preso niente. Con i fogli vicini a volte prende, e può prendere il disegno sbagliato.
+**Causa:** accertata, e provata al banco su una sonda Playwright. `quale(p)` in `artwork.js` confronta il punto col `box` di ogni livello, che è in millimetri **del suo foglio**; il punto arriva da `paper.js` già misurato dall'angolo del foglio **in uso** (`m - State.data.sheetOrigin`). Con un foglio solo i due sistemi coincidono e il difetto non esiste: è nato il 2026-11-07 coi più fogli sul piano. La sonda dà `null` dove deve dare l'id del livello, e l'id corretto se il punto si passa nel sistema del suo foglio.
+**Fix applicato:** nessuno — rimandato su decisione dell'utente. La correzione proposta è che la mira prenda millimetri del PIANO e sottragga l'angolo di ciascun livello, perché «cosa c'è sotto a questo punto» è una domanda sul piano e non su un foglio.
+
+**Difetto di mira, non di coordinate: si guarda il rettangolo e non l'inchiostro.** `quale` prova l'appartenenza al rettangolo del livello, quindi un clic nel vuoto dentro al rettangolo prende il disegno, e il rettangolo di un disegno grande ruba il clic al piccolo che ci sta sotto; il piccolo si raggiunge solo ripetendo il doppio clic nello stesso punto, e solo dal secondo in poi. Proposta: fra i livelli il cui rettangolo contiene il punto vince quello con **un tratto entro un paio di millimetri**, misurati in pixel di schermo così che la mira sia la stessa a ogni ingrandimento, col ripiego di oggi quando nessun tratto è vicino — altrimenti i disegni pieni diventerebbero impossibili da prendere.
+
+**La spunta dei livelli non ha un difetto, ha una regola che nessuno dice.** Provato: due livelli dello stesso foglio si sommano, un livello di un altro foglio fa **ricominciare** la scelta e porta il foglio in uso su di sé. La regola è giusta e si tiene — una selezione a cavallo di due fogli non ha un rettangolo in comune, perché i numeri sono millimetri di due angoli diversi (decisione del 2026-11-07) — ma essendo silenziosa si legge come un capriccio. Va aggiunto il messaggio, e il quadratino dei livelli di altri fogli segnato in modo diverso perché si veda **prima** di premere. Misurato anche il contorno dei gesti: la spunta è 18 × 18 px, il nome (che sostituisce la scelta, per disegno) sta 33 px più in là, e un doppio clic sulla riga sostituisce la scelta e apre il riquadro — tre gesti vicini con tre effetti diversi.
+
+**Il numero di versione della pagina era indietro di due.** `webui/js/versione.js` contava 114 mentre i commit che hanno toccato `webui/` sono 115: gli ultimi due — il cicalino del telecomando e il numero del foglio sul vetro — sono stati fatti senza ricompilare la pagina. Non è un guasto (il numero si allinea al primo build vero) e il file **non** è stato committato: ricompilando per la sonda `build.py` l'aveva riscritto a 116, e committarlo avrebbe detto «la pagina è cambiata» per un commit che non la cambia, cioè proprio la bugia che quel file esiste per non dire. Rimesso com'era.
+
+**Decisioni prese:**
+- Contesto: due difetti diagnosticati nel mezzo di una settimana in cui lo Step 14 è deciso ma non cominciato.
+- Decisione: **si aspetta.** Le correzioni si faranno insieme ai riempimenti, con il controllo del banco e la mutazione che lo rompe, come vuole la regola del progetto.
+- Alternative scartate: aggiustare subito la mira perché «è solo un sistema di riferimento sbagliato» — la correzione è piccola, ma senza il controllo che la difende sarebbe un cambiamento non provato in un punto che il banco oggi non guarda affatto.
+
+**File consegnati/modificati:** `documento-sessione-cnc-2d.md` (nota nello Step 4 e questa voce). Nessun file del programma toccato.
+
+**Impatto su Vision/Pipeline:** Step 4 — aggiunta la nota coi tre punti e le correzioni proposte, così che la settimana prossima si parta dalla diagnosi e non dal sintomo.
+
+---
 
 ### [2026-11-10 10:18] (software) I riempimenti come sottolivelli, e il confine fra parentela e ricetta
 
