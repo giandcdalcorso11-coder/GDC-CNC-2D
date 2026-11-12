@@ -633,7 +633,10 @@ programma con cui si scopre che un asse va al contrario.
    G-code. Va rifatta la disposizione della colonna di destra — vedi
    `misure/disegno-di-collaudo.md`. Nel frattempo la cornice dell'area utile
    (`gcode/cornice.gcode`) copre la parte che serve subito: estensione reale e
-   planarità ai bordi.
+   planarità ai bordi. **Dal 2026-11-12 l'area 241,232 è definitiva** —
+   l'utente ha deciso di tenersi i dieci millimetri invece di spostare la
+   cremagliera di Y — quindi la disposizione va rifatta o il disegno va
+   dichiarato superato: aspettare non lo sblocca più.
 
 ### «Upload filesystem inaccessible»: stai caricando sulla SD
 

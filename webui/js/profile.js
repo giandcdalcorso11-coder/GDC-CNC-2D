@@ -108,8 +108,16 @@ var Profile = (function () {
            dell'asse Y sul lato destro PRIMA che il carrello arrivi in fondo.
            L'interferenza misurata è 5 mm, se ne tolgono 10 per stare larghi
            finché non è rimisurata con calma. È un limite della geometria del
-           montaggio: sparirà se la cremagliera di Y verrà spostata, non
-           migliorando la taratura. */
+           montaggio, non della taratura.
+
+           QUESTI DIECI MILLIMETRI NON SONO PIU' PROVVISORI. Si
+           recupererebbero spostando la cremagliera di Y, e il 2026-11-12
+           l'utente ha deciso di non spostarla: guasterebbe la simmetria
+           della macchina, e i dieci millimetri non danno fastidio. Quindi
+           241,232 è l'area definitiva, e chi legge non deve aspettarsi che
+           cresca. Il campo resta separato dal margine perché la distinzione
+           fra impedimento meccanico e incertezza resta vera — non perché si
+           aspetti ancora di recuperarlo. */
         x: { corsaPassi: 8744, margineSicurezza: 2.0, ostacolo: 10.0,
              misurato: '2026-10-19' },
         y: { corsaPassi: 8252, margineSicurezza: 2.0, ostacolo: 0,

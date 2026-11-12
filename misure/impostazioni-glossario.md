@@ -75,9 +75,13 @@ gioco della cremagliera — e si riduce diventando più precisi. L'ostacolo è u
 impedimento **meccanico certo**: il 2026-10-23 si è visto che sul lato destro
 il pignone del carrello tocca la cremagliera dell'asse Y **prima** che il
 carrello arrivi in fondo. L'interferenza misurata è 5 mm, se ne tolgono 10 per
-stare larghi finché non viene rimisurata. Quei dieci millimetri si recuperano
-spostando la cremagliera di Y, non tarando meglio: per questo stanno scritti a
-parte, se no fra sei mesi non si saprebbe più se sono recuperabili.
+stare larghi finché non viene rimisurata. Quei dieci millimetri si
+recupererebbero spostando la cremagliera di Y, non tarando meglio — ma il
+**2026-11-12 l'utente ha deciso di non spostarla**: lo spostamento guasterebbe
+la simmetria della macchina, e i dieci millimetri non danno fastidio. **L'area
+241,232 × 236,064 è quindi definitiva.** L'ostacolo resta scritto a parte perché
+la distinzione fra impedimento e incertezza resta vera, non perché si aspetti di
+recuperarlo.
 
 Vale quindi: **percorribile + margine + ostacolo + scostamento = totale**.
 

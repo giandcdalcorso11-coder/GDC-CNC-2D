@@ -25,6 +25,12 @@ tagliato su misura.
 > destra, stringendo le scatole da 72 e 96 mm e spostando il punto del livello
 > che sta a X236.
 >
+> **Dal 2026-11-12 non c'è più la strada di aspettare.** I dieci millimetri si
+> recupererebbero spostando la cremagliera di Y, e l'utente ha deciso di non
+> spostarla (guasterebbe la simmetria): 241,232 è l'area definitiva. Quindi o
+> si rifà la disposizione della colonna di destra, o questo disegno resta non
+> generabile per sempre — ed è una cosa da decidere, non da rimandare.
+>
 > Il generatore se ne accorge da solo e **rifiuta di scrivere il G-code**,
 > confrontando il campo con l'area utile del profilo. L'SVG lo fa comunque,
 > perché serve proprio a rifare la disposizione e un'immagine non manda un

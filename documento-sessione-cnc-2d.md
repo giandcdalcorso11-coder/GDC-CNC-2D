@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 92
-**Ultimo aggiornamento:** 2026-11-11 10:25
+**Versione:** 93
+**Ultimo aggiornamento:** 2026-11-12 13:45
 
 ## Regole di co-editing
 
@@ -441,7 +441,7 @@ mano a mano che le misure arrivano):
 
 ### Step 5 — Struttura meccanica
 
-**Stato:** **completato nella struttura** (2026-10-15), con **due cose aperte** che non la fermano. (1) **L'area utile si è ristretta il 2026-10-23**: il pignone del carrello X tocca la cremagliera dell'asse Y sul lato destro prima della fine corsa, e X perde 10 mm prudenziali sui 5 misurati — area 251,232 × 236,064 → **241,232 × 236,064**. È un impedimento meccanico, non una taratura: si recupera spostando la cremagliera di Y, e finché non lo si fa quei dieci millimetri sono il motivo per cui nove magneti 75 × 75 ci stanno per un pelo. (2) Una **planarità da sorvegliare** sotto la staffa TT di sinistra. Il **gioco** del criterio l'utente lo dà per misurato e buono (confermato il 2026-11-08); nel profilo resta come numero di sola lettura che spiega gli artefatti
+**Stato:** **completato nella struttura** (2026-10-15), con **una cosa aperta** che non la ferma: una **planarità da sorvegliare** sotto la staffa TT di sinistra. (L'altra, l'area ristretta del 2026-10-23 — il pignone del carrello X tocca la cremagliera dell'asse Y sul lato destro prima della fine corsa, e X perde 10 mm prudenziali sui 5 misurati: 251,232 × 236,064 → **241,232 × 236,064** — **si è chiusa il 2026-11-12 per decisione dell'utente, che si tiene i dieci millimetri**: spostare la cremagliera guasterebbe la simmetria della macchina. Non è un lavoro rimandato, è un lavoro che non si fa: **241,232 × 236,064 è l'area definitiva**, ed è il motivo per cui nove magneti 75 × 75 ci stanno per un pelo e un A4 non ci sta.) Il **gioco** del criterio l'utente lo dà per misurato e buono (confermato il 2026-11-08); nel profilo resta come numero di sola lettura che spiega gli artefatti
 
 **Obiettivo:** struttura a portale che porta la penna su un'area di **circa 242 × 256 mm**, con entrambi gli assi motorizzati e il pen-lift solidale al carrello Y. *(Formato ridimensionato il 2026-10-06: l'obiettivo originale era "tutta l'area di un foglio A4 in orizzontale", ma con cremagliere in un pezzo solo il lato da 297 non entra su nessuno dei due assi — il massimo raggiungibile è 281,6 × 292,8. L'area è equivalente a un A4, la forma è quadrata. Un A4 vero richiede una cremagliera giuntata.)*
 
@@ -602,6 +602,8 @@ mano a mano che le misure arrivano):
 - ~~Le due rotaie nell'assieme sono sfalsate di 31,252 mm in Y, e costano 22,9 mm di corsa~~ — **risolto in montaggio il 2026-10-15.** L'utente ha allineato le rotaie sulla macchina vera, quindi i 22,9 mm sono recuperati. Resta da riportare l'allineamento **nell'assieme CAD**, altrimenti ogni quota che se ne ricava è sbagliata di 31 mm
 - **Il margine del carrello Y a fine corsa è 11,5 mm a destra e 9,8 a sinistra** con la cremagliera X v5, contro i 3,5 e 1,7 di prima. È accettabile, ma è il numero da ricontrollare quando il modulo penna aggiungerà materiale sul lato basso del carrello: la fascia critica è **Z 46,7÷59**
 - **I 12 V di potenza passano ancora per i rail della breadboard**, dati per ~1 A contro i 2 A di picco dei due motori. Va portato su morsetti a vite quando l'elettronica si fissa alla base
+
+- [2026-11-12] **I dieci millimetri su X si tengono: decisione dell'utente.** «Mi tengo i 10 mm in meno, non è un problema, mi creerebbe problemi di simmetria spostare la cremagliera.» Con questo l'area **241,232 × 236,064 diventa definitiva** e smette di essere provvisoria: l'ostacolo resta scritto a parte dal margine nel profilo, perché la distinzione fra impedimento meccanico e incertezza resta vera, ma nessuno deve più aspettarsi che quei millimetri tornino. Aggiornati i quattro posti che promettevano il recupero: `webui/js/profile.js`, `misure/impostazioni-glossario.md`, `misure/disegno-di-collaudo.md` e `misure/accensione-e-taratura.md`. **Una conseguenza da decidere:** il disegno di collaudo non si può generare perché il suo campo è largo 246 mm contro 241,232, e fin qui aspettare era una strada — adesso non più. O si rifà la disposizione della colonna di destra, o il disegno si dichiara superato nella pulizia dello Step 15.
 
 ### Step 6 — Modulo penna e interfaccia utensili
 
@@ -1035,6 +1037,29 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-09] Costruiti `lavoro.py`, `controlla.py`, `linea.py` (lo stile Linea come script a sé), `testo.js`, `penne.json`, `catalogo.py` (pagina `stampe/catalogo/index.html` con le anteprime dei file veri) e il README riscritto. `rilievo.py` accetta il passo come `L<n>` (n livelli) e il margine da ambiente.
 
 ## Storico sessioni
+
+### [2026-11-12 13:45] (meccanica) I dieci millimetri su X si tengono, e la scheda SD ha una data
+
+**Riepilogo:** l'utente chiude il punto aperto dal 2026-10-23 decidendo di **non** spostare la cremagliera di Y — guasterebbe la simmetria — quindi l'area 241,232 × 236,064 è definitiva e non più provvisoria; e dà la data per il lavoro della SD: la scheda da 32 GB c'è, ma fino al **23 novembre** non è a casa con scheda, telecomando, PC e macchina.
+
+**Cosa è stato fatto:**
+
+- **Chiuso il punto (1) dello Step 5**, non con un lavoro ma con una rinuncia consapevole. Parole sue: «mi tengo i 10 mm in meno, non è un problema, mi creerebbe problemi di simmetria spostare la cremagliera». Lo Step 5 passa da due cose aperte a una (la planarità sotto la staffa TT di sinistra).
+- **Toccati i quattro posti che promettevano il recupero**, perché un repository che promette un cambiamento annullato è peggio di uno che non dice niente: il commento del profilo (`webui/js/profile.js`), il glossario delle misure, l'avviso del disegno di collaudo e la procedura di accensione. In tutti e quattro la distinzione fra **ostacolo** e **margine** resta — è vera e serve — ma adesso dice che l'ostacolo è permanente.
+- **Trovata e segnalata una conseguenza che la decisione porta con sé:** il disegno di collaudo è bloccato dal 2026-10-23 perché il suo campo è largo 246 mm contro i 241,232 disponibili, e fin qui «si sbloccherà spostando la cremagliera» era una strada. Non lo è più: o si rifà la disposizione della colonna di destra, o il disegno va dichiarato superato. È una decisione, non un lavoro da rimandare.
+- **La scheda SD: scelta giusta e data fissata.** 32 GB è il massimo che la scheda del telecomando accetta, e l'utente ha preso proprio quella misura. Il lavoro 1 dello Step 13 non può cominciare prima del 23 novembre perché la prova vuole scheda, telecomando, PC e macchina nello stesso posto. Resta da verificare, quando ci sarà, che la scheda sia formattata **FAT32** e non exFAT, che la libreria non legge.
+
+**Decisioni prese:**
+- Contesto: dal 2026-10-23 l'area su X era ristretta di 10 mm da un'interferenza meccanica, e il documento la dava per recuperabile spostando la cremagliera di Y.
+- Decisione: **non si sposta.** I dieci millimetri si tengono e l'area 241,232 × 236,064 diventa definitiva.
+- Alternative scartate: spostare la cremagliera di Y — guasterebbe la **simmetria** della macchina, e il guadagno (10 mm su X) non vale quel prezzo.
+- Da rivedere se: servisse un giorno un foglio che oggi non ci sta per pochi millimetri; ma allora la strada da guardare è la cremagliera giuntata dell'obiettivo originale, non questo spostamento.
+
+**File consegnati/modificati:** `webui/js/profile.js`, `misure/impostazioni-glossario.md`, `misure/disegno-di-collaudo.md`, `misure/accensione-e-taratura.md`, `documento-sessione-cnc-2d.md`.
+
+**Impatto su Vision/Pipeline:** Step 5 da «due cose aperte» a una, con il punto dell'area chiuso per decisione e non per lavoro. Step 13 — il lavoro della SD ha una data di inizio: **dopo il 23 novembre**.
+
+---
 
 ### [2026-11-11 10:25] (software) La mira del piano guarda nel foglio sbagliato: diagnosi, e si aspetta
 
