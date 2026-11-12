@@ -626,17 +626,15 @@ programma con cui si scopre che un asse va al contrario.
 2. **Un quadrato piccolo**, 50 mm, disegnato da qualche parte in mezzo al
    foglio. Serve a tre cose: che i versi siano giusti, che la penna segni per
    tutto il perimetro, e che il quadrato chiuda dove è partito.
-3. **Poi il collaudo** — che però **al momento non si può generare**. Il
-   2026-10-23 l'area utile su X è scesa a 241,232 mm (il pignone del carrello
-   tocca la cremagliera di Y sul lato destro) e il campo del collaudo è largo
-   246: sfora di 4,8 mm. Il generatore lo rileva e rifiuta di scrivere il
-   G-code. Va rifatta la disposizione della colonna di destra — vedi
-   `misure/disegno-di-collaudo.md`. Nel frattempo la cornice dell'area utile
-   (`gcode/cornice.gcode`) copre la parte che serve subito: estensione reale e
-   planarità ai bordi. **Dal 2026-11-12 l'area 241,232 è definitiva** —
-   l'utente ha deciso di tenersi i dieci millimetri invece di spostare la
-   cremagliera di Y — quindi la disposizione va rifatta o il disegno va
-   dichiarato superato: aspettare non lo sblocca più.
+3. **Il disegno di collaudo non c'è più in questa procedura: è SUPERATO**
+   (2026-11-12, decisione dell'utente). Le undici prove che raccoglieva sono
+   state fatte in itinere, con i progetti e le stampe vere. Non si rifà e non
+   si ripara: il suo campo è largo 246 mm contro i 241,232 dell'area, e quei
+   dieci millimetri non tornano perché la cremagliera di Y non si sposta. Al
+   suo posto, per quello che serve davvero all'accensione, c'è la **cornice
+   dell'area utile** (`gcode/cornice.gcode`): estensione reale e planarità ai
+   bordi. Come si legge ogni singola misura resta scritto in
+   `misure/disegno-di-collaudo.md`, che è la parte che non invecchia.
 
 ### «Upload filesystem inaccessible»: stai caricando sulla SD
 

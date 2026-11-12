@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 93
-**Ultimo aggiornamento:** 2026-11-12 13:45
+**Versione:** 94
+**Ultimo aggiornamento:** 2026-11-12 13:54
 
 ## Regole di co-editing
 
@@ -684,6 +684,8 @@ mano a mano che le misure arrivano):
 
 - [2026-10-26] **Il cambio colore non è un cambio di taratura.** Montando la penna nuova con il servo già **alla quota di contatto del programma in corso**, la procedura di montaggio del 2026-10-23 vale identica a metà stampa: si infila finché tocca il foglio e si stringe lì. Da qui la cancellazione della correzione di Z nel Sender (vedi Step 4), e il conto che la giustifica: 0,9° di banda morta del servo = **0,29 mm** alla punta, dieci volte lo spessore di un foglio.
 
+- [2026-11-12] **La prova sulla carta che sostituisce la misura del gioco non è più il disegno di collaudo: sono le stampe vere.** Lo stato di questo step dice che a fare quel lavoro sono «le prove 7 e 11 del disegno di collaudo, che guardano la stessa cosa sulla carta». Quel disegno è **superato dal 2026-11-12** (decisione dell'utente, vedi Step 15) — e va detto che era un appoggio fragile già prima: dal 2026-10-23 non si poteva nemmeno generare, perché il suo campo è più largo dell'area. Il resto del ragionamento del 2026-10-22 non dipende da lui e resta in piedi: presa rigida, 0,30 mm che valgono 0,92° contro una banda morta di 0,9°, nessuna impostazione che usi quel numero. La prova sulla carta, oggi, sono i disegni veri — magneti compresi — che l'utente ha guardato e approvato.
+
 ### Step 7 — Logo e identità visiva della macchina
 
 **Stato:** in corso — **il logo c'è, l'ha disegnato l'utente, ed è in repository.** Il 2026-11-01 è arrivato `CNC_2D_LOGO` fatto in Illustrator, rivisto due volte nella stessa giornata dopo l'analisi: `C 2 N D C` intercalate, la D annidata dentro l'ultima C rovesciata, il pennino dentro la prima. Le **tre varianti generate il 27 ottobre sono state cancellate** su richiesta dell'utente (restano in `git show 5c50952`). Dal 2026-11-02 il marchio **sta nell'applicazione**: nell'intestazione al posto delle parole «CNC 2D», e nel foglio con un pulsante accanto a quello del logo GDC Stuff. Manca: la **versione quadrata** per favicon e profili — e adesso non è più una previsione, è **misurata**: a 26 px di barra gli incastri non si leggono più —, la **firma del filone** («by GDC Stuff», decisione rimandata dall'utente), il **`.ai` aggiornato** e la prova **plottata su carta**.
@@ -1001,10 +1003,10 @@ valore:
 
 I sospetti, da verificare quando si arriva allo step e non prima:
 - i **G-code generati** in `gcode/`, che sono il prodotto di una stampa già fatta e si rigenerano dal SLICER in un secondo;
-- i **disegni di collaudo** sostituiti da versioni più nuove;
+- il **disegno di collaudo**, che non è più un sospetto ma una cosa decisa: **superato il 2026-11-12** per decisione dell'utente, perché le undici prove sono state fatte in itinere con le stampe vere. Da decidere se `misure/disegno-di-collaudo.md` e `webui/tools/test-macchina.js` vanno via o restano come descrizione di come si leggono quelle misure — oggi portano in cima il riquadro che dice che sono superati, e due file li citano ancora (`misure/cad-assieme.md` la prova 2, `webui/tools/cornice.js` la prova 11); altri **disegni di collaudo** eventualmente sostituiti da versioni più nuove;
 - gli **sketch e le configurazioni di passaggio** del firmware, dove una prova di bring-up può essere stata soppiantata da quella definitiva;
 - i **README di cartella** che si sono disallineati dal codice che descrivono — qui il lavoro non è cancellare, è correggere;
-- i **banchi di prova** in `webui/tools/`, che invece **non** sono candidati: un collaudo vecchio è una rete di sicurezza, non un residuo.
+- i **banchi di prova** in `webui/tools/`, che invece **non** sono candidati: un collaudo vecchio è una rete di sicurezza, non un residuo. **Attenzione a non confondere:** `test-macchina.js` sta nella stessa cartella ma non è un banco — non controlla il codice, genera un disegno da misurare a mano — e quello è superato.
 
 **Decisioni progettuali:**
 - **Togliere un file da GitHub non è perderlo.** La storia resta: un file cancellato si rilegge con `git show <commit>:<percorso>`, come già accaduto alle tre varianti del logo del 27 ottobre (`git show 5c50952`). Quindi «va via» significa *sparisce dalla cartella di lavoro*, e il costo dell'errore è basso — ma per questo la cancellazione va **sempre accompagnata dal commit che la contiene**, citato nel documento, altrimenti nessuno sa dove ripescarla.
@@ -1037,6 +1039,29 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-09] Costruiti `lavoro.py`, `controlla.py`, `linea.py` (lo stile Linea come script a sé), `testo.js`, `penne.json`, `catalogo.py` (pagina `stampe/catalogo/index.html` con le anteprime dei file veri) e il README riscritto. `rilievo.py` accetta il passo come `L<n>` (n livelli) e il margine da ambiente.
 
 ## Storico sessioni
+
+### [2026-11-12 13:54] (meccanica) Il disegno di collaudo è superato, e il lavoro riparte quando lo dice l'utente
+
+**Riepilogo:** l'utente dichiara **superato il disegno di collaudo** — le undici prove sono state fatte in itinere con i progetti e le stampe vere — e chiede di **aspettare** per i lavori concordati, gestendo con calma i limiti settimanali di Claude: dirà lui quando cominciare cosa. Registrato tutto; nessun lavoro cominciato.
+
+**Cosa è stato fatto:**
+
+- **Il disegno di collaudo è segnato superato in tre posti**, non cancellato: il riquadro in cima a `misure/disegno-di-collaudo.md`, l'intestazione del generatore `webui/tools/test-macchina.js` e il punto 3 della procedura di accensione, che adesso rimanda alla **cornice dell'area utile** (`gcode/cornice.gcode`) per quello che serve davvero — estensione reale e planarità ai bordi. La parte che **non** invecchia resta scritta: come si legge ciascuna misura, con che strumento, e quale numero aspettarsi.
+- **Segnato nello Step 15** come candidato *già deciso* invece che come sospetto, con due cose da non perdere: due file lo citano ancora (`misure/cad-assieme.md` la prova 2, `webui/tools/cornice.js` la prova 11), e `test-macchina.js` **non è un banco di prova** anche se abita in `webui/tools/` — non controlla il codice, genera un disegno da misurare a mano. La riga dello Step 15 che protegge i banchi non lo copre.
+- **Trovato un appoggio fragile nello Step 6**, e scritto: lo stato di quello step giustifica la rinuncia a misurare il gioco dicendo che a guardare la stessa cosa sulla carta sono «le prove 7 e 11 del disegno di collaudo» — un disegno che **dal 2026-10-23 non si poteva nemmeno generare**, perché il suo campo è più largo dell'area. Il resto del ragionamento del 2026-10-22 non dipende da lui e resta valido (presa rigida, 0,30 mm = 0,92° contro 0,9° di banda morta, nessuna impostazione che usi quel numero); la prova sulla carta, oggi, sono le stampe vere.
+
+**Decisioni prese:**
+- Contesto: il disegno di collaudo era bloccato dal 2026-10-23 e la decisione di ieri sui dieci millimetri gli toglieva l'ultima via d'uscita; restava da scegliere fra rifare la disposizione e dichiararlo superato.
+- Decisione: **superato.** Le prove che raccoglieva sono state fatte strada facendo, sui lavori veri.
+- Alternative scartate: rifare la disposizione della colonna di destra per farlo stare in 241,232 mm — lavoro vero su un disegno che misurerebbe cose già misurate.
+- Da rivedere se: servisse un giorno rimisurare tutto in un colpo su una macchina cambiata (una cremagliera giuntata, un portale rifatto): allora il documento dice ancora come si legge ogni prova, e il generatore si riadatta.
+- Contesto: i lavori concordati (riempimenti, mira e spunta, interfacce per schermi piccoli) erano pronti a partire. **Decisione dell'utente: si aspetta**, per gestire con calma i limiti settimanali di Claude — oltre l'80% già consumato. **Sarà lui a dire quando cominciare cosa**, e nessun lavoro parte prima.
+
+**File consegnati/modificati:** `misure/disegno-di-collaudo.md`, `misure/accensione-e-taratura.md`, `webui/tools/test-macchina.js`, `documento-sessione-cnc-2d.md`.
+
+**Impatto su Vision/Pipeline:** Step 15 — il disegno di collaudo passa da sospetto a candidato deciso, con le citazioni da sistemare e l'avvertenza su `test-macchina.js`. Step 6 — nota sull'appoggio cambiato. Nessuno step cambia stato.
+
+---
 
 ### [2026-11-12 13:45] (meccanica) I dieci millimetri su X si tengono, e la scheda SD ha una data
 

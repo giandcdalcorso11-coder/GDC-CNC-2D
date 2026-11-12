@@ -1,5 +1,17 @@
 /* Il disegno di collaudo della macchina.
  *
+ * SUPERATO IL 2026-11-12, per decisione dell'utente: le undici prove sono
+ * state fatte in itinere con le stampe vere, e questa stampa non si fa piu'.
+ * Il file non e' stato cancellato - se va via si decide nella pulizia dello
+ * Step 15 - ma chi lo trova non deve crederlo attuale. Vale ancora come
+ * descrizione di COME si legge ogni misura: vedi il riquadro in cima a
+ * misure/disegno-di-collaudo.md.
+ *
+ * Da sapere prima di lanciarlo: il campo e' largo 246 mm contro i 241,232
+ * dell'area utile, quindi il generatore RIFIUTA di scrivere il G-code. Non e'
+ * un guasto, e non si aggiusta spostando la cremagliera: l'area e'
+ * definitiva.
+ *
  * Una stampa sola che riempie quasi tutta l'area e da cui si tirano fuori
  * undici cose diverse. Non è un disegno decorativo: ogni riquadro esiste
  * perché misura qualcosa, e perché quel qualcosa si legge con calibro, riga

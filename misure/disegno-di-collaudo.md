@@ -1,5 +1,23 @@
 # Il disegno di collaudo
 
+> ## ⛔ SUPERATO — 2026-11-12, decisione dell'utente
+>
+> **Questo disegno non si fa più, e non va rifatto.** Le undici prove che
+> raccoglieva sono già state fatte **in itinere**, con i progetti e le stampe
+> vere: «tutte quelle prove ormai le abbiamo già fatte con i vari progetti e
+> prove fatte». Una stampa dedicata che misuri tutto in un colpo avrebbe avuto
+> senso prima di avere stampe vere da guardare; adesso le stampe vere ci sono.
+>
+> Resta scritto perché dice **come si legge** ciascuna misura — a cosa serve un
+> riquadro, con che strumento si legge, quale numero ci si aspetta — e quella è
+> la parte che non invecchia: `misure/cad-assieme.md` rimanda alla prova 2 e
+> `webui/tools/cornice.js` alla prova 11. Il generatore è
+> `webui/tools/test-macchina.js`.
+>
+> Se il file e il generatore vanno **tolti** dal repository si decide nella
+> pulizia dello Step 15, non qui: questo riquadro dice che è superato, non che
+> è stato cancellato.
+
 Una stampa sola, su quasi tutta l'area, da cui si tirano fuori **undici cose**
 diverse. Ogni prova sta in un riquadro numerato: il numero sul foglio rimanda
 al paragrafo qui sotto.
