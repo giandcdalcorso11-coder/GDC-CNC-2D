@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 97
-**Ultimo aggiornamento:** 2026-11-13 07:37
+**Versione:** 98
+**Ultimo aggiornamento:** 2026-11-13 07:49
 
 ## Regole di co-editing
 
@@ -1044,8 +1044,30 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 **Note (cronologia dello step):**
 - [2026-11-09] Costruiti `lavoro.py`, `controlla.py`, `linea.py` (lo stile Linea come script a sé), `testo.js`, `penne.json`, `catalogo.py` (pagina `stampe/catalogo/index.html` con le anteprime dei file veri) e il README riscritto. `rilievo.py` accetta il passo come `L<n>` (n livelli) e il margine da ambiente.
 - [2026-11-13] **Catalogo rivisto dall'utente: sette stili.** Il biglietto Feffi diventa uno stile a sé, **Layer** (linee parallele, fette alla stessa quota, da 3D), mentre **Rilievo** resta quello di starry angel e starboy (linee organiche, distanza dall'osservatore). Nuovo **Fedele** (da illustrazioni/logo, non da foto: contorno di ogni campitura, esempio il logo Antei; `fedele.py`, opzioni `colori=N` e `riempimento=mm`). Per i file d'ingresso il tipo `icona` diventa `illustrazione`. Le anteprime del catalogo si aprono in grande con zoom; gli esempi nuovi stanno in `stampe/catalogo/esempi/` con la loro scheda.
+- [2026-11-13] **Lo strumento a pagina** (richiesta dell'utente: dropbox, pulsanti per lo stile, slider per il dettaglio, riquadro per le richieste, pulsante Genera). `stampe/strumento/`: una pagina e un piccolo server locale (solo libreria standard) che lancia `lavoro.py`. Con il motore genera e mostra anteprima, report e download; senza motore diventa «Prepara scheda» per mandarla a Claude. Include l'anteprima del modello 3D da sei angoli, cliccabile per scegliere la vista. Collaudato con un browser sui tre percorsi (foto, 3D con angolo, senza motore). La skill resta da fare.
 
 ## Storico sessioni
+
+### [2026-11-13 07:49] (stampe) Lo strumento a pagina per dare le specifiche
+
+**Riepilogo:** per dare le informazioni in una volta sola l'utente ha chiesto una pagina con dropbox, stili a pulsanti, slider del dettaglio, riquadro per le richieste e pulsante Genera, possibilmente capace di generare davvero; costruita e collaudata, con il motore collegato e anche senza.
+
+**Cosa è stato fatto:**
+- `stampe/strumento/strumento.py`: server locale (standard library, un lavoro alla volta, carica il file, lancia `lavoro.py`, serve anteprima, report e SVG); la scheda del client è ridotta ai campi noti e i percorsi li decide il server.
+- `stampe/strumento/template.html` (da cui `index.html`): file a trascinamento, tipo di immagine, sette stili che si accendono in base al file, slider a tre scatti, foglio con preset, vista del modello 3D con anteprima da sei angoli (clic sull'angolo), ritaglio, opzioni di Fedele e Linea, scritte impilate dal basso con penna a scelta, richieste libere.
+- Collaudo con un browser: foto → Onde con ritaglio e due scritte → risultato e report; modello 3D → angoli → Layer → risultato; pagina aperta da file senza server → scheda corretta. Una prima versione faceva sforare l'ultima scritta di 0,4 mm dal margine: corretto.
+
+**Decisioni prese:**
+- Contesto: l'utente vuole generare direttamente dallo strumento, o altrimenti una proposta.
+- Decisione: una sola pagina con due modi, motore collegato o no; il motore gira sul PC dell'utente (serve Python con numpy e Pillow, e node per le scritte).
+- Alternative scartate: generare nel browser (il motore è Python con librerie numeriche); un servizio ospitato (i file 3D pesano decine di MB e il motore è lento).
+- Da rivedere se: l'utente non ha Python sul PC (resterebbe la modalità «Prepara scheda»), o vuole un ritaglio con il mouse invece dei pixel.
+
+**File consegnati/modificati:** `stampe/strumento/` (`strumento.py`, `template.html`, `index.html`), `stampe/README.md`, `.gitignore`; questo documento (v98).
+
+**Impatto su Vision/Pipeline:** nota nello Step 16.
+
+---
 
 ### [2026-11-13 07:37] (stampe) Catalogo: Layer, Fedele e anteprime apribili in grande
 
