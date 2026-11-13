@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 101
-**Ultimo aggiornamento:** 2026-11-13 14:58
+**Versione:** 102
+**Ultimo aggiornamento:** 2026-11-13 15:09
 
 ## Regole di co-editing
 
@@ -1001,6 +1001,8 @@ valore:
 - [2026-11-09] Step aperto su richiesta dell'utente, con due metà dette da lui: «riconoscimento forme chiuse e riempimenti di diversi tipi». Nessuna riga di codice scritta. Lo stato di partenza è quello scritto qui sopra: `chiuso` c'è, le tinte piene ci sono come livelli spenti, lo spessore della penna in millimetri c'è, `fill-rule` **non** c'è.
 - [2026-11-09] **Disegno deciso in conversazione, prima di costruire** — come chiesto dall'utente: «prima di costruirlo decidiamo, lo implementiamo la settimana prossima», e poi «sono d'accordo con tutto, teniamo tutto in pipeline per quando te lo farò fare». L'interazione (pulsante nella tab edit, finestrella dei parametri, anteprima sotto il mouse, click che disegna, regioni lette dai tratti che ci sono) è sua; lo stampino, la tolleranza di chiusura, il guardiano della fessura, il tempo nella finestrella e le due porte sono il come. **Lo step resta «da fare» e non si comincia finché non lo dice lui.**
 - [2026-11-10] **Chiuse le due domande aperte**, e con la seconda è arrivata la proposta dell'utente: i riempimenti nascono come **sottolivelli** del disegno che riempiono. Accolta, con la precisazione scritta qui sopra — la parentela dà l'appartenenza, l'ordine di stampa e la cancellazione in blocco; a far seguire una modifica del contorno è la ricetta, e il ricalcolo si fa al rilascio del gesto. Sempre zero righe di codice: «teniamo tutto in pipeline per quando te lo farò fare».
+
+- [2026-11-13] **Il tratteggio esiste già dall'altra parte, e i due devono dire la stessa cosa.** Lo strumento delle stampe ha un campo «Riempimento a tratteggio (mm, 0 = no)» e `fedele.py` l'opzione `riempimento=mm`: quando questo step si costruisce, il **passo** deve voler dire la stessa cosa nei due posti, altrimenti lo stesso disegno riempito di qua e di là esce diverso. Detto in positivo: il generatore del tratteggio dello SLICER nasce con un riferimento già stampato su carta da confrontare, e con la soglia 1,8× di `controlla.py` per dire quando il passo è troppo stretto.
 
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
