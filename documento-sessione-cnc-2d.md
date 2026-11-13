@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 99
-**Ultimo aggiornamento:** 2026-11-13 07:58
+**Versione:** 100
+**Ultimo aggiornamento:** 2026-11-13 14:45
 
 ## Regole di co-editing
 
@@ -1046,8 +1046,29 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Catalogo rivisto dall'utente: sette stili.** Il biglietto Feffi diventa uno stile a sé, **Layer** (linee parallele, fette alla stessa quota, da 3D), mentre **Rilievo** resta quello di starry angel e starboy (linee organiche, distanza dall'osservatore). Nuovo **Fedele** (da illustrazioni/logo, non da foto: contorno di ogni campitura, esempio il logo Antei; `fedele.py`, opzioni `colori=N` e `riempimento=mm`). Per i file d'ingresso il tipo `icona` diventa `illustrazione`. Le anteprime del catalogo si aprono in grande con zoom; gli esempi nuovi stanno in `stampe/catalogo/esempi/` con la loro scheda.
 - [2026-11-13] **Lo strumento a pagina** (richiesta dell'utente: dropbox, pulsanti per lo stile, slider per il dettaglio, riquadro per le richieste, pulsante Genera). `stampe/strumento/`: una pagina e un piccolo server locale (solo libreria standard) che lancia `lavoro.py`. Con il motore genera e mostra anteprima, report e download; senza motore diventa «Prepara scheda» per mandarla a Claude. Include l'anteprima del modello 3D da sei angoli, cliccabile per scegliere la vista. Collaudato con un browser sui tre percorsi (foto, 3D con angolo, senza motore). La skill resta da fare.
 - [2026-11-13] **Icone «i» e scala del dettaglio estendibile** (richieste dell'utente). Accanto a ogni stile e al dettaglio un'icona «i» mostra, al passaggio del mouse, le anteprime degli esempi; gli esempi stanno ora in `stampe/catalogo/esempi.json` (stile + livello) e si aggiungono col pulsante «Aggiungi agli esempi» dello strumento o con `catalogo.py --aggiungi`. Lo slider ha la scala base a tre scatti e due spunte che la estendono: a sinistra *minimo* e *molto essenziale*, a destra *molto dettagliato* e *massimo*; i motori (`lavoro.py`, `fedele.py`, `da_immagine.py`) gestiscono i sette livelli. Il controllo segnala quando il livello più alto è troppo fitto (Layer massimo: 3,3× di sovrapposizione).
+- [2026-11-13] **Pacchetto dello strumento consegnato** all'utente: `strumento-stampe.zip` (8,8 MB, con `LEGGIMI.txt`) più `strumento/index.html` da solo. Il motore dipende da due file fuori da `stampe/`: `webui/js/font-tratto.js` e `webui/tools/figli-sagome.py`; vanno inclusi in ogni pacchetto. Se sul PC dell'utente non c'è Python resta la modalità «Prepara scheda».
 
 ## Storico sessioni
+
+### [2026-11-13 14:45] (stampe) Il pacchetto dello strumento da provare
+
+**Riepilogo:** l'utente ha chiesto il file dello strumento da provare; consegnati un pacchetto completo con il motore e la pagina da sola, dopo aver scoperto e corretto un file mancante nel primo pacchetto.
+
+**Cosa è stato fatto:**
+- Costruito `strumento-stampe.zip` (cartella `stampe/` più i due file di supporto fuori da essa, con `LEGGIMI.txt`) e consegnata anche `stampe/strumento/index.html`.
+- Collaudato il pacchetto da una cartella pulita: avvio del server, e tre generazioni complete (foto → Onde con scritta, modello 3D → Layer, illustrazione → Fedele), tutte con esito ok.
+
+**Bug: il primo pacchetto consegnato non funzionava**
+
+**Sintomo:** dal primo zip la generazione falliva con «No such file … webui/tools/figli-sagome.py».
+**Causa:** il motore proietta i modelli con `figli-sagome.py`, che sta in `webui/tools/`, fuori da `stampe/`; il pacchetto includeva solo `font-tratto.js` fra i file esterni. L'ho consegnato prima di finire il collaudo, e il test lo ha trovato dopo.
+**Fix applicato:** aggiunto il file mancante, rifatto e ritestato il pacchetto, rimandato all'utente dicendo di buttare il primo. Lezione: collaudare il pacchetto da una cartella pulita **prima** di consegnarlo.
+
+**File consegnati/modificati:** `strumento-stampe.zip` (non nel repo), `stampe/strumento/index.html`; questo documento (v100).
+
+**Impatto su Vision/Pipeline:** nota nello Step 16.
+
+---
 
 ### [2026-11-13 07:58] (stampe) Strumento: icone «i» con anteprime e scala del dettaglio estesa
 
