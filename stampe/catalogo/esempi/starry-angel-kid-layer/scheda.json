@@ -1,0 +1,21 @@
+{
+  "nome": "starry-angel-kid-layer",
+  "ingresso": {
+    "tipo": "modello3d",
+    "file": "/root/.claude/uploads/79fdd3c9-33aa-554c-8249-2db0e1442164/c3b5b9eb-Starry_angel_kid_progetto.3mf",
+    "vista": {
+      "rz": 20,
+      "rx": 40
+    }
+  },
+  "stile": "layer",
+  "dettaglio": "medio",
+  "foglio": {
+    "w": 210,
+    "h": 148,
+    "margine": 8
+  },
+  "uscita": "/home/user/CNC-2D/stampe/catalogo/esempi/starry-angel-kid-layer",
+  "testi": [],
+  "opzioni": {}
+}

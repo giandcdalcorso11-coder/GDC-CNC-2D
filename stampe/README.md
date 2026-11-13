@@ -22,8 +22,8 @@ Primo giro, a scelta:
 
 | Campo | Valori |
 |---|---|
-| **Ingresso** | modello 3D (`.3mf`, con vista) · foto · screenshot · icona/logo |
-| **Stile** | Rilievo · Onde · Poligoni · Linea (· Tratti, sconsigliato) |
+| **Ingresso** | modello 3D (`.3mf`, con vista) · foto · screenshot · illustrazione/logo |
+| **Stile** | Rilievo · Layer · Onde · Poligoni · Linea · Fedele (· Tratti, sconsigliato) |
 | **Dettaglio** | essenziale · medio · dettagliato |
 | **Foglio** | A5 orizzontale 210×148 · A5 verticale 148×210 · quadrato · altro (mm) |
 
@@ -47,13 +47,13 @@ per i modelli 3D · **ritaglio** per le foto.
 }
 ```
 
-- `ingresso.tipo`: `modello3d` · `foto` · `screenshot` · `icona`. Per le foto, `ritaglio`: `"su,giu,sx,dx"` in px.
+- `ingresso.tipo`: `modello3d` · `foto` · `screenshot` · `illustrazione` (`icona` è un sinonimo). Per le foto, `ritaglio`: `"su,giu,sx,dx"` in px.
 - `vista`: `rz` = giro attorno alla verticale, `rx` = inclinazione dall'alto (0 = di fronte, 90 = dall'alto).
 - `testi`: sotto il disegno (`base` = riga su cui poggiano, in mm dal bordo alto). Se ci sono, il disegno
   si ferma 4 mm sopra la scritta più alta. Font a tratto singolo della macchina; `penna` da `penne.json`.
-- `opzioni` (tutte facoltative): `livelli`, `modo` (`quota`|`profondita`), `sigma`, `px`,
+- `opzioni` (tutte facoltative): `livelli`, `sigma`, `px`,
   `oggetto` (`"object_4.model:1"`), `escludi`/`taglia` (liste `"x0,y0,x1,y1"`), `passo`/`onda`
-  (Onde), `lato`/`senza_toni` (Poligoni); per **Linea**: `testo` (frazione dell'altezza da cui in giù è
+  (Onde), `lato`/`senza_toni` (Poligoni), `colori`/`riempimento` (Fedele); per **Linea**: `testo` (frazione dell'altezza da cui in giù è
   scritta), `blob`, `marker`, `sottile` (`fine`|`marker`), `esterno`, `testo_fine`.
 - `uscita`: cartella di destinazione (default `stampe/lavori/<nome>/`).
 
@@ -63,11 +63,13 @@ per i modelli 3D · **ritaglio** per le foto.
 
 | Stile | Da | Cosa fa | Dettaglio (essenziale → dettagliato) |
 |---|---|---|---|
-| **Rilievo** | modello 3D, screenshot | sagoma nera + linee di livello grigie, come una carta topografica | ~12 curve · ~20 curve · ombreggiatura con tratti scuri (occhi, pieghe) |
+| **Rilievo** | modello 3D, screenshot | linee **organiche** che seguono la forma: sagoma nera + curve di livello grigie (distanza dall'osservatore) | ~12 curve · ~20 · ombreggiatura con tratti scuri (occhi, pieghe) |
+| **Layer** | modello 3D | fette alla stessa quota, come gli strati di una stampa 3D: linee **parallele** | 12 · 20 · 28 strati |
 | **Onde** | foto | righe orizzontali ondulate continue; l'onda cresce dove la foto è scura | passo 2,8 → 2,2 → 1,7 mm |
 | **Poligoni** | foto | mosaico di triangoli, fitti dove c'è dettaglio | 9 mm → 7 mm → 7 mm con toni |
-| **Linea** | icona/logo pieno | una linea per tratto, due penne; regola delle scritte per l'indelebile | (nessun livello: si regola per parti) |
-| Tratti | foto | tratteggio incrociato | sconsigliato: migliaia di trattini corti |
+| **Linea** | illustrazione/logo | una linea per tratto, due penne; regola delle scritte per l'indelebile | (nessun livello: si regola per parti) |
+| **Fedele** | illustrazione/logo | riporta l'immagine il più fedelmente possibile: contorno di ogni campitura (non per le foto) | grana e semplificazione: più pulito → più particolari |
+| Tratti | foto | tratteggio incrociato | sconsigliato: migliaia di trattini corti; tarato solo sulla foto della coppia |
 
 ## Regole fisse
 
@@ -88,14 +90,15 @@ per i modelli 3D · **ritaglio** per le foto.
 |---|---|
 | `lavoro.py` | punto d'ingresso: legge la scheda, sceglie il motore, aggiunge i testi, controlla |
 | `controlla.py` | controllo di un SVG (`python3 -B controlla.py file.svg [W H margine]`) |
-| `catalogo.py`, `render_png.js` | generano `catalogo/index.html` dai file consegnati |
-| `rilievo.py` (+ `portaoggetti-feffi/viste.py`) | Rilievo da modello 3D; `quota` (fette orizzontali, oggetti visti dall'alto) o `profondita` (figure di fronte); passo come `L<n>` = n livelli |
+| `catalogo.py` | genera `catalogo/index.html` (anteprime apribili in grande, zoom) dai file consegnati; gli esempi nuovi stanno in `catalogo/esempi/`, ognuno con la sua `scheda.json` |
+| `rilievo.py` (+ `portaoggetti-feffi/viste.py`) | motore di Rilievo e Layer da modello 3D: `profondita` = Rilievo (curve organiche), `quota` = Layer (fette parallele); passo come `L<n>` = n livelli |
 | `render_ombra.py` + `da_immagine.py` | Rilievo dettagliato da 3D (render ombreggiato → curve di luminosità + tratti scuri) e Rilievo da screenshot |
 | `anteprima_viste.py` | foglio di anteprime da più viste, per scegliere da dove guardare un modello |
 | `foto_onde.py`, `foto_poligoni.py`, `foto_tratti.py` | Onde, Poligoni, Tratti da foto (`foto_tratti.py` ha le funzioni di base: persone, contrasto locale) |
-| `linea.py` (+ `magneti/vettorializza.py`) | Linea da icona/logo, due penne |
+| `linea.py` (+ `magneti/vettorializza.py`) | Linea da illustrazione/logo, due penne |
+| `fedele.py` (+ `logo_vettoriale.py`) | Fedele: contorni delle campiture, anche a più colori (`colori=N`) e con riempimento a tratteggio |
 | `magneti/testo_marker.py`, `magneti/piccoli_e_bianchi.py` | scritte per l'indelebile; i magneti piccoli e bianchi |
-| `logo_vettoriale.py` | logo a contorni (usato per il logo Antei) |
+| `logo_vettoriale.py` | primo motore del logo Antei a contorni; `fedele.py` ne riusa il tratteggio |
 | `testo.js` | scritte col font a tratto singolo |
 | `penne.json` | colore e spessore di anteprima di ogni penna |
 

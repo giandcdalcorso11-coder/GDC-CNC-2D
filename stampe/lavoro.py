@@ -28,17 +28,22 @@ import controlla
 QUI = os.path.dirname(os.path.abspath(__file__))
 PENNE = {k: v for k, v in json.load(open(os.path.join(QUI, 'penne.json'))).items() if not k.startswith('_')}
 
+# 'illustrazione' e' il nome d'uso; 'icona' resta come sinonimo (schede vecchie)
 COMPATIBILE = {
     'rilievo': ('modello3d', 'screenshot'),
+    'layer': ('modello3d',),
+    'fedele': ('illustrazione',),
     'onde': ('foto', 'screenshot'),
     'poligoni': ('foto', 'screenshot'),
     'tratti': ('foto', 'screenshot'),
-    'linea': ('icona',),
+    'linea': ('illustrazione',),
 }
 DETTAGLI = ('essenziale', 'medio', 'dettagliato')
 
 # livelli di dettaglio -> parametri dei motori
 RILIEVO_3D = {'essenziale': dict(livelli=12, px=640, sigma=5), 'medio': dict(livelli=20, px=900, sigma=4)}
+LAYER = {'essenziale': dict(livelli=12, px=640, sigma=5), 'medio': dict(livelli=20, px=900, sigma=4),
+         'dettagliato': dict(livelli=28, px=1000, sigma=3)}
 RILIEVO_SHOT = {'essenziale': ('6', '5', ['essenziale']), 'medio': ('4', '2.2', []), 'dettagliato': ('5', '2.2', [])}
 ONDE = {'essenziale': (2.8, 4.2), 'medio': (2.2, 3.4), 'dettagliato': (1.7, 2.6)}      # passo, onda (mm)
 POLIGONI = {'essenziale': (9, True), 'medio': (7, True), 'dettagliato': (7, False)}    # lato (mm), senza-toni
@@ -74,6 +79,8 @@ def normalizza(s):
     s.setdefault('testi', [])
     s.setdefault('opzioni', {})
     ing = s['ingresso']
+    if ing.get('tipo') == 'icona':
+        ing['tipo'] = 'illustrazione'
     if s.get('stile') not in COMPATIBILE:
         errori.append("stile '%s' sconosciuto: scegli fra %s" % (s.get('stile'), ', '.join(COMPATIBILE)))
     elif ing.get('tipo') not in COMPATIBILE[s['stile']]:
@@ -188,14 +195,14 @@ def genera(s, tmp):
     ritaglio = ing.get('ritaglio')
     rit = ['ritaglio=' + ritaglio] if ritaglio else []
 
-    if stile == 'rilievo' and tipo == 'modello3d':
+    if stile in ('rilievo', 'layer') and tipo == 'modello3d':
         v = ing.get('vista', {})
-        rz, rx = float(v.get('rz', 20)), float(v.get('rx', 10))
+        rz, rx = float(v.get('rz', 20)), float(v.get('rx', 10 if stile == 'rilievo' else 40))
         if 'vista' not in ing:
-            avvisi.append('vista non indicata: uso rz=20 rx=10 (da sinistra, leggermente dall\'alto)')
+            avvisi.append('vista non indicata: uso rz=%g rx=%g' % (rz, rx))
         modello, oid, av = scegli_oggetto(f, tmp, op.get('oggetto'))
         avvisi += av
-        if dett == 'dettagliato':
+        if stile == 'rilievo' and dett == 'dettagliato':
             png = os.path.join(tmp, 'ombra.png')
             log += esegui(['render_ombra.py', modello, oid, str(rz), str(rx), png, '700'])
             im = Image.open(png)
@@ -204,8 +211,9 @@ def genera(s, tmp):
             log += esegui(['da_immagine.py', png, out, str(W), str(Hf), str(op.get('livelli', 6)), '2.2', 'senza-pavimento']
                           + ['%s=%s' % (k_, v_) for k_ in ('escludi', 'taglia') for v_ in op.get(k_, [])], env)
         else:
-            p = RILIEVO_3D[dett]
-            modo = op.get('modo') or ('quota' if rx >= 35 else 'profondita')
+            # Rilievo = curve organiche (distanza dall'osservatore); Layer = fette parallele (quota Z)
+            p = (RILIEVO_3D if stile == 'rilievo' else LAYER)[dett]
+            modo = 'profondita' if stile == 'rilievo' else 'quota'
             log += esegui(['rilievo.py', modello, oid, str(rz), str(rx), 'L%d' % op.get('livelli', p['livelli']), out,
                            str(W), str(Hf), str(op.get('px', p['px'])), modo, str(op.get('sigma', p['sigma']))], env)
             log += ' [modo %s]' % modo
@@ -227,6 +235,9 @@ def genera(s, tmp):
         else:
             avvisi.append('«tratti» fa migliaia di trattini corti: poco adatto alla macchina (tanti sollevamenti)')
             log += esegui(['foto_tratti.py', f, out, '%.1f' % alt] + rit)
+    elif stile == 'fedele':
+        extra = ['%s=%s' % (k_, v_) if v_ is not True else k_ for k_, v_ in op.items()]
+        log += esegui(['fedele.py', f, out, str(W), str(Hf), str(mar), dett] + extra)
     elif stile == 'linea':
         cfg = ['%s=%s' % (k_, v_) if v_ is not True else k_ for k_, v_ in op.items()]
         log += esegui(['linea.py', f, out, str(W), str(Hf), str(mar)] + cfg)

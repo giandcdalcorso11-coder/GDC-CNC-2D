@@ -1,0 +1,17 @@
+{
+  "nome": "logo-antei-fedele",
+  "ingresso": {
+    "tipo": "illustrazione",
+    "file": "/tmp/claude-0/-home-user-CNC-2D/79fdd3c9-33aa-554c-8249-2db0e1442164/scratchpad/../images/3.webp"
+  },
+  "stile": "fedele",
+  "dettaglio": "medio",
+  "foglio": {
+    "w": 100,
+    "h": 140,
+    "margine": 5
+  },
+  "uscita": "/home/user/CNC-2D/stampe/catalogo/esempi/logo-antei-fedele",
+  "testi": [],
+  "opzioni": {}
+}

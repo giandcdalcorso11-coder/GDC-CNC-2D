@@ -3,15 +3,15 @@
 
   python3 -B catalogo.py
 
-Le miniature si ricavano dagli SVG gia' consegnati (elenco ESEMPI qui sotto), con i numeri
-veri del controllo (tratti, lunghezza, sollevamenti). Un solo file HTML, senza dipendenze.
+Le anteprime sono gli SVG veri (senza metadati dello SLICER), incorporati nella pagina: un clic li
+apre in grande, con zoom. I numeri (tratti, lunghezza, sollevamenti) vengono dal controllo.
+Un solo file HTML, senza dipendenze e senza browser per costruirlo.
 """
 import base64
 import html
 import json
 import os
-import subprocess
-import tempfile
+import re
 
 import controlla
 
@@ -20,22 +20,38 @@ QUI = os.path.dirname(os.path.abspath(__file__))
 STILI = [
     {
         'id': 'rilievo', 'nome': 'Rilievo',
-        'cosa': 'Un oggetto o un personaggio 3D disegnato come una carta topografica: sagoma nera e linee di livello grigie.',
+        'cosa': 'Un personaggio o un oggetto 3D disegnato con linee organiche che seguono la forma: sagoma nera e curve di livello grigie, come una carta topografica vista di fronte.',
         'ingresso': 'modello 3D (.3mf) con la vista da cui guardarlo, oppure uno screenshot del modello',
         'dettagli': [
-            ('essenziale', 'sagoma e poche curve di livello levigate, circa 12; il volto resta vuoto'),
-            ('medio', 'più curve di livello (circa 20) dalla stessa mappa di profondità'),
+            ('essenziale', 'sagoma e poche curve levigate (circa 12); il volto resta vuoto'),
+            ('medio', 'più curve (circa 20) dalla stessa mappa di profondità'),
             ('dettagliato', 'ombreggiatura del modello: curve di luminosità più i tratti scuri di occhi, pieghe, bottoni'),
         ],
-        'si': 'figure, mascotte, oggetti; due penne (nero per la sagoma, grigio per il rilievo)',
-        'no': 'foto di persone (non c\'è un modello 3D); superfici piatte con poca profondità',
+        'si': 'figure e mascotte viste di fronte; due penne (nero per la sagoma, grigio per il rilievo)',
+        'no': 'foto di persone (non c\'è un modello 3D); oggetti piatti visti dall\'alto (per quelli c\'è Layer)',
         'serve': 'file .3mf, angoli di vista (rz = giro, rx = inclinazione dall\'alto), testi sotto il disegno',
         'esempi': [
-            ('Starry angel kid — essenziale', 'antei/starry angel kid cnc2d (essenziale).svg', None),
-            ('Starry angel kid — dettagliato', 'antei/starry angel kid cnc2d (dettagliato).svg', None),
-            ('Starboy da screenshot — dettagliato', 'antei/starboy cnc2d (dettagliato).svg', None),
-            ('Starboy da screenshot — essenziale', 'antei/starboy cnc2d (essenziale).svg', None),
-            ('Biglietto Feffi (portaoggetti visto dall\'alto, con testi)', 'portaoggetti-feffi/finale/biglietto-feffi-kira.cnc2d.svg', 0.5),
+            ('Starry angel kid — essenziale', 'antei/starry angel kid cnc2d (essenziale).svg', None, None),
+            ('Starry angel kid — dettagliato', 'antei/starry angel kid cnc2d (dettagliato).svg', None, None),
+            ('Starboy da screenshot — dettagliato', 'antei/starboy cnc2d (dettagliato).svg', None, None),
+            ('Starboy da screenshot — essenziale', 'antei/starboy cnc2d (essenziale).svg', None, None),
+        ],
+    },
+    {
+        'id': 'layer', 'nome': 'Layer',
+        'cosa': 'Un modello 3D tagliato in fette alla stessa quota, come gli strati di una stampa 3D: linee parallele e ordinate, una sopra l\'altra.',
+        'ingresso': 'modello 3D (.3mf) visto dall\'alto o inclinato',
+        'dettagli': [
+            ('essenziale', '12 strati'),
+            ('medio', '20 strati'),
+            ('dettagliato', '28 strati, risoluzione più alta'),
+        ],
+        'si': 'oggetti con un rilievo marcato visti dall\'alto (ciotole, portaoggetti, targhe); effetto a curve di livello pulito',
+        'no': 'figure viste di fronte e con poca profondità: gli strati diventano strisce (per quelle c\'è Rilievo)',
+        'serve': 'file .3mf, vista (rx da 35° in su dà gli strati più leggibili), testi sotto il disegno',
+        'esempi': [
+            ('Biglietto Feffi (portaoggetti dall\'alto, con testi e logo)', 'portaoggetti-feffi/finale/biglietto-feffi-kira.cnc2d.svg', 0.5, None),
+            ('Starry angel kid — layer, medio', 'catalogo/esempi/starry-angel-kid-layer/starry-angel-kid-layer.svg', None, 'catalogo/esempi/starry-angel-kid-layer/scheda.json'),
         ],
     },
     {
@@ -47,12 +63,12 @@ STILI = [
             ('medio', 'righe a 2,2 mm, onde 3,4 mm'),
             ('dettagliato', 'righe a 1,7 mm, onde 2,6 mm: più fedele, molta più penna'),
         ],
-        'si': 'foto di soggetti con una figura riconoscibile su sfondo diverso; pochi sollevamenti di penna',
+        'si': 'foto con una figura riconoscibile su sfondo diverso; pochi sollevamenti di penna',
         'no': 'volti piccoli (con le righe larghe il volto si perde); scritte sottili',
         'serve': 'foto, ritaglio (px da togliere: su,giù,sinistra,destra), foglio',
         'esempi': [
-            ('Coppia — essenziale (onde larghe)', 'foto-coppia/coppia onde larghe cnc2d.svg', None),
-            ('Coppia — dettagliato', 'foto-coppia/coppia onde cnc2d.svg', None),
+            ('Coppia — essenziale (onde larghe)', 'foto-coppia/coppia onde larghe cnc2d.svg', None, None),
+            ('Coppia — dettagliato', 'foto-coppia/coppia onde cnc2d.svg', None, None),
         ],
     },
     {
@@ -64,44 +80,62 @@ STILI = [
             ('medio', 'triangoli da 7 mm, solo i lati'),
             ('dettagliato', 'triangoli da 7 mm con un triangolo interno nelle zone scure per dare il tono'),
         ],
-        'si': 'un effetto grafico moderno; il disegno si legge anche con pochi triangoli',
+        'si': 'un effetto grafico moderno; il soggetto si legge anche con pochi triangoli',
         'no': 'chi vuole pochi sollevamenti di penna: ogni lato è un segmento (lo SLICER li salda in catene)',
         'serve': 'foto, ritaglio, foglio',
         'esempi': [
-            ('Coppia — leggero', 'foto-coppia/coppia poligoni (leggero) cnc2d.svg', None),
-            ('Coppia — con toni', 'foto-coppia/coppia poligoni (toni) cnc2d.svg', None),
+            ('Coppia — leggero', 'foto-coppia/coppia poligoni (leggero) cnc2d.svg', None, None),
+            ('Coppia — con toni', 'foto-coppia/coppia poligoni (toni) cnc2d.svg', None, None),
         ],
     },
     {
         'id': 'linea', 'nome': 'Linea',
-        'cosa': 'Un\'icona o un logo pieni diventano una linea sola per tratto; lo spessore lo dà la penna, scelta per livello nello SLICER.',
-        'ingresso': 'icona o logo pieno (immagine con inchiostro di un colore su fondo chiaro)',
+        'cosa': 'Un\'illustrazione o un logo pieni diventano una linea sola per tratto; lo spessore lo dà la penna, scelta per livello nello SLICER.',
+        'ingresso': 'illustrazione o logo pieno (inchiostro di un colore su fondo chiaro)',
         'dettagli': [
             ('regola delle scritte', 'con l\'indelebile da 1,5 mm il tratto sta DENTRO la lettera e le lettere restano separate'),
             ('due penne', 'Tratto Pen (0,5 mm) per contorni e dettagli; indelebile (1,5 mm) per scritte e tratti spessi'),
         ],
-        'si': 'loghi, icone, magneti, targhette, scritte; è lo stile dei magneti della lavagna',
-        'no': 'fotografie; disegni molto sfumati',
+        'si': 'icone, magneti, targhette, scritte: tutto quello che si disegna con un pennarello grosso',
+        'no': 'fotografie; disegni molto sfumati; chi vuole il contorno esatto di ogni forma (per quello c\'è Fedele)',
         'serve': 'immagine, dove finisce la grafica e comincia la scritta (frazione dell\'altezza), quali parti in quale penna',
         'esempi': [
-            ('Tutti i magneti (foglio rifinito dall\'utente)', 'magneti/finali-utente/tutti_i_magneti.svg', 1.5),
+            ('Tutti i magneti (foglio rifinito dall\'utente)', 'magneti/finali-utente/tutti_i_magneti.svg', 1.5, None),
+        ],
+    },
+    {
+        'id': 'fedele', 'nome': 'Fedele',
+        'cosa': 'Riporta un\'immagine il più fedelmente possibile: di ogni campitura si traccia il contorno, senza reinterpretare niente.',
+        'ingresso': 'illustrazione, logo, disegno a campiture piatte (anche a più colori: un livello per colore)',
+        'dettagli': [
+            ('essenziale', 'grana ripulita, curve semplificate: pochi contorni, i particolari minuscoli spariscono'),
+            ('medio', 'il compromesso usato per il logo Antei'),
+            ('dettagliato', 'conserva anche i particolari piccoli, più contorni e più penna'),
+        ],
+        'si': 'loghi e illustrazioni con bordi netti; opzioni: colori=N, riempimento=mm (tratteggio nelle campiture piene)',
+        'no': 'foto (riportarle «fedelmente» non ha senso: per quelle ci sono Onde e Poligoni); linee molto sottili: ogni linea diventa due contorni vicini',
+        'serve': 'immagine con fondo chiaro e uniforme; quanti colori d\'inchiostro',
+        'esempi': [
+            ('Logo Antei — essenziale', 'catalogo/esempi/logo-antei-fedele/logo-antei-fedele-essenziale.svg', None, None),
+            ('Logo Antei — medio', 'catalogo/esempi/logo-antei-fedele/logo-antei-fedele.svg', None, 'catalogo/esempi/logo-antei-fedele/scheda.json'),
+            ('Logo Antei — dettagliato', 'catalogo/esempi/logo-antei-fedele/logo-antei-fedele-dettagliato.svg', None, None),
         ],
     },
     {
         'id': 'tratti', 'nome': 'Tratti',
         'cosa': 'Tratteggio incrociato da foto (incisione).',
-        'ingresso': 'foto',
+        'ingresso': 'foto (tarato sulla foto della coppia: persone scure su sfondo chiaro)',
         'dettagli': [('unico', 'nessun livello di dettaglio: toni a tratteggio fitto e incrociato')],
         'si': 'solo come stile da guardare',
-        'no': 'sconsigliato per la macchina: migliaia di trattini corti, tanti sollevamenti, righe fitte quanto la penna. Scartato dall\'utente per questo.',
+        'no': 'sconsigliato per la macchina: migliaia di trattini corti, tanti sollevamenti, righe fitte quanto la penna. Scartato dall\'utente per questo; su altre foto non è stato messo a punto.',
         'serve': 'foto',
-        'esempi': [('Coppia', 'foto-coppia/coppia tratti cnc2d.svg', None)],
+        'esempi': [('Coppia — l\'unico esempio fatto', 'foto-coppia/coppia tratti cnc2d.svg', None, None)],
     },
 ]
 
 SCHEDA = [
-    ('Ingresso', 'modello 3D (.3mf) con vista · foto · screenshot · icona/logo'),
-    ('Stile', 'Rilievo · Onde · Poligoni · Linea (· Tratti, sconsigliato)'),
+    ('Ingresso', 'modello 3D (.3mf) con vista · foto · screenshot · illustrazione/logo'),
+    ('Stile', 'Rilievo · Layer · Onde · Poligoni · Linea · Fedele (· Tratti, sconsigliato)'),
     ('Dettaglio', 'essenziale · medio · dettagliato'),
     ('Foglio', 'larghezza × altezza in mm e margine (default 8 mm)'),
     ('Penne', 'quali usi e che cosa va in ciascuna; default: tutte le scritte in indelebile, il resto lo scelgo io'),
@@ -117,15 +151,28 @@ REGOLE = [
 ]
 
 
-def miniature(esempi, cartella):
-    lavori = []
-    for i, (titolo, rel, sp) in enumerate(esempi):
-        lavori.append({'svg': os.path.join(QUI, rel), 'out': os.path.join(cartella, '%d.png' % i),
-                       'altezza': 460, 'spessore': sp})
-    r = subprocess.run(['node', 'render_png.js'], cwd=QUI, input=json.dumps(lavori), capture_output=True, text=True)
-    if r.returncode:
-        raise SystemExit('render_png.js: ' + r.stderr[-300:])
-    return [l['out'] for l in lavori]
+def svg_uri(rel, spessore):
+    """SVG pulito (senza prologo, commenti e metadati dello SLICER) come data URI.
+    Con `spessore` si forza lo spessore dei tratti: gli SVG dello SLICER disegnano a 0,3 mm."""
+    t = open(os.path.join(QUI, rel), encoding='utf-8').read()
+    t = re.sub(r'<\?xml[^>]*\?>', '', t)
+    t = re.sub(r'<!--[\s\S]*?-->', '', t)                  # prima i commenti: citano <metadata>
+    t = re.sub(r'<metadata[\s\S]*?</metadata>', '', t).strip()
+    if spessore:
+        t = re.sub(r'(<svg[^>]*>)', r'\1<style>g{stroke-width:%gpx !important}</style>' % spessore, t, count=1)
+    return 'data:image/svg+xml;base64,' + base64.b64encode(t.encode('utf-8')).decode()
+
+
+def ricetta(rel):
+    """Una riga con la ricetta, se accanto al file c'e' la scheda."""
+    s = json.load(open(os.path.join(QUI, rel), encoding='utf-8'))
+    v = s.get('ingresso', {}).get('vista')
+    f = s.get('foglio', {})
+    r = ['stile %s' % s.get('stile'), s.get('dettaglio', '')]
+    if v:
+        r.append('vista rz %g rx %g' % (v.get('rz', 0), v.get('rx', 0)))
+    r.append('foglio %g×%g mm' % (f.get('w', 0), f.get('h', 0)))
+    return ' · '.join(x for x in r if x)
 
 
 def numeri(rel):
@@ -152,11 +199,39 @@ table{border-collapse:collapse;width:100%;background:var(--card);border:1px soli
 td{padding:9px 14px;border-top:1px solid var(--line);vertical-align:top}tr:first-child td{border-top:0}td:first-child{white-space:nowrap;font-weight:600;color:var(--acc);width:1%}
 .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:8px}
 figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-figure img{display:block;width:100%;height:280px;object-fit:contain;background:#fff;padding:8px}
+figure button{display:block;width:100%;padding:0;border:0;background:#fff;cursor:zoom-in}
+figure button:focus-visible{outline:3px solid var(--acc);outline-offset:-3px}
+figure img{display:block;width:100%;height:280px;object-fit:contain;padding:8px}
+figure button::after{content:"Apri in grande";position:absolute;right:10px;top:10px;font-size:.75rem;background:#000a;color:#fff;padding:3px 9px;border-radius:99px;opacity:0;transition:opacity .15s}
+figure{position:relative}figure:hover button::after,figure button:focus-visible::after{opacity:1}
+dialog{border:0;border-radius:14px;padding:0;width:min(96vw,1300px);max-height:96vh;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:#000b}
+.vista{background:#fff;overflow:auto;max-height:80vh;text-align:center;cursor:zoom-in}
+.vista img{max-width:100%;max-height:78vh;display:inline-block}
+.vista.z{cursor:zoom-out;text-align:left}.vista.z img{max-width:none;max-height:none;width:260%}
+dialog header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+dialog header p{margin:0;font-size:.95rem}dialog header small{display:block;color:var(--mut)}
+dialog header button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:99px;padding:6px 16px;cursor:pointer;font:inherit}
+dialog .aiuto{margin:0;padding:8px 16px;font-size:.8rem;color:var(--mut)}
 figcaption{padding:10px 14px;font-size:.9rem;border-top:1px solid var(--line)}figcaption small{display:block;color:var(--mut);margin-top:2px}
 ol,ul{padding-left:1.2em}li{margin:4px 0}.box{background:var(--acc2);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-top:12px}
 code{background:var(--acc2);padding:1px 6px;border-radius:6px;font-size:.88em}
 """
+
+
+LIGHTBOX = '''<dialog id="lb" aria-label="Anteprima ingrandita"><header><p id="lbt"></p><button id="lbx" type="button">Chiudi</button></header>
+<div class="vista" id="lbv"><img id="lbi" alt=""></div><p class="aiuto">Clic sull'immagine per ingrandire o tornare alla vista intera · Esc per chiudere</p></dialog>
+<script>
+(function(){var d=document.getElementById('lb'),v=document.getElementById('lbv'),i=document.getElementById('lbi'),t=document.getElementById('lbt');
+if(!d.showModal)return;
+document.querySelectorAll('figure button').forEach(function(b){b.addEventListener('click',function(){
+ var f=b.closest('figure');i.src=b.querySelector('img').src;i.alt=b.querySelector('img').alt;
+ t.innerHTML=f.querySelector('figcaption').innerHTML;v.classList.remove('z');d.showModal();});});
+v.addEventListener('click',function(){v.classList.toggle('z');});
+document.getElementById('lbx').addEventListener('click',function(){d.close();});
+d.addEventListener('click',function(e){if(e.target===d)d.close();});
+})();
+</script>'''
 
 
 def pagina(blocchi_stili, dati_scheda):
@@ -164,28 +239,28 @@ def pagina(blocchi_stili, dati_scheda):
             '<title>Catalogo stili</title><style>%s</style></head><body><div class="w">'
             '<header><h1>Catalogo degli stili</h1><p>Come trasformiamo un modello 3D, una foto o un logo in un disegno per la macchina. '
             'Ogni stile ha un nome fisso: basta dirlo, con il dettaglio, per essere allineati.</p></header>'
-            '<nav>%s<a href="#scheda">Scheda lavoro</a></nav>%s%s</div></body></html>' % (CSS, ''.join(
-                '<a href="#%s">%s</a>' % (s['id'], s['nome']) for s in STILI), blocchi_stili, dati_scheda))
+            '<nav>%s<a href="#scheda">Scheda lavoro</a></nav>%s%s</div>%s</body></html>' % (CSS, ''.join(
+                '<a href="#%s">%s</a>' % (s['id'], s['nome']) for s in STILI), blocchi_stili, dati_scheda, LIGHTBOX))
 
 
 def main():
-    with tempfile.TemporaryDirectory() as tmp:
-        blocchi = ''
-        for s in STILI:
-            pngs = miniature(s['esempi'], tmp)
-            fig = ''
-            for (titolo, rel, _), png in zip(s['esempi'], pngs):
-                b64 = base64.b64encode(open(png, 'rb').read()).decode()
-                fig += ('<figure><img alt="%s" src="data:image/png;base64,%s"><figcaption>%s<small>%s</small></figcaption></figure>'
-                        % (html.escape(titolo), b64, html.escape(titolo), html.escape(numeri(rel))))
-            dett = ''.join('<tr><td>%s</td><td>%s</td></tr>' % (html.escape(a), html.escape(b)) for a, b in s['dettagli'])
-            blocchi += (
-                '<section id="%s"><h2>%s</h2><p class="lead">%s</p>'
-                '<div class="meta"><div><b>Ingresso</b>%s</div><div><b>Adatto a</b>%s</div>'
-                '<div class="no"><b>Meno adatto</b>%s</div><div><b>Cosa mi serve</b>%s</div></div>'
-                '<h3>Livelli di dettaglio</h3><table>%s</table><h3>Esempi veri</h3><div class="gal">%s</div></section>'
-                % (s['id'], s['nome'], html.escape(s['cosa']), html.escape(s['ingresso']), html.escape(s['si']),
-                   html.escape(s['no']), html.escape(s['serve']), dett, fig))
+    blocchi = ''
+    for st in STILI:
+        fig = ''
+        for titolo, rel, sp, sch in st['esempi']:
+            nota = numeri(rel) + (' · ' + ricetta(sch) if sch else '')
+            fig += ('<figure><button type="button" aria-label="Apri in grande: %s"><img alt="%s" src="%s"></button>'
+                    '<figcaption>%s<small>%s</small></figcaption></figure>'
+                    % (html.escape(titolo), html.escape(titolo), svg_uri(rel, sp), html.escape(titolo), html.escape(nota)))
+        dett = ''.join('<tr><td>%s</td><td>%s</td></tr>' % (html.escape(a), html.escape(b)) for a, b in st['dettagli'])
+        blocchi += (
+            '<section id="%s"><h2>%s</h2><p class="lead">%s</p>'
+            '<div class="meta"><div><b>Ingresso</b>%s</div><div><b>Adatto a</b>%s</div>'
+            '<div class="no"><b>Meno adatto</b>%s</div><div><b>Cosa mi serve</b>%s</div></div>'
+            '<h3>Livelli di dettaglio</h3><table>%s</table><h3>Esempi veri</h3><div class="gal">%s</div></section>'
+            % (st['id'], st['nome'], html.escape(st['cosa']), html.escape(st['ingresso']), html.escape(st['si']),
+               html.escape(st['no']), html.escape(st['serve']), dett, fig))
+    if True:
         scheda = ('<section id="scheda"><h2>La scheda lavoro</h2><p class="lead">Ogni nuovo lavoro parte da queste domande: te le faccio io '
                   'all\'inizio, tu rispondi a scelta o a parole.</p><table>%s</table>'
                   '<h3>Regole fisse</h3><div class="box"><ul>%s</ul></div>'
