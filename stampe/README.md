@@ -25,6 +25,18 @@ python3 -B stampe/strumento/strumento.py          # poi apri http://127.0.0.1:87
 - `python3 -B strumento.py --host 0.0.0.0` lo rende raggiungibile da altri dispositivi della rete.
 - `python3 -B strumento.py --build` riscrive `index.html` (da rifare se cambiano stili o penne).
 
+### Scala del dettaglio e anteprime «i»
+
+- La scala base ha tre scatti. Le due **spunte** sotto lo slider la estendono: a sinistra fino a *minimo* (sagoma e poco
+  altro), a destra fino a *massimo* (molto fitto: il controllo segnala quando le linee si impastano). Nella scheda il
+  livello è il nome: `minimo`, `molto-essenziale`, `essenziale`, `medio`, `dettagliato`, `molto-dettagliato`, `massimo`.
+- Le icone **i** accanto a ogni stile e al dettaglio mostrano, al passaggio del mouse, le anteprime degli esempi veri
+  (per il dettaglio: quelli dello stile scelto, uno per livello, col livello scelto evidenziato).
+- Gli esempi stanno in `catalogo/esempi.json`, ognuno col suo stile e livello. **Si aggiungono così:** col pulsante
+  «Aggiungi agli esempi» sotto un risultato dello strumento, oppure da riga di comando
+  `python3 -B catalogo.py --aggiungi <cartella-del-lavoro> --titolo "..."` (la cartella con `<nome>.svg`,
+  `scheda.json`, `report.txt`). L'esempio va sotto il suo stile e livello, nel catalogo e nelle «i».
+
 ## Come si lavora
 
 1. **Modulo.** A ogni nuovo lavoro ti faccio le domande qui sotto (a scelta, più i campi liberi).
@@ -42,7 +54,7 @@ Primo giro, a scelta:
 |---|---|
 | **Ingresso** | modello 3D (`.3mf`, con vista) · foto · screenshot · illustrazione/logo |
 | **Stile** | Rilievo · Layer · Onde · Poligoni · Linea · Fedele (· Tratti, sconsigliato) |
-| **Dettaglio** | essenziale · medio · dettagliato |
+| **Dettaglio** | essenziale · medio · dettagliato (scala estesa: minimo, molto essenziale, … molto dettagliato, massimo) |
 | **Foglio** | A5 orizzontale 210×148 · A5 verticale 148×210 · quadrato · altro (mm) |
 
 Secondo giro, a parole: **penne** (quali usi e cosa va in ciascuna; default: tutte le scritte in

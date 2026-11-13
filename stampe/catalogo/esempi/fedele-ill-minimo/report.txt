@@ -1,0 +1,5 @@
+Foglio 100 × 140 mm, margine 8 mm
+Ingombro 84.0 × 110.7 mm
+  livello #111111  spessore 0.40 mm  116 tratti  3.83 m  sovrapposizione 1.18×
+Sollevamenti di penna: 115 (+ i cambi penna fra livelli)
+ESITO: ok

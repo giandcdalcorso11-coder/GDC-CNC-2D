@@ -1,0 +1,16 @@
+{
+  "nome": "fedele-ill-massimo",
+  "ingresso": {
+    "tipo": "illustrazione",
+    "file": "3.webp"
+  },
+  "stile": "fedele",
+  "dettaglio": "massimo",
+  "foglio": {
+    "w": 100,
+    "h": 140,
+    "margine": 8
+  },
+  "testi": [],
+  "opzioni": {}
+}

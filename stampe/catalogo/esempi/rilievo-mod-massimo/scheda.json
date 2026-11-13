@@ -1,0 +1,20 @@
+{
+  "nome": "rilievo-mod-massimo",
+  "ingresso": {
+    "vista": {
+      "rz": 20,
+      "rx": 10
+    },
+    "tipo": "modello3d",
+    "file": "c3b5b9eb-Starry_angel_kid_progetto.3mf"
+  },
+  "stile": "rilievo",
+  "dettaglio": "massimo",
+  "foglio": {
+    "w": 210,
+    "h": 148,
+    "margine": 8
+  },
+  "testi": [],
+  "opzioni": {}
+}

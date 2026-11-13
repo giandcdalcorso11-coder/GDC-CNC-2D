@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Genera stampe/catalogo/index.html: il catalogo degli stili con le anteprime dei file veri.
 
-  python3 -B catalogo.py
+  python3 -B catalogo.py                          ricostruisce la pagina
+  python3 -B catalogo.py --aggiungi <cartella-lavoro> [--titolo "..."]   aggiunge un lavoro generato agli esempi
 
 Le anteprime sono gli SVG veri (senza metadati dello SLICER), incorporati nella pagina: un clic li
 apre in grande, con zoom. I numeri (tratti, lunghezza, sollevamenti) vengono dal controllo.
@@ -30,12 +31,6 @@ STILI = [
         'si': 'figure e mascotte viste di fronte; due penne (nero per la sagoma, grigio per il rilievo)',
         'no': 'foto di persone (non c\'è un modello 3D); oggetti piatti visti dall\'alto (per quelli c\'è Layer)',
         'serve': 'file .3mf, angoli di vista (rz = giro, rx = inclinazione dall\'alto), testi sotto il disegno',
-        'esempi': [
-            ('Starry angel kid — essenziale', 'antei/starry angel kid cnc2d (essenziale).svg', None, None),
-            ('Starry angel kid — dettagliato', 'antei/starry angel kid cnc2d (dettagliato).svg', None, None),
-            ('Starboy da screenshot — dettagliato', 'antei/starboy cnc2d (dettagliato).svg', None, None),
-            ('Starboy da screenshot — essenziale', 'antei/starboy cnc2d (essenziale).svg', None, None),
-        ],
     },
     {
         'id': 'layer', 'nome': 'Layer',
@@ -49,10 +44,6 @@ STILI = [
         'si': 'oggetti con un rilievo marcato visti dall\'alto (ciotole, portaoggetti, targhe); effetto a curve di livello pulito',
         'no': 'figure viste di fronte e con poca profondità: gli strati diventano strisce (per quelle c\'è Rilievo)',
         'serve': 'file .3mf, vista (rx da 35° in su dà gli strati più leggibili), testi sotto il disegno',
-        'esempi': [
-            ('Biglietto Feffi (portaoggetti dall\'alto, con testi e logo)', 'portaoggetti-feffi/finale/biglietto-feffi-kira.cnc2d.svg', 0.5, None),
-            ('Starry angel kid — layer, medio', 'catalogo/esempi/starry-angel-kid-layer/starry-angel-kid-layer.svg', None, 'catalogo/esempi/starry-angel-kid-layer/scheda.json'),
-        ],
     },
     {
         'id': 'onde', 'nome': 'Onde',
@@ -66,10 +57,6 @@ STILI = [
         'si': 'foto con una figura riconoscibile su sfondo diverso; pochi sollevamenti di penna',
         'no': 'volti piccoli (con le righe larghe il volto si perde); scritte sottili',
         'serve': 'foto, ritaglio (px da togliere: su,giù,sinistra,destra), foglio',
-        'esempi': [
-            ('Coppia — essenziale (onde larghe)', 'foto-coppia/coppia onde larghe cnc2d.svg', None, None),
-            ('Coppia — dettagliato', 'foto-coppia/coppia onde cnc2d.svg', None, None),
-        ],
     },
     {
         'id': 'poligoni', 'nome': 'Poligoni',
@@ -83,10 +70,6 @@ STILI = [
         'si': 'un effetto grafico moderno; il soggetto si legge anche con pochi triangoli',
         'no': 'chi vuole pochi sollevamenti di penna: ogni lato è un segmento (lo SLICER li salda in catene)',
         'serve': 'foto, ritaglio, foglio',
-        'esempi': [
-            ('Coppia — leggero', 'foto-coppia/coppia poligoni (leggero) cnc2d.svg', None, None),
-            ('Coppia — con toni', 'foto-coppia/coppia poligoni (toni) cnc2d.svg', None, None),
-        ],
     },
     {
         'id': 'linea', 'nome': 'Linea',
@@ -99,9 +82,6 @@ STILI = [
         'si': 'icone, magneti, targhette, scritte: tutto quello che si disegna con un pennarello grosso',
         'no': 'fotografie; disegni molto sfumati; chi vuole il contorno esatto di ogni forma (per quello c\'è Fedele)',
         'serve': 'immagine, dove finisce la grafica e comincia la scritta (frazione dell\'altezza), quali parti in quale penna',
-        'esempi': [
-            ('Tutti i magneti (foglio rifinito dall\'utente)', 'magneti/finali-utente/tutti_i_magneti.svg', 1.5, None),
-        ],
     },
     {
         'id': 'fedele', 'nome': 'Fedele',
@@ -115,11 +95,6 @@ STILI = [
         'si': 'loghi e illustrazioni con bordi netti; opzioni: colori=N, riempimento=mm (tratteggio nelle campiture piene)',
         'no': 'foto (riportarle «fedelmente» non ha senso: per quelle ci sono Onde e Poligoni); linee molto sottili: ogni linea diventa due contorni vicini',
         'serve': 'immagine con fondo chiaro e uniforme; quanti colori d\'inchiostro',
-        'esempi': [
-            ('Logo Antei — essenziale', 'catalogo/esempi/logo-antei-fedele/logo-antei-fedele-essenziale.svg', None, None),
-            ('Logo Antei — medio', 'catalogo/esempi/logo-antei-fedele/logo-antei-fedele.svg', None, 'catalogo/esempi/logo-antei-fedele/scheda.json'),
-            ('Logo Antei — dettagliato', 'catalogo/esempi/logo-antei-fedele/logo-antei-fedele-dettagliato.svg', None, None),
-        ],
     },
     {
         'id': 'tratti', 'nome': 'Tratti',
@@ -129,14 +104,48 @@ STILI = [
         'si': 'solo come stile da guardare',
         'no': 'sconsigliato per la macchina: migliaia di trattini corti, tanti sollevamenti, righe fitte quanto la penna. Scartato dall\'utente per questo; su altre foto non è stato messo a punto.',
         'serve': 'foto',
-        'esempi': [('Coppia — l\'unico esempio fatto', 'foto-coppia/coppia tratti cnc2d.svg', None, None)],
     },
 ]
+
+ESEMPI_JSON = os.path.join(QUI, 'catalogo', 'esempi.json')
+
+
+def carica_esempi():
+    """L'archivio degli esempi: {stile: [{titolo, svg, dettaglio, spessore?, scheda?}]}."""
+    return json.load(open(ESEMPI_JSON, encoding='utf-8')) if os.path.exists(ESEMPI_JSON) else {}
+
+
+def aggiungi_esempio(cartella, titolo=None):
+    """Mette un lavoro generato (cartella con <nome>.svg, scheda.json, report.txt) fra gli esempi,
+    nel posto giusto: sotto il suo stile, col suo livello di dettaglio."""
+    import shutil
+    sc = json.load(open(os.path.join(cartella, 'scheda.json'), encoding='utf-8'))
+    nome = sc['nome']
+    base = re.sub(r'[^A-Za-z0-9_-]+', '-', nome).strip('-') or 'lavoro'
+    dest, k = os.path.join(QUI, 'catalogo', 'esempi', base), 2
+    while os.path.exists(dest):
+        dest = os.path.join(QUI, 'catalogo', 'esempi', '%s-%d' % (base, k))
+        k += 1
+    os.makedirs(dest)
+    shutil.copy(os.path.join(cartella, nome + '.svg'), os.path.join(dest, nome + '.svg'))
+    if os.path.exists(os.path.join(cartella, 'report.txt')):
+        shutil.copy(os.path.join(cartella, 'report.txt'), os.path.join(dest, 'report.txt'))
+    sc['ingresso']['file'] = os.path.basename(sc['ingresso'].get('file', ''))      # niente percorsi della macchina
+    sc.pop('uscita', None)
+    json.dump(sc, open(os.path.join(dest, 'scheda.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    rel = os.path.relpath(dest, QUI)
+    e = {'titolo': titolo or '%s — %s' % (nome, sc.get('dettaglio', '')), 'svg': '%s/%s.svg' % (rel, nome),
+         'dettaglio': sc.get('dettaglio'), 'scheda': rel + '/scheda.json'}
+    reg = carica_esempi()
+    reg.setdefault(sc['stile'], []).append(e)
+    json.dump(reg, open(ESEMPI_JSON, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    return sc['stile'], e
+
 
 SCHEDA = [
     ('Ingresso', 'modello 3D (.3mf) con vista · foto · screenshot · illustrazione/logo'),
     ('Stile', 'Rilievo · Layer · Onde · Poligoni · Linea · Fedele (· Tratti, sconsigliato)'),
-    ('Dettaglio', 'essenziale · medio · dettagliato'),
+    ('Dettaglio', 'essenziale · medio · dettagliato; con le spunte dello strumento anche minimo, molto essenziale, molto dettagliato, massimo'),
     ('Foglio', 'larghezza × altezza in mm e margine (default 8 mm)'),
     ('Penne', 'quali usi e che cosa va in ciascuna; default: tutte le scritte in indelebile, il resto lo scelgo io'),
     ('Testi', 'cosa scrivere e dove (sotto il disegno); se non dici altro, niente logo GDC'),
@@ -247,7 +256,8 @@ def main():
     blocchi = ''
     for st in STILI:
         fig = ''
-        for titolo, rel, sp, sch in st['esempi']:
+        for e in carica_esempi().get(st['id'], []):
+            titolo, rel, sp, sch = e['titolo'], e['svg'], e.get('spessore'), e.get('scheda')
             nota = numeri(rel) + (' · ' + ricetta(sch) if sch else '')
             fig += ('<figure><button type="button" aria-label="Apri in grande: %s"><img alt="%s" src="%s"></button>'
                     '<figcaption>%s<small>%s</small></figcaption></figure>'
@@ -277,4 +287,10 @@ def main():
 
 
 if __name__ == '__main__':
+    import sys
+    if '--aggiungi' in sys.argv:
+        i = sys.argv.index('--aggiungi')
+        t = sys.argv[sys.argv.index('--titolo') + 1] if '--titolo' in sys.argv else None
+        stile, e = aggiungi_esempio(sys.argv[i + 1], t)
+        print('aggiunto a «%s»: %s' % (stile, e['titolo']))
     main()

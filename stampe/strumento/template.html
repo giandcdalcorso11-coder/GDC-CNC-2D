@@ -58,6 +58,22 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding
 .err{color:var(--bad)}
 .viste{margin-top:10px}.viste img{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:crosshair}
 .hide{display:none !important}
+.st{position:relative}.st>button:first-child{width:100%;padding-right:34px}
+.i{position:absolute;right:7px;top:7px;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--acc);font:italic 700 .8rem Georgia,serif;line-height:1;padding:0;cursor:help;display:inline-flex;align-items:center;justify-content:center}
+.i:hover,.i:focus-visible{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+legend .i{position:static;margin-left:8px;vertical-align:middle}
+.stili .st>button:first-child[aria-pressed=true]+.i{background:var(--acc-ink);color:var(--acc);border-color:var(--acc-ink)}
+#pop{position:fixed;z-index:60;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 34px #0005;padding:10px 12px 12px;width:min(580px,94vw);display:none}
+#pop h4{margin:0 0 2px;font-size:.92rem}#pop p{margin:0 0 8px;font-size:.8rem;color:var(--mut)}
+#pop .gr{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+#pop figure{margin:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+#pop figure.cur{outline:3px solid var(--acc)}
+#pop img{display:block;width:100%;height:124px;object-fit:contain;background:#fff}
+#pop figcaption{font-size:.7rem;padding:4px 6px;background:var(--card);border-top:1px solid var(--line);line-height:1.25}
+#pop figcaption b{color:var(--acc)}
+.ext{display:flex;justify-content:space-between;gap:12px;margin-top:10px}.ext label{display:flex;align-items:center;gap:6px;margin:0;font-size:.85rem;color:var(--ink);cursor:pointer}
+.tacche{gap:4px}.tacche span{flex:1;text-align:center;font-size:.72rem;line-height:1.15}.tacche span:first-child{text-align:left}.tacche span:last-child{text-align:right}
+.tacche .est{opacity:.65}
 </style>
 </head>
 <body>
@@ -95,9 +111,10 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding
   <p class="nota" id="stilonota">Scegli un file: gli stili adatti si accendono.</p>
 </fieldset>
 
-<fieldset><legend><span>3</span>Dettaglio</legend>
+<fieldset><legend><span>3</span>Dettaglio<button type="button" class="i" id="i-dett" aria-label="Esempi dei livelli di dettaglio">i</button></legend>
   <div class="slider"><input id="dett" type="range" min="0" max="2" step="1" value="1" aria-label="Livello di dettaglio">
-    <div class="tacche"><span id="d0">essenziale</span><span id="d1"><b>medio</b></span><span id="d2">dettagliato</span></div></div>
+    <div class="tacche" id="tacche"></div></div>
+  <div class="ext"><label><input type="checkbox" id="ext-sx"> ‹ più essenziale</label><label>più dettagliato ›<input type="checkbox" id="ext-dx"></label></div>
   <p class="nota" id="dettnota"></p>
 </fieldset>
 
@@ -171,13 +188,15 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding
 </div>
 </div>
 </div>
+<div id="pop" role="tooltip"></div>
 
 <script>
 var CFG = /*CONFIG*/null;
 (function(){
 'use strict';
 var $ = function(id){return document.getElementById(id);};
-var DETT = CFG.dettagli;
+var LIV = CFG.livelli;           // minimo, molto-essenziale, essenziale, medio, dettagliato, molto-dettagliato, massimo
+var BASE = ['essenziale','medio','dettagliato'];
 var NOTE_DETT = {
   rilievo:['sagoma e poche curve levigate (circa 12)','più curve (circa 20)','ombreggiatura con tratti scuri: occhi, pieghe'],
   layer:['12 strati','20 strati','28 strati'],
@@ -187,7 +206,7 @@ var NOTE_DETT = {
   linea:['(il dettaglio non cambia questo stile)','(il dettaglio non cambia questo stile)','(il dettaglio non cambia questo stile)'],
   tratti:['(il dettaglio non cambia questo stile)','(il dettaglio non cambia questo stile)','(il dettaglio non cambia questo stile)']
 };
-var S = {server:false, file:null, fileId:null, tipo:null, stile:null, vistaTocca:false, job:null, timer:null};
+var S = {liv:'medio', server:false, file:null, fileId:null, tipo:null, stile:null, vistaTocca:false, job:null, timer:null};
 
 // ---------- motore disponibile?
 fetch('/api/ping',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){S.server=!!j.ok;}).catch(function(){S.server=false;}).then(function(){
@@ -201,11 +220,13 @@ fetch('/api/ping',{cache:'no-store'}).then(function(r){return r.json();}).then(f
 // ---------- stili
 var stBox=$('stili');
 CFG.stili.forEach(function(s){
+  var w=document.createElement('div');w.className='st';
   var b=document.createElement('button');b.type='button';b.dataset.id=s.id;b.setAttribute('aria-pressed','false');
   b.innerHTML='<b>'+s.nome+(s.sconsigliato?' ⚠':'')+'</b><small>'+s.cosa.split(':')[0].replace(/\.$/,'').slice(0,70)+'</small>';
-  b.title=s.cosa+' Ingresso: '+s.ingresso;
   b.onclick=function(){S.stile=s.id;if(!S.vistaTocca)vistaDefault();agg();};
-  stBox.appendChild(b);
+  var i=document.createElement('button');i.type='button';i.className='i';i.textContent='i';i.setAttribute('aria-label','Esempi dello stile '+s.nome);
+  legaPop(i,function(){return popStile(s);});
+  w.appendChild(b);w.appendChild(i);stBox.appendChild(w);
 });
 function compat(id){return S.tipo&&CFG.compat[id]&&CFG.compat[id].indexOf(S.tipo)>=0;}
 
@@ -235,7 +256,11 @@ $('nome').oninput=function(){delete this.dataset.auto;};
 Array.prototype.forEach.call($('tipo').children,function(b){b.onclick=function(){S.tipo=b.dataset.v;if(S.stile&&!compat(S.stile))S.stile=null;agg();};});
 
 // ---------- dettaglio, foglio, vista
-$('dett').oninput=agg;
+$('dett').oninput=function(){S.liv=avail()[+this.value];agg();};
+['ext-sx','ext-dx'].forEach(function(id){$(id).onchange=function(){
+  var a=avail();
+  if(a.indexOf(S.liv)<0)S.liv=LIV.indexOf(S.liv)<2?'essenziale':'dettagliato';   // la spunta tolta: torna al bordo della scala base
+  agg();};});
 Array.prototype.forEach.call($('fogli').children,function(b){b.onclick=function(){$('fw').value=b.dataset.w;$('fh').value=b.dataset.h;agg();};});
 ['fw','fh','fm'].forEach(function(i){$(i).oninput=agg;});
 function vistaDefault(){var rx=S.stile==='layer'?40:10;$('rz').value=20;$('rx').value=rx;}
@@ -253,13 +278,68 @@ function nuovoTesto(s,alt,pen){
 }
 $('addtesto').onclick=function(){nuovoTesto('',$('testi').children.length?4.5:9,$('testi').children.length?'grigio':'nero');};
 
+// ---------- scala del dettaglio (base a 3 scatti, estendibile con le due spunte)
+function avail(){var a=[];if($('ext-sx').checked)a.push(LIV[0],LIV[1]);a.push(LIV[2],LIV[3],LIV[4]);if($('ext-dx').checked)a.push(LIV[5],LIV[6]);return a;}
+function bello(n){return n.replace('-',' ');}
+function disegnaScala(){
+  var a=avail(),r=$('dett');r.min=0;r.max=a.length-1;r.value=Math.max(0,a.indexOf(S.liv));
+  $('tacche').innerHTML=a.map(function(n){var cur=n===S.liv,est=BASE.indexOf(n)<0;
+    return '<span class="'+(est?'est':'')+'">'+(cur?'<b>'+bello(n)+'</b>':bello(n))+'</span>';}).join('');
+}
+function notaLivello(){
+  if(!S.stile)return '';
+  var i=BASE.indexOf(S.liv);
+  if(i>=0&&NOTE_DETT[S.stile])return NOTE_DETT[S.stile][i];
+  if(S.stile==='linea'||S.stile==='tratti')return NOTE_DETT[S.stile][1];
+  return LIV.indexOf(S.liv)<2?'Ancora più essenziale: meno linee, solo l\'indispensabile.':'Ancora più fitto: più penna e più tempo. Il controllo dice se le linee si impastano.';
+}
+
+// ---------- popup con le anteprime degli esempi (icone «i»)
+var pop=$('pop'),popAncora=null;
+function esempiDi(stile){return (CFG.esempi&&CFG.esempi[stile])||[];}
+function fig(e,cur){return '<figure'+(cur?' class="cur"':'')+'><img alt="" src="'+e.uri+'"><figcaption>'+esc(e.titolo)+(e.dettaglio?'<br><b>'+esc(bello(e.dettaglio))+'</b>':'')+'</figcaption></figure>';}
+function perLivello(tutti,max){   // prima un esempio per ogni livello, in ordine di scala; poi si riempie con gli altri
+  var scelti=[];
+  LIV.concat([null]).forEach(function(l){var e=tutti.filter(function(x){return (x.dettaglio||null)===l;})[0];if(e&&scelti.length<max)scelti.push(e);});
+  tutti.forEach(function(e){if(scelti.length<max&&scelti.indexOf(e)<0)scelti.push(e);});
+  return scelti.sort(function(a,b){var ia=a.dettaglio?LIV.indexOf(a.dettaglio):99,ib=b.dettaglio?LIV.indexOf(b.dettaglio):99;return ia-ib;});
+}
+function popStile(s){
+  var scelti=perLivello(esempiDi(s.id),4);
+  return '<h4>'+esc(s.nome)+'</h4><p>'+esc(s.cosa)+'</p>'+(scelti.length?'<div class="gr">'+scelti.map(function(e){return fig(e,false);}).join('')+'</div>':'<p>Nessun esempio ancora.</p>');
+}
+function popDett(){
+  if(!S.stile)return '<h4>Livelli di dettaglio</h4><p>Scegli prima uno stile: vedrai gli esempi di ogni livello.</p>';
+  var tutti=perLivello(esempiDi(S.stile).filter(function(e){return e.dettaglio;}),8);
+  var nome=CFG.stili.filter(function(x){return x.id===S.stile;})[0].nome;
+  return '<h4>'+esc(nome)+' — esempi per livello</h4><p>'+(S.liv?'Livello scelto: <b>'+esc(bello(S.liv))+'</b>.':'')+'</p>'+
+    (tutti.length?'<div class="gr">'+tutti.slice(0,8).map(function(e){return fig(e,e.dettaglio===S.liv);}).join('')+'</div>':'<p>Nessun esempio con livello indicato per questo stile.</p>');
+}
+function mostraPop(a,html){
+  pop.innerHTML=html;pop.style.display='block';popAncora=a;
+  var r=a.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight;
+  var left=Math.min(Math.max(8,r.left),window.innerWidth-w-8);
+  var top=r.bottom+8;if(top+h>window.innerHeight-8)top=Math.max(8,r.top-h-8);
+  pop.style.left=left+'px';pop.style.top=top+'px';
+}
+function nascondiPop(){pop.style.display='none';popAncora=null;}
+function legaPop(btn,fn){
+  btn.addEventListener('mouseenter',function(){mostraPop(btn,fn());});
+  btn.addEventListener('mouseleave',nascondiPop);
+  btn.addEventListener('focus',function(){mostraPop(btn,fn());});
+  btn.addEventListener('blur',nascondiPop);
+  btn.addEventListener('click',function(e){e.preventDefault();if(popAncora===btn)nascondiPop();else mostraPop(btn,fn());});
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')nascondiPop();});
+window.addEventListener('scroll',nascondiPop,true);
+legaPop($('i-dett'),popDett);
+
 // ---------- aggiorna la pagina
 function agg(){
-  var dettI=+$('dett').value;
-  ['d0','d1','d2'].forEach(function(id,i){$(id).innerHTML=i===dettI?'<b>'+DETT[i]+'</b>':DETT[i];});
-  $('dettnota').textContent=S.stile&&NOTE_DETT[S.stile]?NOTE_DETT[S.stile][dettI]:'';
+  disegnaScala();
+  $('dettnota').textContent=notaLivello();
   Array.prototype.forEach.call($('tipo').children,function(b){b.setAttribute('aria-pressed',b.dataset.v===S.tipo?'true':'false');});
-  Array.prototype.forEach.call(stBox.children,function(b){var ok=compat(b.dataset.id);b.disabled=!ok;b.setAttribute('aria-pressed',b.dataset.id===S.stile?'true':'false');});
+  Array.prototype.forEach.call(stBox.children,function(w){var b=w.firstChild,ok=compat(b.dataset.id);b.disabled=!ok;b.setAttribute('aria-pressed',b.dataset.id===S.stile?'true':'false');});
   $('stilonota').textContent=!S.file?'Scegli un file: gli stili adatti si accendono.':(S.stile?'':'Scegli uno stile fra quelli accesi.');
   var is3d=S.tipo==='modello3d',isImg=S.file&&!is3d;
   $('box-vista').classList.toggle('hide',!(is3d&&S.stile));
@@ -275,7 +355,7 @@ function agg(){
 // ---------- la scheda
 function scheda(){
   var w=+$('fw').value||210,h=+$('fh').value||148,m=+$('fm').value;
-  var sc={nome:$('nome').value.trim()||'lavoro',ingresso:{tipo:S.tipo,file:S.file?S.file.name:''},stile:S.stile,dettaglio:DETT[+$('dett').value],
+  var sc={nome:$('nome').value.trim()||'lavoro',ingresso:{tipo:S.tipo,file:S.file?S.file.name:''},stile:S.stile,dettaglio:S.liv,
     foglio:{w:w,h:h,margine:isNaN(m)?8:m},testi:[],opzioni:{}};
   if(S.tipo==='modello3d')sc.ingresso.vista={rz:+$('rz').value,rx:+$('rx').value};
   var cr=['c-su','c-giu','c-sx','c-dx'].map(function(i){return Math.max(0,parseInt($(i).value)||0);});
@@ -332,7 +412,13 @@ function mostra(id,j,sc){
   var rep=(j.report||'').split('\n');var esito=rep.filter(function(r){return r.indexOf('ESITO')===0;})[0]||'';
   P.innerHTML='<h2>Fatto — '+esc(sc.stile)+', '+esc(sc.dettaglio)+'</h2><div class="risultato" id="ris"><img alt="Anteprima del disegno" src="/api/job/'+id+'/svg?'+Date.now()+'"></div>'+
    '<p class="nota">Clic sull\'immagine per ingrandire.</p><pre>'+esc(j.report||'')+'</pre>'+
-   '<div class="azioni"><a class="primo" href="/api/job/'+id+'/svg?scarica=1" download>Scarica SVG</a><a href="/api/job/'+id+'/scheda" download>Scheda (ricetta)</a><button id="cp">Copia la scheda per Claude</button></div>';
+   '<div class="azioni"><a class="primo" href="/api/job/'+id+'/svg?scarica=1" download>Scarica SVG</a><a href="/api/job/'+id+'/scheda" download>Scheda (ricetta)</a><button id="cp">Copia la scheda per Claude</button><button id="addex">Aggiungi agli esempi</button></div><p class="nota" id="addnota"></p>';
+  $('addex').onclick=function(){var b=this;b.disabled=true;
+    fetch('/api/esempio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job:id})}).then(function(r){return r.json();}).then(function(j){
+      if(j.errore)throw new Error(j.errore);
+      $('addnota').textContent='Aggiunto agli esempi di «'+j.stile+'» (livello '+bello(j.dettaglio||'')+'). Ora compare nelle anteprime delle «i».';
+      (CFG.esempi[j.stile]=CFG.esempi[j.stile]||[]).push({titolo:j.titolo,dettaglio:j.dettaglio,uri:'/api/job/'+id+'/svg'});
+    }).catch(function(e){b.disabled=false;$('addnota').textContent='Non riuscito: '+e.message;});};
   $('ris').onclick=function(){this.classList.toggle('z');};
   $('cp').onclick=function(){copia(JSON.stringify(sc,null,2),this);};
 }

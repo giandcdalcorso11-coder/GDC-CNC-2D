@@ -42,6 +42,21 @@ LAVORO_LOCK = threading.Lock()          # un lavoro alla volta: i motori usano m
 JOB = {}
 
 
+def esempi_incorporati():
+    """Gli esempi del catalogo come SVG incorporati, per i popup delle «i»: {stile: [{titolo, dettaglio, uri}]}.
+    Si rileggono a ogni richiesta della pagina, cosi' un esempio appena aggiunto compare subito."""
+    out = {}
+    for stile, lista in catalogo.carica_esempi().items():
+        out[stile] = []
+        for e in lista:
+            try:
+                out[stile].append({'titolo': e['titolo'], 'dettaglio': e.get('dettaglio'),
+                                   'uri': catalogo.svg_uri(e['svg'], e.get('spessore'))})
+            except OSError:
+                pass
+    return out
+
+
 def config():
     return {
         'compat': lavoro.COMPATIBILE,
@@ -50,6 +65,8 @@ def config():
                    'sconsigliato': s['id'] == 'tratti'} for s in catalogo.STILI],
         'penne': {k: {'nome': v['nome'], 'colore': v['colore']} for k, v in lavoro.PENNE.items()},
         'angoli': ANGOLI,
+        'livelli': list(lavoro.LIVELLI),
+        'esempi': esempi_incorporati(),
     }
 
 
@@ -219,6 +236,20 @@ class H(BaseHTTPRequestHandler):
                         f.write(b)
                         restano -= len(b)
                 return self.invia(200, {'id': fid, 'nome': nome, 'tipo': ESTENSIONI[ext]})
+            if p == '/api/esempio':
+                dati = self.corpo_json()
+                j = JOB.get(str(dati.get('job', '')))
+                if not j or not j.get('svg'):
+                    return self.invia(400, {'errore': 'lavoro non trovato o non finito'})
+                if j.get('aggiunto'):
+                    return self.invia(200, dict(j['aggiunto'], gia=True))
+                stile, e = catalogo.aggiungi_esempio(os.path.dirname(j['svg']), (dati.get('titolo') or '').strip()[:100] or None)
+                j['aggiunto'] = {'ok': True, 'stile': stile, 'titolo': e['titolo'], 'dettaglio': e['dettaglio']}
+                try:
+                    catalogo.main()                 # la pagina del catalogo si aggiorna
+                except Exception:
+                    pass
+                return self.invia(200, j['aggiunto'])
             dati = self.corpo_json()
             fid = str(dati.get('file_id', ''))
             if not re.fullmatch(r'[0-9a-f]{12}', fid) or not os.path.isdir(os.path.join(LAVORI, fid)):

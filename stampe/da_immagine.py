@@ -7,7 +7,9 @@ uguale grigio, che sul modello liscio ricalcano il rilievo, come curve di
 livello disegnate a occhio. La sagoma e' il contorno della figura staccata dallo
 sfondo (e dal pavimento del programma di slicing, che si riconosce perche' scuro).
 
-  python3 -B da_immagine.py <screenshot.png> <uscita.svg> [W H] [livelli] [levigatura_px] [essenziale] [senza-pavimento] [escludi=x0,y0,x1,y1 ...] [taglia=x0,y0,x1,y1 ...]
+  python3 -B da_immagine.py <screenshot.png> <uscita.svg> [W H] [livelli] [levigatura_px] [essenziale] [senza-pavimento] [escludi=x0,y0,x1,y1 ...] [taglia=x0,y0,x1,y1 ...] [soglia=n]
+
+  soglia=n: quanto piu' scuro del contorno deve essere un tratto di dettaglio (default 9; piu' basso = piu' tratti)
 
   essenziale: niente tratti di dettaglio, linee piu' levigate e meno numerose (la
   resa delle figure di `rilievo.py` in modo profondita')
@@ -63,7 +65,7 @@ def maschera(L):
     return S.riempi_buchi(tenute)
 
 
-def tracciati(percorso, livelli=7, levigatura=2.2, dettagli=True, minimo=0.06, escludi=(), taglia=()):
+def tracciati(percorso, livelli=7, levigatura=2.2, dettagli=True, minimo=0.06, escludi=(), taglia=(), soglia=None):
     L = np.asarray(Image.open(percorso).convert('L')).astype(float)
     mask = maschera(L)
     # taglia=x0,y0,x1,y1: toglie dalla figura un pezzo che non ci deve stare
@@ -102,7 +104,7 @@ def tracciati(percorso, livelli=7, levigatura=2.2, dettagli=True, minimo=0.06, e
     Gg = np.asarray(Image.fromarray(Lm.astype(np.uint8)).filter(ImageFilter.GaussianBlur(4.5))).astype(float)
     Dk = np.where(mask, Gf - Gg, np.nan)
     det = []
-    for p in (S.contorni(Dk, -DETTAGLIO) if dettagli else []):
+    for p in (S.contorni(Dk, -(soglia or DETTAGLIO)) if dettagli else []):
         q = norm(p, 0.0007)
         if len(q) > 2 and S.lunghezza(q) > 0.045:
             det.append(q)
@@ -132,7 +134,8 @@ if __name__ == '__main__':
     # i tracciati interamente dentro quel rettangolo
     escludi = [tuple(float(t) for t in e.split('=')[1].split(',')) for e in extra if e.startswith('escludi=')]
     taglia = [tuple(float(t) for t in e.split('=')[1].split(',')) for e in extra if e.startswith('taglia=')]
-    d = tracciati(sys.argv[1], liv, lev, dettagli=not essenziale,
+    soglia = next((float(e.split('=')[1]) for e in extra if e.startswith('soglia=')), None)
+    d = tracciati(sys.argv[1], liv, lev, dettagli=not essenziale, soglia=soglia,
                   minimo=0.12 if essenziale else 0.06, escludi=escludi, taglia=taglia)
     print('rapporto %.3f, %d linee di livello' % (d['rapporto'], len(d['isoipse'])))
     open(sys.argv[2], 'w').write(rilievo.svg(d, W, H))

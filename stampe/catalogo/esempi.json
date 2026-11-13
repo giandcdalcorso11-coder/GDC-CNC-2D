@@ -1,0 +1,137 @@
+{
+ "rilievo": [
+  {
+   "titolo": "Starry angel kid — essenziale",
+   "svg": "antei/starry angel kid cnc2d (essenziale).svg",
+   "dettaglio": "essenziale"
+  },
+  {
+   "titolo": "Starry angel kid — dettagliato",
+   "svg": "antei/starry angel kid cnc2d (dettagliato).svg",
+   "dettaglio": "dettagliato"
+  },
+  {
+   "titolo": "Starboy da screenshot — dettagliato",
+   "svg": "antei/starboy cnc2d (dettagliato).svg",
+   "dettaglio": "dettagliato"
+  },
+  {
+   "titolo": "Starboy da screenshot — essenziale",
+   "svg": "antei/starboy cnc2d (essenziale).svg",
+   "dettaglio": "essenziale"
+  },
+  {
+   "titolo": "Starry angel kid — rilievo, minimo",
+   "svg": "catalogo/esempi/rilievo-mod-minimo/rilievo-mod-minimo.svg",
+   "dettaglio": "minimo",
+   "scheda": "catalogo/esempi/rilievo-mod-minimo/scheda.json"
+  },
+  {
+   "titolo": "Starry angel kid — rilievo, massimo",
+   "svg": "catalogo/esempi/rilievo-mod-massimo/rilievo-mod-massimo.svg",
+   "dettaglio": "massimo",
+   "scheda": "catalogo/esempi/rilievo-mod-massimo/scheda.json"
+  }
+ ],
+ "layer": [
+  {
+   "titolo": "Biglietto Feffi (portaoggetti dall'alto, con testi e logo)",
+   "svg": "portaoggetti-feffi/finale/biglietto-feffi-kira.cnc2d.svg",
+   "dettaglio": "dettagliato",
+   "spessore": 0.5
+  },
+  {
+   "titolo": "Starry angel kid — layer, medio",
+   "svg": "catalogo/esempi/starry-angel-kid-layer/starry-angel-kid-layer.svg",
+   "dettaglio": "medio",
+   "scheda": "catalogo/esempi/starry-angel-kid-layer/scheda.json"
+  },
+  {
+   "titolo": "Starry angel kid — layer, minimo",
+   "svg": "catalogo/esempi/layer-mod-minimo/layer-mod-minimo.svg",
+   "dettaglio": "minimo",
+   "scheda": "catalogo/esempi/layer-mod-minimo/scheda.json"
+  }
+ ],
+ "onde": [
+  {
+   "titolo": "Coppia — essenziale (onde larghe)",
+   "svg": "foto-coppia/coppia onde larghe cnc2d.svg",
+   "dettaglio": "essenziale"
+  },
+  {
+   "titolo": "Coppia — dettagliato",
+   "svg": "foto-coppia/coppia onde cnc2d.svg",
+   "dettaglio": "dettagliato"
+  },
+  {
+   "titolo": "Coppia — onde, minimo",
+   "svg": "catalogo/esempi/onde-fot-minimo/onde-fot-minimo.svg",
+   "dettaglio": "minimo",
+   "scheda": "catalogo/esempi/onde-fot-minimo/scheda.json"
+  },
+  {
+   "titolo": "Coppia — onde, massimo",
+   "svg": "catalogo/esempi/onde-fot-massimo/onde-fot-massimo.svg",
+   "dettaglio": "massimo",
+   "scheda": "catalogo/esempi/onde-fot-massimo/scheda.json"
+  }
+ ],
+ "poligoni": [
+  {
+   "titolo": "Coppia — leggero",
+   "svg": "foto-coppia/coppia poligoni (leggero) cnc2d.svg",
+   "dettaglio": "essenziale"
+  },
+  {
+   "titolo": "Coppia — con toni",
+   "svg": "foto-coppia/coppia poligoni (toni) cnc2d.svg",
+   "dettaglio": "dettagliato"
+  }
+ ],
+ "linea": [
+  {
+   "titolo": "Tutti i magneti (foglio rifinito dall'utente)",
+   "svg": "magneti/finali-utente/tutti_i_magneti.svg",
+   "dettaglio": null,
+   "spessore": 1.5
+  }
+ ],
+ "fedele": [
+  {
+   "titolo": "Logo Antei — essenziale",
+   "svg": "catalogo/esempi/logo-antei-fedele/logo-antei-fedele-essenziale.svg",
+   "dettaglio": "essenziale"
+  },
+  {
+   "titolo": "Logo Antei — medio",
+   "svg": "catalogo/esempi/logo-antei-fedele/logo-antei-fedele.svg",
+   "dettaglio": "medio",
+   "scheda": "catalogo/esempi/logo-antei-fedele/scheda.json"
+  },
+  {
+   "titolo": "Logo Antei — dettagliato",
+   "svg": "catalogo/esempi/logo-antei-fedele/logo-antei-fedele-dettagliato.svg",
+   "dettaglio": "dettagliato"
+  },
+  {
+   "titolo": "Logo Antei — fedele, minimo",
+   "svg": "catalogo/esempi/fedele-ill-minimo/fedele-ill-minimo.svg",
+   "dettaglio": "minimo",
+   "scheda": "catalogo/esempi/fedele-ill-minimo/scheda.json"
+  },
+  {
+   "titolo": "Logo Antei — fedele, massimo",
+   "svg": "catalogo/esempi/fedele-ill-massimo/fedele-ill-massimo.svg",
+   "dettaglio": "massimo",
+   "scheda": "catalogo/esempi/fedele-ill-massimo/scheda.json"
+  }
+ ],
+ "tratti": [
+  {
+   "titolo": "Coppia — l'unico esempio fatto",
+   "svg": "foto-coppia/coppia tratti cnc2d.svg",
+   "dettaglio": null
+  }
+ ]
+}

@@ -39,14 +39,22 @@ COMPATIBILE = {
     'linea': ('illustrazione',),
 }
 DETTAGLI = ('essenziale', 'medio', 'dettagliato')
+# Scala estesa: due livelli piu' essenziali a sinistra, due piu' dettagliati a destra
+LIVELLI = ('minimo', 'molto-essenziale', 'essenziale', 'medio', 'dettagliato', 'molto-dettagliato', 'massimo')
+NUM = {nome: i - 2 for i, nome in enumerate(LIVELLI)}        # essenziale = 0, medio = 1, dettagliato = 2
 
-# livelli di dettaglio -> parametri dei motori
-RILIEVO_3D = {'essenziale': dict(livelli=12, px=640, sigma=5), 'medio': dict(livelli=20, px=900, sigma=4)}
-LAYER = {'essenziale': dict(livelli=12, px=640, sigma=5), 'medio': dict(livelli=20, px=900, sigma=4),
-         'dettagliato': dict(livelli=28, px=1000, sigma=3)}
-RILIEVO_SHOT = {'essenziale': ('6', '5', ['essenziale']), 'medio': ('4', '2.2', []), 'dettagliato': ('5', '2.2', [])}
-ONDE = {'essenziale': (2.8, 4.2), 'medio': (2.2, 3.4), 'dettagliato': (1.7, 2.6)}      # passo, onda (mm)
-POLIGONI = {'essenziale': (9, True), 'medio': (7, True), 'dettagliato': (7, False)}    # lato (mm), senza-toni
+# parametri per livello n
+RILIEVO_3D = {-2: dict(livelli=5, px=400, sigma=7), -1: dict(livelli=8, px=480, sigma=6),
+              0: dict(livelli=12, px=640, sigma=5), 1: dict(livelli=20, px=900, sigma=4)}
+RILIEVO_3D_OMBRA = {2: dict(livelli=6, soglia=9), 3: dict(livelli=8, soglia=7.5), 4: dict(livelli=10, soglia=6)}
+LAYER = {-2: dict(livelli=5, px=400, sigma=7), -1: dict(livelli=8, px=480, sigma=6),
+         0: dict(livelli=12, px=640, sigma=5), 1: dict(livelli=20, px=900, sigma=4),
+         2: dict(livelli=28, px=1000, sigma=3), 3: dict(livelli=40, px=1200, sigma=2), 4: dict(livelli=55, px=1400, sigma=2)}
+RILIEVO_SHOT = {-2: ('3', '8', ['essenziale'], None), -1: ('4', '6.5', ['essenziale'], None),
+                0: ('6', '5', ['essenziale'], None), 1: ('4', '2.2', [], None), 2: ('5', '2.2', [], None),
+                3: ('7', '1.8', [], 7.5), 4: ('9', '1.5', [], 6)}
+ONDE = {-2: (4.5, 6.5), -1: (3.6, 5.3), 0: (2.8, 4.2), 1: (2.2, 3.4), 2: (1.7, 2.6), 3: (1.35, 2.1), 4: (1.1, 1.7)}   # passo, onda (mm)
+POLIGONI = {-2: (14, True), -1: (11.5, True), 0: (9, True), 1: (7, True), 2: (7, False), 3: (5.5, False), 4: (4.5, False)}  # lato (mm), senza-toni
 
 ESEMPIO = {
     'nome': 'esempio-biglietto',
@@ -85,8 +93,9 @@ def normalizza(s):
         errori.append("stile '%s' sconosciuto: scegli fra %s" % (s.get('stile'), ', '.join(COMPATIBILE)))
     elif ing.get('tipo') not in COMPATIBILE[s['stile']]:
         errori.append("lo stile '%s' lavora su: %s (non su '%s')" % (s['stile'], ', '.join(COMPATIBILE[s['stile']]), ing.get('tipo')))
-    if s['dettaglio'] not in DETTAGLI:
-        errori.append("dettaglio '%s' sconosciuto: %s" % (s['dettaglio'], ', '.join(DETTAGLI)))
+    s['dettaglio'] = str(s['dettaglio']).replace(' ', '-')
+    if s['dettaglio'] not in LIVELLI:
+        errori.append("dettaglio '%s' sconosciuto: %s" % (s['dettaglio'], ', '.join(LIVELLI)))
     if not ing.get('file') or not os.path.exists(os.path.expanduser(ing['file'])):
         errori.append("file di ingresso non trovato: %s" % ing.get('file'))
     for t in s['testi']:
@@ -180,6 +189,7 @@ def aggiungi_testi(svg, testi, W):
 
 def genera(s, tmp):
     ing, fg, dett, op = s['ingresso'], s['foglio'], s['dettaglio'], s['opzioni']
+    n = NUM[dett]
     W, H, mar = float(fg['w']), float(fg['h']), float(fg['margine'])
     # testi sotto il disegno: il disegno si ferma sopra la scritta piu' alta, con 4 mm d'aria
     Hf = H
@@ -202,34 +212,36 @@ def genera(s, tmp):
             avvisi.append('vista non indicata: uso rz=%g rx=%g' % (rz, rx))
         modello, oid, av = scegli_oggetto(f, tmp, op.get('oggetto'))
         avvisi += av
-        if stile == 'rilievo' and dett == 'dettagliato':
+        if stile == 'rilievo' and n >= 2:
             png = os.path.join(tmp, 'ombra.png')
             log += esegui(['render_ombra.py', modello, oid, str(rz), str(rx), png, '700'])
             im = Image.open(png)
             k = 900 / im.height
             im.resize((round(im.width * k), 900), Image.LANCZOS).save(png)
-            log += esegui(['da_immagine.py', png, out, str(W), str(Hf), str(op.get('livelli', 6)), '2.2', 'senza-pavimento']
+            po = RILIEVO_3D_OMBRA[n]
+            log += esegui(['da_immagine.py', png, out, str(W), str(Hf), str(op.get('livelli', po['livelli'])), '2.2', 'senza-pavimento',
+                           'soglia=%g' % po['soglia']]
                           + ['%s=%s' % (k_, v_) for k_ in ('escludi', 'taglia') for v_ in op.get(k_, [])], env)
         else:
             # Rilievo = curve organiche (distanza dall'osservatore); Layer = fette parallele (quota Z)
-            p = (RILIEVO_3D if stile == 'rilievo' else LAYER)[dett]
+            p = (RILIEVO_3D if stile == 'rilievo' else LAYER)[n]
             modo = 'profondita' if stile == 'rilievo' else 'quota'
             log += esegui(['rilievo.py', modello, oid, str(rz), str(rx), 'L%d' % op.get('livelli', p['livelli']), out,
                            str(W), str(Hf), str(op.get('px', p['px'])), modo, str(op.get('sigma', p['sigma']))], env)
             log += ' [modo %s]' % modo
     elif stile == 'rilievo':                                  # da screenshot
-        liv, lev, extra = RILIEVO_SHOT[dett]
+        liv, lev, extra, sg = RILIEVO_SHOT[n]
         log += esegui(['da_immagine.py', f, out, str(W), str(Hf), str(op.get('livelli', liv)), lev] + extra
                       + ['%s=%s' % (k_, v_) for k_ in ('escludi', 'taglia') for v_ in op.get(k_, [])]
-                      + (['senza-pavimento'] if op.get('senza_pavimento') else []), env)
+                      + (['soglia=%g' % sg] if sg else []) + (['senza-pavimento'] if op.get('senza_pavimento') else []), env)
     elif stile in ('onde', 'poligoni', 'tratti'):
         alt = min(Hf - 2 * mar, (W - 2 * mar) / aspetto(f, ritaglio))
         if stile == 'onde':
-            passo, onda = ONDE[dett]
+            passo, onda = ONDE[n]
             log += esegui(['foto_onde.py', f, out, '%.1f' % alt] + rit
                           + ['passo=%g' % op.get('passo', passo), 'onda=%g' % op.get('onda', onda)])
         elif stile == 'poligoni':
-            lato, st = POLIGONI[dett]
+            lato, st = POLIGONI[n]
             log += esegui(['foto_poligoni.py', f, out, '%.1f' % alt] + rit + ['lato=%g' % op.get('lato', lato)]
                           + (['senza-toni'] if op.get('senza_toni', st) else []))
         else:
@@ -237,7 +249,7 @@ def genera(s, tmp):
             log += esegui(['foto_tratti.py', f, out, '%.1f' % alt] + rit)
     elif stile == 'fedele':
         extra = ['%s=%s' % (k_, v_) if v_ is not True else k_ for k_, v_ in op.items()]
-        log += esegui(['fedele.py', f, out, str(W), str(Hf), str(mar), dett] + extra)
+        log += esegui(['fedele.py', f, out, str(W), str(Hf), str(mar), str(n)] + extra)
     elif stile == 'linea':
         cfg = ['%s=%s' % (k_, v_) if v_ is not True else k_ for k_, v_ in op.items()]
         log += esegui(['linea.py', f, out, str(W), str(Hf), str(mar)] + cfg)
@@ -255,7 +267,7 @@ def main(argv):
     if argv[:1] == ['--stili']:
         for k, v in COMPATIBILE.items():
             print('%-9s ingressi: %s' % (k, ', '.join(v)))
-        print('dettagli:', ', '.join(DETTAGLI), '| penne:', ', '.join(PENNE))
+        print('dettagli:', ', '.join(LIVELLI), '| penne:', ', '.join(PENNE))
         return 0
     if not argv:
         print(__doc__)

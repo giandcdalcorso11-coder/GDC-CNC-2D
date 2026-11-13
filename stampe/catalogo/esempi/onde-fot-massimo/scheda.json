@@ -1,0 +1,17 @@
+{
+  "nome": "onde-fot-massimo",
+  "ingresso": {
+    "ritaglio": "110,45,0,0",
+    "tipo": "foto",
+    "file": "13.jpg"
+  },
+  "stile": "onde",
+  "dettaglio": "massimo",
+  "foglio": {
+    "w": 148,
+    "h": 210,
+    "margine": 8
+  },
+  "testi": [],
+  "opzioni": {}
+}

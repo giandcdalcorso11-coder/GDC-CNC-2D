@@ -6,7 +6,7 @@ campitura di colore si traccia il CONTORNO, senza reinterpretare niente. Il pass
 vettorializzazione dei contorni (marching squares su una maschera levigata e ingrandita 3x);
 cio' che cambia col dettaglio e' quanto si ripulisce la grana e quanto si semplificano le curve.
 
-  python3 -B fedele.py <immagine> <uscita.svg> <W> <H> <margine> [essenziale|medio|dettagliato]
+  python3 -B fedele.py <immagine> <uscita.svg> <W> <H> <margine> [essenziale|medio|dettagliato|-2..4]
                        [colori=N] [riempimento=mm]
 
   colori=N         numero di colori d'inchiostro (default 1: l'inchiostro e' un colore solo su fondo
@@ -24,11 +24,18 @@ import logo_vettoriale as LV
 S = LV.S
 SCALA = 3
 # raggio di levigatura (px ingranditi), contorno minimo, graffio (lunghezza, rapporto), tolleranza
-DETTAGLIO = {
-    'essenziale': (2.4, 60, 220, 3.2, 1.2),
-    'medio': (1.7, 30, 140, 2.6, 0.6),
-    'dettagliato': (1.1, 14, 80, 2.0, 0.35),
+# per livello n (0 essenziale, 1 medio, 2 dettagliato; -1 e -2 piu' essenziali, 3 e 4 piu' dettagliati):
+# raggio di levigatura (px ingranditi), contorno minimo, graffio (lunghezza, rapporto), tolleranza
+DETTAGLIO_N = {
+    -2: (3.4, 120, 320, 4.0, 2.0), -1: (2.9, 85, 270, 3.6, 1.6),
+    0: (2.4, 60, 220, 3.2, 1.2), 1: (1.7, 30, 140, 2.6, 0.6), 2: (1.1, 14, 80, 2.0, 0.35),
+    3: (0.8, 8, 50, 1.6, 0.25), 4: (0.6, 5, 30, 1.2, 0.18),
 }
+NOMI = {'essenziale': 0, 'medio': 1, 'dettagliato': 2}
+
+
+def livello(v):
+    return NOMI[v] if v in NOMI else int(v)
 
 
 def maschere(percorso, colori):
@@ -68,7 +75,7 @@ def maschere(percorso, colori):
 
 
 def contorni(img, dett):
-    raggio, minimo, graffio_l, graffio_r, tol = DETTAGLIO[dett]
+    raggio, minimo, graffio_l, graffio_r, tol = DETTAGLIO_N[livello(dett)]
     m = np.asarray(img.filter(ImageFilter.GaussianBlur(raggio))).astype(float) / 255
     out = []
     for p in S.contorni(m, 0.5, salta_nan=False):
