@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 96
-**Ultimo aggiornamento:** 2026-11-12 14:28
+**Versione:** 97
+**Ultimo aggiornamento:** 2026-11-13 07:37
 
 ## Regole di co-editing
 
@@ -1043,8 +1043,31 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 **Note (cronologia dello step):**
 - [2026-11-09] Costruiti `lavoro.py`, `controlla.py`, `linea.py` (lo stile Linea come script a sé), `testo.js`, `penne.json`, `catalogo.py` (pagina `stampe/catalogo/index.html` con le anteprime dei file veri) e il README riscritto. `rilievo.py` accetta il passo come `L<n>` (n livelli) e il margine da ambiente.
+- [2026-11-13] **Catalogo rivisto dall'utente: sette stili.** Il biglietto Feffi diventa uno stile a sé, **Layer** (linee parallele, fette alla stessa quota, da 3D), mentre **Rilievo** resta quello di starry angel e starboy (linee organiche, distanza dall'osservatore). Nuovo **Fedele** (da illustrazioni/logo, non da foto: contorno di ogni campitura, esempio il logo Antei; `fedele.py`, opzioni `colori=N` e `riempimento=mm`). Per i file d'ingresso il tipo `icona` diventa `illustrazione`. Le anteprime del catalogo si aprono in grande con zoom; gli esempi nuovi stanno in `stampe/catalogo/esempi/` con la loro scheda.
 
 ## Storico sessioni
+
+### [2026-11-13 07:37] (stampe) Catalogo: Layer, Fedele e anteprime apribili in grande
+
+**Riepilogo:** l'utente ha approvato il catalogo nei concetti e chiesto quattro modifiche: separare il biglietto Feffi in un nuovo stile «Layer», dare esempi a «Tratti», aggiungere lo stile «Fedele» (il logo Antei ne è l'esempio) e rendere apribili in grande le anteprime; fatte tutte, con `lavoro.py` e il README allineati.
+
+**Cosa è stato fatto:**
+- **Layer** (da modello 3D): fette alla stessa quota, linee parallele; 12/20/28 strati. Rilievo da 3D usa ora sempre le curve organiche (distanza dall'osservatore), senza più la scelta automatica `quota`/`profondita`. Esempi: biglietto Feffi e un Layer nuovo dello starry angel kid.
+- **Fedele** (`stampe/fedele.py`): contorno di ogni campitura di un'illustrazione, ingrandita 3× e ripulita dalla grana; tre dettagli (191/290/434 contorni sul logo Antei), `colori=N` per un livello per colore, `riempimento=mm` per il tratteggio nelle campiture piene.
+- **Catalogo:** anteprime ora SVG veri incorporati (senza browser per costruire la pagina), un clic le apre in grande con zoom, Esc o clic fuori per chiudere; collaudato con un browser (15 anteprime caricate, nessun errore JavaScript). Pagina da 3 MB.
+- **Tratti:** nel mio render l'esempio (la coppia) c'era già, ma era uno solo; ho provato a farne un secondo sulla palla, è venuto scadente (lo stile è tarato su quella foto) e l'ho scartato. Il catalogo lo dice apertamente.
+
+**Decisioni prese:**
+- Contesto: Rilievo e Layer si distinguono a occhio — organico contro parallelo.
+- Decisione: Layer e Fedele entrano nel catalogo; `icona` diventa `illustrazione` (sinonimo accettato); Tratti resta con un solo esempio e l'avviso.
+- Alternative scartate: tenere le miniature PNG (appesantivano la pagina e non si potevano ingrandire senza perdere nitidezza).
+- Da rivedere se: l'utente non vedeva l'esempio di Tratti per un motivo diverso dal numero (il suo viewer potrebbe non mostrare qualche immagine).
+
+**File consegnati/modificati:** `stampe/fedele.py`, `lavoro.py`, `catalogo.py`, `catalogo/index.html`, `catalogo/esempi/`, `README.md`; tolto `render_png.js`; questo documento (v97).
+
+**Impatto su Vision/Pipeline:** nota nello Step 16.
+
+---
 
 ### [2026-11-12 14:28] (software) Il salvataggio che non si perde, e che cosa manca aprendo il SLICER da un altro dispositivo
 
