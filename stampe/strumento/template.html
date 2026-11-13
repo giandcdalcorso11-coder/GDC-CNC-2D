@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nuovo lavoro di stampa</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1c1b19;--mut:#6b675f;--line:#e2ded4;--acc:#2f6f4f;--acc-ink:#fff;--acc2:#e9f1ec;--bad:#9a3b2e;--warn:#8a6200}
+@media (prefers-color-scheme:dark){:root{--bg:#171715;--card:#22211f;--ink:#efece4;--mut:#a39f94;--line:#383630;--acc:#7fc29c;--acc-ink:#10231a;--acc2:#1f2e26;--bad:#e08b7d;--warn:#e0b45a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.w{max-width:1180px;margin:0 auto;padding:0 16px 96px}
+header{padding:28px 0 6px}h1{margin:0;font-size:1.7rem;letter-spacing:-.01em}header p{margin:4px 0 0;color:var(--mut);max-width:64ch}
+.modo{margin:14px 0 0;padding:10px 14px;border-radius:12px;font-size:.92rem;border:1px solid var(--line);background:var(--card)}
+.modo.on{background:var(--acc2);border-color:var(--acc)}.modo.off{border-color:var(--warn)}
+.app{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;margin-top:20px;align-items:start}
+@media (max-width:900px){.app{grid-template-columns:1fr}}
+.col-dx{position:sticky;top:12px}@media (max-width:900px){.col-dx{position:static}}
+fieldset{border:1px solid var(--line);border-radius:14px;background:var(--card);margin:0 0 14px;padding:14px 16px 16px}
+legend{padding:0 8px;font-weight:600;font-size:.95rem}legend span{color:var(--acc);margin-right:6px}
+label{display:block;font-size:.85rem;color:var(--mut);margin:10px 0 4px}
+input[type=text],input[type=number],select,textarea{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+textarea{min-height:96px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+.riga{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+#drop{border:2px dashed var(--line);border-radius:14px;padding:26px 14px;text-align:center;background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s}
+#drop.sopra,#drop:hover{border-color:var(--acc);background:var(--acc2)}
+#drop b{display:block;font-size:1.05rem}#drop small{color:var(--mut)}
+#fileinfo{display:flex;gap:12px;align-items:center;margin-top:10px}#fileinfo img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+#fileinfo div{min-width:0;overflow-wrap:anywhere}#fileinfo small{color:var(--mut);display:block}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button,.stili button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer}
+.seg button[aria-pressed=true],.stili button[aria-pressed=true]{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.stili{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.stili button{text-align:left;padding:10px 12px}.stili button b{display:block}.stili button small{display:block;opacity:.8;font-size:.78rem;line-height:1.25;margin-top:2px}
+.stili button:disabled{opacity:.38;cursor:not-allowed}
+.slider{padding:4px 2px 0}.slider input{width:100%;accent-color:var(--acc)}
+.tacche{display:flex;justify-content:space-between;font-size:.82rem;color:var(--mut)}.tacche b{color:var(--ink)}
+.nota{font-size:.85rem;color:var(--mut);margin:6px 0 0}
+.testo{display:grid;grid-template-columns:1fr 78px 120px 34px;gap:8px;margin-bottom:8px;align-items:center}
+.testo button{background:none;border:1px solid var(--line);border-radius:8px;color:var(--mut);cursor:pointer;height:36px}
+.sec{background:none;border:1px dashed var(--line);border-radius:10px;color:var(--ink);padding:7px 14px;cursor:pointer;font:inherit}
+details summary{cursor:pointer;color:var(--mut);font-size:.9rem;margin-top:12px}
+.barra{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:18px 0 14px;margin-top:6px}
+#genera{width:100%;font:inherit;font-weight:600;font-size:1.05rem;border:0;border-radius:12px;padding:14px;background:var(--acc);color:var(--acc-ink);cursor:pointer}
+#genera:disabled{opacity:.45;cursor:not-allowed}
+.pannello{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px;min-height:340px}
+.pannello h2{margin:0 0 8px;font-size:1.05rem}
+.vuoto{color:var(--mut);padding:30px 8px;text-align:center}
+.risultato img{display:block;width:100%;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:zoom-in}
+.risultato.z{overflow:auto;max-height:80vh}.risultato.z img{width:240%;max-width:none;cursor:zoom-out}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.8rem;overflow:auto;white-space:pre-wrap;margin:10px 0}
+.azioni{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.azioni a,.azioni button{font:inherit;text-decoration:none;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer}
+.azioni .primo{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.attesa{display:flex;gap:12px;align-items:center;padding:24px 4px}.giro{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:g 1s linear infinite}
+@keyframes g{to{transform:rotate(360deg)}}
+.err{color:var(--bad)}
+.viste{margin-top:10px}.viste img{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:crosshair}
+.hide{display:none !important}
+</style>
+</head>
+<body>
+<div class="w">
+<header>
+  <h1>Nuovo lavoro di stampa</h1>
+  <p>Trascina il file, scegli lo stile e il dettaglio, aggiungi le richieste. Il resto lo fa lo script.</p>
+  <div id="modo" class="modo" role="status">Controllo il motore…</div>
+</header>
+
+<div class="app">
+<div class="col-sx">
+
+<fieldset><legend><span>1</span>File</legend>
+  <div id="drop" tabindex="0" role="button" aria-label="Scegli o trascina un file">
+    <b>Trascina qui il file</b>
+    <small>modello 3D (.3mf) · foto, screenshot o illustrazione (.png .jpg .webp)</small>
+    <input id="fileinput" type="file" class="hide" accept=".3mf,.model,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff">
+  </div>
+  <div id="fileinfo" class="hide"><img id="thumb" alt=""><div><b id="fnome"></b><small id="fdim"></small></div></div>
+  <div id="tipobox" class="hide">
+    <label>Che immagine è?</label>
+    <div class="seg" id="tipo">
+      <button type="button" data-v="foto">Foto</button>
+      <button type="button" data-v="screenshot">Screenshot di un modello 3D</button>
+      <button type="button" data-v="illustrazione">Illustrazione / logo</button>
+    </div>
+  </div>
+  <label for="nome">Nome del lavoro</label>
+  <input id="nome" type="text" placeholder="es. biglietto-cliente" autocomplete="off">
+</fieldset>
+
+<fieldset><legend><span>2</span>Stile</legend>
+  <div class="stili" id="stili"></div>
+  <p class="nota" id="stilonota">Scegli un file: gli stili adatti si accendono.</p>
+</fieldset>
+
+<fieldset><legend><span>3</span>Dettaglio</legend>
+  <div class="slider"><input id="dett" type="range" min="0" max="2" step="1" value="1" aria-label="Livello di dettaglio">
+    <div class="tacche"><span id="d0">essenziale</span><span id="d1"><b>medio</b></span><span id="d2">dettagliato</span></div></div>
+  <p class="nota" id="dettnota"></p>
+</fieldset>
+
+<fieldset><legend><span>4</span>Foglio</legend>
+  <div class="seg" id="fogli">
+    <button type="button" data-w="210" data-h="148">A5 orizzontale</button>
+    <button type="button" data-w="148" data-h="210">A5 verticale</button>
+    <button type="button" data-w="75" data-h="75">Quadrato 75</button>
+    <button type="button" data-w="297" data-h="210">A4 orizzontale</button>
+  </div>
+  <div class="riga">
+    <div><label for="fw">Larghezza (mm)</label><input id="fw" type="number" min="20" max="600" value="210"></div>
+    <div><label for="fh">Altezza (mm)</label><input id="fh" type="number" min="20" max="600" value="148"></div>
+    <div><label for="fm">Margine (mm)</label><input id="fm" type="number" min="0" max="40" value="8"></div>
+  </div>
+  <p class="nota">L'area utile della macchina è circa 249 × 235 mm.</p>
+</fieldset>
+
+<fieldset id="box-vista" class="hide"><legend><span>5</span>Da dove guardare il modello</legend>
+  <div class="riga">
+    <div><label for="rz">Giro (rz): <b id="rzv"></b>°</label><input id="rz" type="range" min="-180" max="180" step="5" value="20"></div>
+    <div><label for="rx">Inclinazione dall'alto (rx): <b id="rxv"></b>°</label><input id="rx" type="range" min="0" max="90" step="5" value="10"></div>
+  </div>
+  <p class="nota">0° = di fronte, 90° = dall'alto. Layer rende meglio da 35° in su; Rilievo di fronte.</p>
+  <div class="azioni"><button type="button" id="btnviste" class="hide">Guarda da più angoli</button></div>
+  <div id="viste" class="viste"></div>
+</fieldset>
+
+<fieldset id="box-opz" class="hide"><legend><span>5</span>Opzioni dello stile</legend>
+  <div id="opz-fedele" class="hide">
+    <div class="riga">
+      <div><label for="o-colori">Colori d'inchiostro</label><input id="o-colori" type="number" min="1" max="6" value="1"></div>
+      <div><label for="o-riemp">Riempimento a tratteggio (mm, 0 = no)</label><input id="o-riemp" type="number" min="0" max="10" step="0.1" value="0"></div>
+    </div>
+  </div>
+  <div id="opz-linea" class="hide">
+    <label><input id="o-hatesto" type="checkbox" checked> L'immagine ha una scritta sotto la grafica</label>
+    <label for="o-testo">La scritta comincia a: <b id="o-testov">75</b>% dell'altezza</label>
+    <input id="o-testo" type="range" min="30" max="95" step="1" value="75">
+  </div>
+</fieldset>
+
+<fieldset id="box-crop" class="hide"><legend><span>5</span>Ritaglio (facoltativo)</legend>
+  <div class="riga">
+    <div><label for="c-su">Da sopra (px)</label><input id="c-su" type="number" min="0" value="0"></div>
+    <div><label for="c-giu">Da sotto (px)</label><input id="c-giu" type="number" min="0" value="0"></div>
+    <div><label for="c-sx">Da sinistra (px)</label><input id="c-sx" type="number" min="0" value="0"></div>
+    <div><label for="c-dx">Da destra (px)</label><input id="c-dx" type="number" min="0" value="0"></div>
+  </div>
+  <p class="nota" id="cropnota">Pixel da togliere per lato (per esempio i pulsanti di un telefono).</p>
+</fieldset>
+
+<fieldset><legend><span>6</span>Testi sotto il disegno</legend>
+  <div id="testi"></div>
+  <button type="button" class="sec" id="addtesto">+ Aggiungi una scritta</button>
+  <p class="nota">Senza altre indicazioni non metto il logo GDC: lo aggiungi tu dallo SLICER.</p>
+</fieldset>
+
+<fieldset><legend><span>7</span>Richieste</legend>
+  <label for="note">Cosa vuoi, o cosa non va fatto</label>
+  <textarea id="note" placeholder="es. niente sfondo · tieni i contorni · scritte tutte in indelebile · il volto deve restare riconoscibile"></textarea>
+</fieldset>
+
+<div class="barra"><button id="genera" type="button" disabled>Genera</button></div>
+</div>
+
+<div class="col-dx">
+  <div class="pannello" id="pannello" aria-live="polite">
+    <div class="vuoto">Il risultato comparirà qui.</div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+var CFG = /*CONFIG*/null;
+(function(){
+'use strict';
+var $ = function(id){return document.getElementById(id);};
+var DETT = CFG.dettagli;
+var NOTE_DETT = {
+  rilievo:['sagoma e poche curve levigate (circa 12)','più curve (circa 20)','ombreggiatura con tratti scuri: occhi, pieghe'],
+  layer:['12 strati','20 strati','28 strati'],
+  onde:['righe a 2,8 mm, onde larghe','righe a 2,2 mm','righe a 1,7 mm, più fedele e più penna'],
+  poligoni:['triangoli da 9 mm','triangoli da 7 mm','triangoli da 7 mm con toni'],
+  fedele:['grana ripulita, curve semplici','il compromesso del logo Antei','anche i particolari piccoli'],
+  linea:['(il dettaglio non cambia questo stile)','(il dettaglio non cambia questo stile)','(il dettaglio non cambia questo stile)'],
+  tratti:['(il dettaglio non cambia questo stile)','(il dettaglio non cambia questo stile)','(il dettaglio non cambia questo stile)']
+};
+var S = {server:false, file:null, fileId:null, tipo:null, stile:null, vistaTocca:false, job:null, timer:null};
+
+// ---------- motore disponibile?
+fetch('/api/ping',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){S.server=!!j.ok;}).catch(function(){S.server=false;}).then(function(){
+  var m=$('modo');
+  if(S.server){m.className='modo on';m.textContent='Motore collegato: «Genera» crea il disegno qui, e te lo fa scaricare.';$('genera').textContent='Genera';}
+  else{m.className='modo off';m.textContent='Motore non collegato: «Prepara scheda» ti dà la scheda da mandare a Claude insieme al file. Per generare qui, avvia strumento.py.';$('genera').textContent='Prepara scheda';
+    $('btnviste').classList.add('hide');}
+  agg();
+});
+
+// ---------- stili
+var stBox=$('stili');
+CFG.stili.forEach(function(s){
+  var b=document.createElement('button');b.type='button';b.dataset.id=s.id;b.setAttribute('aria-pressed','false');
+  b.innerHTML='<b>'+s.nome+(s.sconsigliato?' ⚠':'')+'</b><small>'+s.cosa.split(':')[0].replace(/\.$/,'').slice(0,70)+'</small>';
+  b.title=s.cosa+' Ingresso: '+s.ingresso;
+  b.onclick=function(){S.stile=s.id;if(!S.vistaTocca)vistaDefault();agg();};
+  stBox.appendChild(b);
+});
+function compat(id){return S.tipo&&CFG.compat[id]&&CFG.compat[id].indexOf(S.tipo)>=0;}
+
+// ---------- file
+var drop=$('drop'),inp=$('fileinput');
+drop.onclick=function(){inp.click();};
+drop.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();inp.click();}};
+['dragenter','dragover'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('sopra');});});
+['dragleave','drop'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('sopra');});});
+drop.addEventListener('drop',function(e){if(e.dataTransfer.files.length)scegli(e.dataTransfer.files[0]);});
+inp.onchange=function(){if(inp.files.length)scegli(inp.files[0]);};
+function mb(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB';}
+function scegli(f){
+  var ext=(f.name.match(/\.[^.]+$/)||[''])[0].toLowerCase();
+  var is3d=(ext==='.3mf'||ext==='.model');
+  if(!is3d&&!/^\.(png|jpe?g|webp|bmp|tiff?)$/.test(ext)){alert('Formato non supportato: '+ext+'\nUsa .3mf, .png, .jpg o .webp');return;}
+  S.file=f;S.fileId=null;S.tipo=is3d?'modello3d':(S.tipo&&S.tipo!=='modello3d'?S.tipo:'foto');
+  $('fileinfo').classList.remove('hide');$('fnome').textContent=f.name;$('fdim').textContent=mb(f.size)+(is3d?' · modello 3D':'');
+  var th=$('thumb');th.classList.toggle('hide',is3d);
+  if(!is3d){var u=URL.createObjectURL(f);th.src=u;var im=new Image();im.onload=function(){$('fdim').textContent=mb(f.size)+' · '+im.naturalWidth+' × '+im.naturalHeight+' px';$('cropnota').textContent='Pixel da togliere per lato. L\'immagine è '+im.naturalWidth+' × '+im.naturalHeight+' px.';};im.src=u;}
+  $('tipobox').classList.toggle('hide',is3d);
+  if(!$('nome').value||$('nome').dataset.auto){$('nome').value=f.name.replace(/\.[^.]+$/,'').replace(/[^A-Za-z0-9_-]+/g,'-').toLowerCase();$('nome').dataset.auto='1';}
+  if(S.stile&&!compat(S.stile))S.stile=null;
+  agg();
+}
+$('nome').oninput=function(){delete this.dataset.auto;};
+Array.prototype.forEach.call($('tipo').children,function(b){b.onclick=function(){S.tipo=b.dataset.v;if(S.stile&&!compat(S.stile))S.stile=null;agg();};});
+
+// ---------- dettaglio, foglio, vista
+$('dett').oninput=agg;
+Array.prototype.forEach.call($('fogli').children,function(b){b.onclick=function(){$('fw').value=b.dataset.w;$('fh').value=b.dataset.h;agg();};});
+['fw','fh','fm'].forEach(function(i){$(i).oninput=agg;});
+function vistaDefault(){var rx=S.stile==='layer'?40:10;$('rz').value=20;$('rx').value=rx;}
+['rz','rx'].forEach(function(i){$(i).oninput=function(){S.vistaTocca=true;agg();};});
+$('o-testo').oninput=function(){$('o-testov').textContent=this.value;};
+$('o-hatesto').onchange=agg;
+
+// ---------- testi
+function nuovoTesto(s,alt,pen){
+  var r=document.createElement('div');r.className='testo';
+  var pe=Object.keys(CFG.penne).map(function(k){return '<option value="'+k+'"'+(k===(pen||'nero')?' selected':'')+'>'+CFG.penne[k].nome+'</option>';}).join('');
+  r.innerHTML='<input type="text" placeholder="Scritta" value="'+(s||'')+'" aria-label="Scritta"><input type="number" min="2" max="40" step="0.5" value="'+(alt||8)+'" aria-label="Altezza lettere in mm" title="Altezza lettere (mm)"><select aria-label="Penna">'+pe+'</select><button type="button" aria-label="Togli">✕</button>';
+  r.lastChild.onclick=function(){r.remove();};
+  $('testi').appendChild(r);
+}
+$('addtesto').onclick=function(){nuovoTesto('',$('testi').children.length?4.5:9,$('testi').children.length?'grigio':'nero');};
+
+// ---------- aggiorna la pagina
+function agg(){
+  var dettI=+$('dett').value;
+  ['d0','d1','d2'].forEach(function(id,i){$(id).innerHTML=i===dettI?'<b>'+DETT[i]+'</b>':DETT[i];});
+  $('dettnota').textContent=S.stile&&NOTE_DETT[S.stile]?NOTE_DETT[S.stile][dettI]:'';
+  Array.prototype.forEach.call($('tipo').children,function(b){b.setAttribute('aria-pressed',b.dataset.v===S.tipo?'true':'false');});
+  Array.prototype.forEach.call(stBox.children,function(b){var ok=compat(b.dataset.id);b.disabled=!ok;b.setAttribute('aria-pressed',b.dataset.id===S.stile?'true':'false');});
+  $('stilonota').textContent=!S.file?'Scegli un file: gli stili adatti si accendono.':(S.stile?'':'Scegli uno stile fra quelli accesi.');
+  var is3d=S.tipo==='modello3d',isImg=S.file&&!is3d;
+  $('box-vista').classList.toggle('hide',!(is3d&&S.stile));
+  $('btnviste').classList.toggle('hide',!S.server);
+  $('box-crop').classList.toggle('hide',!(isImg&&(S.stile==='onde'||S.stile==='poligoni'||S.stile==='tratti'||S.stile==='rilievo')));
+  $('box-opz').classList.toggle('hide',!(S.stile==='fedele'||S.stile==='linea'));
+  $('opz-fedele').classList.toggle('hide',S.stile!=='fedele');$('opz-linea').classList.toggle('hide',S.stile!=='linea');
+  $('o-testo').disabled=!$('o-hatesto').checked;
+  $('rzv').textContent=$('rz').value;$('rxv').textContent=$('rx').value;
+  $('genera').disabled=!(S.file&&S.stile&&compat(S.stile)&&$('nome').value.trim());
+}
+
+// ---------- la scheda
+function scheda(){
+  var w=+$('fw').value||210,h=+$('fh').value||148,m=+$('fm').value;
+  var sc={nome:$('nome').value.trim()||'lavoro',ingresso:{tipo:S.tipo,file:S.file?S.file.name:''},stile:S.stile,dettaglio:DETT[+$('dett').value],
+    foglio:{w:w,h:h,margine:isNaN(m)?8:m},testi:[],opzioni:{}};
+  if(S.tipo==='modello3d')sc.ingresso.vista={rz:+$('rz').value,rx:+$('rx').value};
+  var cr=['c-su','c-giu','c-sx','c-dx'].map(function(i){return Math.max(0,parseInt($(i).value)||0);});
+  if(S.tipo!=='modello3d'&&cr.some(function(v){return v>0;}))sc.ingresso.ritaglio=cr.join(',');
+  // i testi si impilano dal basso: l'ultimo poggia sul margine
+  var righe=Array.prototype.filter.call($('testi').children,function(r){return r.children[0].value.trim();});
+  var base=h-sc.foglio.margine-0.6;
+  for(var i=righe.length-1;i>=0;i--){var r=righe[i],alt=+r.children[1].value||8;
+    sc.testi.unshift({s:r.children[0].value.trim(),alt:alt,base:+base.toFixed(1),penna:r.children[2].value});base-=alt+3.5;}
+  if(S.stile==='fedele'){sc.opzioni.colori=+$('o-colori').value||1;var rp=+$('o-riemp').value;if(rp>0)sc.opzioni.riempimento=rp;}
+  if(S.stile==='linea'&&$('o-hatesto').checked)sc.opzioni.testo=(+$('o-testo').value)/100;
+  if($('note').value.trim())sc.note=$('note').value.trim();
+  return sc;
+}
+
+// ---------- pannello
+var P=$('pannello');
+function esc(t){return String(t).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+function copia(testo,btn){(navigator.clipboard?navigator.clipboard.writeText(testo):Promise.reject()).then(function(){btn.textContent='Copiato ✓';}).catch(function(){var t=document.createElement('textarea');t.value=testo;document.body.appendChild(t);t.select();try{document.execCommand('copy');btn.textContent='Copiato ✓';}catch(e){}t.remove();});}
+function scarica(nome,testo){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([testo],{type:'application/json'}));a.download=nome;a.click();}
+
+$('genera').onclick=function(){
+  var sc=scheda();
+  if(!S.server){
+    var js=JSON.stringify(sc,null,2);
+    P.innerHTML='<h2>Scheda pronta</h2><p>Mandami in chat <b>il file «'+esc(S.file.name)+'»</b> e questa scheda: so cosa fare.</p><pre>'+esc(js)+'</pre><div class="azioni"><button class="primo" id="cp">Copia la scheda</button><button id="dl">Scarica scheda.json</button></div>';
+    $('cp').onclick=function(){copia(js,this);};$('dl').onclick=function(){scarica('scheda.json',js);};return;}
+  avvia(sc);
+};
+function attesa(txt){P.innerHTML='<h2>'+esc(txt)+'</h2><div class="attesa"><div class="giro"></div><div id="att">…</div></div>';}
+function carica(){
+  if(S.fileId)return Promise.resolve(S.fileId);
+  attesa('Carico il file…');
+  return fetch('/api/file',{method:'POST',headers:{'X-Nome':S.file.name},body:S.file}).then(function(r){return r.json();}).then(function(j){if(j.errore)throw new Error(j.errore);S.fileId=j.id;return j.id;});
+}
+function avvia(sc){
+  $('genera').disabled=true;
+  carica().then(function(id){
+    return fetch('/api/genera',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file_id:id,scheda:sc})});
+  }).then(function(r){return r.json();}).then(function(j){if(j.errore)throw new Error(j.errore);attesa('Genero il disegno…');seguiJob(j.job,'genera',sc);})
+  .catch(function(e){P.innerHTML='<h2 class="err">Non riuscito</h2><pre>'+esc(e.message)+'</pre>';$('genera').disabled=false;});
+}
+function seguiJob(id,tipo,sc){
+  clearInterval(S.timer);
+  S.timer=setInterval(function(){
+    fetch('/api/job/'+id,{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+      var a=$('att');if(a)a.textContent=j.stato==='in coda'?'In coda…':('In corso'+(j.trascorso!=null?' da '+j.trascorso+' s':'')+' (i modelli grossi richiedono un minuto)');
+      if(j.stato==='finito'||j.stato==='errore'){clearInterval(S.timer);$('genera').disabled=false;(tipo==='viste'?mostraViste:mostra)(id,j,sc);}
+    }).catch(function(){clearInterval(S.timer);$('genera').disabled=false;P.innerHTML='<h2 class="err">Connessione persa</h2><p>Il motore non risponde più.</p>';});
+  },1000);
+}
+function mostra(id,j,sc){
+  if(j.stato==='errore'){P.innerHTML='<h2 class="err">Non riuscito</h2><pre>'+esc(j.log||'errore')+'</pre>';return;}
+  var rep=(j.report||'').split('\n');var esito=rep.filter(function(r){return r.indexOf('ESITO')===0;})[0]||'';
+  P.innerHTML='<h2>Fatto — '+esc(sc.stile)+', '+esc(sc.dettaglio)+'</h2><div class="risultato" id="ris"><img alt="Anteprima del disegno" src="/api/job/'+id+'/svg?'+Date.now()+'"></div>'+
+   '<p class="nota">Clic sull\'immagine per ingrandire.</p><pre>'+esc(j.report||'')+'</pre>'+
+   '<div class="azioni"><a class="primo" href="/api/job/'+id+'/svg?scarica=1" download>Scarica SVG</a><a href="/api/job/'+id+'/scheda" download>Scheda (ricetta)</a><button id="cp">Copia la scheda per Claude</button></div>';
+  $('ris').onclick=function(){this.classList.toggle('z');};
+  $('cp').onclick=function(){copia(JSON.stringify(sc,null,2),this);};
+}
+
+// ---------- angoli del modello
+$('btnviste').onclick=function(){
+  if(!S.file||!S.stile)return;
+  $('btnviste').disabled=true;$('viste').innerHTML='<div class="attesa"><div class="giro"></div><div id="att">Preparo le anteprime da 6 angoli…</div></div>';
+  carica().then(function(id){return fetch('/api/viste',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file_id:id,stile:S.stile})});})
+   .then(function(r){return r.json();}).then(function(j){if(j.errore)throw new Error(j.errore);seguiJob(j.job,'viste',null);})
+   .catch(function(e){$('viste').innerHTML='<p class="err">'+esc(e.message)+'</p>';$('btnviste').disabled=false;});
+};
+function mostraViste(id,j){
+  $('btnviste').disabled=false;
+  if(j.stato==='errore'){$('viste').innerHTML='<pre>'+esc(j.log)+'</pre>';return;}
+  var ang=CFG.angoli[S.stile==='layer'?'layer':'rilievo'];
+  $('viste').innerHTML='<img alt="Il modello da sei angoli" src="/api/job/'+id+'/png"><p class="nota">Clicca l\'angolo che preferisci.</p>';
+  $('viste').firstChild.onclick=function(e){
+    var r=this.getBoundingClientRect(),c=Math.floor((e.clientX-r.left)/r.width*3),ri=Math.floor((e.clientY-r.top)/r.height*Math.ceil(ang.length/3));
+    var a=ang[ri*3+c];if(!a)return;var p=a.split(':');$('rz').value=p[0];$('rx').value=p[1];S.vistaTocca=true;agg();
+  };
+}
+
+nuovoTesto('',9,'nero');$('testi').firstChild.children[0].value='';
+agg();
+})();
+</script>
+</body>
+</html>

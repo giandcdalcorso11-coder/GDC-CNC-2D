@@ -1,3 +1,4 @@
 webui/dist/
 __pycache__/
 stampe/.lavoro/
+stampe/strumento/_lavori/

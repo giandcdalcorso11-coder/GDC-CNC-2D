@@ -7,6 +7,24 @@ esce con un **controllo** (ingombro, sollevamenti di penna, tratti sovrapposti).
 **Catalogo con le anteprime: [`catalogo/index.html`](catalogo/index.html)** (si apre nel browser;
 si rigenera con `python3 -B catalogo.py`).
 
+## Lo strumento (la pagina per dare le specifiche)
+
+`strumento/` è una pagina con dropbox per il file, pulsanti per lo stile (si accendono solo quelli adatti
+al file), slider per il dettaglio, foglio, vista del modello 3D (con anteprima da sei angoli), ritaglio,
+scritte e un riquadro per le richieste. Genera la scheda e, se il motore è collegato, anche il disegno.
+
+```bash
+python3 -B stampe/strumento/strumento.py          # poi apri http://127.0.0.1:8765
+```
+
+- **Con il motore** (il comando sopra): «Genera» lancia `lavoro.py`, mostra l'anteprima e il report e
+  offre il download dell'SVG e della scheda. Serve Python 3 con `numpy` e `Pillow` (`pip install numpy pillow`)
+  e `node` per le scritte. Un lavoro alla volta; i file stanno in `strumento/_lavori/` (non nel repo).
+- **Senza motore** (si apre `strumento/index.html` da solo): la pagina diventa «Prepara scheda» e dà la scheda
+  da mandare a Claude insieme al file.
+- `python3 -B strumento.py --host 0.0.0.0` lo rende raggiungibile da altri dispositivi della rete.
+- `python3 -B strumento.py --build` riscrive `index.html` (da rifare se cambiano stili o penne).
+
 ## Come si lavora
 
 1. **Modulo.** A ogni nuovo lavoro ti faccio le domande qui sotto (a scelta, più i campi liberi).
@@ -90,6 +108,7 @@ per i modelli 3D · **ritaglio** per le foto.
 |---|---|
 | `lavoro.py` | punto d'ingresso: legge la scheda, sceglie il motore, aggiunge i testi, controlla |
 | `controlla.py` | controllo di un SVG (`python3 -B controlla.py file.svg [W H margine]`) |
+| `strumento/strumento.py`, `strumento/template.html` | la pagina e il piccolo server che lancia `lavoro.py` |
 | `catalogo.py` | genera `catalogo/index.html` (anteprime apribili in grande, zoom) dai file consegnati; gli esempi nuovi stanno in `catalogo/esempi/`, ognuno con la sua `scheda.json` |
 | `rilievo.py` (+ `portaoggetti-feffi/viste.py`) | motore di Rilievo e Layer da modello 3D: `profondita` = Rilievo (curve organiche), `quota` = Layer (fette parallele); passo come `L<n>` = n livelli |
 | `render_ombra.py` + `da_immagine.py` | Rilievo dettagliato da 3D (render ombreggiato → curve di luminosità + tratti scuri) e Rilievo da screenshot |
