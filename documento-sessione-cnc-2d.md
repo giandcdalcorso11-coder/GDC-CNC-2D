@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 98
-**Ultimo aggiornamento:** 2026-11-13 07:49
+**Versione:** 99
+**Ultimo aggiornamento:** 2026-11-13 07:58
 
 ## Regole di co-editing
 
@@ -1045,8 +1045,37 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-09] Costruiti `lavoro.py`, `controlla.py`, `linea.py` (lo stile Linea come script a sé), `testo.js`, `penne.json`, `catalogo.py` (pagina `stampe/catalogo/index.html` con le anteprime dei file veri) e il README riscritto. `rilievo.py` accetta il passo come `L<n>` (n livelli) e il margine da ambiente.
 - [2026-11-13] **Catalogo rivisto dall'utente: sette stili.** Il biglietto Feffi diventa uno stile a sé, **Layer** (linee parallele, fette alla stessa quota, da 3D), mentre **Rilievo** resta quello di starry angel e starboy (linee organiche, distanza dall'osservatore). Nuovo **Fedele** (da illustrazioni/logo, non da foto: contorno di ogni campitura, esempio il logo Antei; `fedele.py`, opzioni `colori=N` e `riempimento=mm`). Per i file d'ingresso il tipo `icona` diventa `illustrazione`. Le anteprime del catalogo si aprono in grande con zoom; gli esempi nuovi stanno in `stampe/catalogo/esempi/` con la loro scheda.
 - [2026-11-13] **Lo strumento a pagina** (richiesta dell'utente: dropbox, pulsanti per lo stile, slider per il dettaglio, riquadro per le richieste, pulsante Genera). `stampe/strumento/`: una pagina e un piccolo server locale (solo libreria standard) che lancia `lavoro.py`. Con il motore genera e mostra anteprima, report e download; senza motore diventa «Prepara scheda» per mandarla a Claude. Include l'anteprima del modello 3D da sei angoli, cliccabile per scegliere la vista. Collaudato con un browser sui tre percorsi (foto, 3D con angolo, senza motore). La skill resta da fare.
+- [2026-11-13] **Icone «i» e scala del dettaglio estendibile** (richieste dell'utente). Accanto a ogni stile e al dettaglio un'icona «i» mostra, al passaggio del mouse, le anteprime degli esempi; gli esempi stanno ora in `stampe/catalogo/esempi.json` (stile + livello) e si aggiungono col pulsante «Aggiungi agli esempi» dello strumento o con `catalogo.py --aggiungi`. Lo slider ha la scala base a tre scatti e due spunte che la estendono: a sinistra *minimo* e *molto essenziale*, a destra *molto dettagliato* e *massimo*; i motori (`lavoro.py`, `fedele.py`, `da_immagine.py`) gestiscono i sette livelli. Il controllo segnala quando il livello più alto è troppo fitto (Layer massimo: 3,3× di sovrapposizione).
 
 ## Storico sessioni
+
+### [2026-11-13 07:58] (stampe) Strumento: icone «i» con anteprime e scala del dettaglio estesa
+
+**Riepilogo:** allo strumento a pagina sono state aggiunte le icone «i» con le anteprime degli esempi veri, un archivio degli esempi che cresce con i lavori generati e lo slider del dettaglio estendibile con due spunte (più essenziale a sinistra, più dettagliato a destra), con i motori adeguati ai sette livelli.
+
+**Cosa è stato fatto:**
+- **Archivio esempi** (`stampe/catalogo/esempi.json`): ogni esempio ha stile, livello, file, scheda; `catalogo.py` lo legge, ha `aggiungi_esempio` e il comando `--aggiungi`; lo strumento ha il pulsante «Aggiungi agli esempi» (mette il lavoro sotto il suo stile e livello e ricostruisce il catalogo). Aggiunti sette esempi dei livelli estremi.
+- **Popup «i»:** sugli stili (anche spenti) mostra fino a quattro esempi, uno per livello diverso; sul dettaglio mostra gli esempi dello stile scelto in ordine di scala, con il livello corrente evidenziato. Funziona anche con la pagina statica, perché gli esempi sono incorporati.
+- **Scala estesa:** `minimo`, `molto-essenziale`, `essenziale`, `medio`, `dettagliato`, `molto-dettagliato`, `massimo`; tolta una spunta, il livello torna al bordo della scala base. Parametri per livello in `lavoro.py` (tabelle numeriche da −2 a 4); `fedele.py` accetta il livello numerico; `da_immagine.py` ha l'opzione `soglia` per i tratti di dettaglio.
+- Collaudati i dodici livelli estremi su foto, illustrazione, screenshot e modello 3D (48 s in parallelo), e il percorso nel browser: popup, spunte, generazione al livello «minimo», aggiunta agli esempi.
+
+**Bug: gli esempi dello stesso livello occupavano più posti nel popup**
+
+**Sintomo:** nel popup di Onde due esempi «minimo» riempivano due dei quattro posti.
+**Causa:** la selezione prendeva gli esempi in ordine senza distinguere i livelli.
+**Fix applicato:** un esempio per livello, poi si riempie con gli altri; verificato per tutti gli stili, in modo server e statico.
+
+**Decisioni prese:**
+- Contesto: l'utente vuole che gli esempi crescano «man mano che generiamo lavori», e una scala del dettaglio più ampia.
+- Decisione: l'aggiunta agli esempi è un pulsante esplicito, non automatica (altrimenti ogni prova finirebbe nel catalogo); i lavori generati in chat li aggiungo io col comando.
+- Alternative scartate: aggiunta automatica di ogni lavoro.
+- Da rivedere se: l'utente preferisce l'aggiunta automatica, o se la pagina del catalogo (ora 5 MB) diventa pesante: si potrebbero limitare gli esempi per stile.
+
+**File consegnati/modificati:** `stampe/strumento/` (`strumento.py`, `template.html`, `index.html`), `stampe/catalogo.py`, `catalogo/esempi.json` e `catalogo/esempi/`, `lavoro.py`, `fedele.py`, `da_immagine.py`, `README.md`; questo documento (v99).
+
+**Impatto su Vision/Pipeline:** nota nello Step 16.
+
+---
 
 ### [2026-11-13 07:49] (stampe) Lo strumento a pagina per dare le specifiche
 
