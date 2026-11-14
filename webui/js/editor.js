@@ -2438,6 +2438,9 @@ var Editor = (function () {
       var l = ls[i];
       var fid = l.foglio || inUso;
       out += '<div class="ed-liv' + (l.principale ? ' attivo' : '') +
+             /* Un riempimento si vede rientrato sotto al disegno di cui e'
+                figlio, qui come nella tab Disegno: e' lo stesso elenco. */
+             (l.padre ? ' figlio' : '') +
              (l.visibile ? '' : ' spento') + '" data-pos="' + i +
              '" data-fog="' + esc(fid) + '">' +
              '<span class="ed-presa" data-presa="' + l.id +
@@ -2449,6 +2452,15 @@ var Editor = (function () {
                            : 'clicca per modificare questo') +
              '. Due clic: rinomina.">' +
              esc(l.nome) + '</button>' +
+             /* «DA RIFARE» SERVE SOPRATTUTTO QUI. Il nodo lo si trascina
+                nell'editor, non nella tab Disegno: scriverlo solo di la'
+                vorrebbe dire scriverlo dove in quel momento non guarda
+                nessuno. */
+             (l.daRifare
+                ? '<span class="liv-rifare" title="Il contorno e` cambiato: ' +
+                  'questo riempimento va rifatto, e finche` non lo e` la ' +
+                  'stampa non parte">da rifare</span>'
+                : '') +
              '<button type="button" class="liv-ic" data-ed-occhio="' + l.id +
              '" title="' + (l.visibile ? 'Nascondi' : 'Mostra') + '">' +
              (l.visibile ? SEGNI_OCCHIO : SEGNI_CHIUSO) + '</button>' +
@@ -2806,7 +2818,12 @@ var Editor = (function () {
 
   function segnaFigliDaRifare() {
     if (!Artwork.segnaDaRifare || !Artwork.sceltoId) return;
-    if (Artwork.segnaDaRifare(Artwork.sceltoId(), true)) figliSporchi = true;
+    if (!Artwork.segnaDaRifare(Artwork.sceltoId(), true)) return;
+    figliSporchi = true;
+    /* E l'elenco DI QUI si rifa': `segnaDaRifare` rifa' quello della tab
+       Disegno, che in questo momento nessuno sta guardando -- il nodo lo si
+       sta trascinando qui. */
+    renderLivelli();
   }
 
   function rifaiFigli() {
@@ -2857,6 +2874,7 @@ var Editor = (function () {
               ' sul contorno nuovo.');
     }
     if (riempiAcceso) rifaiStampino();
+    renderLivelli();
     disegna();
   }
 

@@ -2533,7 +2533,8 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
    cui e' figlia. Sta SOPRA al suo perche' l'elenco e' l'ordine di stampa e
    il contorno passa per ultimo -- il rientro e il filo dicono che e' una
    cosa sola, la posizione dice quando viene disegnata. */
-.liv-riga.figlio {
+.liv-riga.figlio,
+.ed-liv.figlio {
   margin-left: 16px;
   border-left: 2px solid var(--line);
   padding-left: 6px;

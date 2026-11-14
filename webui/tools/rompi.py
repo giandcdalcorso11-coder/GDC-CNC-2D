@@ -2586,10 +2586,15 @@ MUTAZIONI = [
         prova="prova-riempimenti.js",
     ),
     dict(
-        nome="l'etichetta «da rifare» non si vede nell'elenco",
+        # GLI ELENCHI SONO DUE -- la tab Disegno e l'editor -- e devono dire
+        # la stessa cosa: spegnerne uno solo lascia il programma corretto.
+        nome="l'etichetta «da rifare» non si vede negli elenchi",
         file="js/artwork.js",
         da="             (l.daRifare\n                ? '<span class=\"liv-rifare\"",
         a="             (false\n                ? '<span class=\"liv-rifare\"",
+        piu=[("js/editor.js",
+              "             (l.daRifare\n                ? '<span class=\"liv-rifare\"",
+              "             (false\n                ? '<span class=\"liv-rifare\"")],
         vede="resta segnato",
         prova="prova-riempimenti.js",
     ),

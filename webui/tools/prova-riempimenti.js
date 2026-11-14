@@ -446,11 +446,26 @@ function rett(x, y, w, h, fessura) {
        dice. Rigenerare a ogni movimento vorrebbe dire un editor che non sta
        dietro alla mano. */
     segnato: Artwork.livelli().filter((x) => x.padre)[0].daRifare,
-    badge: document.querySelectorAll('.liv-rifare').length
+    badge: document.querySelectorAll('.liv-rifare').length,  // due elenchi, due etichette
+    /* NON BASTA CHE L'ETICHETTA CI SIA: deve stare dentro alla sua riga.
+       Una riga di livelli e` stretta e piena di segni, e una cosa che
+       finisce oltre il bordo e` scritta per nessuno. */
+    dentro: (function () {
+      /* Le etichette sono due -- l'elenco della tab Disegno e quello
+         dell'editor -- e quella che conta e` quella che si VEDE adesso: il
+         nodo lo si trascina qui, nell'editor. */
+      return [].slice.call(document.querySelectorAll('.liv-rifare')).some(function (b) {
+        const e = b.getBoundingClientRect();
+        const riga = b.parentElement.getBoundingClientRect();
+        return e.width > 10 && e.x >= riga.x - 1 &&
+               e.x + e.width <= riga.x + riga.width + 1;
+      });
+    })()
   }));
   ok('mentre si trascina, il riempimento e` segnato «da rifare»',
-     r.segnato === true && r.badge === 1,
+     r.segnato === true && r.badge >= 1,
      'segnato ' + r.segnato + ', ' + r.badge + ' etichette');
+  ok('e l\'etichetta sta dentro alla sua riga, dove si legge', r.dentro);
 
   await page.mouse.up();
   await page.waitForTimeout(400);
@@ -499,7 +514,10 @@ function rett(x, y, w, h, fessura) {
   ok('aprendo il contorno il riempimento di prima NON si butta',
      r.c && r.tratti === trattiPrima && r.tratti > 1,
      r.tratti + ' tratti contro ' + trattiPrima);
-  ok('ma resta segnato «da rifare»', r.segnato === true && r.badge === 1);
+  /* Le etichette sono due perche' gli elenchi sono due -- quello della tab
+     Disegno e quello dell'editor -- e devono dire la stessa cosa. */
+  ok('ma resta segnato «da rifare»', r.segnato === true && r.badge >= 1,
+     r.badge + ' etichette');
 
   /* E COSI` SEGNATO LA STAMPA NON PARTE: un foglio stampato da una ricetta
      vecchia e` il genere di bugia che si scopre a penna in mano. */
