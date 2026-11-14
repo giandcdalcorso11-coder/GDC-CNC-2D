@@ -166,6 +166,20 @@
         <h3>Fogli</h3>
         <div class="fogli-row" id="fogli-row"></div>
         <p class="fogli-nota" id="fogli-nota"></p>
+        <!-- I MAGNETI FRA I FOGLI. Trascinando un foglio, i bordi si
+             agganciano a quelli degli altri: e' il gesto con cui si compone
+             una lavagna di magneti accostati. Sospenderli era affidato SOLO
+             ad Alt tenuto premuto, e su un tablet quel tasto non c'e': due
+             fogli non accostati non si potevano posare. Adesso lo dice la
+             spunta, e Alt fa il CONTRARIO di quello che dice -- cosi' chi ha
+             la tastiera tiene la scorciatoia al volo, e chi ha il dito puo'
+             comunque scegliere. Vale anche su un PC: che i magneti si
+             possano spegnere, prima, lo sapeva solo chi l'aveva letto nel
+             codice. -->
+        <label class="chk" id="fogli-magneti-riga">
+          <input type="checkbox" id="fogli-magneti" checked>
+          Magneti fra i fogli (con Alt, il contrario)
+        </label>
         <!-- L'ALTEZZA DI CONTATTO SI MISURA UNA VOLTA SOLA, perche' nove
              magneti ritagliati dallo stesso cartoncino hanno lo stesso
              spessore e misurarla nove volte sarebbe otto gesti per sapere
@@ -485,6 +499,10 @@
               title="Ctrl+Z" disabled>Annulla</button>
       <button type="button" class="btn btn-ghost btn-small" id="ed-rifai"
               title="Ctrl+Shift+Z" disabled>Rifai</button>
+      <!-- Prendere PIU' tratti era affidato solo a Ctrl, che su un tablet
+           non esiste. Adesso c'e' questo interruttore e Ctrl lo capovolge. -->
+      <button type="button" class="ed-str" id="ed-somma"
+              title="Ogni tratto che prendi si somma alla scelta invece di sostituirla. Ctrl (o Cmd) fa il contrario.">Somma</button>
       <button type="button" class="ed-str attivo" id="ed-magneti"
               title="Alt li spegne mentre lo tieni premuto, Shift forza l'angolo">Magneti</button>
       <button type="button" class="ed-str" id="ed-griglia"

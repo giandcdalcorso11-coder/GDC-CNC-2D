@@ -68,6 +68,15 @@ var Editor = (function () {
      sarebbe lontano: tenere la scorciatoia opposta a portata di dito è
      quello che li rende usabili invece che invadenti. */
   var magneti = true;
+
+  /* SOMMARE INVECE DI SOSTITUIRE. Prendere un tratto sostituisce la scelta;
+     con Ctrl (o Cmd) la somma, ed e' il gradino fine con cui si ripulisce un
+     disegno importato. Fino al 2026-11-14 lo diceva SOLO Ctrl, e su un
+     tablet quel tasto non c'e': prendere due tratti era impossibile.
+     Adesso lo dice anche questo interruttore, e Ctrl lo CAPOVOLGE -- la
+     scelta abituale si imposta una volta, l'eccezione si fa col tasto. */
+  var somma = false;
+  function sommaOra(e) { return somma !== !!(e.ctrlKey || e.metaKey); }
   var guide = [];
 
   var SOGLIA_ANG = 6 * Math.PI / 180;   // quanto «quasi» vale come «esatto»
@@ -699,7 +708,7 @@ var Editor = (function () {
          invece per un doppio clic che infilava un nodo e azzerava la
          scelta. Trovato dal collaudo, prima su Shift e poi di nuovo, tale e
          quale, su Ctrl: la stessa trappola due volte. */
-      forseDoppio = !e.shiftKey && !e.ctrlKey && !e.metaKey &&
+      forseDoppio = !e.shiftKey && !sommaOra(e) &&
                     ora - ultimoGiu.t < DOPPIO_MS &&
                     Math.abs(e.clientX - ultimoGiu.x) < DOPPIO_PX &&
                     Math.abs(e.clientY - ultimoGiu.y) < DOPPIO_PX;
@@ -753,7 +762,7 @@ var Editor = (function () {
 
     /* CTRL (o Cmd) PRENDE I TRATTI, e li accumula. È il gradino fine, e
        serve prima di tutto a ripulire: dieci linee nascoste, un Canc. */
-    if (e.ctrlKey || e.metaKey) {
+    if (sommaOra(e)) {
       var tr = trattoSotto(p, u);
       if (!tr) { nessunaForma(); disegna(); return; }
       commutaSegmento(tr.forma, tr.sub, tr.k);
@@ -2557,6 +2566,11 @@ var Editor = (function () {
         b.title = specchioAsse === 'v'
           ? 'Asse verticale: ribalta destra-sinistra. Clicca per cambiarlo.'
           : 'Asse orizzontale: ribalta sopra-sotto. Clicca per cambiarlo.';
+      }
+      else if (b.id === 'ed-somma') {
+        somma = !somma;
+        b.classList.toggle('attivo', somma);
+        scriviAiuto();
       }
       else if (b.id === 'ed-magneti') {
         magneti = !magneti;

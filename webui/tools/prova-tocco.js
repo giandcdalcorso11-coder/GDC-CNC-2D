@@ -67,6 +67,13 @@ async function trascina(cdp, da, a, passi) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
+/* Un tocco secco: appoggia e stacca, senza muoversi. */
+async function tocca(cdp, p) {
+  await cdp.send('Input.dispatchTouchEvent',
+    { type: 'touchStart', touchPoints: [{ x: p.x, y: p.y, id: 1 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
 const pinza = (cdp, centro, da, a) =>
   gesto(cdp, [{ c: centro, d: da }, { c: centro, d: a }]);
 
@@ -347,6 +354,132 @@ const LARGHEZZA = (page, id) => page.evaluate((id) => {
      r.w > conShift.w * 1.2 && Math.abs(r.h - conShift.h) < 0.5,
      conShift.w.toFixed(1) + '×' + conShift.h.toFixed(1) + ' -> ' +
      r.w.toFixed(1) + '×' + r.h.toFixed(1));
+
+  /* ============ I. I MAGNETI SI SPENGONO SENZA ALT ============
+     Trascinando un foglio i bordi si agganciano a quelli degli altri.
+     Sospenderli era affidato solo ad Alt tenuto premuto: su un tablet due
+     fogli NON accostati non si potevano posare. */
+  async function posaFoglio(magneti, conAlt) {
+    await page.reload();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      /* Il primo foglio si fa piccolo PRIMA di aggiungerne altri: con un
+         A5 di partenza i due nuovi non ci stanno accanto e finiscono
+         sovrapposti nell'angolo, dove non c'e' nessun bordo da agganciare
+         e la scena non misurerebbe niente. */
+      Paper.setSize(75, 75);
+      Paper.setSheetOrigin(10, 10);
+      document.getElementById('paper-w').value = 75;
+      document.getElementById('paper-h').value = 75;
+      document.getElementById('btn-paper-add').click();
+      document.getElementById('btn-paper-add').click();
+      Paper.adatta();
+    });
+    await page.waitForTimeout(200);
+    const dati = await page.evaluate((magneti) => {
+      document.getElementById('fogli-magneti').checked = magneti;
+      const f = State.data.fogli[1];
+      const m = document.getElementById('layer-sheet').getScreenCTM();
+      const c = new DOMPoint(f.origine.x + f.w / 2, f.origine.y + f.h / 2)
+        .matrixTransform(m);
+      return { x: c.x, y: c.y, pxPerMm: Math.abs(m.a), x0: f.origine.x };
+    }, magneti);
+    /* Sei millimetri a destra: dentro la tolleranza del magnete, quindi col
+       magnete acceso il bordo torna ESATTO e con quello spento resta dove
+       lo si e` lasciato. */
+    const meta = { x: dati.x + 6 * dati.pxPerMm, y: dati.y };
+    if (conAlt) {
+      /* Col mouse e Alt premuto: e` la meta` della regola che riguarda chi
+         ha la tastiera, e un dito il tasto non lo tiene premuto. */
+      await page.keyboard.down('Alt');
+      await page.mouse.move(dati.x, dati.y);
+      await page.mouse.down();
+      for (let i = 1; i <= 8; i++) {
+        await page.mouse.move(dati.x + (meta.x - dati.x) * i / 8, dati.y);
+      }
+      await page.mouse.up();
+      await page.keyboard.up('Alt');
+    } else {
+      await trascina(cdp, { x: dati.x, y: dati.y }, meta);
+    }
+    await page.waitForTimeout(150);
+    const dopo = await page.evaluate(() => State.data.fogli[1].origine.x);
+    return { prima: dati.x0, dopo: dopo };
+  }
+
+  r = await posaFoglio(true);
+  ok('col dito e i magneti accesi, il foglio torna sul bordo esatto',
+     r.dopo === r.prima, 'da ' + r.prima + ' a ' + r.dopo);
+  r = await posaFoglio(false);
+  ok('e con la spunta spenta si posa dove lo si lascia, senza premere Alt',
+     r.dopo === r.prima + 6, 'da ' + r.prima + ' a ' + r.dopo);
+
+  r = await posaFoglio(true, true);
+  ok('e Alt capovolge la spunta: coi magneti accesi, li sospende',
+     r.dopo === r.prima + 6, 'da ' + r.prima + ' a ' + r.dopo);
+
+  /* ============ J. DUE TRATTI SENZA CTRL ============
+     Prendere un tratto sostituisce la scelta; sommarne un altro era
+     affidato solo a Ctrl, che su un tablet non esiste: dall'iPad si poteva
+     prendere un tratto solo. */
+  async function prendiDueTratti(somma) {
+    await page.reload();
+    await page.waitForTimeout(400);
+    await page.evaluate((svg) => {
+      Artwork.load(svg, 'prova.svg');
+      document.querySelector('.tab[data-tab="editor"]').click();
+    }, DISEGNO);
+    await page.waitForTimeout(500);
+    if (somma) await page.evaluate(() => document.getElementById('ed-somma').click());
+    const b = await page.evaluate(() => {
+      const r = document.querySelector('#ed-svg .ed-tratto').getBoundingClientRect();
+      return { sopra: { x: r.x + r.width / 2, y: r.y },
+               sinistra: { x: r.x, y: r.y + r.height / 2 } };
+    });
+    await tocca(cdp, b.sopra);
+    await page.waitForTimeout(120);
+    const uno = await page.evaluate(() => Editor.tratti().length);
+    await tocca(cdp, b.sinistra);
+    await page.waitForTimeout(120);
+    const due = await page.evaluate(() => Editor.tratti().length);
+    return { uno: uno, due: due,
+             attivo: await page.evaluate(() =>
+               document.getElementById('ed-somma').classList.contains('attivo')) };
+  }
+
+  r = await prendiDueTratti(true);
+  ok('con «Somma» acceso, due tocchi prendono due tratti',
+     r.attivo && r.uno === 1 && r.due === 2,
+     'dopo il primo ' + r.uno + ', dopo il secondo ' + r.due);
+  r = await prendiDueTratti(false);
+  ok('e spento, il secondo tocco sostituisce il primo come sempre',
+     !r.attivo && r.due <= 1, 'dopo il secondo ' + r.due);
+
+  /* E CTRL CAPOVOLGE: con «Somma» acceso, Ctrl torna a sostituire. Era
+     l'unica meta` della regola senza controllo -- nessun banco, qui dentro,
+     aveva mai premuto Ctrl. */
+  await page.reload();
+  await page.waitForTimeout(400);
+  await page.evaluate((svg) => {
+    Artwork.load(svg, 'prova.svg');
+    document.querySelector('.tab[data-tab="editor"]').click();
+  }, DISEGNO);
+  await page.waitForTimeout(500);
+  await page.evaluate(() => document.getElementById('ed-somma').click());
+  const bordi = await page.evaluate(() => {
+    const b = document.querySelector('#ed-svg .ed-tratto').getBoundingClientRect();
+    return { sopra: { x: b.x + b.width / 2, y: b.y },
+             sinistra: { x: b.x, y: b.y + b.height / 2 } };
+  });
+  await page.mouse.click(bordi.sopra.x, bordi.sopra.y);
+  await page.waitForTimeout(120);
+  await page.keyboard.down('Control');
+  await page.mouse.click(bordi.sinistra.x, bordi.sinistra.y);
+  await page.keyboard.up('Control');
+  await page.waitForTimeout(120);
+  r = await page.evaluate(() => Editor.tratti().length);
+  ok('e Ctrl capovolge «Somma»: con l\'interruttore acceso, sostituisce',
+     r <= 1, 'tratti scelti ' + r);
 
   if (errori.length) {
     console.log('\nerrori di pagina:');

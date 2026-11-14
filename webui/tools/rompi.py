@@ -2376,6 +2376,38 @@ MUTAZIONI = [
         vede="l'angolo deforma come sempre",
         prova="prova-tocco.js",
     ),
+    dict(
+        nome="i magneti dei fogli si sospendono solo con Alt, come prima",
+        file="js/paper.js",
+        da="    return accesi ? !!e.altKey : !e.altKey;",
+        a="    return !!e.altKey;",
+        vede="si posa dove lo si lascia",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la spunta dei magneti c'e' ma Alt non la capovolge piu'",
+        file="js/paper.js",
+        da="    return accesi ? !!e.altKey : !e.altKey;",
+        a="    return !accesi;",
+        vede="Alt capovolge la spunta",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="sommare alla scelta torna a volere Ctrl",
+        file="js/editor.js",
+        da="  function sommaOra(e) { return somma !== !!(e.ctrlKey || e.metaKey); }",
+        a="  function sommaOra(e) { return !!(e.ctrlKey || e.metaKey); }",
+        vede="due tocchi prendono due tratti",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="l'interruttore Somma c'e' ma Ctrl non lo capovolge",
+        file="js/editor.js",
+        da="  function sommaOra(e) { return somma !== !!(e.ctrlKey || e.metaKey); }",
+        a="  function sommaOra(e) { return somma; }",
+        vede="Ctrl capovolge",
+        prova="prova-tocco.js",
+    ),
 ]
 
 

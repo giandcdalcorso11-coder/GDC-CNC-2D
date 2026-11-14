@@ -1068,6 +1068,15 @@ var Paper = (function () {
     return finestraCorrente().w / r.width;
   }
 
+  /* I magneti si sospendono: la spunta dice l'abitudine, Alt la capovolge.
+     Si legge dal documento e non da una variabile nostra perche' la spunta
+     e' l'unico posto in cui quella scelta vive. */
+  function sospendiMagneti(e) {
+    var c = document.getElementById('fogli-magneti');
+    var accesi = !c || c.checked;
+    return accesi ? !!e.altKey : !e.altKey;
+  }
+
   function aggancia(f, x, y, spenti) {
     guide = [];
     if (spenti) return { x: x, y: y };
@@ -1168,7 +1177,7 @@ var Paper = (function () {
          ma un aggancio sì che deve essere esatto — e lo è, perché dopo
          l'arrotondamento il magnete porta il bordo sulla riga, non vicino. */
       var q = aggancia(f, Math.round(m.x - grab.dx), Math.round(m.y - grab.dy),
-                       e.altKey);
+                       sospendiMagneti(e));
       poniFoglio(f, q.x, q.y);
     });
 
