@@ -1772,6 +1772,12 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
 .liv-chk .segno { stroke-width: 2; }
 .liv-riga.scelto .liv-chk { color: var(--accent); }
 
+/* IL QUADRATINO DI UN LIVELLO CHE STA SU UN ALTRO FOGLIO. Premerlo non somma
+   alla scelta: la fa ricominciare da lì, perché un riquadro solo non può
+   circondare disegni di due fogli diversi. Il filo tratteggiato dice che quel
+   gesto è di un altro tipo, e lo dice PRIMA del clic. */
+.liv-chk.altro-foglio rect { stroke-dasharray: 2.4 1.9; }
+
 /* L'occhio chiuso: la sbarra lo attraversa, e per staccarsi dalla palpebra ha
    il suo contorno del colore del fondo. */
 .liv-ic .sbarra { stroke-width: 1.6; paint-order: stroke; }

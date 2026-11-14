@@ -2163,6 +2163,30 @@ MUTAZIONI = [
         vede="due disegni sovrapposti prende quello sopra",
         prova="prova-piano.js",
     ),
+    dict(
+        nome="la spunta di un altro foglio non si veste diversa",
+        file="js/artwork.js",
+        da="                  (ricomincia ? ' altro-foglio' : '') + '\" data-sel=\"' + l.id +",
+        a="                  '' + '\" data-sel=\"' + l.id +",
+        vede="si veste diversa, e solo quella",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="il vestito tratteggiato sta su TUTTE le spunte",
+        file="js/artwork.js",
+        da="             })(!preso && selezionati.length > 0 && !stessoFoglio(selezionati[0], l.id)) +",
+        a="             })(!preso) +",
+        vede="si veste diversa, e solo quella",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="la scelta ricomincia in silenzio",
+        file="js/artwork.js",
+        da="        if (window.Log && nuovo) {",
+        a="        if (false) {",
+        vede="il registro dice su che foglio",
+        prova="prova-piano.js",
+    ),
 ]
 
 

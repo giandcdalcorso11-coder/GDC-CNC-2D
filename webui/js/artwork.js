@@ -323,6 +323,20 @@ var Artwork = (function () {
          uno di un altro foglio sta cambiando foglio, non allargando la
          scelta. */
       else if (selezionati.length && !stessoFoglio(selezionati[0], id)) {
+        /* E SI DICE, perché una regola muta si legge come un capriccio: la
+           stessa spunta a volte somma e a volte ricomincia, e la cosa che fa
+           la differenza — il foglio — non si vede da nessuna parte. L'ha
+           detto l'operatore il 2026-11-11: «ogni tanto deseleziona quella
+           precedente e ogni tanto le seleziona entrambe». La regola non
+           cambia, perché resta vero che due livelli di due fogli diversi non
+           hanno un rettangolo in comune; cambia che adesso lo dice. */
+        var nuovo = trova(id);
+        if (window.Log && nuovo) {
+          Log.add('msg', 'Il livello «' + nuovo.nome + '» sta sul foglio ' +
+                  (Fogli.indice(nuovo.foglio) + 1) + ': la scelta ricomincia ' +
+                  'da lì, perché un riquadro solo non può circondare disegni ' +
+                  'di due fogli diversi.');
+        }
         selezionati = [id];
       } else selezionati.push(id);
     } else {
@@ -1771,9 +1785,21 @@ var Artwork = (function () {
 
              '<span class="liv-n">' + (i + 1) + '</span>' +
 
-             '<button type="button" class="liv-ic liv-chk" data-sel="' + l.id +
-             '" title="' + (preso ? 'Toglilo dalla selezione' : 'Scegli questo livello') +
-             '">' + (preso ? SEGNI.spunta : SEGNI.quadro) + '</button>' +
+             /* LA SPUNTA DICE PRIMA CHE COSA FARA'. Se questo livello sta su
+                un foglio diverso da quello della scelta in corso, premerla non
+                somma: ricomincia (vedi `seleziona`, ramo «aggiungi»). Scoprirlo
+                dopo averla premuta è il capriccio di cui si lamentava
+                l'operatore, quindi il quadratino si veste diverso e il
+                suggerimento lo scrive. Quando non c'è nessuna scelta in corso
+                non ricomincia niente, e il segno non c'è. */
+             (function (ricomincia) {
+                return '<button type="button" class="liv-ic liv-chk' +
+                  (ricomincia ? ' altro-foglio' : '') + '" data-sel="' + l.id +
+                  '" title="' + (preso ? 'Toglilo dalla selezione'
+                    : ricomincia ? 'Sta su un altro foglio: la scelta ricomincia da qui'
+                    : 'Scegli questo livello') +
+                  '">' + (preso ? SEGNI.spunta : SEGNI.quadro) + '</button>';
+             })(!preso && selezionati.length > 0 && !stessoFoglio(selezionati[0], l.id)) +
 
              /* IL PALLINO C'È SEMPRE, anche vuoto: è da lì che si sceglie la
                 penna, e un livello senza tinta — disegnato a mano — è

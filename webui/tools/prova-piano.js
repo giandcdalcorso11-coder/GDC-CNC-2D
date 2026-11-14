@@ -1124,6 +1124,51 @@ function dentro(p, r, gioco) {
     });
   }
 
+  /* ====== I. LA SPUNTA DICE QUANDO LA SCELTA RICOMINCIA (2026-11-14) ======
+     La regola e' giusta e resta: due livelli di due fogli diversi non hanno un
+     rettangolo in comune, quindi spuntarne uno di un altro foglio fa
+     RICOMINCIARE la scelta invece di sommarla. Quello che mancava e' che lo
+     dicesse -- la stessa spunta a volte somma e a volte ricomincia, e la cosa
+     che fa la differenza, il foglio, non si vedeva da nessuna parte. Si guarda
+     da due parti: il quadratino si veste diverso PRIMA del clic, e il registro
+     lo scrive DOPO. */
+
+  await AZZERA(page);
+  r = await page.evaluate(([a, b]) => {
+    const detti = [];
+    Log.ascolta((riga) => detti.push(riga.text));
+    Artwork.load(a, 'uno.svg');
+    const f2 = Fogli.aggiungi(105, 148, 'A6');
+    Fogli.scegli(f2.id);
+    Artwork.load(b, 'due.svg');
+    const l = Artwork.livelli();
+    /* Senza niente scelto non ricomincia niente, quindi nessun segno. */
+    Artwork.deseleziona();
+    const senzaScelta = document.querySelectorAll('#livelli .liv-chk.altro-foglio').length;
+    /* Si spunta il primo: da adesso quello dell'altro foglio e' un gesto di
+       un altro tipo, e si deve vedere. */
+    document.querySelector('#livelli [data-sel="' + l[0].id + '"]').click();
+    const segnati = [...document.querySelectorAll('#livelli .liv-chk.altro-foglio')]
+                      .map((x) => x.dataset.sel);
+    const titolo = document.querySelector('#livelli [data-sel="' + l[1].id + '"]').title;
+    const prima = Artwork.scelti().map((x) => x.nome);
+    /* E premendolo la scelta ricomincia -- e il registro lo dice. */
+    document.querySelector('#livelli [data-sel="' + l[1].id + '"]').click();
+    return { senzaScelta, segnati, titolo, prima,
+             dopo: Artwork.scelti().map((x) => x.nome),
+             detti, due: l[1].id };
+  }, [DISEGNO('#1d1d1b'), DISEGNO('#c8102e')]);
+  ok('la spunta di un livello di un altro foglio si veste diversa, e solo quella',
+     r.senzaScelta === 0 && r.segnati.length === 1 && r.segnati[0] === r.due &&
+     /altro foglio/.test(r.titolo),
+     'senza scelta ' + r.senzaScelta + ' segnate, con la scelta ' +
+     JSON.stringify(r.segnati) + ', suggerimento «' + r.titolo + '»');
+  ok('e premendola la scelta ricomincia, e il registro dice su che foglio',
+     r.prima.length === 1 && r.dopo.length === 1 && r.dopo[0] !== r.prima[0] &&
+     r.detti.some((d) => /ricomincia/.test(d) && /foglio 2/.test(d)),
+     'da ' + JSON.stringify(r.prima) + ' a ' + JSON.stringify(r.dopo) +
+     ', detto: ' + JSON.stringify(r.detti.filter((d) => /ricomincia/.test(d))));
+
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
   console.log(guai ? '\n' + guai + ' controlli KO' : '\ntutto a posto');
