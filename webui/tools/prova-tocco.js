@@ -54,6 +54,19 @@ async function gesto(cdp, tappe, passi) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
+/* Un dito solo che trascina: serve alle maniglie del riquadro. */
+async function trascina(cdp, da, a, passi) {
+  passi = passi || 8;
+  const p = (x, y) => [{ x: x, y: y, id: 1 }];
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: p(da.x, da.y) });
+  for (let i = 1; i <= passi; i++) {
+    const k = i / passi;
+    await cdp.send('Input.dispatchTouchEvent',
+      { type: 'touchMove', touchPoints: p(da.x + (a.x - da.x) * k, da.y + (a.y - da.y) * k) });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
 const pinza = (cdp, centro, da, a) =>
   gesto(cdp, [{ c: centro, d: da }, { c: centro, d: a }]);
 
@@ -247,6 +260,93 @@ const LARGHEZZA = (page, id) => page.evaluate((id) => {
   ok('la tela dell\'editor si pinza come il piano',
      telaDopo.w < telaPrima.w * 0.75,
      'da ' + telaPrima.w.toFixed(1) + ' a ' + telaDopo.w.toFixed(1));
+
+  /* ============ H. LE PROPORZIONI SENZA IL TASTO SHIFT ============
+     Le maniglie d'angolo deformano, e tenere le proporzioni era affidato a
+     Shift: su un tablet il tasto Shift non c'e', quindi dall'iPad il disegno
+     si poteva solo schiacciare. Adesso c'e' una spunta, e Shift la
+     CAPOVOLGE. Qui si prova col dito, che e' il caso che prima non aveva
+     strada. */
+  await page.evaluate(() => document.querySelector('.tab[data-tab="disegno"]').click());
+  await page.waitForTimeout(300);
+
+  /* Tirando l'angolo in basso a destra SOLO in orizzontale: senza
+     proporzioni cambia la larghezza e basta, con le proporzioni cambiano
+     tutt'e due. E` il gesto in cui la differenza si vede, perche' un
+     trascinamento obliquo cambierebbe i due lati comunque. */
+  async function tiraAngolo(spunta) {
+    /* Si riparte dalla pagina appena aperta: due scene di seguito sullo
+       stesso disegno lo lascerebbero ingrandito dalla prima, e la seconda
+       misurerebbe un'altra cosa. */
+    await page.reload();
+    await page.waitForTimeout(400);
+    await page.evaluate(([svg, spunta]) => {
+      Artwork.load(svg, 'prova.svg');
+      Paper.adatta();
+      Artwork.seleziona(Artwork.livelli()[0].id);
+      Selezione.apri();
+      document.getElementById('art-proporzioni').checked = spunta;
+    }, [DISEGNO, spunta]);
+    await page.waitForTimeout(200);
+    const prima = await page.evaluate(() => {
+      const b = Artwork.riquadro();
+      const g = document.querySelector('.sel-grip[data-grip="br"]').getBoundingClientRect();
+      return { w: b.w, h: b.h, g: { x: g.x + g.width / 2, y: g.y + g.height / 2 } };
+    });
+    await trascina(cdp, prima.g, { x: prima.g.x + 120, y: prima.g.y });
+    await page.waitForTimeout(150);
+    const dopo = await page.evaluate(() => {
+      const b = Artwork.riquadro();
+      return { w: b.w, h: b.h };
+    });
+    return { prima: prima, dopo: dopo };
+  }
+
+  r = await tiraAngolo(false);
+  ok('col dito, senza la spunta, l\'angolo deforma come sempre',
+     r.dopo.w > r.prima.w * 1.2 && Math.abs(r.dopo.h - r.prima.h) < 0.5,
+     r.prima.w.toFixed(1) + '×' + r.prima.h.toFixed(1) + ' -> ' +
+     r.dopo.w.toFixed(1) + '×' + r.dopo.h.toFixed(1));
+
+  r = await tiraAngolo(true);
+  const q0 = r.prima.w / r.prima.h, q1 = r.dopo.w / r.dopo.h;
+  ok('con la spunta, il dito ingrandisce senza deformare',
+     r.dopo.w > r.prima.w * 1.2 && Math.abs(q1 - q0) < 0.02,
+     'proporzione ' + q0.toFixed(3) + ' -> ' + q1.toFixed(3));
+
+  /* E SHIFT CAPOVOLGE, cosi' chi ha la tastiera non perde niente: con la
+     spunta accesa, Shift torna a deformare. Qui si usa il mouse, perche' un
+     dito il tasto non lo tiene premuto. */
+  await page.reload();
+  await page.waitForTimeout(400);
+  await page.evaluate((svg) => {
+    Artwork.load(svg, 'prova.svg');
+    Paper.adatta();
+    Artwork.seleziona(Artwork.livelli()[0].id);
+    Selezione.apri();
+    document.getElementById('art-proporzioni').checked = true;
+  }, DISEGNO);
+  await page.waitForTimeout(200);
+  const conShift = await page.evaluate(() => {
+    const b = Artwork.riquadro();
+    const g = document.querySelector('.sel-grip[data-grip="br"]').getBoundingClientRect();
+    return { w: b.w, h: b.h, x: g.x + g.width / 2, y: g.y + g.height / 2 };
+  });
+  await page.keyboard.down('Shift');
+  await page.mouse.move(conShift.x, conShift.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(conShift.x + 15 * i, conShift.y);
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  await page.waitForTimeout(150);
+  r = await page.evaluate(() => {
+    const b = Artwork.riquadro();
+    return { w: b.w, h: b.h };
+  });
+  ok('e Shift capovolge la spunta: con le proporzioni accese, deforma',
+     r.w > conShift.w * 1.2 && Math.abs(r.h - conShift.h) < 0.5,
+     conShift.w.toFixed(1) + '×' + conShift.h.toFixed(1) + ' -> ' +
+     r.w.toFixed(1) + '×' + r.h.toFixed(1));
 
   if (errori.length) {
     console.log('\nerrori di pagina:');

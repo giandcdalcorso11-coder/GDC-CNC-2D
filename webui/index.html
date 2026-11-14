@@ -219,6 +219,17 @@
             <label>Rotazione (°) <input type="number" id="art-rot" value="0" min="0" max="359" step="15"></label>
           </div>
           <p class="hint" id="art-deform" hidden></p>
+          <!-- IL LUCCHETTO DELLE PROPORZIONI. Le maniglie d'angolo del
+               riquadro deformano, e con Shift tengono le proporzioni: su un
+               tablet il tasto Shift non c'e', quindi quella scelta deve
+               esistere anche come spunta. Shift continua a valere e fa il
+               CONTRARIO di quello che dice la spunta, come in ogni programma
+               di disegno: chi ha la tastiera non perde niente e chi ha il
+               dito non resta fuori. -->
+          <label class="chk" id="art-prop-riga">
+            <input type="checkbox" id="art-proporzioni">
+            Tieni le proporzioni (con Shift, il contrario)
+          </label>
           <!-- Compare solo con piu' livelli scelti: con uno solo non
                cambierebbe niente, e una spunta che non cambia niente insegna
                a non leggere le spunte. Vedi insieme() in js/artwork.js. -->

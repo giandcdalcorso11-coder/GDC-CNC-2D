@@ -2523,3 +2523,8 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
   .liv-ic:hover:not(:disabled) { color: var(--text-dim); background: none; }
   .liv-ic:active:not(:disabled) { color: var(--text); background: var(--bg-raised); }
 }
+
+/* La presa della maniglia col dito: non si vede, si tocca. Sta sopra al
+   quadratino visibile e porta lo stesso nome di maniglia, quindi chi
+   gestisce il gesto non sa nemmeno che esiste. */
+.sel-presa { fill: transparent; stroke: none; }

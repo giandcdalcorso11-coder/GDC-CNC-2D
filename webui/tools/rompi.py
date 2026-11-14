@@ -2344,6 +2344,38 @@ MUTAZIONI = [
         vede="la tela dell'editor si pinza",
         prova="prova-tocco.js",
     ),
+    dict(
+        nome="le proporzioni le decide solo Shift, come prima",
+        file="js/selezione.js",
+        da="    return !!(c && c.checked) !== !!e.shiftKey;",
+        a="    return !!e.shiftKey;",
+        vede="il dito ingrandisce senza deformare",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la spunta c'e' ma Shift non la capovolge piu'",
+        file="js/selezione.js",
+        da="    return !!(c && c.checked) !== !!e.shiftKey;",
+        a="    return !!(c && c.checked);",
+        vede="Shift capovolge la spunta",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="col dito la maniglia non ha una presa piu' larga",
+        file="js/selezione.js",
+        da="      if (dito) {",
+        a="      if (false) {",
+        vede="l'angolo deforma come sempre",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la presa e' larga come il quadratino che si vede",
+        file="js/selezione.js",
+        da="    var presa = 30 * mmPerPixel();",
+        a="    var presa = 9 * mmPerPixel();",
+        vede="l'angolo deforma come sempre",
+        prova="prova-tocco.js",
+    ),
 ]
 
 

@@ -6,11 +6,20 @@
  * facendo: senza una modalità esplicita, un trascinamento sul foglio sarebbe
  * sempre ambiguo fra «sposta la carta» e «sposta il disegno».
  *
- * Le maniglie agli angoli deformano. Con Shift tengono le proporzioni, e
- * allora è un ingrandimento vero: è il caso normale, ma non è il
- * predefinito, perché schiacciare un disegno per farlo entrare in un foglio
- * è una cosa che si vuole fare apposta e si deve poter fare senza cercare
- * un'opzione.
+ * Le maniglie agli angoli deformano. Tenendo le proporzioni è invece un
+ * ingrandimento vero: è il caso normale, ma non è il predefinito, perché
+ * schiacciare un disegno per farlo entrare in un foglio è una cosa che si
+ * vuole fare apposta e si deve poter fare senza cercare un'opzione.
+ *
+ * CHI LO DICE: la spunta «tieni le proporzioni» accanto ai campi del livello,
+ * e Shift, che fa il CONTRARIO di quello che dice la spunta. Fino al
+ * 2026-11-14 lo diceva solo Shift, e su un tablet il tasto Shift non c'è:
+ * dall'iPad il disegno si poteva solo deformare. Un comando che vive solo in
+ * un tasto è un comando che su metà dei dispositivi non esiste — e anche su
+ * un PC è una cosa che si sa o non si sa. La spunta lo rende visibile;
+ * Shift resta la scorciatoia di chi ha le mani sulla tastiera, e capovolgere
+ * invece di imporre è come lo fanno i programmi di disegno: la scelta
+ * abituale si imposta una volta, l'eccezione si fa col tasto.
  *
  * Il riquadro vive in millimetri MACCHINA, come tutto il resto del piano;
  * il rettangolo che sta in Artwork è invece in millimetri del FOGLIO, perché
@@ -59,6 +68,15 @@ var Selezione = (function () {
      gradi: abbastanza da prendere l'orizzontale senza mirare, poco da poter
      comunque fermarsi a dodici se è dodici che si vuole. */
   var SCATTO = 5, PASSO = 15;
+
+  /* Proporzioni sì o no, adesso: la spunta dice l'abitudine, Shift la
+     capovolge. Si legge dal documento e non da una variabile nostra perché
+     la spunta è l'unico posto in cui quella scelta vive — una copia qui
+     dentro sarebbe una seconda verità da tenere allineata. */
+  function proporzioni(e) {
+    var c = document.getElementById('art-proporzioni');
+    return !!(c && c.checked) !== !!e.shiftKey;
+  }
 
   function maniglia(id) {
     for (var i = 0; i < MANIGLIE.length; i++) {
@@ -115,6 +133,17 @@ var Selezione = (function () {
     /* Il lato della maniglia si calcola in millimetri ma vale nove pixel: lo
        spessore dei fili invece lo tiene il CSS, con non-scaling-stroke. */
     var lato = 9 * mmPerPixel();
+
+    /* COL DITO, LA ZONA CHE RISPONDE E` PIU` LARGA DEL QUADRATINO.
+       Nove pixel sono comodi per una punta e sono una mira per un
+       polpastrello, che copre una zona di una quarantina e il cui centro chi
+       tocca non vede. Ingrandire il quadratino VISIBILE pero' coprirebbe il
+       disegno proprio mentre lo si sta ridimensionando, cioe' mentre si
+       guarda: quindi il segno resta di nove pixel e sotto le dita si mette
+       un rettangolo trasparente piu' grande, con lo stesso nome di maniglia.
+       Si disegna DOPO quello visibile perche' deve stare sopra. */
+    var dito = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var presa = 30 * mmPerPixel();
     var out = '';
 
     /* Il disegno intero, quando una parte è tagliata via: tratteggiato e
@@ -136,6 +165,11 @@ var Selezione = (function () {
              '" style="cursor:' + a.cur + '"' +
              ' x="' + (cx - lato / 2) + '" y="' + (cy - lato / 2) +
              '" width="' + lato + '" height="' + lato + '"></rect>';
+      if (dito) {
+        out += '<rect class="sel-presa" data-grip="' + a.id +
+               '" x="' + (cx - presa / 2) + '" y="' + (cy - presa / 2) +
+               '" width="' + presa + '" height="' + presa + '"></rect>';
+      }
     }
 
     /* LE MANIGLIE DI ROTAZIONE, appena fuori dai quattro angoli. Stanno
@@ -285,7 +319,7 @@ var Selezione = (function () {
       var w = a.fx === 0.5 ? r0.w : Math.abs(m.x - p.x);
       var h = a.fy === 0.5 ? r0.h : Math.abs(m.y - p.y);
 
-      if (e.shiftKey && presa.tipo === 'scala' && r0.w > 0 && r0.h > 0) {
+      if (presa.tipo === 'scala' && proporzioni(e) && r0.w > 0 && r0.h > 0) {
         var k;
         if (a.fx === 0.5)      k = h / r0.h;      // comanda il lato verticale
         else if (a.fy === 0.5) k = w / r0.w;      // comanda quello orizzontale
@@ -318,7 +352,7 @@ var Selezione = (function () {
       /* Con Shift su una maniglia di mezzo cresce anche l'altro lato, e lo fa
          attorno al proprio centro: il lato tirato resta ancorato al suo
          opposto, l'altro si apre da tutt'e due le parti. */
-      if (e.shiftKey && presa.tipo === 'scala') {
+      if (presa.tipo === 'scala' && proporzioni(e)) {
         if (a.fx === 0.5) x = r0.x + r0.w / 2 - w / 2;
         if (a.fy === 0.5) y = r0.y + r0.h / 2 - h / 2;
       }
@@ -329,8 +363,8 @@ var Selezione = (function () {
          cambiava da sola. Invisibile a occhio, ma è deriva, e a forza di
          trascinamenti il disegno non torna più alle misure che dice di avere.
          Trovato dal collaudo, che misura invece di guardare. */
-      var muoveX = a.fx !== 0.5 || (e.shiftKey && presa.tipo === 'scala');
-      var muoveY = a.fy !== 0.5 || (e.shiftKey && presa.tipo === 'scala');
+      var muoveX = a.fx !== 0.5 || (presa.tipo === 'scala' && proporzioni(e));
+      var muoveY = a.fy !== 0.5 || (presa.tipo === 'scala' && proporzioni(e));
 
       var nuovo = {
         x: muoveX ? dec(x - o.x) : r0.x - o.x,
