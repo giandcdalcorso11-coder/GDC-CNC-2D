@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 106
-**Ultimo aggiornamento:** 2026-11-13 15:36
+**Versione:** 107
+**Ultimo aggiornamento:** 2026-11-14 07:38
 
 ## Regole di co-editing
 
@@ -951,7 +951,7 @@ quello che era.
 
 ### Step 14 — I riempimenti: riconoscere le forme chiuse e riempirle
 
-**Stato:** da fare — aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
+**Stato:** **in corso** — aperto il 2026-11-09, cominciato il 2026-11-14 dalla parte piu' leggera: **la mira del doppio clic e' corretta** (i due difetti della nota del 2026-11-11, vedi la cronologia qui sotto). Restano i riempimenti veri, la spunta che non dice quando cambia foglio, e il controllo «si vedra'» con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
 
 **Obiettivo:** che un livello «pieno» si possa stampare **pieno**, con un tipo di riempimento scelto, e non solo come contorno vuoto.
 
@@ -1012,6 +1012,8 @@ valore:
 
 - [2026-11-13] **Il tratteggio esiste già dall'altra parte, e i due devono dire la stessa cosa.** Lo strumento delle stampe ha un campo «Riempimento a tratteggio (mm, 0 = no)» e `fedele.py` l'opzione `riempimento=mm`: quando questo step si costruisce, il **passo** deve voler dire la stessa cosa nei due posti, altrimenti lo stesso disegno riempito di qua e di là esce diverso. Detto in positivo: il generatore del tratteggio dello SLICER nasce con un riferimento già stampato su carta da confrontare, e con la soglia 1,8× di `controlla.py` per dire quando il passo è troppo stretto.
 
+- [2026-11-14] **La mira del doppio clic: corretti DUE difetti, non uno.** Era il punto piu' leggero dei quattro, e sotto il sintomo «ogni tanto non prendo la forma» c'erano due cose indipendenti che si sommavano. **(1) La mira guardava nel foglio sbagliato** — `quale()` adesso prende millimetri del PIANO e sottrae l'angolo di ciascun livello, invece di ricevere un punto già misurato dall'angolo del foglio in uso. **(2) Su un foglio libero il doppio clic non arrivava affatto:** il primo clic rende quel foglio quello in uso, i fogli si ridisegnano, il rettangolo premuto non esiste più quando arriva il secondo e il browser il `dblclick` non lo manda — la stessa ragione per cui esiste `Nome.doppio`, e la stessa cura: i due clic si contano a mano, con un guardiano perché il gesto non venga servito due volte e giri al livello di sotto. Era questa la metà che si sentiva ogni giorno, perché un foglio è libero per tutta la composizione: cliccando esattamente su un tratto il bersaglio è il tracciato e il gesto passava, cliccando nel bianco dentro al disegno il bersaglio era il foglio e non passava. **Tolto anche un `preventDefault()`** che spegneva gli eventi del mouse, ma da solo non bastava — provato. Tre scene nuove in `prova-piano.js` e tre mutazioni in `rompi.py` (235 in tutto).
+
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
 **Stato:** da fare — **da cominciare quando gli altri lavori sono chiusi**, per decisione dell'utente il 2026-11-09. Si segna adesso perché è il tipo di lavoro che non si ricorda da sé, e perché farlo prima della fine vorrebbe dire buttare via roba che serve ancora.
@@ -1063,6 +1065,35 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-14 07:38] (software) Il doppio clic che non prendeva la forma: due difetti, e due mutazioni che guardavano la cosa sbagliata
+
+**Riepilogo:** cominciato lo Step 14 dal punto più leggero, la mira del doppio clic, e sotto il sintomo c'erano **due difetti indipendenti**: la mira nel sistema di riferimento sbagliato (quello già diagnosticato l'11) e — nuovo, trovato scrivendo il banco — il `dblclick` che su un foglio libero **non arriva affatto**, perché il primo clic ridisegna i fogli. Tre scene nuove, tre mutazioni, e due di quelle mutazioni hanno accusato i miei controlli prima di accusare il codice.
+
+**Cosa è stato fatto:**
+
+**Bug 1: con più fogli la mira guardava nel foglio sbagliato**
+
+**Sintomo:** «ogni tanto non prendo la forma». Doppio clic al centro esatto di un disegno che sta su un foglio diverso da quello in uso: non viene preso niente.
+**Causa:** accertata l'11 novembre, provata al banco. `quale()` confronta il punto col `box` di ogni livello, che è in millimetri **del suo foglio**, mentre il punto arrivava da `paper.js` già misurato dall'angolo del foglio **in uso**.
+**Fix applicato:** `quale()` prende millimetri del **piano** e sottrae l'angolo di ciascun livello. «Che cosa c'è sotto a questo punto» è una domanda sul piano, non su un foglio, e adesso lo dice la firma della funzione. Verificato dalla mutazione 233.
+
+**Bug 2: su un foglio libero il doppio clic non arrivava**
+
+**Sintomo:** lo stesso, e per questo i due si confondevano. Ma questa metà si sentiva **ogni giorno**, non «ogni tanto»: un foglio è libero per tutta la composizione, e in quello stato il doppio clic nel bianco **dentro** al disegno non faceva niente. Cliccando esattamente su un tratto funzionava.
+**Causa:** accertata, e trovata scrivendo il banco — non diagnosticata l'11. Il primo clic su un foglio libero lo fa diventare quello in uso; i fogli si ridisegnano; il rettangolo su cui si è premuto non esiste più quando arriva il secondo clic, e il browser l'evento `dblclick` **non lo manda affatto**. È *esattamente* la ragione per cui esiste `Nome.doppio`, scritta nel suo commento dal 2026-11-08 per le righe dell'elenco: la stessa trappola, in un altro punto della pagina. La differenza fra «su un tratto sì, nel bianco no» è il bersaglio del clic: il tracciato sta in un altro strato, sopra al foglio, e lì il foglio non si ridisegna.
+**Fix applicato:** i due clic si contano a mano (`Nome.doppio('piano:' + foglio)`), con la routine di «entrare in modifica» estratta in una funzione sola e un **guardiano** da 600 ms perché il gesto non venga servito due volte — servito due volte girerebbe al livello **di sotto**, cioè con due disegni sovrapposti si lavorerebbe su quello sbagliato. Tolto anche un `preventDefault()` sul `pointerdown` del trascinamento, che spegne gli eventi del mouse: era un secondo motivo per cui il gesto si perdeva, ma **da solo non bastava** — provato, e il `dblclick` non arrivava comunque. Verificato dalle mutazioni 234 e 235, e dai controlli del trascinamento che continuano a passare.
+
+**Due precisazioni al metodo, dalle mutazioni non viste:**
+
+- **Il primo clic di un doppio clic cambia lo stato, e può riparare il difetto che si vuole misurare.** La prima scena mirava un disegno su un foglio *libero*: il primo clic lo rendeva quello in uso, quindi al momento della mira il foglio in uso **era** quello del disegno, i due sistemi di riferimento tornavano a coincidere e il difetto non si manifestava. La mutazione 233 è passata inosservata per questo. La scena giusta vuole il foglio del disegno **misurato**, cioè fermo: così il clic non lo rende quello in uso e i due sistemi restano diversi.
+- **Una mutazione va puntata sul controllo che PUÒ vederla**, e due su tre non lo erano: quella sul conteggio a mano guardava la scena del foglio misurato, dove il `dblclick` vero arriva comunque; quella sul guardiano guardava una scena con un disegno solo, dove girare «al livello di sotto» torna sullo stesso livello. Entrambe dicevano «non vista» accusando il controllo, ed entrambe avevano ragione.
+
+**File consegnati/modificati:** `webui/js/artwork.js`, `webui/js/paper.js`, `webui/tools/prova-piano.js` (sezione H, tre scene), `webui/tools/rompi.py` (tre mutazioni, 235 in tutto), `documento-sessione-cnc-2d.md`.
+
+**Impatto su Vision/Pipeline:** Step 14 da «da fare» a **in corso**: fatto il punto b (la mira), restano i riempimenti, la spunta e il controllo «si vedrà».
+
+---
 
 ### [2026-11-13 14:45] (stampe) Il pacchetto dello strumento da provare
 
