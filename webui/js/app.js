@@ -261,6 +261,44 @@
     });
   }
 
+  /* L'AVVISO DEI NUMERI DI FABBRICA, alla prima occhiata alla pagina.
+   *
+   * Nasce da una domanda dell'utente: aprendo lo SLICER dall'iPad col
+   * telecomando spento, che cosa manca? Le tre misure pericolose no — le
+   * chiedono i popup di inizio stampa, ogni volta, su ogni dispositivo. Manca
+   * il PROFILO, e manca in silenzio: `Profile.load()` fonde `localStorage`
+   * sui valori compilati nella pagina, quindi dove non c'e' niente salvato i
+   * campi restano pieni dei numeri del build. L'alzata della penna e' quello
+   * che fa danno: piu' piccola del vero, la punta striscia sul foglio.
+   *
+   * La × non si ricorda, ed e' voluto: l'avviso torna alla prossima apertura
+   * finche' il dispositivo non ha un profilo suo. Un avviso di sicurezza che
+   * si spegne per sempre al primo clic e' un avviso che si spegne il primo
+   * giorno. */
+  function fasciaProfilo() {
+    var f = document.getElementById('fascia-profilo');
+    if (!f || !window.Profile) return;
+    if (!Profile.diFabbrica()) { f.hidden = true; return; }
+
+    document.getElementById('fascia-profilo-testo').textContent =
+      'Questo dispositivo usa i ' + Profile.provenienza() + '. Se la macchina ' +
+      'e\' stata tarata dopo, qui non si vede: la misura che fa danno e\' ' +
+      'l\'alzata della penna, perche\' una penna che si alza poco striscia sul ' +
+      'foglio durante gli spostamenti.';
+    f.hidden = false;
+
+    /* Cambiare tab passa dal clic sul pulsante della tab, non da una seconda
+       copia della logica: la barra sa già farlo, e due strade per la stessa
+       cosa vogliono dire una che prima o poi resta indietro. */
+    document.getElementById('fascia-profilo-vai').addEventListener('click', function () {
+      var t = document.querySelector('.tab[data-tab="impostazioni"]');
+      if (t) t.click();
+    });
+    document.getElementById('fascia-profilo-chiudi').addEventListener('click', function () {
+      f.hidden = true;
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     /* Prima di tutto il resto: le larghezze salvate vanno applicate mentre la
        pagina si sta ancora componendo, se no si vede il piano saltare dalla
@@ -301,6 +339,9 @@
     if (window.Stampe) Stampe.init();
     dropzone();
     connectBtn();
+    /* Dopo `tabs()`, perche' il pulsante della fascia cambia tab premendo la
+       tab vera. */
+    fasciaProfilo();
 
     State.on('machine', refreshState);
     State.on('connected', function () { refreshLink(); refreshState(); });

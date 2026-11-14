@@ -376,6 +376,53 @@ var Profile = (function () {
 
   var corrente = null;
 
+  /* QUESTO DISPOSITIVO HA UN PROFILO SUO, O STA USANDO I NUMERI COMPILATI
+     NELLA PAGINA?
+     La domanda non è oziosa, ed è nata da una dell'utente: aprendo lo SLICER
+     dall'iPad, che cosa manca? La risposta è insidiosa proprio perché non
+     manca niente di VISIBILE. `load()` parte dai valori di partenza e ci
+     fonde sopra `localStorage`: su un dispositivo che non ha mai salvato
+     niente i campi sono tutti pieni, e i numeri sono plausibili perché sono
+     le misure vere della macchina al giorno in cui la pagina è stata
+     costruita. Un profilo vuoto si vede; un profilo di fabbrica no.
+     Il più insidioso di quei numeri è l'ALZATA DELLA PENNA, che viene dagli
+     angoli del servo: più piccola del vero vuol dire la punta che striscia
+     sul foglio durante gli spostamenti, e lo si scopre sulla carta.
+     `proprio` dice soltanto se in memoria c'era un profilo di questo
+     dispositivo. Un `reset()` conta come profilo suo: i valori sono quelli
+     di fabbrica, ma metterli lì è stato un gesto di chi sta davanti alla
+     macchina, non un valore di partenza che nessuno ha scelto. */
+  var proprio = false;
+
+  /* La data della più recente fra le misure compilate qui sopra come valori
+     di partenza — oggi è lo zero della tavola, misurato il 2026-10-24.
+     Chi cambia un valore di partenza cambia anche questa data: senza, la
+     fascia e i popup direbbero una data falsa, che è peggio di nessuna data
+     perché sembra una garanzia. */
+  var MISURE_DI_FABBRICA = '2026-10-24';
+
+  function diFabbrica() { get(); return !proprio; }
+
+  function dataLeggibile(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? iso : d.toLocaleDateString('it-IT');
+  }
+
+  /* LA FRASE STA QUI, non nelle tre interfacce che la mostrano. La fascia
+     all'apertura, la riga dei popup di inizio stampa e la verifica nelle
+     impostazioni devono dire la STESSA cosa: tre copie della stessa frase
+     divergono al primo ripensamento, e divergendo fanno credere che siano
+     tre informazioni diverse. */
+  function provenienza() {
+    if (diFabbrica()) {
+      return 'numeri di fabbrica della pagina, misurati il ' +
+             dataLeggibile(MISURE_DI_FABBRICA);
+    }
+    var a = macchina().aggiornato;
+    return a ? 'profilo di questo dispositivo, salvato il ' + dataLeggibile(a)
+             : 'profilo di questo dispositivo';
+  }
+
   /* Fonde il salvato sui valori di partenza invece di usarlo così com'è: un
      profilo salvato con una versione vecchia non ha i campi aggiunti dopo, e
      senza questa fusione l'interfaccia leggerebbe `undefined` da un campo che
@@ -447,14 +494,19 @@ var Profile = (function () {
 
   function load() {
     var p = defaults();
+    proprio = false;
     try {
       var raw = window.localStorage.getItem(KEY);
-      if (raw) p = fondi(p, migra(JSON.parse(raw)));
+      if (raw) { p = fondi(p, migra(JSON.parse(raw))); proprio = true; }
     } catch (e) {
       /* localStorage può mancare o essere bloccato (finestra anonima, dati di
          sito cancellati). Si riparte dai valori di partenza invece di fermarsi:
          un profilo di default è sempre meglio di una pagina che non apre. */
       p = defaults();
+      /* Un profilo illeggibile non è un profilo: `proprio` resta falso, e
+         l'avviso dei numeri di fabbrica si accende. È il caso giusto — quei
+         valori non sono più quelli che il dispositivo aveva scelto. */
+      proprio = false;
     }
     /* `null` in questi due campi vuol dire «mai misurato», e fino al
        2026-10-24 era vero per chiunque. Da quel giorno i valori di partenza
@@ -479,6 +531,11 @@ var Profile = (function () {
     p.macchina.aggiornato = new Date().toISOString();
     try {
       window.localStorage.setItem(KEY, JSON.stringify(p));
+      /* Da adesso questo dispositivo ha un profilo suo. Solo se la scrittura
+         è andata: in una finestra anonima `setItem` lancia, e dire «salvato»
+         a chi non ha salvato niente è esattamente l'avviso che si sta
+         cercando di dare. */
+      proprio = true;
       return true;
     } catch (e) {
       return false;
@@ -827,6 +884,23 @@ var Profile = (function () {
   function verifica() {
     var m = macchina(), problemi = [];
 
+    /* NON È UN BLOCCO, ed è una scelta. I tre popup di inizio stampa chiedono
+       comunque le misure del giorno — origine, altezza di contatto, angolo del
+       foglio — quindi da un dispositivo di fabbrica si può stampare. Quello
+       che non si può fare è non saperlo. */
+    if (diFabbrica()) {
+      problemi.push({
+        gravita: 'avviso', campo: 'profilo',
+        testo: 'Questo dispositivo non ha un profilo suo: sta usando i ' +
+               provenienza() + '. Sono misure vere, ma di quel giorno: se la ' +
+               'macchina è stata tarata dopo, qui non si vede. La più ' +
+               'insidiosa è l\'alzata della penna — più piccola del vero, la ' +
+               'punta striscia sul foglio durante gli spostamenti. Importa il ' +
+               'profilo del PC qui sotto, o salva da qui le misure di questa ' +
+               'macchina.'
+      });
+    }
+
     if (!m.trasmissione.x.tarato || !m.trasmissione.y.tarato) {
       problemi.push({
         gravita: 'avviso', campo: 'trasmissione', passo: 'A6',
@@ -1166,6 +1240,7 @@ var Profile = (function () {
     puntoHome: puntoHome,
 
     verifica: verifica, stanoDentro: stanoDentro,
+    diFabbrica: diFabbrica, provenienza: provenienza,
     toJson: toJson, fromJson: fromJson, toYaml: toYaml,
     MM_PER_GIRO_NOMINALE: MM_PER_GIRO_NOMINALE
   };

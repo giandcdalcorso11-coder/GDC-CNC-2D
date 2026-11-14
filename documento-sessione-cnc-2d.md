@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 109
-**Ultimo aggiornamento:** 2026-11-14 07:52
+**Versione:** 110
+**Ultimo aggiornamento:** 2026-11-14 10:23
 
 ## Regole di co-editing
 
@@ -470,6 +470,8 @@ mano a mano che le misure arrivano):
 - [2026-11-13] **Il PC è Windows, e l'avvio automatico è stato rifiutato dall'utente.** Sua proposta: scaricare l'avviatore una volta, lasciarlo nei Download, e avere nello SLICER un pulsante che **filtri i Download** e proponga solo quel file da avviare. **Non si può, e il motivo è lo stesso muro di prima spostato di un passo:** una pagina non può leggere né elencare una cartella del computer, e il selettore di file — che pure si apre filtrato su `.bat` — restituisce alla pagina il **contenuto** del file, non il potere di eseguirlo. Scegliere un `.bat` in una pagina web vuol dire leggerlo, non lanciarlo. **Quello che invece dà la stessa ergonomia:** l'elenco dei download del browser **conserva la voce**, quindi si scarica una volta e da lì in poi `Ctrl+J` e un click sul nome del file lo avviano — due click, nessuna copia nuova, nessun avvio automatico. Lo SLICER non può portarci da sé (le pagine non possono aprire indirizzi `chrome://`), quindi il suo compito resta consegnare il file la prima volta e scrivere accanto al collegamento che poi è `Ctrl+J`. **Alternativa con meno click, se si rinuncia a «tutto dallo SLICER»:** una scorciatoia all'avviatore **appuntata sulla barra delle applicazioni** — un click, sempre lì, nessun avvio automatico. Da scegliere con l'utente; in entrambi i casi la **spia** accanto al collegamento resta utile, perché dice se c'è bisogno di avviarlo.
 
 - [2026-11-13] **La strada scelta dall'utente, e i quattro pezzi da costruire.** Approvato il giro: pulsante che consegna l'avviatore (una volta), `Ctrl+J` per avviarlo (ogni volta), collegamento allo strumento, «Apri nello SLICER» per il risultato. Serve: **(1)** la voce «Strumento stampe» in `sorgenti.js` con indirizzo modificabile e **spia** acceso/spento, **(2)** il pulsante **«Scarica l'avviatore»**, che genera il `.bat` col percorso ricavato da `location.href`, **(3)** una riga di `Access-Control-Allow-Origin` in `invia()` di `strumento.py` — serve sia alla spia (`/api/ping`) sia al prelievo del risultato (`/api/job/<id>/svg`) —, **(4)** il pulsante «Apri nello SLICER» nel riquadro dei download dello strumento. **Due dettagli operativi da non scoprire sul campo:** il `.bat` apre una finestrella di console che **deve restare aperta** (chiuderla spegne lo strumento) e conviene farla partire **ridotta a icona**; e il percorso dentro l'avviatore è scritto una volta sola, quindi **se la cartella del progetto si sposta l'avviatore va riscaricato** — il pulsante lo rigenera aggiornato, ed è un motivo in più per tenerlo in pagina invece di darlo una volta e dimenticarsene.
+
+- [2026-11-14] **L'avviso dei numeri di fabbrica c'è, e dice anche perché importa.** Fatta la prima metà dell'avviso proposto il 2026-11-12: la pagina adesso **distingue** un dispositivo che ha un profilo suo da uno che sta usando i numeri compilati nel file, e lo dice nei posti in cui un profilo sbagliato fa danno. `Profile` tiene un solo dato nuovo — se in memoria c'era un profilo di questo dispositivo — più la data delle misure di fabbrica (`MISURE_DI_FABBRICA`, oggi il 2026-10-24, lo zero della tavola) e **una sola frase**, `provenienza()`: le tre interfacce la mostrano, nessuna se la riscrive, perché tre copie della stessa frase divergono al primo ripensamento. I tre posti: una **fascia** sotto le tab alla prima apertura, col pulsante che porta nelle impostazioni (dove il profilo si importa) e una × che non si ricorda — un avviso di sicurezza che si spegne per sempre al primo clic si spegne il primo giorno; una **voce nella verifica** delle impostazioni, come **avviso e non blocco**, perché da un dispositivo di fabbrica si stampa — i tre popup chiedono comunque le misure del giorno —, e farne un blocco vorrebbe dire rendere impossibile stampare dall'iPad; e una **riga in ognuno dei tre popup di inizio stampa**, che è l'ultimo momento utile prima che la penna scenda, in giallo quando i numeri sono quelli di fabbrica. Il testo nomina **l'alzata della penna**: fra i numeri del profilo è quello che fa danno in silenzio, e una fascia che dicesse solo «profilo di fabbrica» non spiegherebbe a nessuno perché dovrebbe importargli. **Resta fuori** il terzo pezzo della proposta — il confronto fra il profilo del dispositivo e quello **sulla scheda**, campo per campo — che ha bisogno della SD (Step 13), e con esso il pulsante *prendi il profilo dalla macchina*: finché la scheda non c'è, il pulsante della fascia porta all'importazione da file, che è la strada che funziona oggi. Banco nuovo: `webui/tools/prova-profilo.js`, 19 controlli, e **otto mutazioni** in `rompi.py` (da 238 a 246) tutte viste — compresa quella che trasforma l'avviso in blocco, che è il modo in cui questa cosa potrebbe peggiorare la vita invece di migliorarla.
 
 ### Step 5 — Struttura meccanica
 
@@ -1084,6 +1086,31 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-14 10:23] L'avviso dei numeri di fabbrica
+
+**Riepilogo:** la pagina adesso sa dire se i numeri della macchina sono quelli di questo dispositivo o quelli compilati nel file, e lo dice in tre posti — fascia all'apertura, verifica delle impostazioni, riga nei popup di inizio stampa — con una frase sola scritta in un posto solo; è la prima metà dell'avviso proposto il 2026-11-12, la seconda aspetta la SD.
+
+**Cosa è stato fatto:**
+- `Profile` distingue i due casi con un dato solo: se in `localStorage` c'era un profilo di questo dispositivo. Un `reset()` conta come profilo suo (i valori sono quelli di fabbrica, ma metterli lì è stato un gesto di chi sta davanti alla macchina); un profilo illeggibile no, e l'avviso si accende — è il caso giusto, quei valori non sono più quelli che il dispositivo aveva scelto; e `save()` cambia stato **solo se la scrittura è andata**, perché dire «salvato» a chi in una finestra anonima non ha salvato niente è esattamente l'avviso che si sta cercando di dare.
+- `MISURE_DI_FABBRICA` dice di quando sono i numeri del file (2026-10-24, l'ultima misura entrata nei valori di partenza: lo zero della tavola), con scritto accanto che chi cambia un valore di partenza cambia anche la data — una data falsa è peggio di nessuna data, perché sembra una garanzia.
+- **Tre interfacce, una frase.** `provenienza()` sta in `profile.js` e la mostrano la fascia, la verifica e i popup.
+- La **fascia** (`index.html`, `app.js`, `components.css`): sotto le tab, gialla, col pulsante «Apri le impostazioni» — che cambia tab **premendo la tab vera**, non con una seconda copia della logica — e una × che non si ricorda.
+- La **voce nella verifica**, come avviso e non blocco.
+- La **riga nei popup di inizio stampa** (`popup.js`), gialla quando i numeri sono di fabbrica. Nel cambio penna non c'è: quel popup si apre a stampa avviata, cioè dopo che la riga è stata letta tre volte.
+- Banco nuovo `webui/tools/prova-profilo.js` (19 controlli) e **otto mutazioni** in `rompi.py`, da 238 a 246: tutte **viste**. Il collaudo intero passa su tutti i quattordici banchi.
+
+**Decisioni prese:**
+- Contesto: un avviso può bloccare o solo dire.
+- Decisione: **solo dire**, mai bloccare. Da un dispositivo di fabbrica si stampa: i tre popup di inizio stampa chiedono comunque origine, altezza di contatto e angolo del foglio, che sono le misure pericolose.
+- Alternative scartate: farne un blocco — renderebbe impossibile stampare dall'iPad, che è esattamente il caso d'uso da cui la domanda è nata; e ricordare la × in memoria, che spegnerebbe l'avviso per sempre il primo giorno.
+- Da rivedere se: arriva la SD. Allora il confronto col profilo della scheda diventa possibile e il pulsante della fascia può diventare *prendi il profilo dalla macchina* invece dell'importazione da file.
+
+**File consegnati/modificati:** `webui/js/profile.js`, `webui/js/app.js`, `webui/js/popup.js`, `webui/index.html`, `webui/css/components.css`, `webui/tools/prova-profilo.js` (nuovo), `webui/tools/rompi.py`, `webui/js/versione.js` (contatore della pagina), `documento-sessione-cnc-2d.md`.
+
+**Impatto su Vision/Pipeline:** Step 4 — aggiunta la nota del 2026-11-14; la proposta del 2026-11-12 resta aperta per il solo pezzo che dipende dalla scheda (il confronto campo per campo col profilo sulla SD).
+
+---
 
 ### [2026-11-14 07:52] (software) Il doppio clic che non prendeva la forma, e la spunta che non diceva niente
 

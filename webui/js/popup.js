@@ -683,6 +683,21 @@ var Popup = (function () {
 
   /* ------------------------------ la finestra ----------------------------- */
 
+  /* QUALE PROFILO STA PER STAMPARE. Una riga in ognuno dei tre popup di
+     inizio stampa, perche' quello e' l'ultimo momento utile: dopo, la penna
+     scende. I tre popup chiedono le misure DEL GIORNO — origine, altezza di
+     contatto, angolo del foglio — e sono il motivo per cui si puo' stampare
+     anche da un dispositivo che non ha un profilo suo; ma corse, rapporti e
+     alzata della penna arrivano dal profilo, e quelli nessun popup li chiede.
+     Non blocca niente: dice di chi sono i numeri e di quando.
+     Nel cambio penna non c'e': quel popup si apre a stampa avviata, cioe'
+     dopo che questa riga e' stata letta tre volte. */
+  function rigaProfilo() {
+    if (modo !== 'stampa') return '';
+    return '<p class="pop-profilo' + (Profile.diFabbrica() ? ' di-fabbrica' : '') +
+           '">Profilo in uso: ' + esc(Profile.provenienza()) + '.</p>';
+  }
+
   function apri(i) {
     corrente = i;
     var p = passi[i];
@@ -692,7 +707,8 @@ var Popup = (function () {
     passoEtichetta.textContent = (modo === 'penna' ? 'Cambio penna — passo ' : 'Passo ') +
                                  (i + 1) + ' di ' + passi.length;
     titolo.textContent = p.nome;
-    descrizione.innerHTML = typeof p.testo === 'function' ? p.testo() : p.testo;
+    descrizione.innerHTML = (typeof p.testo === 'function' ? p.testo() : p.testo) +
+                            rigaProfilo();
     okBtn.textContent = p.etichetta;
     /* Il pulsante di scarto c'è solo dove il passo lo dichiara. */
     if (saltaBtn) {

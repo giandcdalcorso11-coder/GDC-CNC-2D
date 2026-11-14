@@ -2187,6 +2187,77 @@ MUTAZIONI = [
         vede="il registro dice su che foglio",
         prova="prova-piano.js",
     ),
+
+    # ---- L'AVVISO DEI NUMERI DI FABBRICA (2026-11-14) ----
+    # Il difetto che queste mutazioni simulano non e' «manca un avviso»: e'
+    # un dispositivo che usa i numeri di un altro giorno SENZA dirlo, che e'
+    # il caso in cui non si vede niente di strano. Per questo le mutazioni
+    # che contano sono quelle che tolgono la DISTINZIONE fra i due casi, non
+    # quelle che spengono la fascia.
+    dict(
+        nome="il profilo di fabbrica passa per profilo del dispositivo",
+        file="js/profile.js",
+        da="      if (raw) { p = fondi(p, migra(JSON.parse(raw))); proprio = true; }",
+        a="      if (raw) p = fondi(p, migra(JSON.parse(raw)));\n      proprio = true;",
+        vede="senza profilo suo si riconosce",
+        prova="prova-profilo.js",
+    ),
+    dict(
+        nome="la frase non dice di quando sono i numeri di fabbrica",
+        file="js/profile.js",
+        da="      return 'numeri di fabbrica della pagina, misurati il ' +\n             dataLeggibile(MISURE_DI_FABBRICA);",
+        a="      return 'numeri di fabbrica della pagina';",
+        vede="di che numeri sono e di quando",
+        prova="prova-profilo.js",
+    ),
+    dict(
+        nome="la fascia non si accende",
+        file="js/app.js",
+        da="    f.hidden = false;",
+        a="",
+        vede="la fascia si accende e si vede",
+        prova="prova-profilo.js",
+    ),
+    dict(
+        nome="la fascia avvisa ma non dice perche' importa",
+        file="js/app.js",
+        da="      'l\\'alzata della penna, perche\\' una penna che si alza poco striscia sul ' +\n      'foglio durante gli spostamenti.';",
+        a="      'un numero vecchio.';",
+        vede="qual e` la misura che fa danno",
+        prova="prova-profilo.js",
+    ),
+    dict(
+        nome="l'avviso del profilo diventa un blocco, e dall'iPad non si stampa",
+        file="js/profile.js",
+        da="        gravita: 'avviso', campo: 'profilo',",
+        a="        gravita: 'blocco', campo: 'profilo',",
+        vede="non blocca niente",
+        prova="prova-profilo.js",
+    ),
+    dict(
+        nome="il popup non dice quale profilo sta stampando",
+        file="js/popup.js",
+        da="    if (modo !== 'stampa') return '';",
+        a="    return '';",
+        vede="quale profilo sta stampando",
+        prova="prova-profilo.js",
+    ),
+    dict(
+        nome="la riga del popup non distingue i due casi",
+        file="js/popup.js",
+        da="(Profile.diFabbrica() ? ' di-fabbrica' : '')",
+        a="''",
+        vede="non sono di questa macchina",
+        prova="prova-profilo.js",
+    ),
+    dict(
+        nome="salvare il profilo non cambia la provenienza",
+        file="js/profile.js",
+        da="      proprio = true;\n      return true;",
+        a="      return true;",
+        vede="ha un profilo suo",
+        prova="prova-profilo.js",
+    ),
 ]
 
 
