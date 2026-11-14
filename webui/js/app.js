@@ -282,8 +282,8 @@
 
     document.getElementById('fascia-profilo-testo').textContent =
       'Questo dispositivo usa i ' + Profile.provenienza() + '. Se la macchina ' +
-      'e\' stata tarata dopo, qui non si vede: la misura che fa danno e\' ' +
-      'l\'alzata della penna, perche\' una penna che si alza poco striscia sul ' +
+      'è stata tarata dopo, qui non si vede: la misura che fa danno è ' +
+      'l\'alzata della penna, perché una penna che si alza poco striscia sul ' +
       'foglio durante gli spostamenti.';
     f.hidden = false;
 

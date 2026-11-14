@@ -2221,7 +2221,7 @@ MUTAZIONI = [
     dict(
         nome="la fascia avvisa ma non dice perche' importa",
         file="js/app.js",
-        da="      'l\\'alzata della penna, perche\\' una penna che si alza poco striscia sul ' +\n      'foglio durante gli spostamenti.';",
+        da="      'l\\'alzata della penna, perché una penna che si alza poco striscia sul ' +\n      'foglio durante gli spostamenti.';",
         a="      'un numero vecchio.';",
         vede="qual e` la misura che fa danno",
         prova="prova-profilo.js",
