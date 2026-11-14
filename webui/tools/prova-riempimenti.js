@@ -400,6 +400,118 @@ function rett(x, y, w, h, fessura) {
      che l'utente prova e` cliccare piu` forte. */
   ok('e il programma dice perche`', /spazio chiuso/.test(r.detto), r.detto);
 
+  /* ============ L. IL RIEMPIMENTO SEGUE IL CONTORNO ============
+     Spostare un nodo cambia la FORMA: non esiste trasformazione che faccia
+     seguire un tratteggio, va rigenerato dalla ricetta. E va rigenerato al
+     RILASCIO, non mentre si trascina. */
+  await page.reload();
+  await page.waitForTimeout(400);
+  await page.evaluate((svg) => {
+    Artwork.load(svg, 'quadrato.svg');
+    Artwork.collocaA({ x: 20, y: 20, w: 50, h: 50 });
+    document.querySelector('.tab[data-tab="editor"]').click();
+  }, SVG);
+  await page.waitForTimeout(500);
+  await page.evaluate(() => { document.getElementById('ed-riempi').click(); });
+  const mira = await suTela({ x: 20, y: 20 });
+  await page.mouse.move(mira.x, mira.y);
+  await page.waitForTimeout(250);
+  await page.mouse.click(mira.x, mira.y);
+  await page.waitForTimeout(300);
+  /* Si spegne il riempimento: adesso si MODIFICA il contorno, ed e' il clic
+     dell'editor che serve, non quello che riempie. */
+  await page.evaluate(() => { document.getElementById('ed-riempi').click(); });
+
+  const quadroPrima = await page.evaluate(() => {
+    const f = Artwork.livelli().filter((x) => x.padre)[0];
+    Artwork.seleziona(f.id);
+    const r = Artwork.riquadro();
+    Artwork.seleziona(Artwork.livelli().filter((x) => !x.padre)[0].id);
+    return r;
+  });
+
+  /* Si prende la forma e si trascina il nodo in alto a destra (35,5) verso
+     fuori: il quadrato diventa piu' largo, e il riempimento deve seguirlo. */
+  await page.evaluate(() => Editor.scegliForma(0));
+  await page.waitForTimeout(200);
+  const nodo = await suTela({ x: 35, y: 5 });
+  const meta = await suTela({ x: 48, y: 5 });
+  await page.mouse.move(nodo.x, nodo.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) {
+    await page.mouse.move(nodo.x + (meta.x - nodo.x) * i / 6, nodo.y);
+  }
+  r = await page.evaluate(() => ({
+    /* A META` GESTO: il riempimento e` ancora quello di prima e la riga lo
+       dice. Rigenerare a ogni movimento vorrebbe dire un editor che non sta
+       dietro alla mano. */
+    segnato: Artwork.livelli().filter((x) => x.padre)[0].daRifare,
+    badge: document.querySelectorAll('.liv-rifare').length
+  }));
+  ok('mentre si trascina, il riempimento e` segnato «da rifare»',
+     r.segnato === true && r.badge === 1,
+     'segnato ' + r.segnato + ', ' + r.badge + ' etichette');
+
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  r = await page.evaluate(() => {
+    const f = Artwork.livelli().filter((x) => x.padre)[0];
+    Artwork.seleziona(f.id);
+    const q = Artwork.riquadro();
+    Artwork.seleziona(Artwork.livelli().filter((x) => !x.padre)[0].id);
+    return { segnato: f.daRifare, q: q, badge: document.querySelectorAll('.liv-rifare').length };
+  });
+  ok('al rilascio si rifa` da solo, e il segno sparisce',
+     r.segnato === false && r.badge === 0);
+  ok('e il riempimento nuovo e` piu` largo di prima, come il contorno',
+     r.q.w > quadroPrima.w + 2,
+     'da ' + quadroPrima.w.toFixed(1) + ' a ' + r.q.w.toFixed(1) + ' mm');
+
+  /* ============ M. SE RICALCOLANDO PERDE, NON BUTTA NIENTE ============
+     Si toglie un lato: il contorno si apre, il colore scapperebbe fuori. Il
+     riempimento di prima resta, segnato, e cosi` segnato la stampa non
+     parte. */
+  const larghPrima = r.q.w;
+  const trattiPrima = await page.evaluate(() =>
+    Artwork.livelli().filter((x) => x.padre)[0].tratti);
+  await page.evaluate(() => {
+    /* Si sceglie un tratto e lo si toglie: e` il gesto «Togli tratto». */
+    Editor.scegliForma(0);
+  });
+  const sulLato = await suTela({ x: 20, y: 5 });
+  await page.mouse.click(sulLato.x, sulLato.y);
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Delete');
+  await page.waitForTimeout(500);
+  r = await page.evaluate(() => {
+    const f = Artwork.livelli().filter((x) => x.padre)[0];
+    if (!f) return { c: false };
+    Artwork.seleziona(f.id);
+    const q = Artwork.riquadro();
+    Artwork.seleziona(Artwork.livelli().filter((x) => !x.padre)[0].id);
+    return { c: true, segnato: f.daRifare, w: q.w, tratti: f.tratti,
+             badge: document.querySelectorAll('.liv-rifare').length };
+  });
+  /* Si contano i TRATTI e non la larghezza: un riempimento svuotato tiene il
+     rettangolo del padre -- cioe' misurato a larghezza sembrerebbe ancora
+     li' -- ma di righe non ne ha piu' nessuna. La larghezza sarebbe un
+     controllo che guarda la cosa sbagliata. */
+  ok('aprendo il contorno il riempimento di prima NON si butta',
+     r.c && r.tratti === trattiPrima && r.tratti > 1,
+     r.tratti + ' tratti contro ' + trattiPrima);
+  ok('ma resta segnato «da rifare»', r.segnato === true && r.badge === 1);
+
+  /* E COSI` SEGNATO LA STAMPA NON PARTE: un foglio stampato da una ricetta
+     vecchia e` il genere di bugia che si scopre a penna in mano. */
+  r = await page.evaluate(() => {
+    window.__detto = '';
+    Log.ascolta(function (x) { if (x.kind === 'err') window.__detto = x.text; });
+    Popup.avviaStampa();
+    return { aperto: !document.getElementById('modal').hidden, detto: window.__detto };
+  });
+  ok('e con un riempimento da rifare la stampa non parte',
+     !r.aperto && /da rifare/.test(r.detto), r.detto.slice(0, 70));
+
   /* BUTTANDO IL DISEGNO SE NE VA ANCHE IL RIEMPIMENTO: un tratteggio senza
      il suo contorno e' una macchia a mezz'aria sul foglio. */
   r = await page.evaluate(() => {

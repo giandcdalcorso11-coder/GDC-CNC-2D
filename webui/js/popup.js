@@ -802,6 +802,20 @@ var Popup = (function () {
       fermati('Non c\'è nessun disegno preparato.');
       return;
     }
+    /* UN RIEMPIMENTO SEGNATO «DA RIFARE» NON SI STAMPA. Vuol dire che il suo
+       contorno e' cambiato e il tratteggio e' ancora quello di prima: un
+       foglio stampato da una ricetta vecchia e' il genere di bugia che si
+       scopre a penna in mano. Normalmente il segno dura un istante -- il
+       ricalcolo parte al rilascio del gesto -- e arriva qui solo quando il
+       ricalcolo NON e' riuscito, cioe' quando il contorno si e' aperto. */
+    var vecchi = (window.Artwork && Artwork.daRifare) ? Artwork.daRifare() : [];
+    if (vecchi.length) {
+      fermati('Non si può stampare: ' + vecchi.length + ' riempiment' +
+              (vecchi.length === 1 ? 'o è' : 'i sono') + ' da rifare — il ' +
+              'contorno è cambiato dopo. Apri l\'editor sul disegno e ' +
+              'chiudi il contorno, oppure butta il riempimento.');
+      return;
+    }
     modo = 'stampa';
     passi = definisci();
     apri(0);

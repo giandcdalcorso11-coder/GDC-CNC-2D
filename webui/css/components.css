@@ -2582,3 +2582,47 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
+
+/* I PULSANTI A SEGNO della barra dell'editor. Un segno si trova con
+   l'occhio; una parola spenta, in mezzo ad altre venti, si legge come
+   sfondo -- ed e' per questo che l'utente, dall'iPad, non li aveva trovati
+   pur avendoli davanti. Il filo e' lo stesso degli altri segni del
+   programma: 1,5 px, niente riempimento, colore del testo. */
+.ed-icona {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 32px;
+  height: 28px;
+}
+.ed-icona svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Col dito valgono le stesse regole di tutto il resto: quaranta pixel. */
+@media (pointer: coarse) {
+  .ed-icona { width: 40px; height: 40px; }
+  .ed-icona svg { width: 20px; height: 20px; }
+}
+
+/* «da rifare» su un riempimento il cui contorno e' cambiato: giallo, come
+   tutti gli avvisi del programma, e piccolo, perche' dura pochi istanti --
+   il ricalcolo parte al rilascio del gesto. Resta solo quando il ricalcolo
+   NON e' riuscito, ed e' li' che deve farsi notare. */
+.liv-rifare {
+  flex: 0 0 auto;
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 3px;
+  color: var(--warn);
+  background: #241f11;
+  white-space: nowrap;
+}

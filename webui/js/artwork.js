@@ -665,6 +665,45 @@ var Artwork = (function () {
     return id;
   }
 
+  /* RIFARE UN RIEMPIMENTO con le forme nuove. La mappa si riprende dal
+     padre invece di tenere quella di prima: il contorno puo' essere stato
+     anche scalato, e il figlio deve stare dove il padre lo vede ADESSO. */
+  function riempiDiNuovo(id, polilinee) {
+    var l = trova(id);
+    if (!l || !l.padre) return false;
+    var p = trova(l.padre);
+    if (!p || !p.box || !p.bb) return false;
+    if (!polilinee || !polilinee.length) return false;
+    l.box = { x: p.box.x, y: p.box.y, w: p.box.w, h: p.box.h };
+    l.bb = { x0: p.bb.x0, y0: p.bb.y0, x1: p.bb.x1, y1: p.bb.y1,
+             w: p.bb.w, h: p.bb.h };
+    l.rot = p.rot || 0;
+    l.forme = [{ sub: polilinee.map(function (poli) {
+      return { nodi: poli.map(function (q) { return { x: q.x, y: q.y }; }),
+               chiuso: false };
+    }) }];
+    l.daRifare = false;
+    rigenera(id);
+    renderElenco();
+    return true;
+  }
+
+  function segnaDaRifare(padreId, si) {
+    var tocchi = 0;
+    figliDi(padreId).forEach(function (f) {
+      if (!f.ricetta) return;
+      f.daRifare = si !== false;
+      tocchi++;
+    });
+    if (tocchi) renderElenco();
+    return tocchi;
+  }
+
+  /* I riempimenti da rifare, su tutto il piano: la stampa lo vuole sapere. */
+  function daRifare() {
+    return livelli.filter(function (l) { return l.daRifare; });
+  }
+
   function figliDi(id) {
     return livelli.filter(function (l) { return l.padre === id; });
   }
@@ -1028,6 +1067,7 @@ var Artwork = (function () {
                scelto: selezionati.indexOf(l.id) >= 0,
                principale: l.id === scelto,
                padre: l.padre || null, ricetta: l.ricetta || null,
+               daRifare: !!l.daRifare,
                modificato: !!l.origine, mostraOrigine: !!l.mostraOrigine };
     });
   }
@@ -1322,11 +1362,18 @@ var Artwork = (function () {
      finisce disegnato sopra a questo — alla distanza sbagliata, come se
      fosse sulla stessa carta. Sarebbe uno sfondo che dice una cosa falsa
      proprio mentre lo si usa per mirare. */
-  function sfondoPer(id) {
+  /* `soloContorni` salta i RIEMPIMENTI, e serve allo stampino: un
+     riempimento e' inchiostro, ma non e' un confine. Lasciandocelo, la
+     regione che quel riempimento copre si spezzerebbe in cento corridoi fra
+     una riga e l'altra, e il secondo clic sulla stessa forma troverebbe un
+     corridoio invece della forma. Per guardare, invece, i riempimenti
+     servono: `disegna()` li vuole. */
+  function sfondoPer(id, soloContorni) {
     var out = [];
     var mio = foglioDi(id).id;
     livelli.forEach(function (l) {
       if (foglioDi(l).id !== mio) return;
+      if (soloContorni && l.padre) return;
       if (l.id === id || !l.visibile || !l.art.length) return;
       daFoglio(l.art, id).forEach(function (q) { out.push(q); });
     });
@@ -1929,6 +1976,18 @@ var Artwork = (function () {
              ' tratti' + (tintaDi(l) ? ', penna ' + esc(tintaDi(l)) : '') +
              '. Doppio clic: riquadro di selezione sul foglio">' +
              esc(l.nome) + '</button>' +
+
+             /* UN RIEMPIMENTO DA RIFARE SI VEDE. Il contorno e' cambiato e
+                il tratteggio e' quello di prima: finche' non si rigenera,
+                quel livello sta mostrando una cosa che non corrisponde piu'
+                al disegno -- e per questo la stampa si rifiuta di partire.
+                Dirlo sulla riga e' l'unico modo perche' non sia una
+                sorpresa al momento di stampare. */
+             (l.daRifare
+                ? '<span class="liv-rifare" title="Il contorno e` cambiato: ' +
+                  'questo riempimento va rifatto, e finche` non lo e` la ' +
+                  'stampa non parte">da rifare</span>'
+                : '') +
 
              (l.origine
                 ? '<button type="button" class="liv-edit' +
@@ -3295,6 +3354,8 @@ var Artwork = (function () {
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
     forme: formeScelte, rigenera: rigenera, nuovo: nuovo,
     riempimento: riempimento, figliDi: figliDi,
+    riempiDiNuovo: riempiDiNuovo, segnaDaRifare: segnaDaRifare,
+    daRifare: daRifare,
     mappa: mappa, incolla: incolla,
     istantanea: istantanea, ripristina: ripristina,
     commutaCambioPenna: commutaCambioPenna,

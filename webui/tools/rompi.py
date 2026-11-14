@@ -2544,6 +2544,83 @@ MUTAZIONI = [
         vede="metri, alzate e minuti prima del clic",
         prova="prova-riempimenti.js",
     ),
+
+    # ---- I RIEMPIMENTI: il ricalcolo al rilascio (2026-11-14) ----
+    dict(
+        nome="il riempimento non si rifa' al rilascio del gesto",
+        file="js/editor.js",
+        da="    if (figliSporchi) rifaiFigli();\n",
+        a="",
+        vede="al rilascio si rifa",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="il riempimento si rifa' anche mentre si trascina",
+        file="js/editor.js",
+        da="    if (!presa && figliSporchi) rifaiFigli();",
+        a="    if (figliSporchi) rifaiFigli();",
+        vede="mentre si trascina",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        # LA STESSA COSA E' DIFESA IN DUE POSTI -- chi rifa' i riempimenti e
+        # chi li riscrive -- e romperne uno solo lascia il programma
+        # corretto: simulerebbe un difetto che non e' un difetto. Si rompono
+        # tutti e due.
+        nome="il contorno aperto svuota il riempimento di prima",
+        file="js/editor.js",
+        da="      if (t.scappata || !t.polilinee.length) { persi++; return; }",
+        a="      if (false) { persi++; return; }",
+        piu=[("js/artwork.js",
+              "    if (!polilinee || !polilinee.length) return false;",
+              "    if (false) return false;")],
+        vede="NON si butta",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="il riempimento non si segna «da rifare»",
+        file="js/artwork.js",
+        da="      f.daRifare = si !== false;",
+        a="      f.daRifare = false;",
+        vede="mentre si trascina",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="l'etichetta «da rifare» non si vede nell'elenco",
+        file="js/artwork.js",
+        da="             (l.daRifare\n                ? '<span class=\"liv-rifare\"",
+        a="             (false\n                ? '<span class=\"liv-rifare\"",
+        vede="resta segnato",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="si stampa anche con un riempimento da rifare",
+        file="js/popup.js",
+        da="    if (vecchi.length) {",
+        a="    if (false) {",
+        vede="la stampa non parte",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="lo stampino prende i riempimenti per muri",
+        file="js/editor.js",
+        da="      Artwork.sfondoPer(Artwork.sceltoId(), true).forEach(function (poli) {",
+        a="      Artwork.sfondoPer(Artwork.sceltoId()).forEach(function (poli) {",
+        vede="piu` largo di prima",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="i cinque pulsanti dell'editor tornano parole",
+        file="css/components.css",
+        # L'`a` cambia il `display` che c'e' gia', invece di aggiungerne uno
+        # prima: nello stesso blocco vince l'ultimo, e una riga aggiunta in
+        # cima non avrebbe cambiato NIENTE -- cioe' avrebbe misurato se
+        # stessa invece del controllo.
+        da=".ed-icona svg {\n  width: 17px;\n  height: 17px;\n  display: block;",
+        a=".ed-icona svg {\n  width: 17px;\n  height: 17px;\n  display: none;",
+        vede="sono segni",
+        prova="prova-tocco.js",
+    ),
 ]
 
 

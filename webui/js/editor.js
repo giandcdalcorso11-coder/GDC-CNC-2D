@@ -123,11 +123,17 @@ var Editor = (function () {
   }
 
   function cambiato() {
+    /* Prima di tutto: i riempimenti di questo disegno non corrispondono piu'
+       al contorno, e l'elenco deve dirlo gia' da questo ridisegno. */
+    segnaFigliDaRifare();
     Artwork.rigenera();
     /* Le forme sono cambiate: le regioni di prima non valgono piu'. Rifarlo
        qui e non al prossimo movimento del mouse vuol dire che l'anteprima
        non mostra mai il disegno di un attimo fa. */
     if (riempiAcceso) rifaiStampino();
+    /* Fuori da un trascinamento -- cancellare, incollare, specchiare -- il
+       gesto e' gia' finito quando si arriva qui: si rifa' subito. */
+    if (!presa && figliSporchi) rifaiFigli();
     disegna();
     scriviPiede();
   }
@@ -1053,6 +1059,11 @@ var Editor = (function () {
       presa = null;
       try { svg.releasePointerCapture(e.pointerId); } catch (x) { /* già rilasciato */ }
     }
+
+    /* IL GESTO E` FINITO: qui si rifanno i riempimenti del disegno, se il
+       contorno si e' mosso. Prima di qualunque ritorno anticipato -- sotto
+       ce ne sono sei, e il trascinamento di un nodo esce da uno di quelli. */
+    if (figliSporchi) rifaiFigli();
 
     if (forseDoppio && !mosso && e.button === 0) {
       forseDoppio = false;
@@ -2627,7 +2638,11 @@ var Editor = (function () {
       });
     }
     if (Artwork.sfondoPer && Artwork.sceltoId) {
-      Artwork.sfondoPer(Artwork.sceltoId()).forEach(function (poli) {
+      /* SOLO I CONTORNI: un riempimento e' inchiostro ma non e' un confine.
+         Lasciandocelo, la forma che ha gia' riempito si spezzerebbe in cento
+         corridoi fra una riga e l'altra, e il clic dopo troverebbe un
+         corridoio invece della forma. */
+      Artwork.sfondoPer(Artwork.sceltoId(), true).forEach(function (poli) {
         out.push({ punti: poli, larghezza: largo });
       });
     }
@@ -2764,6 +2779,85 @@ var Editor = (function () {
     renderLivelli();
     disegna();
     return true;
+  }
+
+  /* ===================== IL RIEMPIMENTO SEGUE IL CONTORNO ================
+   *
+   * E non per magia, ed e' la distinzione che vale la pena tenere dritta:
+   * spostare e ruotare sono TRASFORMAZIONI, e li' il riempimento si muove
+   * col padre senza ricalcolare niente. Ma se si trascina un nodo e il
+   * triangolo della A cambia forma, il tratteggio va RIGENERATO: non esiste
+   * trasformazione che lo faccia. Quello che fa seguire il riempimento e' la
+   * RICETTA tenuta nel figlio -- tipo, angolo, passo, tolleranza, e il punto
+   * che era stato cliccato -- piu' l'avviso che arriva dal padre quando
+   * cambia.
+   *
+   * AL RILASCIO, MAI DURANTE IL TRASCINAMENTO. Mentre si muove un nodo il
+   * riempimento resta quello di prima e la riga nell'elenco si segna «da
+   * rifare»; si rigenera quando il gesto finisce, perche' costa un decimo di
+   * secondo e farlo cinquanta volte al secondo vorrebbe dire un editor che
+   * non sta dietro alla mano.
+   *
+   * SE RICALCOLANDO PERDE -- un nodo trascinato ha aperto il contorno -- si
+   * TIENE l'ultimo riempimento buono e si lascia il segno «da rifare», che
+   * blocca la stampa. Non si allaga il foglio e non si butta il lavoro
+   * fatto. */
+  var figliSporchi = false;
+
+  function segnaFigliDaRifare() {
+    if (!Artwork.segnaDaRifare || !Artwork.sceltoId) return;
+    if (Artwork.segnaDaRifare(Artwork.sceltoId(), true)) figliSporchi = true;
+  }
+
+  function rifaiFigli() {
+    figliSporchi = false;
+    if (!window.Riempi || !Artwork.figliDi) return;
+    var padre = Artwork.sceltoId();
+    var figli = Artwork.figliDi(padre).filter(function (f) { return f.ricetta; });
+    if (!figli.length) return;
+
+    var tratti = trattiPerStampino();
+    if (!tratti.length) return;
+    var mm = mmPerUnita();
+    var stampini = {};            // uno per tolleranza: le regioni cambiano solo con quella
+    var rifatti = 0, persi = 0;
+
+    figli.forEach(function (f) {
+      var r = f.ricetta;
+      var chiave = String(r.tolleranza || 0);
+      if (!stampini[chiave]) {
+        stampini[chiave] = Riempi.perTratti(tratti, {
+          mmPerPx: Riempi.MM_PER_PX / mm,
+          tolleranza: (r.tolleranza || 0) / mm,
+          margine: 4 / mm
+        });
+      }
+      var st = stampini[chiave];
+      if (!st) { persi++; return; }
+      var reg = Riempi.regioneIn(st, r.punto);
+      var t = Riempi.tratteggia(st, reg, {
+        tipo: r.tipo, passo: r.passo / mm, angolo: r.angolo,
+        sotto: Riempi.SOTTO / mm
+      });
+      if (t.scappata || !t.polilinee.length) { persi++; return; }
+      if (Artwork.riempiDiNuovo(f.id, t.polilinee)) rifatti++;
+      else persi++;
+    });
+
+    if (persi) {
+      Log.add('err', persi + ' riempiment' + (persi === 1 ? 'o' : 'i') +
+              ' non si ' + (persi === 1 ? 'e`' : 'sono') + ' potut' +
+              (persi === 1 ? 'o' : 'i') + ' rifare: il contorno adesso e` ' +
+              'aperto, o il punto da cui erano nati non sta piu` dentro a ' +
+              'uno spazio chiuso. Resta quello di prima, segnato «da ' +
+              'rifare», e cosi` segnato la stampa non parte.');
+    }
+    if (rifatti) {
+      Log.add('msg', rifatti + ' riempiment' + (rifatti === 1 ? 'o rifatto' : 'i rifatti') +
+              ' sul contorno nuovo.');
+    }
+    if (riempiAcceso) rifaiStampino();
+    disegna();
   }
 
   function accendiRiempimento(acceso) {

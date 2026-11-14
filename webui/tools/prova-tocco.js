@@ -481,6 +481,43 @@ const LARGHEZZA = (page, id) => page.evaluate((id) => {
   ok('e Ctrl capovolge «Somma»: con l\'interruttore acceso, sostituisce',
      r <= 1, 'tratti scelti ' + r);
 
+  /* ============ K. I CINQUE PULSANTI SONO SEGNI, NON PAROLE ============
+     C'erano gia' -- Taglia, Copia, Incolla, Annulla, Rifai -- ma erano
+     parole in mezzo ad altre venti, e spente finche' non c'e' niente da
+     tagliare o da annullare: l'utente, dall'iPad, non li aveva trovati pur
+     avendoli davanti. Un segno si trova con l'occhio. */
+  await page.reload();
+  await page.waitForTimeout(400);
+  await page.evaluate(() => document.querySelector('.tab[data-tab="editor"]').click());
+  await page.waitForTimeout(400);
+  r = await page.evaluate(() => {
+    const ids = ['ed-taglia', 'ed-copia', 'ed-incolla', 'ed-annulla', 'ed-rifai'];
+    return ids.map((id) => {
+      const b = document.getElementById(id);
+      const r = b.getBoundingClientRect();
+      const g = b.querySelector('svg');
+      /* Non basta che il segno ci sia nel documento: deve VEDERSI. Un `svg`
+         presente e spento e' un pulsante vuoto, e il controllo che guarda
+         solo se esiste passerebbe lo stesso. */
+      return { id: id, segno: !!g && g.getBoundingClientRect().width > 8,
+               parola: b.textContent.trim().length,
+               titolo: b.title, w: r.width, h: r.height };
+    });
+  });
+  ok('taglia, copia, incolla, annulla e rifai sono segni',
+     r.every((b) => b.segno && b.parola === 0),
+     r.filter((b) => !b.segno).map((b) => b.id).join(' ') || 'tutti e cinque');
+  /* La scorciatoia resta scritta: chi ha la tastiera non perde niente, e chi
+     non ce l'ha scopre che esiste. */
+  ok('e ognuno porta scritta la sua scorciatoia',
+     /Ctrl\+X/.test(r[0].titolo) && /Ctrl\+C/.test(r[1].titolo) &&
+     /Ctrl\+V/.test(r[2].titolo) && /Ctrl\+Z/.test(r[3].titolo) &&
+     /Ctrl\+Shift\+Z/.test(r[4].titolo),
+     r.map((b) => b.titolo.split(' - ')[0]).join(' · '));
+  ok('e col dito sono grandi almeno 40 px',
+     r.every((b) => b.w >= 40 && b.h >= 40),
+     r.map((b) => b.w + '×' + b.h).join(' '));
+
   if (errori.length) {
     console.log('\nerrori di pagina:');
     errori.forEach((e) => console.log('  ' + e));

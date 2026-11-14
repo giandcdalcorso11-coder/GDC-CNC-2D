@@ -488,17 +488,37 @@
       <!-- Taglia, copia e incolla servono a una cosa sola: rimettere una
            linea nel LIVELLO giusto senza spostarla sul foglio. Vedi
            js/editor.js, sopra il blocco degli appunti. -->
-      <button type="button" class="btn btn-ghost btn-small" id="ed-taglia"
-              title="Ctrl+X - lo toglie di qui e lo mette negli appunti" disabled>Taglia</button>
-      <button type="button" class="btn btn-ghost btn-small" id="ed-copia"
-              title="Ctrl+C" disabled>Copia</button>
-      <button type="button" class="btn btn-ghost btn-small" id="ed-incolla"
-              title="Ctrl+V - gli appunti sono vuoti" disabled>Incolla</button>
+      <!-- DA PAROLE A SEGNI, chiesto dall'utente il 2026-11-14 provando
+           dall'iPad: «dall'iPad non ci sono modi per usarli». I pulsanti
+           c'erano gia' -- Taglia, Copia, Incolla, Annulla, Rifai -- ma erano
+           cinque parole in mezzo ad altre venti, e per di piu' spente finche'
+           non c'e' niente da tagliare o da annullare: in una barra cosi' una
+           parola spenta non si legge come «pulsante», si legge come sfondo.
+           Un segno si trova con l'occhio. Le scorciatoie restano, e stanno
+           scritte nel `title` di ognuno: chi ha la tastiera non le perde. -->
+      <button type="button" class="btn btn-ghost btn-small ed-icona" id="ed-taglia"
+              aria-label="Taglia" title="Taglia (Ctrl+X) - lo toglie di qui e lo mette negli appunti" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="5" cy="15" r="2.2"/><circle cx="15" cy="15" r="2.2"/><path d="M6.6 13.4 15 3"/><path d="M13.4 13.4 5 3"/></svg>
+      </button>
+      <button type="button" class="btn btn-ghost btn-small ed-icona" id="ed-copia"
+              aria-label="Copia" title="Copia (Ctrl+C)" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="9" height="10" rx="1.5"/><path d="M13 4.5H5.5A1.5 1.5 0 0 0 4 6v8"/></svg>
+      </button>
+      <button type="button" class="btn btn-ghost btn-small ed-icona" id="ed-incolla"
+              aria-label="Incolla" title="Incolla (Ctrl+V) - gli appunti sono vuoti" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4.5" y="4" width="11" height="13" rx="1.5"/><path d="M8 4.2V2.8h4v1.4"/></svg>
+      </button>
       <span class="ed-sep"></span>
-      <button type="button" class="btn btn-ghost btn-small" id="ed-annulla"
-              title="Ctrl+Z" disabled>Annulla</button>
-      <button type="button" class="btn btn-ghost btn-small" id="ed-rifai"
-              title="Ctrl+Shift+Z" disabled>Rifai</button>
+      <!-- Le due freccette: indietro e avanti fra i passi. Il verso e' quello
+           che hanno dappertutto, perche' qui non c'e' niente da inventare. -->
+      <button type="button" class="btn btn-ghost btn-small ed-icona" id="ed-annulla"
+              aria-label="Annulla" title="Annulla (Ctrl+Z) - torna indietro di un passo" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 5 3.5 8.5 7 12"/><path d="M3.5 8.5H12a4.5 4.5 0 0 1 0 9h-2"/></svg>
+      </button>
+      <button type="button" class="btn btn-ghost btn-small ed-icona" id="ed-rifai"
+              aria-label="Rifai" title="Rifai (Ctrl+Shift+Z) - rimette il passo annullato" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13 5l3.5 3.5L13 12"/><path d="M16.5 8.5H8a4.5 4.5 0 0 0 0 9h2"/></svg>
+      </button>
       <!-- IL RIEMPIMENTO. Acceso, il puntatore anticipa la regione sotto di
            se' e il clic la disegna: il clic dice la cosa che la geometria
            non puo' sapere, cioe' QUALE degli spazi chiusi si intende. -->
