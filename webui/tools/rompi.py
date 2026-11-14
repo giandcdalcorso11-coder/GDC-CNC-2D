@@ -2131,6 +2131,38 @@ MUTAZIONI = [
         vede="due livelli dello STESSO foglio",
         prova="prova-piano.js",
     ),
+    dict(
+        nome="la mira guarda il punto nel sistema del foglio in uso",
+        file="js/artwork.js",
+        da="      var o = origineDi(l.id);\n      var x = p.x - o.x, y = p.y - o.y;",
+        a="      var o = State.data.sheetOrigin;\n      var x = p.x - o.x, y = p.y - o.y;",
+        vede="il doppio clic prende il disegno dell'altro foglio",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="i due clic sul foglio non si contano a mano",
+        file="js/paper.js",
+        da="      if (window.Nome && Nome.doppio('piano:' + rect.dataset.foglio) &&\n          entraInModifica(toMm(e))) return;\n",
+        a="",
+        # Il testimone e' la scena del foglio LIBERO: la' il primo clic
+        # ridisegna i fogli e il `dblclick` vero non arriva. Su un foglio
+        # misurato arriverebbe comunque, quindi quella scena non vedrebbe
+        # niente -- ed e' la prima cosa che questa mutazione ha trovato.
+        vede="sul foglio libero, cliccando nel bianco dentro al disegno",
+        prova="prova-piano.js",
+    ),
+    dict(
+        nome="il doppio clic viene servito due volte (niente guardiano)",
+        file="js/paper.js",
+        da="      if (Date.now() - ultimaModifica < 600) return;\n",
+        a="",
+        # Servito due volte, il gesto gira al livello DI SOTTO: si vede solo
+        # dove sotto c'e' davvero qualcosa, cioe' con due disegni
+        # sovrapposti. Con un disegno solo il giro torna su quello di prima e
+        # la mutazione misurerebbe se stessa.
+        vede="due disegni sovrapposti prende quello sopra",
+        prova="prova-piano.js",
+    ),
 ]
 
 

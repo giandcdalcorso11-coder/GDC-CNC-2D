@@ -1005,6 +1005,125 @@ function dentro(p, r, gioco) {
        JSON.stringify(r.quale));
   }
 
+  /* ============ H. LA MIRA DEL DOPPIO CLIC (2026-11-13) ============
+     Il doppio clic su un disegno apre il riquadro: e' il gesto con cui si
+     entra in modifica. Tre cose devono essere vere, e nessuna lo era.
+
+     1. LA MIRA GUARDA IL PIANO. Il rettangolo di ogni livello e' in
+        millimetri DEL SUO foglio: se il punto arriva misurato dall'angolo
+        del foglio in uso, con piu' fogli la mira e' spostata della distanza
+        fra i due angoli. Perche' la scena lo veda, il primo clic NON deve
+        portare il foglio del disegno in uso -- se no i due sistemi tornano a
+        coincidere e il difetto si nasconde: per questo il foglio del disegno
+        qui e' MISURATO, cioe' fermo, come dopo i popup di una stampa.
+     2. IL DOPPIO CLIC DEVE ARRIVARE. Su un foglio libero il primo clic lo
+        fa diventare quello in uso e i fogli si ridisegnano: il rettangolo su
+        cui si e' premuto non esiste piu' e il browser il `dblclick` non lo
+        manda. Si contano a mano, come fa `Nome.doppio` per le righe.
+     3. E DEVE ARRIVARE UNA VOLTA SOLA. Contandoli a mano, sul foglio in uso
+        arrivano entrambe le strade: senza un guardiano la seconda gira al
+        livello DI SOTTO, e con due disegni sovrapposti si prende quello
+        sbagliato. */
+
+  await AZZERA(page);
+  {
+    /* Due fogli di misure diverse, un disegno per uno. Si lavora sul primo e
+       si mira quello del secondo, che e' misurato: il clic non lo rende
+       quello in uso, quindi i due sistemi di riferimento restano diversi. */
+    const c = await page.evaluate(([svgA, svgB]) => {
+      Artwork.load(svgA, 'uno.svg');
+      const f2 = Fogli.aggiungi(105, 148, 'A6');
+      Fogli.scegli(f2.id);
+      Artwork.load(svgB, 'due.svg');
+      const l = Artwork.livelli();
+      /* Il rettangolo del disegno sul foglio 2, in millimetri del foglio 2:
+         si legge scegliendolo, perche' `riquadro()` parla dei livelli scelti. */
+      Artwork.seleziona(l[1].id);
+      const r = Artwork.riquadro();
+      const o = Fogli.trova(l[1].foglio).origine;
+      Artwork.deseleziona();
+      Fogli.poniMisurato(l[1].foglio, o.x, o.y);   // fermo dove sta: dx = dy = 0
+      Fogli.scegli(State.data.fogli[0].id);
+      if (window.Selezione && Selezione.attiva()) Selezione.chiudi();
+      return { x: o.x + r.x + r.w / 2, y: o.y + r.y + r.h / 2,
+               atteso: l[1].id, inUso: State.data.fogli[0].id };
+    }, [DISEGNO('#1d1d1b'), DISEGNO('#c8102e')]);
+
+    const s = await SCHERMO(page, c.x, c.y);
+    await page.mouse.dblclick(s.x, s.y);
+    await page.waitForTimeout(200);
+    r = await page.evaluate(() => ({
+      scelto: Artwork.sceltoId(),
+      riquadro: !!(window.Selezione && Selezione.attiva())
+    }));
+    ok('il doppio clic prende il disegno dell\'altro foglio, non niente',
+       r.scelto === c.atteso && r.riquadro,
+       'preso ' + r.scelto + ' (atteso ' + c.atteso + '), riquadro ' + r.riquadro);
+  }
+
+  /* IL FOGLIO LIBERO, dove il primo clic ridisegna tutto: e' il caso di
+     tutti i giorni, perche' un foglio e' libero per tutta la composizione. E
+     si mira il BIANCO DENTRO al disegno, non un tratto: cliccando esattamente
+     su un tratto il bersaglio e' il tracciato e il foglio non si ridisegna,
+     quindi quella e' la scena in cui il difetto NON si vede. */
+  await AZZERA(page);
+  {
+    const c = await page.evaluate((svg) => {
+      Artwork.load(svg, 'uno.svg');
+      const l = Artwork.livelli();
+      Artwork.seleziona(l[0].id);
+      const r = Artwork.riquadro();
+      const o = Fogli.trova(l[0].foglio).origine;
+      Artwork.deseleziona();
+      if (window.Selezione && Selezione.attiva()) Selezione.chiudi();
+      return { x: o.x + r.x + r.w / 2, y: o.y + r.y + r.h / 2, atteso: l[0].id,
+               libero: !Fogli.trova(l[0].foglio).misurato };
+    }, DISEGNO('#1d1d1b'));
+    const s = await SCHERMO(page, c.x, c.y);
+    await page.mouse.dblclick(s.x, s.y);
+    await page.waitForTimeout(200);
+    r = await page.evaluate(() => ({
+      scelto: Artwork.sceltoId(),
+      riquadro: !!(window.Selezione && Selezione.attiva())
+    }));
+    ok('e sul foglio libero, cliccando nel bianco dentro al disegno, arriva lo stesso',
+       r.scelto === c.atteso && r.riquadro && c.libero,
+       'preso ' + r.scelto + ', riquadro ' + r.riquadro + ', foglio libero ' + c.libero);
+  }
+
+  /* DUE DISEGNI SOVRAPPOSTI SULLO STESSO FOGLIO: si prende quello SOPRA. E'
+     la scena che misura il guardiano: servito due volte, il gesto girerebbe
+     al livello di sotto e si lavorerebbe sul disegno sbagliato. */
+  await AZZERA(page);
+  {
+    const c = await page.evaluate(([a, b]) => {
+      Artwork.load(a, 'sotto.svg');
+      Artwork.load(b, 'sopra.svg');
+      const l = Artwork.livelli();
+      Artwork.seleziona(l[1].id);
+      const r = Artwork.riquadro();
+      const o = Fogli.trova(l[1].foglio).origine;
+      Artwork.deseleziona();
+      if (window.Selezione && Selezione.attiva()) Selezione.chiudi();
+      return { x: o.x + r.x + r.w / 2, y: o.y + r.y + r.h / 2,
+               sopra: l[1].id, sotto: l[0].id };
+    }, [DISEGNO('#1d1d1b'), DISEGNO('#c8102e')]);
+    const s = await SCHERMO(page, c.x, c.y);
+    await page.mouse.dblclick(s.x, s.y);
+    await page.waitForTimeout(200);
+    r = await page.evaluate(() => ({
+      scelto: Artwork.sceltoId(),
+      riquadro: !!(window.Selezione && Selezione.attiva())
+    }));
+    ok('con due disegni sovrapposti prende quello sopra, una volta sola',
+       r.scelto === c.sopra && r.riquadro,
+       'preso ' + r.scelto + ' (sopra ' + c.sopra + ', sotto ' + c.sotto + ')');
+    await page.evaluate(() => {
+      if (window.Selezione && Selezione.attiva()) Selezione.chiudi();
+      Artwork.deseleziona();
+    });
+  }
+
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
   console.log(guai ? '\n' + guai + ' controlli KO' : '\ntutto a posto');

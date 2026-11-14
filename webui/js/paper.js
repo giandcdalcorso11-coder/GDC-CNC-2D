@@ -887,42 +887,65 @@ var Paper = (function () {
        Altrimenti, e solo sul fondo, si torna a vedere tutto: sul foglio no,
        perché lì il doppio clic sono due clic e il foglio si trascina. */
     svg.addEventListener('dblclick', function (e) {
-      var m = toMm(e), o = State.data.sheetOrigin;
-      var p = { x: m.x - o.x, y: m.y - o.y };     // in millimetri del FOGLIO
-
-      if (window.Artwork && Artwork.quale) {
-        /* CON PIU' LIVELLI GIA' SCELTI il doppio clic non ne sceglie un
-           altro: apre il riquadro su tutti. Chi ha spuntato tre righe
-           nell'elenco ha già detto su che cosa vuole lavorare, e ripescare
-           quello sotto al puntatore disferebbe la selezione proprio nel
-           momento in cui la si vuole usare. */
-        var dentro = Artwork.riquadro();
-        if (Artwork.scelti && Artwork.scelti().length > 1 && dentro &&
-            p.x >= dentro.x && p.x <= dentro.x + dentro.w &&
-            p.y >= dentro.y && p.y <= dentro.y + dentro.h) {
-          Selezione.apri();
-          return;
-        }
-
-        /* Con un livello solo il punto non basta a dire quale si vuole. Si
-           prende quello disegnato più in alto; e se è già lui lo scelto, si
-           passa a quello sotto — così clic ripetuti nello stesso posto girano
-           fra i sovrapposti invece di ripescare sempre lo stesso. L'elenco a
-           sinistra resta la via sicura. */
-        var sopra = Artwork.quale(p);
-        var giro = (window.Selezione && Selezione.attiva() && sopra === Artwork.sceltoId())
-          ? Artwork.quale(p, sopra) : sopra;
-        if (giro) {
-          Artwork.seleziona(giro);
-          Selezione.apri();
-          return;
-        }
-      }
-
+      /* SE I DUE CLIC LI HA GIA' CONTATI `enableDrag`, qui non si rifà
+         niente: rifarlo girerebbe al livello di sotto, cioè il doppio clic
+         prenderebbe il disegno sbagliato proprio quando ce ne sono due
+         sovrapposti. */
+      if (Date.now() - ultimaModifica < 600) return;
+      if (entraInModifica(toMm(e))) return;
       if (window.Selezione && Selezione.attiva()) { Selezione.chiudi(); return; }
       if (e.target.closest('.sheet')) return;
       adatta();
     });
+  }
+
+  /* ENTRARE IN MODIFICA: prendere il disegno che sta sotto al punto e aprire
+     il riquadro di selezione. Sta in una funzione sua perché ci si arriva da
+     DUE strade — il `dblclick` vero del piano e i due clic contati a mano in
+     `enableDrag` — e perché quelle due strade non devono fare la stessa cosa
+     due volte. Torna true se ha fatto qualcosa.
+
+     DUE SISTEMI DI RIFERIMENTO, e vanno tenuti distinti. `m` è il punto in
+     millimetri del PIANO, ed è quello che vuole `Artwork.quale()`: i disegni
+     stanno su fogli diversi, quindi «che cosa c'è sotto al puntatore» non si
+     può chiedere dentro a un foglio solo. `p` è lo stesso punto in
+     millimetri del foglio IN USO, e serve al riquadro, che è l'unione dei
+     rettangoli dei livelli scelti — tutti sullo stesso foglio, perché la
+     selezione non attraversa i fogli, e quel foglio è sempre quello in uso
+     perché `seleziona()` lo porta lì. Passare `p` a `quale()` era il difetto
+     corretto il 2026-11-13. */
+  var ultimaModifica = 0;
+
+  function entraInModifica(m) {
+    if (!window.Artwork || !Artwork.quale) return false;
+    ultimaModifica = Date.now();
+    var o = State.data.sheetOrigin;
+    var p = { x: m.x - o.x, y: m.y - o.y };
+
+    /* CON PIU' LIVELLI GIA' SCELTI non se ne sceglie un altro: si apre il
+       riquadro su tutti. Chi ha spuntato tre righe nell'elenco ha già detto
+       su che cosa vuole lavorare, e ripescare quello sotto al puntatore
+       disferebbe la selezione proprio nel momento in cui la si vuole usare. */
+    var dentro = Artwork.riquadro();
+    if (Artwork.scelti && Artwork.scelti().length > 1 && dentro &&
+        p.x >= dentro.x && p.x <= dentro.x + dentro.w &&
+        p.y >= dentro.y && p.y <= dentro.y + dentro.h) {
+      Selezione.apri();
+      return true;
+    }
+
+    /* Con un livello solo il punto non basta a dire quale si vuole. Si prende
+       quello disegnato più in alto; e se è già lui lo scelto, si passa a
+       quello sotto — così gesti ripetuti nello stesso posto girano fra i
+       sovrapposti invece di ripescare sempre lo stesso. L'elenco a sinistra
+       resta la via sicura. */
+    var sopra = Artwork.quale(m);
+    var giro = (window.Selezione && Selezione.attiva() && sopra === Artwork.sceltoId())
+      ? Artwork.quale(m, sopra) : sopra;
+    if (!giro) return false;
+    Artwork.seleziona(giro);
+    if (window.Selezione) Selezione.apri();
+    return true;
   }
 
   /* TRASCINARE IL FONDO SPOSTA LO SGUARDO, non il foglio: ingrandire senza
@@ -1066,6 +1089,17 @@ var Paper = (function () {
     layerSheet.addEventListener('pointerdown', function (e) {
       var rect = e.target.closest('.sheet');
       if (!rect) return;
+      /* DUE CLIC CONTATI A MANO, e per la stessa ragione di `Nome.doppio`,
+         dove sta scritta: il PRIMO clic su un foglio lo fa diventare quello
+         in uso, i fogli si ridisegnano, e il rettangolo su cui si è premuto
+         non esiste più quando arriva il secondo — così il browser il
+         `dblclick` non lo manda affatto. È l'altra metà del «ogni tanto non
+         prendo la forma»: cliccando ESATTAMENTE su un tratto il bersaglio è
+         il tracciato, il foglio non si ridisegna e il doppio clic arriva;
+         cliccando nel bianco DENTRO al disegno il bersaglio è il foglio, e
+         non arrivava mai. */
+      if (window.Nome && Nome.doppio('piano:' + rect.dataset.foglio) &&
+          entraInModifica(toMm(e))) return;
       var f = Fogli.trova(rect.dataset.foglio);
       /* Foglio misurato = foglio fermo. Trascinarlo dopo averlo misurato
          sposterebbe il disegno sulla carta vera senza che niente lo dica. */
@@ -1078,7 +1112,23 @@ var Paper = (function () {
       grab = { id: f.id, dx: m.x - f.origine.x, dy: m.y - f.origine.y };
       rect.classList.add('is-dragging');
       layerSheet.setPointerCapture(e.pointerId);
-      e.preventDefault();
+      /* QUI C'ERA UN `e.preventDefault()`, ED E' IL MOTIVO PER CUI IL DOPPIO
+         CLIC SUL DISEGNO «OGNI TANTO NON PRENDEVA LA FORMA» (detto
+         dall'utente il 2026-11-11, corretto il 2026-11-13).
+         Impedire l'azione di serie su `pointerdown` spegne anche gli eventi
+         che il browser ne ricava dopo: `mousedown`, `click` e soprattutto
+         `dblclick`. Su un foglio ancora LIBERO — cioe' per tutta la
+         composizione, finche' non lo si misura per stampare — il doppio clic
+         non arrivava quindi mai al piano. E si vedeva come una mira
+         capricciosa, perche' dipende da dove cade il puntatore: ESATTAMENTE
+         su un tratto il bersaglio e' il tracciato, che sta in un altro
+         strato sopra al foglio, questo gestore lascia perdere il gesto e il
+         doppio clic passa; nel bianco DENTRO al disegno il bersaglio e' il
+         foglio, il gesto diventa un trascinamento e il doppio clic sparisce
+         senza dire niente.
+         Non serviva: lo scorrimento al tocco lo ferma gia' `touch-action:
+         none` su `#bed-svg`, e su un rettangolo SVG preso con
+         `setPointerCapture` non c'e' testo da selezionare. */
     });
 
     layerSheet.addEventListener('pointermove', function (e) {

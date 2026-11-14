@@ -389,10 +389,24 @@ var Artwork = (function () {
     refit();
   }
 
-  /* Quale livello sta sotto a un punto del foglio: l'ULTIMO che lo contiene,
-     cioè quello disegnato sopra agli altri. `dopo` fa ripartire la ricerca
-     dal livello seguente, così un doppio clic ripetuto nello stesso posto
-     gira fra quelli sovrapposti invece di ripescare sempre lo stesso. */
+  /* Quale livello sta sotto a un punto, IN MILLIMETRI DEL PIANO: l'ULTIMO che
+     lo contiene, cioè quello disegnato sopra agli altri. `dopo` fa ripartire
+     la ricerca dal livello seguente, così un doppio clic ripetuto nello
+     stesso posto gira fra quelli sovrapposti invece di ripescare sempre lo
+     stesso.
+     IL PUNTO ARRIVA IN COORDINATE DEL PIANO, e il rettangolo di ogni livello
+     è in millimetri DEL SUO foglio: per questo il confronto si fa togliendo
+     l'angolo di quel foglio, livello per livello. Fino al 2026-11-13 il punto
+     arrivava qui già misurato dall'angolo del foglio IN USO e si confrontava
+     con rettangoli di fogli diversi. Con un foglio solo i due sistemi
+     coincidono e il difetto non si vedeva; con più fogli sul piano la mira
+     era spostata della distanza fra i due angoli, e il doppio clic sul centro
+     esatto di un disegno che sta su un altro foglio non prendeva NIENTE. È lo
+     stesso errore che il 2026-11-08 faceva l'anteprima (vedi `artFoglio` in
+     paper.js), e qui è sopravvissuto cinque giorni in più perché una mira non
+     si guarda: si usa.
+     «Che cosa c'è sotto a questo punto» è una domanda sul PIANO, non su un
+     foglio — e la firma di questa funzione adesso lo dice. */
   function quale(p, dopo) {
     var vis = visibili();
     if (!vis.length) return null;
@@ -405,7 +419,11 @@ var Artwork = (function () {
     for (var n = 0; n < vis.length; n++) {
       var l = vis[(da - n + vis.length * 2) % vis.length];
       var r = vista(l);
-      if (r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) return l.id;
+      if (!r) continue;
+      /* Nel sistema di riferimento del SUO foglio, non di quello in uso. */
+      var o = origineDi(l.id);
+      var x = p.x - o.x, y = p.y - o.y;
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return l.id;
     }
     return null;
   }
