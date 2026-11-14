@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 113
-**Ultimo aggiornamento:** 2026-11-14 12:53
+**Versione:** 114
+**Ultimo aggiornamento:** 2026-11-14 13:12
 
 ## Regole di co-editing
 
@@ -972,7 +972,7 @@ quello che era.
 
 ### Step 14 — I riempimenti: riconoscere le forme chiuse e riempirle
 
-**Stato:** **in corso** — aperto il 2026-11-09, cominciato il 2026-11-14 dalle parti piu' leggere: **la mira del doppio clic e' corretta** (due difetti, non uno) e **la spunta dice quando la scelta ricomincia**, prima del clic e dopo. Con queste il difetto segnalato l'11 novembre e' chiuso per intero. Restano **i riempimenti veri** e il controllo **«si vedra'»** con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
+**Stato:** **in corso** — dal 2026-11-14 **il motore c'e'** (`webui/js/riempi.js`: stampino, regioni, tratteggio, serpentina, guardiano della fessura), e manca l'interfaccia che lo comanda. Aperto il 2026-11-09, cominciato il 2026-11-14 dalle parti piu' leggere: **la mira del doppio clic e' corretta** (due difetti, non uno) e **la spunta dice quando la scelta ricomincia**, prima del clic e dopo. Con queste il difetto segnalato l'11 novembre e' chiuso per intero. Restano **i riempimenti veri** e il controllo **«si vedra'»** con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
 
 **Obiettivo:** che un livello «pieno» si possa stampare **pieno**, con un tipo di riempimento scelto, e non solo come contorno vuoto.
 
@@ -1037,6 +1037,8 @@ valore:
 
 - [2026-11-14] **La spunta dei livelli adesso dice quando la scelta ricomincia.** Seconda meta' di quello che l'operatore aveva segnalato l'11 novembre, e qui non c'era un difetto da correggere ma **una regola muta da far parlare**: spuntare un livello di un altro foglio fa ricominciare la scelta invece di sommarla, perche' due livelli di due fogli diversi non hanno un rettangolo in comune — vero, deciso il 2026-11-07, e resta. Si vede da due parti: **prima** del clic il quadratino di quel livello ha il filo tratteggiato e un suggerimento che lo scrive, e il segno compare **solo** quando c'e' davvero una scelta da far ricominciare (senza niente scelto non ricomincia niente); **dopo**, il registro dice quale livello, su che foglio e perche'. Due controlli e tre mutazioni (238 in tutto): il vestito che manca, il vestito su tutte le spunte, e la scelta che ricomincia in silenzio. **Non fatto, e di proposito:** allargare il bersaglio della spunta (18 x 18 px, col nome a 33 px che invece sostituisce la scelta). Il reclamo era sulla regola muta, non sulla mira del dito; se dara' fastidio si allarga, ma cambiare l'altezza delle righe con dodici livelli in elenco e' un costo che adesso non serve.
 
+- [2026-11-14] **Il motore dei riempimenti, e non tocca niente.** `webui/js/riempi.js`: dagli si dei tratti, restituisce regioni e segmenti. Non sa dell'interfaccia e non tocca lo stato — per questo al banco si prova con forme inventate a mano (un quadrato, una ciambella, un contorno con una fessura) invece che con un file, cioè sapendo esattamente che cosa deve venire fuori. **Lo stampino** disegna i tratti visibili del foglio su una tela fuori schermo a 0,1 mm/px con gli spessori veri, etichetta **tutte** le regioni in una passata (pila esplicita, non ricorsione: su un A4 una regione è mezzo milione di celle) e da lì «che regione c'è sotto il puntatore» è una **lettura**, non un calcolo — è ciò che permette l'anteprima sotto il mouse. **Il tratteggio** taglia righe parallele sulla regione, con angolo e passo; la **serpentina** le unisce ai capi **solo dove il collegamento resta dentro la regione** (unire alla cieca vuol dire attraversare il buco della ciambella con la penna giù: è il difetto che sembra un tratteggio finché non lo guardi da vicino). I **capi si infilano sotto il contorno** di 0,2 mm. **Il guardiano**: una regione che tocca il bordo del foglio non si riempie, e si dice **dove** è scappata. **Tre cose imparate costruendo:** (a) una fessura da mezzo millimetro **non** fa scappare niente — il tratto è largo 0,4 coi capi tondi, quindi ne restano aperti 0,1, un pixel che l'antialiasing chiude: il «quasi chiuso» dei file esportati si tappa gratis, e la tolleranza serve per le fessure vere; (b) un quadrato di 20 a passo 1 costa **372 mm** e non 400, perché il contorno si mangia il suo spessore e le righe sono diciannove — un controllo che pretendesse 400 non avrebbe capito la forma; (c) la scena del banco ha il buco **fuori centro** apposta: una ciambella simmetrica sta uguale anche ribaltata, e il ribaltamento della y è l'errore più facile qui dentro (sul foglio la y cresce in su, sulla tela in giù). Banco nuovo `webui/tools/prova-riempimenti.js`, 14 controlli; **sette mutazioni** (264 → 271) tutte viste. **Manca l'interfaccia:** pulsante nella tab edit, finestrella dei parametri col tempo di stampa, anteprima sotto il mouse, click che disegna, sottolivello con la ricetta e ricalcolo al rilascio.
+
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
 **Stato:** da fare — **da cominciare quando gli altri lavori sono chiusi**, per decisione dell'utente il 2026-11-09. Si segna adesso perché è il tipo di lavoro che non si ricorda da sé, e perché farlo prima della fine vorrebbe dire buttare via roba che serve ancora.
@@ -1062,6 +1064,23 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 **Note (cronologia dello step):**
 - [2026-11-09] Step aperto su richiesta dell'utente, da fare **per ultimo**: «lo faremo quando avremo finito, intanto segnatela». Nessuna scansione fatta: a questo punto c'è solo il censimento grossolano per cartella scritto qui sopra.
 - [2026-11-09] **Era lo Step 14, rinumerato a 15** nella stessa giornata quando è arrivato il lavoro sui riempimenti: la pulizia deve restare l'ultima della fila, e il numero lo dice senza doverlo spiegare.
+
+### Step 17 — Disegnare a mano libera con la Apple Pencil
+
+**Stato:** **da discutere** — idea dell'utente del 2026-11-14, detta a fine giornata: «un tasto che dato attivo dà la possibilità alla penna di creare un tracciato». Nessuna riga di codice, e nessun disegno deciso: «ne parleremo poi». Sta in pipeline perché le idee dette a voce si perdono, non perché sia cominciata.
+
+**Obiettivo (come si capisce oggi):** una **terza porta** per far nascere un disegno, accanto all'importazione di un SVG e agli strumenti dell'editor — la mano, su un iPad, con la Apple Pencil.
+
+**Quello che si sa già, e che non va riscoperto quando si comincerà:**
+- L'editor è già scritto con i **pointer event**, e una Apple Pencil arriva come `pointerType: 'pen'`, distinguibile da un dito. Il riconoscimento «è la penna o è la mano appoggiata» quindi non è da inventare: è da usare.
+- L'evento porta anche **pressione e inclinazione**. Da decidere se servono: su un plotter a penna la pressione non si può rendere con lo spessore (la punta è una sola), ma potrebbe scegliere la penna o il tipo di riempimento.
+- Il tracciato a mano nasce come una **sequenza fittissima di punti**: va ridotto (semplificazione) e probabilmente addolcito in curve, se no un segno di dieci centimetri diventa mille micro-segmenti che l'ottimizzatore deve digerire e la macchina percorrere a scatti.
+- Il **tasto** che l'utente chiede è la cosa giusta: senza un modo esplicito di entrare in «la penna disegna», ogni appoggio della mano diventa un tratto.
+
+**Criterio di completamento:** da definire con l'utente.
+
+**Note (cronologia dello step):**
+- [2026-11-14] Idea detta dall'utente subito dopo aver dato il via ai riempimenti, e **rimandata da lui stesso**: «ne parleremo poi». Registrata e basta.
 
 ### Step 16 — Metodo di lavoro delle stampe: scheda, catalogo, controllo
 

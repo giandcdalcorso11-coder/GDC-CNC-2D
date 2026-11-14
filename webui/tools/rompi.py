@@ -2408,6 +2408,68 @@ MUTAZIONI = [
         vede="Ctrl capovolge",
         prova="prova-tocco.js",
     ),
+
+    # ---- I RIEMPIMENTI: il motore (2026-11-14) ----
+    # Il difetto che fa paura qui non e' «non riempie»: e' «riempie di
+    # troppo» -- la penna che attraversa il buco di una ciambella, o il
+    # foglio allagato da un contorno con una fessura. Sono difetti che
+    # sembrano un tratteggio finche' non si guarda da vicino.
+    dict(
+        nome="lo stampino non ingrassa i tratti con la tolleranza",
+        file="js/riempi.js",
+        da="      g.lineWidth = ((+t.larghezza || TRATTO) + 2 * tol) / mmPerPx;",
+        a="      g.lineWidth = (+t.larghezza || TRATTO) / mmPerPx;",
+        vede="la stessa fessura si tappa",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="il guardiano non guarda il bordo del foglio",
+        file="js/riempi.js",
+        da="        if (cx === 0 || cy === 0 || cx === W - 1 || cy === H - 1) tocca[nreg] = true;",
+        a="",
+        vede="NON allaga il foglio",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="la serpentina unisce i capi alla cieca",
+        file="js/riempi.js",
+        da="        if (serpentina && corrente &&\n            dirittoDentro(st, reg, corrente[corrente.length - 1], a)) {",
+        a="        if (serpentina && corrente) {",
+        vede="non unisce due capi attraverso il buco",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="i capi del tratteggio non si infilano sotto il contorno",
+        file="js/riempi.js",
+        da="    for (var o = 0; o < out.length; o++) allunga(out[o], sotto);",
+        a="",
+        vede="finiscono SOTTO il contorno",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="il tratteggio si ferma all'inchiostro e non alla regione",
+        file="js/riempi.js",
+        da="        var qui = regioneIn(st, p) === reg;",
+        a="        var qui = regioneIn(st, p) !== 0;",
+        vede="non entra mai nel buco",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="il passo del tratteggio e' sempre un millimetro",
+        file="js/riempi.js",
+        da="    for (var tt = tmin; tt <= tmax; tt += passo) {",
+        a="    for (var tt = tmin; tt <= tmax; tt += 1) {",
+        vede="dimezzando il passo la penna raddoppia",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="lo stampino non ribalta la y",
+        file="js/riempi.js",
+        da="    return { x: p.x / mmPerPx, y: H - p.y / mmPerPx };",
+        a="    return { x: p.x / mmPerPx, y: p.y / mmPerPx };",
+        vede="il punto cliccato sceglie la sua",
+        prova="prova-riempimenti.js",
+    ),
 ]
 
 
