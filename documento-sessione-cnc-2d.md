@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 108
-**Ultimo aggiornamento:** 2026-11-14 07:47
+**Versione:** 109
+**Ultimo aggiornamento:** 2026-11-14 07:52
 
 ## Regole di co-editing
 
@@ -98,6 +98,23 @@ volte, e le tre precisazioni valgono quanto la regola:
   versante: **riscrivere l'ancora di una mutazione può svuotarla**. Quando il
   codice intorno cambia, l'ancora va rimirata sullo *stesso difetto*, non
   sulla riga più somigliante.
+- **[2026-11-14] Il gesto che si prova può riparare il difetto mentre lo
+  prova.** Un doppio clic sono due clic, e il PRIMO cambia lo stato: cliccando
+  un foglio lo si rende quello in uso, quindi al momento della mira il foglio
+  in uso *era* diventato quello del disegno e i due sistemi di riferimento
+  tornavano a coincidere — la mutazione che rimetteva il difetto restava non
+  vista. La scena giusta vuole il foglio del disegno **misurato**, cioè fermo,
+  così il clic non lo rende quello in uso. Vale per ogni gesto composto: prima
+  di scrivere la scena, chiedersi che cosa cambia il primo pezzo del gesto.
+- **[2026-11-14] Una mutazione va puntata sul controllo che PUÒ vederla**, e
+  non sul controllo che parla della stessa cosa. Due su tre, lo stesso giorno:
+  quella sul conteggio a mano dei due clic guardava la scena del foglio
+  misurato, dove il `dblclick` vero arriva comunque; quella sul guardiano
+  guardava una scena con un disegno solo, dove girare «al livello di sotto»
+  torna sullo stesso livello. Entrambe dicevano «non vista» accusando il
+  controllo, ed entrambe avevano ragione: era l'abbinamento a essere sbagliato.
+  Quando una mutazione non si vede, la prima domanda non è «il controllo è
+  cieco?» ma «questa scena può manifestare questo difetto?».
 
 **Il repository GitHub si chiama `GDC-CNC-2D`** (rinominato dall'utente il
 2026-10-15; GitHub non accetta spazi nei nomi e li sostituisce con trattini).
@@ -1068,7 +1085,7 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 ## Storico sessioni
 
-### [2026-11-14 07:47] (software) Il doppio clic che non prendeva la forma, e la spunta che non diceva niente
+### [2026-11-14 07:52] (software) Il doppio clic che non prendeva la forma, e la spunta che non diceva niente
 
 **Riepilogo:** cominciato lo Step 14 dal punto più leggero, la mira del doppio clic, e sotto il sintomo c'erano **due difetti indipendenti**: la mira nel sistema di riferimento sbagliato (quello già diagnosticato l'11) e — nuovo, trovato scrivendo il banco — il `dblclick` che su un foglio libero **non arriva affatto**, perché il primo clic ridisegna i fogli. Tre scene nuove, tre mutazioni, e due di quelle mutazioni hanno accusato i miei controlli prima di accusare il codice.
 
@@ -1097,7 +1114,7 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 **File consegnati/modificati:** `webui/js/artwork.js`, `webui/js/paper.js`, `webui/css/components.css`, `webui/tools/prova-piano.js` (sezioni H e I, cinque scene nuove), `webui/tools/rompi.py` (sei mutazioni, 238 in tutto), `documento-sessione-cnc-2d.md`.
 
-**Impatto su Vision/Pipeline:** Step 14 da «da fare» a **in corso**: fatti il punto b (la mira) e il punto c (la spunta che parla), restano i riempimenti e il controllo «si vedrà».
+**Impatto su Vision/Pipeline:** Step 14 da «da fare» a **in corso**: fatti il punto b (la mira) e il punto c (la spunta che parla), restano i riempimenti e il controllo «si vedrà». E **due precisazioni nuove alla convenzione «Come si provano i controlli»**, in cima alla Pipeline, dove stanno le altre quattro: il gesto composto che ripara il difetto mentre lo prova, e la mutazione da puntare sul controllo che può vederla.
 
 ---
 
