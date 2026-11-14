@@ -81,13 +81,15 @@ var Riempi = (function () {
     g.lineCap = 'round';
     g.lineJoin = 'round';
 
+    var off = dati.off || { x: 0, y: 0 };
     for (var i = 0; i < dati.tratti.length; i++) {
       var t = dati.tratti[i];
       if (!t.punti || t.punti.length < 2) continue;
       g.lineWidth = ((+t.larghezza || TRATTO) + 2 * tol) / mmPerPx;
       g.beginPath();
       for (var j = 0; j < t.punti.length; j++) {
-        var p = aPixel(t.punti[j], mmPerPx, H);
+        var p = aPixel({ x: t.punti[j].x - off.x, y: t.punti[j].y - off.y },
+                       mmPerPx, H);
         if (j === 0) g.moveTo(p.x, p.y); else g.lineTo(p.x, p.y);
       }
       g.stroke();
@@ -140,7 +142,8 @@ var Riempi = (function () {
     }
 
     return { W: W, H: H, mmPerPx: mmPerPx, lab: lab, regioni: nreg,
-             tocca: tocca, w: dati.w, h: dati.h, tolleranza: tol };
+             tocca: tocca, w: dati.w, h: dati.h, tolleranza: tol,
+             off: dati.off || { x: 0, y: 0 } };
   }
 
   function aPixel(p, mmPerPx, H) {
@@ -151,8 +154,8 @@ var Riempi = (function () {
   }
 
   function indice(st, p) {
-    var x = Math.floor(p.x / st.mmPerPx);
-    var y = Math.floor(st.H - p.y / st.mmPerPx);
+    var x = Math.floor((p.x - st.off.x) / st.mmPerPx);
+    var y = Math.floor(st.H - (p.y - st.off.y) / st.mmPerPx);
     if (x < 0 || y < 0 || x >= st.W || y >= st.H) return -1;
     return y * st.W + x;
   }
@@ -186,7 +189,8 @@ var Riempi = (function () {
   }
 
   function aMm(st, x, y) {
-    return { x: (x + 0.5) * st.mmPerPx, y: (st.H - y - 0.5) * st.mmPerPx };
+    return { x: st.off.x + (x + 0.5) * st.mmPerPx,
+             y: st.off.y + (st.H - y - 0.5) * st.mmPerPx };
   }
 
   /* ------------------------------ il tratteggio -------------------------- */
@@ -220,8 +224,9 @@ var Riempi = (function () {
     /* L'estensione delle righe si prende dai quattro angoli del foglio
        proiettati sui due assi: la regione ci sta dentro per forza, e costa
        meno che cercarne il contorno. */
-    var ang4 = [{ x: 0, y: 0 }, { x: st.w, y: 0 },
-                { x: 0, y: st.h }, { x: st.w, y: st.h }];
+    var o = st.off;
+    var ang4 = [{ x: o.x, y: o.y }, { x: o.x + st.w, y: o.y },
+                { x: o.x, y: o.y + st.h }, { x: o.x + st.w, y: o.y + st.h }];
     var tmin = Infinity, tmax = -Infinity, smin = Infinity, smax = -Infinity;
     for (var i = 0; i < 4; i++) {
       var t = ang4[i].x * vx + ang4[i].y * vy;
@@ -322,6 +327,32 @@ var Riempi = (function () {
     return L;
   }
 
+  /* LO STAMPINO ATTORNO A QUELLO CHE C'E'.
+     Nell'editor non si lavora in millimetri del foglio ma nelle unita' del
+     file, e il foglio non si sa nemmeno dove sia: l'argine allora e'
+     l'ingombro di quello che c'e' disegnato, piu' un margine. Una regione
+     che arriva fin li' e' scappata lo stesso -- il guardiano non cambia
+     mestiere, cambia solo quale bordo guarda. Il margine serve perche'
+     senza, il fuori del disegno tocca i tratti e diventerebbe una regione
+     attaccata a loro invece che una cornice tutt'attorno. */
+  function perTratti(tratti, opt) {
+    opt = opt || {};
+    var m = opt.margine === undefined ? 2 : +opt.margine;
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (var i = 0; i < tratti.length; i++) {
+      var pt = tratti[i].punti || [];
+      for (var j = 0; j < pt.length; j++) {
+        if (pt[j].x < x0) x0 = pt[j].x;
+        if (pt[j].x > x1) x1 = pt[j].x;
+        if (pt[j].y < y0) y0 = pt[j].y;
+        if (pt[j].y > y1) y1 = pt[j].y;
+      }
+    }
+    if (!isFinite(x0)) return null;
+    return stampino({ w: (x1 - x0) + 2 * m, h: (y1 - y0) + 2 * m,
+                      off: { x: x0 - m, y: y0 - m }, tratti: tratti }, opt);
+  }
+
   /* --------------------- i tratti di un foglio, come stanno -------------- */
 
   /* Raccoglie dal programma quello che lo stampino vuole: i tratti VISIBILI
@@ -350,7 +381,7 @@ var Riempi = (function () {
     return stampino({ w: f.w, h: f.h, tratti: tratteggiDelFoglio(foglioId) }, opt);
   }
 
-  return { stampino: stampino, dalFoglio: dalFoglio,
+  return { stampino: stampino, dalFoglio: dalFoglio, perTratti: perTratti,
            regioneIn: regioneIn, scappata: scappata, fuga: fuga,
            tratteggia: tratteggia,
            MM_PER_PX: MM_PER_PX, TRATTO: TRATTO, SOTTO: SOTTO };

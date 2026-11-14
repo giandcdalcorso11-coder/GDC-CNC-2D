@@ -124,6 +124,10 @@ var Editor = (function () {
 
   function cambiato() {
     Artwork.rigenera();
+    /* Le forme sono cambiate: le regioni di prima non valgono piu'. Rifarlo
+       qui e non al prossimo movimento del mouse vuol dire che l'anteprima
+       non mostra mai il disegno di un attimo fa. */
+    if (riempiAcceso) rifaiStampino();
     disegna();
     scriviPiede();
   }
@@ -261,6 +265,14 @@ var Editor = (function () {
     if (window.Artwork && Artwork.sfondoPer && Artwork.sceltoId) {
       Artwork.sfondoPer(Artwork.sceltoId()).forEach(function (q) {
         out += '<polyline class="ed-altro" points="' + via(q) + '"></polyline>';
+      });
+    }
+
+    /* L'ANTEPRIMA DEL RIEMPIMENTO, sotto ai tratti: e' quello che la penna
+       farebbe, e deve stare DIETRO al contorno come ci stara' sul foglio. */
+    if (riempiAcceso && anteprima && anteprima.polilinee) {
+      anteprima.polilinee.forEach(function (poli) {
+        out += '<polyline class="ed-riempi-ante" points="' + via(poli) + '"></polyline>';
       });
     }
 
@@ -643,6 +655,18 @@ var Editor = (function () {
 
   function scriviAiuto() {
     if (!aiuto) return;
+    /* Col riempimento acceso il clic ha UN significato solo, e tutto il
+       resto dell'aiuto parlerebbe di gesti che in questo momento non fanno
+       niente: dire dodici cose false e una vera e' peggio che dirne una. */
+    if (riempiAcceso) {
+      aiuto.innerHTML = '<b>Riempimento acceso.</b> Passa sopra a uno spazio ' +
+        'chiuso e il puntatore ti fa vedere come verra`; il <b>clic</b> lo ' +
+        'disegna, come sottolivello di questo disegno e con la sua penna. ' +
+        'Ogni spazio chiuso e` suo: sulla A, il corpo e il triangolo sono ' +
+        'due clic. I numeri si cambiano nella finestrella guardando ' +
+        'l\'anteprima. Premi di nuovo <b>Riempi</b> per spegnere.';
+      return;
+    }
     var coda = magneti
       ? '  ·  Magneti accesi: Alt per spegnerli un momento, Shift per forzare ' +
         'l\'angolo.'
@@ -686,6 +710,11 @@ var Editor = (function () {
   /* ------------------------------ eventi ------------------------------ */
 
   function giu(e) {
+    /* Col riempimento acceso il clic ha un solo significato, e non e' quello
+       di prima: non sceglie e non disegna, riempie. Messo in cima apposta --
+       sotto ci sono dodici strade e una qualunque di loro porterebbe a
+       cambiare il disegno mentre si credeva di riempirlo. */
+    if (riempiAcceso) { clicRiempimento(e); return; }
     var f = forme();
     if (!f) return;
     /* Il tasto centrale sposta lo sguardo anche su un livello spento: quello
@@ -2529,6 +2558,226 @@ var Editor = (function () {
     aggiornaBarra();
   }
 
+
+  /* ========================= IL RIEMPIMENTO ==============================
+   *
+   * IL DISEGNO DELL'INTERAZIONE E' DELL'UTENTE (2026-11-09): un pulsante che
+   * apre una finestrella coi parametri, poi il puntatore che ANTICIPA il
+   * riempimento della regione sotto di se' e il clic che lo disegna.
+   * Il perche' regge da solo: il clic dice la cosa che la geometria non puo'
+   * sapere, cioe' QUALE degli spazi chiusi si intende. Su una A in grassetto
+   * il corpo e il triangolo sono due regioni come le altre, e sono due clic.
+   *
+   * SI LAVORA NELLE UNITA' DEL FILE, non in millimetri, perche' sono quelle
+   * in cui vivono le forme dell'editor e in cui dovra' nascere il
+   * riempimento: convertire qui una volta i tre numeri che l'utente scrive
+   * in millimetri (passo, tolleranza, quanto i capi si infilano sotto)
+   * costa molto meno che convertire avanti e indietro tutta la geometria --
+   * e soprattutto evita che il riempimento nasca da un'altra parte per un
+   * arrotondamento.
+   *
+   * LO STAMPINO SI RIFA' SOLO QUANDO SERVE: cambiando il passo o l'angolo
+   * cambia il tratteggio, non le regioni. Rifarlo a ogni tasto premuto
+   * vorrebbe dire un decimo di secondo di attesa mentre si scrive un numero.
+   */
+  var riempiAcceso = false;
+  var stampino = null;      // le regioni di adesso
+  var anteprima = null;     // { reg, polilinee, metri, alzate, scappata, dove }
+
+  /* Quanto vale un'unita' del file in millimetri. Con un livello deformato i
+     due assi non valgono uguale: si prende la media, e il passo del
+     tratteggio e' quindi leggermente diverso nei due versi. Scritto qui
+     perche' si sappia: l'alternativa sarebbe rifiutarsi di riempire un
+     livello deformato, che e' peggio. */
+  function mmPerUnita() {
+    var s = Artwork.scalaMm ? Artwork.scalaMm() : null;
+    if (!s || !(s.x > 0) || !(s.y > 0)) return 1;
+    return (s.x + s.y) / 2;
+  }
+
+  function campoRiem(id, pre) {
+    var e = document.getElementById(id);
+    if (!e) return pre;
+    var v = e.value;
+    return e.tagName === 'SELECT' ? v : (v === '' ? pre : +v);
+  }
+
+  function parametriRiem() {
+    return {
+      tipo: campoRiem('riem-tipo', 'serpentina'),
+      passo: Math.max(0.05, campoRiem('riem-passo', 1)),
+      angolo: campoRiem('riem-angolo', 0),
+      tolleranza: Math.max(0, campoRiem('riem-tol', 0))
+    };
+  }
+
+  /* I tratti che fanno da confine: QUESTO livello e tutti gli altri visibili
+     dello stesso foglio, che `sfondoPer` da' gia' convertiti nelle unita' di
+     questo. Una regione puo' essere chiusa da tratti di livelli diversi --
+     dopo l'importazione per tinte capita spesso -- e lo stampino non ha
+     bisogno di sapere di chi sono. */
+  function trattiPerStampino() {
+    var out = [], f = forme() || [], u = perPixel();
+    var mm = mmPerUnita();
+    var mio = Artwork.spessoreLivello ? Artwork.spessoreLivello(Artwork.sceltoId()) : null;
+    var largo = (mio || Riempi.TRATTO) / mm;
+    for (var i = 0; i < f.length; i++) {
+      Tracciato.appiattisci(f[i], TOL * u * 10).forEach(function (poli) {
+        out.push({ punti: poli, larghezza: largo });
+      });
+    }
+    if (Artwork.sfondoPer && Artwork.sceltoId) {
+      Artwork.sfondoPer(Artwork.sceltoId()).forEach(function (poli) {
+        out.push({ punti: poli, larghezza: largo });
+      });
+    }
+    return out;
+  }
+
+  function rifaiStampino() {
+    stampino = null;
+    anteprima = null;
+    if (!riempiAcceso || !window.Riempi) return;
+    var tratti = trattiPerStampino();
+    if (!tratti.length) { scriviContoRiem(); return; }
+    var mm = mmPerUnita();
+    var p = parametriRiem();
+    stampino = Riempi.perTratti(tratti, {
+      mmPerPx: Riempi.MM_PER_PX / mm,
+      tolleranza: p.tolleranza / mm,
+      /* Quattro millimetri di cornice attorno a tutto. Non e' solo l'argine
+         del guardiano: e' anche il posto in cui si clicca per sbaglio, e li'
+         il programma deve poter dire «quello e' il fuori» invece di non
+         rispondere. */
+      margine: 4 / mm
+    });
+    scriviContoRiem();
+  }
+
+  /* LA MIRA. Legge l'etichetta sotto il puntatore -- che non costa niente,
+     perche' le regioni sono gia' etichettate -- e ricalcola il tratteggio
+     solo se la regione e' cambiata. Muovendo il mouse dentro alla stessa
+     forma non si ricalcola niente. */
+  function calcolaAnteprima(reg) {
+    if (!stampino || !(reg > 0)) { anteprima = null; scriviContoRiem(); return; }
+    var mm = mmPerUnita();
+    var par = parametriRiem();
+    var t = Riempi.tratteggia(stampino, reg, {
+      tipo: par.tipo,
+      passo: par.passo / mm,
+      angolo: par.angolo,
+      sotto: Riempi.SOTTO / mm
+    });
+    anteprima = { reg: reg, polilinee: t.polilinee, metri: t.metri * mm,
+                  alzate: t.alzate, scappata: t.scappata, dove: t.dove };
+    scriviContoRiem();
+  }
+
+  function miraRiempimento(e) {
+    if (!stampino) return;
+    var reg = Riempi.regioneIn(stampino, punto(e));
+    if (anteprima && anteprima.reg === reg) return;
+    calcolaAnteprima(reg);
+    disegna();
+  }
+
+  /* METRI E MINUTI, PRIMA DEL CLIC. Un A4 tratteggiato a quattro decimi sono
+     centocinquanta metri di penna: oltre un'ora. Scriverlo prima costa
+     niente e toglie la brutta sorpresa. Le alzate contano: mezzo secondo
+     l'una fra servo e assestamento, ed e' il motivo per cui la serpentina
+     sta subito dopo il tratteggio. */
+  function scriviContoRiem() {
+    var nota = document.getElementById('riem-nota');
+    var conto = document.getElementById('riem-conto');
+    if (!nota || !conto) return;
+
+    var par = parametriRiem();
+    var tratto = (Artwork.spessoreLivello
+      ? Artwork.spessoreLivello(Artwork.sceltoId()) : null) || Riempi.TRATTO;
+    /* IL PASSO NASCE DALLO SPESSORE DELLA PENNA, non e' un numero libero:
+       passo uguale al tratto vuol dire copertura piena, passo maggiore vuol
+       dire trama che si vede, passo MINORE non e' un tratteggio piu' fine --
+       e' una macchia, e la penna ci mette il doppio a farla. */
+    var volte = par.passo / tratto;
+    nota.className = 'hint' + (volte < 1 ? ' guaio' : '');
+    nota.textContent = volte < 1
+      ? 'Passo piu` stretto del tratto della penna (' + tratto.toFixed(2) +
+        ' mm): non si vedra` un tratteggio, si vedra` una macchia.'
+      : volte < 1.3
+        ? 'Copertura piena: il tratto della penna e` ' + tratto.toFixed(2) + ' mm.'
+        : 'Trama: ' + volte.toFixed(1) + ' volte il tratto della penna (' +
+          tratto.toFixed(2) + ' mm).';
+
+    if (!anteprima) { conto.textContent = 'Passa sopra a uno spazio chiuso.'; return; }
+    if (anteprima.scappata) {
+      conto.textContent = anteprima.dove
+        ? 'Il contorno ha una fessura: il riempimento scapperebbe fuori. ' +
+          'Guarda vicino al bordo del disegno.'
+        : 'Qui fuori non c\'e` niente da riempire.';
+      return;
+    }
+    var vel = (window.Profile && Profile.stampa().velocitaDisegno) || 1200;
+    var minuti = anteprima.metri * 1000 / vel + anteprima.alzate * 0.5 / 60;
+    conto.textContent = anteprima.metri.toFixed(1) + ' m di penna, ' +
+      anteprima.alzate + ' alzat' + (anteprima.alzate === 1 ? 'a' : 'e') +
+      ': circa ' + (minuti < 1 ? 'meno di un minuto' :
+                    Math.round(minuti) + ' minut' + (Math.round(minuti) === 1 ? 'o' : 'i')) + '.';
+  }
+
+  /* IL CLIC DISEGNA. Il riempimento nasce come SOTTOLIVELLO del disegno che
+     riempie, con la sua ricetta: vedi `Artwork.riempimento`. */
+  function clicRiempimento(e) {
+    if (!stampino) return true;
+    var p = punto(e);
+    var reg = Riempi.regioneIn(stampino, p);
+    if (!(reg > 0)) {
+      Log.add('msg', 'Li\' non c\'e` uno spazio chiuso da riempire.');
+      return true;
+    }
+    if (!anteprima || anteprima.reg !== reg) miraRiempimento(e);
+    if (!anteprima) return true;
+    if (anteprima.scappata) {
+      /* Due situazioni, un solo fatto: quella regione arriva fino al bordo.
+         O si e' cliccato FUORI dal disegno, o il contorno ha una fessura e
+         il colore sarebbe scappato di li'. Dirle tutt'e due e' piu' onesto
+         che indovinare quale: da dentro il programma sono la stessa cosa, e
+         chi guarda il disegno sa distinguerle in un secondo. */
+      Log.add('err', 'Non riempito: quello non e` uno spazio chiuso. O e` il ' +
+              'fuori del disegno, o il contorno ha una fessura da cui il ' +
+              'colore scapperebbe. Alza la tolleranza di chiusura, oppure ' +
+              'chiudi il contorno.');
+      return true;
+    }
+    var par = parametriRiem();
+    var id = Artwork.riempimento(Artwork.sceltoId(), anteprima.polilinee, {
+      tipo: par.tipo, passo: par.passo, angolo: par.angolo,
+      tolleranza: par.tolleranza, punto: { x: p.x, y: p.y }
+    });
+    if (!id) { Log.add('err', 'Il riempimento non e` nato.'); return true; }
+    Log.add('msg', 'Riempito: ' + anteprima.metri.toFixed(1) + ' m di penna in ' +
+            anteprima.alzate + ' tratt' + (anteprima.alzate === 1 ? 'o' : 'i') +
+            '. E` un sottolivello, con la sua penna.');
+    /* Lo stampino non cambia: il riempimento appena fatto NON fa da confine
+       a se stesso -- se no il secondo clic sulla stessa forma troverebbe
+       venti regioni, una per ogni corridoio fra due righe. */
+    anteprima = null;
+    renderLivelli();
+    disegna();
+    return true;
+  }
+
+  function accendiRiempimento(acceso) {
+    riempiAcceso = acceso;
+    var b = document.getElementById('ed-riempi');
+    if (b) b.classList.toggle('attivo', acceso);
+    var pan = document.getElementById('ed-riempi-pannello');
+    if (pan) pan.hidden = !acceso;
+    anteprima = null;
+    if (acceso) rifaiStampino(); else stampino = null;
+    scriviAiuto();
+    disegna();
+  }
+
   function init() {
     svg = document.getElementById('ed-svg');
     tela = document.getElementById('ed-tela');
@@ -2567,6 +2816,7 @@ var Editor = (function () {
           ? 'Asse verticale: ribalta destra-sinistra. Clicca per cambiarlo.'
           : 'Asse orizzontale: ribalta sopra-sotto. Clicca per cambiarlo.';
       }
+      else if (b.id === 'ed-riempi') accendiRiempimento(!riempiAcceso);
       else if (b.id === 'ed-somma') {
         somma = !somma;
         b.classList.toggle('attivo', somma);
@@ -2581,6 +2831,20 @@ var Editor = (function () {
       }
     });
 
+    /* I PARAMETRI SI CAMBIANO GUARDANDO L'ANTEPRIMA, ed e' il motivo per cui
+       la finestrella resta aperta mentre si mira. La tolleranza di chiusura
+       rifa' lo stampino -- cambia le REGIONI; passo, angolo e tipo rifanno
+       solo il tratteggio, che costa molto meno. */
+    ['riem-tipo', 'riem-passo', 'riem-angolo'].forEach(function (id) {
+      var c = document.getElementById(id);
+      if (c) c.addEventListener('input', function () {
+        if (anteprima) { calcolaAnteprima(anteprima.reg); disegna(); }
+        else scriviContoRiem();
+      });
+    });
+    var tolC = document.getElementById('riem-tol');
+    if (tolC) tolC.addEventListener('input', function () { rifaiStampino(); disegna(); });
+
     /* Il passo si può cambiare a griglia accesa, e il reticolo segue mentre
        si scrive: è il modo per trovare quello giusto: cinque millimetri su un
        logo sono un'altra cosa che su una cornice. */
@@ -2590,7 +2854,11 @@ var Editor = (function () {
     });
 
     svg.addEventListener('pointerdown', giu);
-    svg.addEventListener('pointermove', function (e) { muovi(e); seguiSpezzata(e); });
+    svg.addEventListener('pointermove', function (e) {
+      /* Con il riempimento acceso il movimento non trascina niente: mira. */
+      if (riempiAcceso && !presa) { miraRiempimento(e); return; }
+      muovi(e); seguiSpezzata(e);
+    });
     ['pointerup', 'pointercancel'].forEach(function (ev) {
       svg.addEventListener(ev, su);
     });

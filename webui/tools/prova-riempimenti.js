@@ -268,6 +268,148 @@ function rett(x, y, w, h, fessura) {
      r.zero === 0 && r.no === 90 && r.q === 45,
      r.zero + '°, ' + r.no + '°, ' + r.q + '°');
 
+  /* ============ I. LA PORTA DELL'UTENTE: MIRA E CLIC ============
+     Il motore qui sopra non sa niente dell'interfaccia. Questa parte prova
+     il gesto che l'utente ha disegnato: pulsante, finestrella, il puntatore
+     che anticipa, il clic che disegna. */
+  const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40">
+<path fill="none" stroke="#1d1d1b" d="M5 5 L35 5 L35 35 L5 35 Z"/></svg>`;
+
+  /* Da coordinate del FILE a pixel sullo schermo, passando per la matrice
+     della tela: si porta dietro lo zoom e lo scorrimento. */
+  const suTela = (p) => page.evaluate((p) => {
+    const m = document.getElementById('ed-svg').getScreenCTM();
+    const q = new DOMPoint(p.x, p.y).matrixTransform(m);
+    return { x: q.x, y: q.y };
+  }, p);
+
+  await page.evaluate((svg) => {
+    Artwork.load(svg, 'quadrato.svg');
+    /* IL DISEGNO SI METTE IN UN ANGOLO, e non e' un vezzo della scena: un
+       disegno che riempie tutto il foglio sta nello stesso posto sia che il
+       riempimento erediti la mappa del padre sia che si adatti al foglio per
+       conto suo. Cioe' il difetto piu' facile da fare qui dentro non si
+       manifesterebbe. In un angolo, i due posti sono due. */
+    Artwork.collocaA({ x: 20, y: 20, w: 50, h: 50 });
+    document.querySelector('.tab[data-tab="editor"]').click();
+  }, SVG);
+  await page.waitForTimeout(500);
+
+  r = await page.evaluate(() => {
+    document.getElementById('ed-riempi').click();
+    return {
+      acceso: document.getElementById('ed-riempi').classList.contains('attivo'),
+      pannello: !document.getElementById('ed-riempi-pannello').hidden
+    };
+  });
+  ok('il pulsante accende il riempimento e apre la finestrella',
+     r.acceso && r.pannello);
+
+  const dentro = await suTela({ x: 20, y: 20 });
+  await page.mouse.move(dentro.x, dentro.y);
+  await page.waitForTimeout(250);
+  r = await page.evaluate(() => ({
+    /* Si contano i PUNTI e non le polilinee: di serie il tipo e' la
+       serpentina, che di polilinee ne fa una sola -- contarle direbbe «una
+       riga» di un riempimento da diciotto metri. */
+    righe: Array.prototype.reduce.call(
+      document.querySelectorAll('.ed-riempi-ante'),
+      (n, p) => n + p.points.numberOfItems, 0),
+    conto: document.getElementById('riem-conto').textContent,
+    nota: document.getElementById('riem-nota').textContent
+  }));
+  ok('il puntatore ANTICIPA il riempimento della regione sotto di se`',
+     r.righe > 40, r.righe + ' punti di anteprima');
+  /* Metri e minuti PRIMA del clic: e' la cosa che toglie la brutta sorpresa
+     del foglio che impiega un'ora. */
+  ok('e la finestrella dice metri, alzate e minuti prima del clic',
+     /m di penna/.test(r.conto) && /alzat/.test(r.conto) && /minut|meno di un/.test(r.conto),
+     r.conto);
+  ok('e dice che cosa vuol dire quel passo per la penna montata',
+     /tratto della penna/.test(r.nota), r.nota);
+
+  const prima = await page.evaluate(() => Artwork.livelli().length);
+  await page.mouse.click(dentro.x, dentro.y);
+  await page.waitForTimeout(300);
+  r = await page.evaluate(() => {
+    const l = Artwork.livelli();
+    const figlio = l.filter((x) => x.padre)[0];
+    const padre = l.filter((x) => !x.padre)[0];
+    return {
+      quanti: l.length,
+      figlio: figlio ? figlio.id : null,
+      padre: padre ? padre.id : null,
+      diChi: figlio ? figlio.padre : null,
+      prima: figlio && padre ? l.indexOf(figlio) < l.indexOf(padre) : false,
+      scelto: Artwork.sceltoId(),
+      tratti: figlio ? figlio.tratti : 0
+    };
+  });
+  ok('il clic disegna il riempimento', r.quanti === prima + 1 && r.tratti > 0,
+     r.quanti + ' livelli, ' + r.tratti + ' tratti nel figlio');
+  ok('e nasce come SOTTOLIVELLO del disegno che riempie',
+     r.diChi === r.padre, 'padre ' + r.diChi);
+  /* L'elenco E` l'ordine di stampa, e il contorno deve passare per ultimo:
+     i capi del tratteggio gli si infilano sotto. */
+  ok('e sta PRIMA del padre, perche` il contorno si stampa per ultimo', r.prima);
+  ok('la scelta resta sul disegno, non salta sul riempimento',
+     r.scelto === r.padre, 'scelto ' + r.scelto);
+
+  /* IL RIEMPIMENTO STA SOPRA AL SUO DISEGNO, non da un'altra parte: e' il
+     difetto piu' facile da fare qui, perche' un livello nuovo di solito si
+     adatta al foglio per conto suo. */
+  r = await page.evaluate(() => {
+    const dentroA = (a, b) => a.x >= b.x - 0.6 && a.y >= b.y - 0.6 &&
+      a.x + a.w <= b.x + b.w + 0.6 && a.y + a.h <= b.y + b.h + 0.6;
+    const l = Artwork.livelli();
+    const f = l.filter((x) => x.padre)[0];
+    const p = l.filter((x) => !x.padre)[0];
+    const B = (id) => Artwork.riquadroDi ? Artwork.riquadroDi(id) : null;
+    Artwork.seleziona(f.id); const rf = Artwork.riquadro();
+    Artwork.seleziona(p.id); const rp = Artwork.riquadro();
+    Artwork.seleziona(p.id);
+    return { ok: dentroA(rf, rp), rf, rp };
+  });
+  ok('e cade SOPRA al disegno, non da un\'altra parte', r.ok,
+     'figlio ' + JSON.stringify(r.rf) + ' dentro a ' + JSON.stringify(r.rp));
+
+  /* FUORI DAL CONTORNO NON SI RIEMPIE: quella regione tocca il bordo, cioe'
+     e' il fuori, e riempirla vorrebbe dire allagare il foglio. */
+  await page.evaluate(() => {
+    window.__ultimoGuaio = '';
+    Log.ascolta(function (r) { window.__ultimoGuaio = r.text; });
+  });
+  /* DENTRO all'argine ma FUORI dal quadrato: e` la regione che tocca il
+     bordo, cioe` il fuori del disegno. Cliccare oltre l'argine sarebbe
+     un'altra cosa -- li` non c'e` nessuna regione -- e proverebbe un altro
+     ramo, non questo. */
+  const fuori = await suTela({ x: 3.8, y: 20 });
+  await page.mouse.move(fuori.x, fuori.y);
+  await page.waitForTimeout(200);
+  const quantiPrima = await page.evaluate(() => Artwork.livelli().length);
+  await page.mouse.click(fuori.x, fuori.y);
+  await page.waitForTimeout(250);
+  r = await page.evaluate(() => ({
+    quanti: Artwork.livelli().length,
+    detto: window.__ultimoGuaio || ''
+  }));
+  ok('fuori dal contorno il clic non riempie niente',
+     r.quanti === quantiPrima, r.quanti + ' livelli');
+  /* E LO DICE. Non riempire e tacere e` indistinguibile da un clic che non
+     ha funzionato: il programma deve dire perche`, se no la prossima cosa
+     che l'utente prova e` cliccare piu` forte. */
+  ok('e il programma dice perche`', /spazio chiuso/.test(r.detto), r.detto);
+
+  /* BUTTANDO IL DISEGNO SE NE VA ANCHE IL RIEMPIMENTO: un tratteggio senza
+     il suo contorno e' una macchia a mezz'aria sul foglio. */
+  r = await page.evaluate(() => {
+    const p = Artwork.livelli().filter((x) => !x.padre)[0];
+    Artwork.rimuovi(p.id);
+    return Artwork.livelli().length;
+  });
+  ok('buttando il disegno se ne va anche il suo riempimento', r === 0,
+     r + ' livelli rimasti');
+
   if (errori.length) {
     console.log('\nerrori di pagina:');
     errori.forEach((e) => console.log('  ' + e));

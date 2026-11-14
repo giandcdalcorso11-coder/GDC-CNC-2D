@@ -268,6 +268,21 @@ var Artwork = (function () {
     var i = indice(id);
     if (i < 0) return;
     var nome = livelli[i].nome;
+    /* I riempimenti se ne vanno col disegno che riempivano: un riempimento
+       senza il suo contorno e' una macchia a mezz'aria sul foglio, e
+       nessuno la butterebbe sapendo che cos'era. */
+    var orfani = livelli.filter(function (l) { return l.padre === id; });
+    orfani.forEach(function (o) {
+      var k = indice(o.id);
+      if (k >= 0) livelli.splice(k, 1);
+      var ks = selezionati.indexOf(o.id);
+      if (ks >= 0) selezionati.splice(ks, 1);
+    });
+    if (orfani.length) {
+      Log.add('msg', 'Tolti anche ' + orfani.length + ' riempiment' +
+              (orfani.length === 1 ? 'o' : 'i') + ' di «' + nome + '».');
+    }
+    i = indice(id);
     livelli.splice(i, 1);
     var k = selezionati.indexOf(id);
     if (k >= 0) selezionati.splice(k, 1);
@@ -393,6 +408,12 @@ var Artwork = (function () {
     var l = trova(id);
     if (!l) return;
     l.visibile = !l.visibile;
+    /* Spegnendo un disegno si spengono i suoi riempimenti: restare a vedere
+       il tratteggio di un contorno che non c'e' piu' sarebbe una macchia
+       senza spiegazione. Riaccendendo tornano com'erano -- anzi, tornano
+       accesi, perche' l'occhio del padre e' il comando grosso e quello del
+       figlio resta disponibile per spegnere il solo riempimento. */
+    figliDi(id).forEach(function (f) { f.visibile = l.visibile; });
     refit();
   }
 
@@ -581,6 +602,71 @@ var Artwork = (function () {
     selezionati = [l.id];
     refit();
     return l.id;
+  }
+
+  /* ------------------------ i riempimenti come figli ---------------------
+   *
+   * UN RIEMPIMENTO E' UN LIVELLO FIGLIO del disegno che riempie, ed e' una
+   * proposta dell'utente (2026-11-10). Da' tre cose che un livello sciolto
+   * non darebbe: dice senza ambiguita' QUALE disegno quel riempimento
+   * riempie -- cosa che il click, da solo, non registra da nessuna parte --,
+   * si spegne e si butta col padre invece di restare orfano a mezz'aria sul
+   * foglio, e porta la SUA penna: il pennarello grosso per il pieno, la
+   * punta fine per il bordo.
+   *
+   * Quello che la parentela NON da' e' seguire una MODIFICA del contorno:
+   * spostare e ruotare sono trasformazioni e il figlio si muove col padre,
+   * ma se si trascina un nodo il tratteggio va RIGENERATO, e non esiste
+   * trasformazione che lo faccia. A quello serve la `ricetta` tenuta qui
+   * dentro (tipo, angolo, passo, punto cliccato, tolleranza): la parentela
+   * e' il posto dove la ricetta abita, la ricetta e' il come.
+   *
+   * IL FIGLIO STA PRIMA DEL PADRE nell'elenco, e non e' un dettaglio:
+   * l'elenco E' l'ordine di stampa, e il contorno deve passare per ULTIMO —
+   * i capi del tratteggio si infilano sotto di lui, e disegnato dopo li
+   * copre. Nell'elenco si vede rientrato, attaccato al suo.
+   *
+   * Le polilinee arrivano nelle coordinate del FILE del padre, che sono
+   * quelle in cui lavora l'editor: creando il livello con `nuovo(nome,
+   * padre)` si eredita la stessa mappa (box e bb del padre), e `rigenera()`
+   * la usa per posare il figlio esattamente dove il padre lo vedeva. */
+  function riempimento(padreId, polilinee, ricetta) {
+    var p = trova(padreId);
+    if (!p || !polilinee || !polilinee.length) return null;
+
+    var prima = scelto, primaSel = selezionati.slice();
+    var id = nuovo('Riempimento di ' + p.nome, padreId);
+    var l = trova(id);
+    l.padre = padreId;
+    l.ricetta = ricetta || null;
+    /* La penna la eredita dal padre, ma e' SUA: il senso del sottolivello e'
+       proprio poterla cambiare senza toccare il contorno. */
+    if (p.spessore) l.spessore = p.spessore;
+    l.forme = [{ sub: polilinee.map(function (poli) {
+      return { nodi: poli.map(function (q) { return { x: q.x, y: q.y }; }),
+               chiuso: false };
+    }) }];
+    rigenera(id);
+
+    /* Davanti al padre, dove l'ordine di stampa lo vuole. */
+    var mio = indice(id), suo = indice(padreId);
+    if (mio >= 0 && suo >= 0 && mio > suo) {
+      livelli.splice(mio, 1);
+      livelli.splice(indice(padreId), 0, l);
+    }
+
+    /* La scelta torna al padre: chi ha cliccato sta modificando QUELLO, e
+       ritrovarsi dentro al riempimento appena fatto vorrebbe dire continuare
+       a disegnare nel posto sbagliato. */
+    scelto = prima;
+    selezionati = primaSel.length ? primaSel : [padreId];
+    refit();
+    renderElenco();
+    return id;
+  }
+
+  function figliDi(id) {
+    return livelli.filter(function (l) { return l.padre === id; });
   }
 
   /* ------------------- salvataggio e ripresa del lavoro -------------------
@@ -941,6 +1027,7 @@ var Artwork = (function () {
                tratti: l.art.length,
                scelto: selezionati.indexOf(l.id) >= 0,
                principale: l.id === scelto,
+               padre: l.padre || null, ricetta: l.ricetta || null,
                modificato: !!l.origine, mostraOrigine: !!l.mostraOrigine };
     });
   }
@@ -1776,7 +1863,11 @@ var Artwork = (function () {
       var preso = selezionati.indexOf(l.id) >= 0;
       out += '<div class="liv-riga' + (preso ? ' scelto' : '') +
              (l.id === scelto && selezionati.length > 1 ? ' primario' : '') +
-             (l.visibile ? '' : ' spento') + '" data-liv="' + l.id +
+             (l.visibile ? '' : ' spento') +
+             /* Un riempimento si vede rientrato e attaccato al suo disegno:
+                sta PRIMA di lui perche' l'elenco e' l'ordine di stampa e il
+                contorno deve passare per ultimo. */
+             (l.padre ? ' figlio' : '') + '" data-liv="' + l.id +
              '" data-pos="' + i + '" data-fog="' + esc(fid) + '">' +
 
              '<span class="liv-presa" data-presa="' + l.id +
@@ -3203,6 +3294,7 @@ var Artwork = (function () {
     commutaOrigine: commutaOrigine,
     rimuovi: rimuovi, muovi: muovi, commutaVisibile: commutaVisibile,
     forme: formeScelte, rigenera: rigenera, nuovo: nuovo,
+    riempimento: riempimento, figliDi: figliDi,
     mappa: mappa, incolla: incolla,
     istantanea: istantanea, ripristina: ripristina,
     commutaCambioPenna: commutaCambioPenna,

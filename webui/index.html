@@ -499,6 +499,12 @@
               title="Ctrl+Z" disabled>Annulla</button>
       <button type="button" class="btn btn-ghost btn-small" id="ed-rifai"
               title="Ctrl+Shift+Z" disabled>Rifai</button>
+      <!-- IL RIEMPIMENTO. Acceso, il puntatore anticipa la regione sotto di
+           se' e il clic la disegna: il clic dice la cosa che la geometria
+           non puo' sapere, cioe' QUALE degli spazi chiusi si intende. -->
+      <button type="button" class="ed-str" id="ed-riempi"
+              title="Riempi uno spazio chiuso: il puntatore lo anticipa, il clic lo disegna">Riempi</button>
+
       <!-- Prendere PIU' tratti era affidato solo a Ctrl, che su un tablet
            non esiste. Adesso c'e' questo interruttore e Ctrl lo capovolge. -->
       <button type="button" class="ed-str" id="ed-somma"
@@ -537,6 +543,30 @@
       <div class="ed-tela" id="ed-tela">
         <svg id="ed-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="ed-aiuto" id="ed-aiuto"></div>
+        <!-- LA FINESTRELLA DEI PARAMETRI DEL RIEMPIMENTO. Appare quando si accende
+             «Riempi» e resta li' mentre si mira: i numeri si cambiano guardando
+             l'anteprima, che e' il motivo per cui e' una finestrella e non una
+             domanda da rispondere una volta sola.
+             Dentro ci sono anche METRI e MINUTI, scritti PRIMA del clic: un A4
+             tratteggiato a quattro decimi sono centocinquanta metri di penna, cioe'
+             piu' di un'ora. Saperlo dopo e' una brutta sorpresa, saperlo prima
+             costa niente -- ed e' anche l'argomento che mette la serpentina subito
+             dopo il tratteggio. -->
+        <div class="ed-pannello" id="ed-riempi-pannello" hidden>
+          <div class="ed-pannello-tit">Riempimento</div>
+          <label>Tipo
+            <select id="riem-tipo">
+              <option value="serpentina">Serpentina (un tratto solo)</option>
+              <option value="tratteggio">Tratteggio (righe staccate)</option>
+            </select>
+          </label>
+          <label>Passo (mm) <input type="number" id="riem-passo" value="1" min="0.05" max="20" step="0.05"></label>
+          <label>Angolo (°) <input type="number" id="riem-angolo" value="0" min="0" max="179" step="5"></label>
+          <label>Tolleranza di chiusura (mm)
+            <input type="number" id="riem-tol" value="0" min="0" max="5" step="0.1"></label>
+          <p class="hint" id="riem-nota"></p>
+          <p class="hint" id="riem-conto"></p>
+        </div>
       </div>
     </div>
 
@@ -1044,6 +1074,7 @@
 <script src="js/gcode.js"></script>
 <script src="js/sample.js"></script>
 <!-- Prima di paper.js e editor.js: sono loro a chiedergli la pinzata. -->
+
 <script src="js/tocco.js"></script>
 <script src="js/riempi.js"></script>
 <script src="js/paper.js"></script>

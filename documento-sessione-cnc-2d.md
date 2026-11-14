@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 114
-**Ultimo aggiornamento:** 2026-11-14 13:12
+**Versione:** 115
+**Ultimo aggiornamento:** 2026-11-14 15:02
 
 ## Regole di co-editing
 
@@ -972,7 +972,7 @@ quello che era.
 
 ### Step 14 — I riempimenti: riconoscere le forme chiuse e riempirle
 
-**Stato:** **in corso** — dal 2026-11-14 **il motore c'e'** (`webui/js/riempi.js`: stampino, regioni, tratteggio, serpentina, guardiano della fessura), e manca l'interfaccia che lo comanda. Aperto il 2026-11-09, cominciato il 2026-11-14 dalle parti piu' leggere: **la mira del doppio clic e' corretta** (due difetti, non uno) e **la spunta dice quando la scelta ricomincia**, prima del clic e dopo. Con queste il difetto segnalato l'11 novembre e' chiuso per intero. Restano **i riempimenti veri** e il controllo **«si vedra'»** con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
+**Stato:** **in corso** — dal 2026-11-14 **si riempie davvero**: il motore (`webui/js/riempi.js`) e la porta dell'utente (pulsante «Riempi» nella tab Editor, finestrella dei parametri col tempo, anteprima sotto il puntatore, clic che disegna, sottolivello con la ricetta). Mancano il **ricalcolo al rilascio** quando il contorno cambia, la **porta all'ingrosso** dal livello pieno, e gli altri tipi di tratteggio. Aperto il 2026-11-09, cominciato il 2026-11-14 dalle parti piu' leggere: **la mira del doppio clic e' corretta** (due difetti, non uno) e **la spunta dice quando la scelta ricomincia**, prima del clic e dopo. Con queste il difetto segnalato l'11 novembre e' chiuso per intero. Restano **i riempimenti veri** e il controllo **«si vedra'»** con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
 
 **Obiettivo:** che un livello «pieno» si possa stampare **pieno**, con un tipo di riempimento scelto, e non solo come contorno vuoto.
 
@@ -1038,6 +1038,8 @@ valore:
 - [2026-11-14] **La spunta dei livelli adesso dice quando la scelta ricomincia.** Seconda meta' di quello che l'operatore aveva segnalato l'11 novembre, e qui non c'era un difetto da correggere ma **una regola muta da far parlare**: spuntare un livello di un altro foglio fa ricominciare la scelta invece di sommarla, perche' due livelli di due fogli diversi non hanno un rettangolo in comune — vero, deciso il 2026-11-07, e resta. Si vede da due parti: **prima** del clic il quadratino di quel livello ha il filo tratteggiato e un suggerimento che lo scrive, e il segno compare **solo** quando c'e' davvero una scelta da far ricominciare (senza niente scelto non ricomincia niente); **dopo**, il registro dice quale livello, su che foglio e perche'. Due controlli e tre mutazioni (238 in tutto): il vestito che manca, il vestito su tutte le spunte, e la scelta che ricomincia in silenzio. **Non fatto, e di proposito:** allargare il bersaglio della spunta (18 x 18 px, col nome a 33 px che invece sostituisce la scelta). Il reclamo era sulla regola muta, non sulla mira del dito; se dara' fastidio si allarga, ma cambiare l'altezza delle righe con dodici livelli in elenco e' un costo che adesso non serve.
 
 - [2026-11-14] **Il motore dei riempimenti, e non tocca niente.** `webui/js/riempi.js`: dagli si dei tratti, restituisce regioni e segmenti. Non sa dell'interfaccia e non tocca lo stato — per questo al banco si prova con forme inventate a mano (un quadrato, una ciambella, un contorno con una fessura) invece che con un file, cioè sapendo esattamente che cosa deve venire fuori. **Lo stampino** disegna i tratti visibili del foglio su una tela fuori schermo a 0,1 mm/px con gli spessori veri, etichetta **tutte** le regioni in una passata (pila esplicita, non ricorsione: su un A4 una regione è mezzo milione di celle) e da lì «che regione c'è sotto il puntatore» è una **lettura**, non un calcolo — è ciò che permette l'anteprima sotto il mouse. **Il tratteggio** taglia righe parallele sulla regione, con angolo e passo; la **serpentina** le unisce ai capi **solo dove il collegamento resta dentro la regione** (unire alla cieca vuol dire attraversare il buco della ciambella con la penna giù: è il difetto che sembra un tratteggio finché non lo guardi da vicino). I **capi si infilano sotto il contorno** di 0,2 mm. **Il guardiano**: una regione che tocca il bordo del foglio non si riempie, e si dice **dove** è scappata. **Tre cose imparate costruendo:** (a) una fessura da mezzo millimetro **non** fa scappare niente — il tratto è largo 0,4 coi capi tondi, quindi ne restano aperti 0,1, un pixel che l'antialiasing chiude: il «quasi chiuso» dei file esportati si tappa gratis, e la tolleranza serve per le fessure vere; (b) un quadrato di 20 a passo 1 costa **372 mm** e non 400, perché il contorno si mangia il suo spessore e le righe sono diciannove — un controllo che pretendesse 400 non avrebbe capito la forma; (c) la scena del banco ha il buco **fuori centro** apposta: una ciambella simmetrica sta uguale anche ribaltata, e il ribaltamento della y è l'errore più facile qui dentro (sul foglio la y cresce in su, sulla tela in giù). Banco nuovo `webui/tools/prova-riempimenti.js`, 14 controlli; **sette mutazioni** (264 → 271) tutte viste. **Manca l'interfaccia:** pulsante nella tab edit, finestrella dei parametri col tempo di stampa, anteprima sotto il mouse, click che disegna, sottolivello con la ricetta e ricalcolo al rilascio.
+
+- [2026-11-14] **La porta dell'utente: si riempie col clic, e il riempimento è un sottolivello.** Fatta l'interazione che l'utente aveva disegnato il 9 novembre, pezzo per pezzo: **pulsante «Riempi»** nella barra dell'editor, **finestrella** coi parametri che resta aperta mentre si mira (tipo, passo, angolo, tolleranza di chiusura), **il puntatore che anticipa** la regione sotto di sé, **il clic che disegna**. Nella finestrella ci sono **metri, alzate e minuti prima del clic** — un A4 a quattro decimi è più di un'ora, e saperlo dopo è una brutta sorpresa — e la riga che dice che cosa vuol dire quel passo **per la penna montata**: sotto lo spessore del tratto non è un tratteggio più fine, è una macchia (è il controllo «si vedrà?» nella sua forma più utile, quella che si legge mentre si sceglie). **Il riempimento nasce come sottolivello**, con la ricetta dentro, **prima** del padre nell'elenco — l'elenco è l'ordine di stampa e il contorno deve passare per ultimo, perché i capi del tratteggio gli si infilano sotto —, eredita la penna ma la può cambiare, e **se ne va col padre**. La scelta resta sul disegno: ritrovarsi dentro al riempimento appena fatto vorrebbe dire continuare a disegnare nel posto sbagliato. **Si lavora nelle unità del file** e non in millimetri, perché sono quelle in cui vivono le forme dell'editor e in cui deve nascere il figlio: si convertono i tre numeri che l'utente scrive, non tutta la geometria. **Tre buchi del banco trovati rompendo**, e tutti e tre erano scene cieche, non codice sbagliato: (a) il disegno riempiva il foglio, quindi un figlio adattato al foglio per conto suo stava **nello stesso posto** di uno posato sulla mappa del padre — la scena adesso mette il disegno in un angolo; (b) si cliccava **oltre** l'argine, dove non c'è nessuna regione, quindi il ramo «è scappata» non veniva mai percorso — adesso si clicca dentro l'argine e fuori dalla forma, e il controllo pretende anche **che il programma lo dica**; (c) una mutazione lasciava il file sintatticamente rotto, cioè non simulava un difetto, impediva alla pagina di esistere. Il banco sale a **25 controlli**, le mutazioni a **280** (nove nuove), tutte viste.
 
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
@@ -1107,6 +1109,29 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-14 15:02] I riempimenti: il clic disegna
+
+**Riepilogo:** fatta la porta dell'utente sopra al motore della mattina — pulsante, finestrella coi parametri e col tempo, anteprima sotto il puntatore, clic che disegna — e il riempimento nasce come **sottolivello** del disegno che riempie, posato esattamente sopra di lui.
+
+**Cosa è stato fatto:**
+- **`Artwork.riempimento(padre, polilinee, ricetta)`**: crea il figlio con `nuovo(nome, padre)`, che eredita la **stessa mappa** del padre (box e bb), così `rigenera()` lo posa dove il padre lo vedeva. Poi lo sposta **prima** del padre nell'elenco, perché l'elenco è l'ordine di stampa.
+- Il padre si porta via i figli quando lo si butta, e l'occhio del padre spegne anche loro.
+- **Editor**: modalità riempimento, con l'aiuto in fondo che in quella modalità parla solo di lei — dodici gesti che in quel momento non fanno niente, descritti come se funzionassero, sono peggio di nessun aiuto.
+- La finestrella dice **metri, alzate e minuti** prima del clic, e che cosa vuol dire il passo scelto per la penna montata.
+- Banco a **25 controlli**, mutazioni a **280**.
+
+**Decisioni prese:**
+- Contesto: il riempimento deve stare *sopra* al disegno che riempie, e un livello nuovo normalmente si adatta al foglio per conto suo.
+- Decisione: **il figlio eredita la mappa del padre**, riusando la strada già provata di `nuovo(nome, modello)` invece di calcolare una collocazione a parte.
+- Alternative scartate: mettere i tratti del riempimento **dentro** al livello del disegno — più semplice, ma perde la penna propria, lo spegni-e-accendi separato e la ricetta.
+- Da rivedere se: servirà che un riempimento sopravviva al padre. Oggi non serve, ed è anzi la cosa che si vuole evitare.
+
+**File consegnati/modificati:** `webui/js/riempi.js`, `webui/js/artwork.js`, `webui/js/editor.js`, `webui/index.html`, `webui/css/components.css`, `webui/tools/prova-riempimenti.js`, `webui/tools/rompi.py`, `documento-sessione-cnc-2d.md`.
+
+**Impatto su Vision/Pipeline:** Step 14 — lo stato passa a «si riempie davvero»; restano il ricalcolo al rilascio, la porta all'ingrosso e gli altri tipi di tratteggio.
+
+---
 
 ### [2026-11-14 10:52] La pinzata: il piano e la tela si guardano col dito
 
