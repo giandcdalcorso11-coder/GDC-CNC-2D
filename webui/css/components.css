@@ -2489,3 +2489,37 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
   color: var(--text-mute);
 }
 .pop-profilo.di-fabbrica { color: var(--warn); }
+
+/* ===================== QUANDO IL PUNTATORE È UN DITO =====================
+   `pointer: coarse` vuol dire che chi comanda questa pagina non ha una punta
+   precisa: e' un dito. Non e' «schermo piccolo» -- un iPad da tredici pollici
+   e' larghissimo e resta un dito -- quindi la domanda giusta non e' la
+   larghezza della finestra ma la precisione del puntatore.
+
+   I quadratini dei livelli sono 18 × 18 px, che per un mouse sono comodi e
+   per un dito sono una scommessa: il polpastrello copre una zona di circa
+   quaranta pixel e il bersaglio vero e' il suo centro, che chi tocca non
+   vede. Qui diventano 40, senza cambiare il disegno dei segni: cresce la
+   zona che risponde, non l'icona. Quaranta e non quarantaquattro (la misura
+   consigliata da Apple) perche' su una riga ce ne stanno quattro accanto al
+   nome, e a quarantaquattro il nome sparirebbe: e' il compromesso, ed e'
+   scritto qui perche' si sappia che e' un compromesso. */
+@media (pointer: coarse) {
+  .liv-ic {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .liv-ic svg { width: 18px; height: 18px; }
+  .fascia-x { min-width: 40px; min-height: 40px; font-size: 22px; }
+
+  /* Il passaggio del dito non esiste: quello che si vedeva solo col mouse
+     sopra, col dito non si vede mai. Qui l'effetto resta solo come risposta
+     al tocco (`:active`), cosi' premere si sente, e nessuna INFORMAZIONE
+     viene affidata al passaggio. */
+  .liv-ic:hover:not(:disabled) { color: var(--text-dim); background: none; }
+  .liv-ic:active:not(:disabled) { color: var(--text); background: var(--bg-raised); }
+}

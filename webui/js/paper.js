@@ -877,6 +877,20 @@ var Paper = (function () {
       applicaVista();
     }, { passive: false });
 
+    /* LA PINZATA, per chi la rotella non ce l'ha. Stessi due limiti dello
+       zoom qui sopra, presi dalle stesse funzioni: se un giorno cambiano,
+       cambiano per tutt'e due i gesti. Il verso della y non compare perche'
+       viaggia dentro `toSvg`. */
+    if (window.Tocco) {
+      Tocco.pizzica(svg, {
+        leggi: finestraCorrente,
+        scrivi: function (f) { finestra = f; applicaVista(); },
+        dove: function (cx, cy) { return toSvg({ clientX: cx, clientY: cy }); },
+        minimo: function () { return 20; },
+        massimo: function () { return vista().w * 4; }
+      });
+    }
+
     /* IL DOPPIO CLIC HA TRE SIGNIFICATI, e si scelgono in quest'ordine.
        Sul disegno apre il riquadro di selezione: è il gesto con cui si entra
        in modifica, e deve vincere su tutto perché il disegno sta sopra al
@@ -984,6 +998,15 @@ var Paper = (function () {
 
     svg.addEventListener('pointermove', function (e) {
       if (!pan) return;
+      /* DUE DITA NON SONO UNO SPOSTAMENTO. Il primo dito fa partire lo
+         sguardo; quando ne arriva un secondo il gesto e' diventato una
+         pinzata, e continuare a spostare vorrebbe dire fare due cose insieme
+         -- il disegno si ingrandirebbe E scivolerebbe via. */
+      if (window.Tocco && Tocco.dita(svg) > 1) {
+        pan = null;
+        svg.classList.remove('is-panning');
+        return;
+      }
       finestra = {
         x0: pan.x0 - (e.clientX - pan.x) * pan.sx,
         y0: pan.y0 - (e.clientY - pan.y) * pan.sy,
@@ -1133,6 +1156,10 @@ var Paper = (function () {
 
     layerSheet.addEventListener('pointermove', function (e) {
       if (!grab) return;
+      /* Due dita: si sta pinzando, non trascinando. Il foglio resta dov'e'
+         -- se no si ingrandirebbe e si sposterebbe insieme, e nessuno dei
+         due gesti verrebbe come si voleva. */
+      if (window.Tocco && Tocco.dita(svg) > 1) return;
       var f = Fogli.trova(grab.id);
       if (!f) { grab = null; return; }
       var m = toMm(e);

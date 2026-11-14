@@ -2258,6 +2258,92 @@ MUTAZIONI = [
         vede="ha un profilo suo",
         prova="prova-profilo.js",
     ),
+
+    # ---- I GESTI CON LE DITA (2026-11-14) ----
+    # Qui il difetto tipico non e' «non funziona»: e' «funziona male di
+    # poco», cioe' il disegno che scappa di qualche pixel mentre lo si
+    # guarda. Per questo meta' di queste mutazioni spostano un conto invece
+    # di toglierlo.
+    dict(
+        nome="il piano non si pinza",
+        file="js/paper.js",
+        da="    if (window.Tocco) {\n      Tocco.pizzica(svg, {",
+        a="    if (false) {\n      Tocco.pizzica(svg, {",
+        vede="due dita che si allargano",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la pinzata si fonda al primo movimento, non al secondo dito",
+        file="js/tocco.js",
+        da="      if (quante(r.giu) === 2) fonda();",
+        a="",
+        vede="riportano il disegno dov",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="si ingrandisce dall'angolo invece che fra le dita",
+        file="js/tocco.js",
+        da="        x0: base.ancora.x - (base.ancora.x - base.v.x0) * f -\n            (m.x - base.m.x) * base.kx * f,",
+        a="        x0: base.v.x0,",
+        vede="fra le due dita resta",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la pinzata ingrandisce ma non segue le dita che si spostano",
+        file="js/tocco.js",
+        da="            (m.x - base.m.x) * base.kx * f,",
+        a="            0,",
+        vede="segue le dita anche quando",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="il verso della y dato per scontato invece che misurato",
+        file="js/tocco.js",
+        da="      var q1 = c.dove(m.x + 100, m.y + 100);",
+        a="      var q1 = c.dove(m.x + 100, m.y - 100);",
+        vede="segue le dita anche quando",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="lo sguardo non si fa da parte quando arriva il secondo dito",
+        file="js/paper.js",
+        da="      if (window.Tocco && Tocco.dita(svg) > 1) {\n        pan = null;",
+        a="      if (false) {\n        pan = null;",
+        vede="fra le due dita resta",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="il foglio si trascina mentre si pinza",
+        file="js/paper.js",
+        da="      if (window.Tocco && Tocco.dita(svg) > 1) return;\n      var f = Fogli.trova(grab.id);",
+        a="      var f = Fogli.trova(grab.id);",
+        vede="il foglio non si sposta",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la pinzata non ha i limiti della rotella",
+        file="js/paper.js",
+        da="        minimo: function () { return 20; },",
+        a="        minimo: function () { return 0; },",
+        vede="sotto i 20 mm",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="col dito i bersagli dei livelli restano da mouse",
+        file="css/components.css",
+        da="    min-width: 40px;\n    min-height: 40px;\n    padding: 0;",
+        a="    min-width: 18px;\n    min-height: 18px;\n    padding: 0;",
+        vede="grande almeno 40 px",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la tela dell'editor non si pinza",
+        file="js/editor.js",
+        da="    if (window.Tocco) {\n      Tocco.pizzica(svg, {",
+        a="    if (false) {\n      Tocco.pizzica(svg, {",
+        vede="la tela dell'editor si pinza",
+        prova="prova-tocco.js",
+    ),
 ]
 
 

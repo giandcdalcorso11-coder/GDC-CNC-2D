@@ -888,6 +888,12 @@ var Editor = (function () {
 
   function muovi(e) {
     if (!presa) return;
+    /* DUE DITA SULLA TELA SONO UNA PINZATA, non un trascinamento: quello che
+       si stava muovendo resta fermo dov'era finche' le dita non tornano una.
+       Il gesto in corso non si chiude da se' -- chiuderlo qui vorrebbe dire
+       posare un nodo nel punto in cui il secondo dito si e' appoggiato, cioe'
+       modificare il disegno per sbaglio. */
+    if (window.Tocco && Tocco.dita(svg) > 1) return;
     if (Math.abs(e.clientX - ultimoGiu.x) > 2 || Math.abs(e.clientY - ultimoGiu.y) > 2) {
       presa.mosso = true;
     }
@@ -2585,6 +2591,22 @@ var Editor = (function () {
                 w: vista.w * f, h: vista.h * f };
       applica();
     }, { passive: false });
+
+    /* LA PINZATA. La tela si ingrandisce con la rotella, e su un tablet la
+       rotella non c'e': senza questo gesto, da un iPad l'editor si guarda da
+       dove capita. Stesso modulo del piano, cosi' l'aritmetica
+       dell'ancoraggio sta in un posto solo.
+       I limiti qui sono piu' larghi che sul piano, perche' la tela non e' un
+       foglio: ci si lavora anche su un nodo solo. */
+    if (window.Tocco) {
+      Tocco.pizzica(svg, {
+        leggi: function () { if (!vista) adatta(); return vista; },
+        scrivi: function (f) { vista = f; applica(); },
+        dove: function (cx, cy) { return punto({ clientX: cx, clientY: cy }); },
+        minimo: function () { return 0.5; },
+        massimo: function () { return 10000; }
+      });
+    }
 
     document.addEventListener('keydown', function (e) {
       if (!document.getElementById('tab-editor').classList.contains('is-active')) return;
