@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 107
-**Ultimo aggiornamento:** 2026-11-14 07:38
+**Versione:** 108
+**Ultimo aggiornamento:** 2026-11-14 07:47
 
 ## Regole di co-editing
 
@@ -951,7 +951,7 @@ quello che era.
 
 ### Step 14 — I riempimenti: riconoscere le forme chiuse e riempirle
 
-**Stato:** **in corso** — aperto il 2026-11-09, cominciato il 2026-11-14 dalla parte piu' leggera: **la mira del doppio clic e' corretta** (i due difetti della nota del 2026-11-11, vedi la cronologia qui sotto). Restano i riempimenti veri, la spunta che non dice quando cambia foglio, e il controllo «si vedra'» con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
+**Stato:** **in corso** — aperto il 2026-11-09, cominciato il 2026-11-14 dalle parti piu' leggere: **la mira del doppio clic e' corretta** (due difetti, non uno) e **la spunta dice quando la scelta ricomincia**, prima del clic e dopo. Con queste il difetto segnalato l'11 novembre e' chiuso per intero. Restano **i riempimenti veri** e il controllo **«si vedra'»** con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
 
 **Obiettivo:** che un livello «pieno» si possa stampare **pieno**, con un tipo di riempimento scelto, e non solo come contorno vuoto.
 
@@ -1014,6 +1014,8 @@ valore:
 
 - [2026-11-14] **La mira del doppio clic: corretti DUE difetti, non uno.** Era il punto piu' leggero dei quattro, e sotto il sintomo «ogni tanto non prendo la forma» c'erano due cose indipendenti che si sommavano. **(1) La mira guardava nel foglio sbagliato** — `quale()` adesso prende millimetri del PIANO e sottrae l'angolo di ciascun livello, invece di ricevere un punto già misurato dall'angolo del foglio in uso. **(2) Su un foglio libero il doppio clic non arrivava affatto:** il primo clic rende quel foglio quello in uso, i fogli si ridisegnano, il rettangolo premuto non esiste più quando arriva il secondo e il browser il `dblclick` non lo manda — la stessa ragione per cui esiste `Nome.doppio`, e la stessa cura: i due clic si contano a mano, con un guardiano perché il gesto non venga servito due volte e giri al livello di sotto. Era questa la metà che si sentiva ogni giorno, perché un foglio è libero per tutta la composizione: cliccando esattamente su un tratto il bersaglio è il tracciato e il gesto passava, cliccando nel bianco dentro al disegno il bersaglio era il foglio e non passava. **Tolto anche un `preventDefault()`** che spegneva gli eventi del mouse, ma da solo non bastava — provato. Tre scene nuove in `prova-piano.js` e tre mutazioni in `rompi.py` (235 in tutto).
 
+- [2026-11-14] **La spunta dei livelli adesso dice quando la scelta ricomincia.** Seconda meta' di quello che l'operatore aveva segnalato l'11 novembre, e qui non c'era un difetto da correggere ma **una regola muta da far parlare**: spuntare un livello di un altro foglio fa ricominciare la scelta invece di sommarla, perche' due livelli di due fogli diversi non hanno un rettangolo in comune — vero, deciso il 2026-11-07, e resta. Si vede da due parti: **prima** del clic il quadratino di quel livello ha il filo tratteggiato e un suggerimento che lo scrive, e il segno compare **solo** quando c'e' davvero una scelta da far ricominciare (senza niente scelto non ricomincia niente); **dopo**, il registro dice quale livello, su che foglio e perche'. Due controlli e tre mutazioni (238 in tutto): il vestito che manca, il vestito su tutte le spunte, e la scelta che ricomincia in silenzio. **Non fatto, e di proposito:** allargare il bersaglio della spunta (18 x 18 px, col nome a 33 px che invece sostituisce la scelta). Il reclamo era sulla regola muta, non sulla mira del dito; se dara' fastidio si allarga, ma cambiare l'altezza delle righe con dodici livelli in elenco e' un costo che adesso non serve.
+
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
 **Stato:** da fare — **da cominciare quando gli altri lavori sono chiusi**, per decisione dell'utente il 2026-11-09. Si segna adesso perché è il tipo di lavoro che non si ricorda da sé, e perché farlo prima della fine vorrebbe dire buttare via roba che serve ancora.
@@ -1066,7 +1068,7 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 ## Storico sessioni
 
-### [2026-11-14 07:38] (software) Il doppio clic che non prendeva la forma: due difetti, e due mutazioni che guardavano la cosa sbagliata
+### [2026-11-14 07:47] (software) Il doppio clic che non prendeva la forma, e la spunta che non diceva niente
 
 **Riepilogo:** cominciato lo Step 14 dal punto più leggero, la mira del doppio clic, e sotto il sintomo c'erano **due difetti indipendenti**: la mira nel sistema di riferimento sbagliato (quello già diagnosticato l'11) e — nuovo, trovato scrivendo il banco — il `dblclick` che su un foglio libero **non arriva affatto**, perché il primo clic ridisegna i fogli. Tre scene nuove, tre mutazioni, e due di quelle mutazioni hanno accusato i miei controlli prima di accusare il codice.
 
@@ -1089,9 +1091,13 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - **Il primo clic di un doppio clic cambia lo stato, e può riparare il difetto che si vuole misurare.** La prima scena mirava un disegno su un foglio *libero*: il primo clic lo rendeva quello in uso, quindi al momento della mira il foglio in uso **era** quello del disegno, i due sistemi di riferimento tornavano a coincidere e il difetto non si manifestava. La mutazione 233 è passata inosservata per questo. La scena giusta vuole il foglio del disegno **misurato**, cioè fermo: così il clic non lo rende quello in uso e i due sistemi restano diversi.
 - **Una mutazione va puntata sul controllo che PUÒ vederla**, e due su tre non lo erano: quella sul conteggio a mano guardava la scena del foglio misurato, dove il `dblclick` vero arriva comunque; quella sul guardiano guardava una scena con un disegno solo, dove girare «al livello di sotto» torna sullo stesso livello. Entrambe dicevano «non vista» accusando il controllo, ed entrambe avevano ragione.
 
-**File consegnati/modificati:** `webui/js/artwork.js`, `webui/js/paper.js`, `webui/tools/prova-piano.js` (sezione H, tre scene), `webui/tools/rompi.py` (tre mutazioni, 235 in tutto), `documento-sessione-cnc-2d.md`.
+**E poi la seconda metà dello stesso reclamo: la spunta che parla.** Qui non c'era un difetto ma una **regola muta**, e la differenza è tutta nel rimedio: la regola non si cambia — spuntare un livello di un altro foglio fa ricominciare la scelta, perché un riquadro solo non può circondare disegni di due fogli — ma adesso si vede. **Prima** del clic: il quadratino di quel livello ha il filo tratteggiato e un suggerimento che lo dice, e il segno c'è **solo** se una scelta da far ricominciare esiste davvero. **Dopo**: il registro scrive quale livello, su che foglio e perché. Tre mutazioni, viste tutte al primo giro.
 
-**Impatto su Vision/Pipeline:** Step 14 da «da fare» a **in corso**: fatto il punto b (la mira), restano i riempimenti, la spunta e il controllo «si vedrà».
+**Una cosa lasciata fuori di proposito:** allargare il bersaglio della spunta (18 × 18 px, col nome a 33 px che invece *sostituisce* la scelta). Il reclamo era sulla regola muta, non sulla mira del dito, e allargare quelle icone cambia l'altezza di ogni riga — con dodici livelli in elenco è un costo che adesso non compra niente.
+
+**File consegnati/modificati:** `webui/js/artwork.js`, `webui/js/paper.js`, `webui/css/components.css`, `webui/tools/prova-piano.js` (sezioni H e I, cinque scene nuove), `webui/tools/rompi.py` (sei mutazioni, 238 in tutto), `documento-sessione-cnc-2d.md`.
+
+**Impatto su Vision/Pipeline:** Step 14 da «da fare» a **in corso**: fatti il punto b (la mira) e il punto c (la spunta che parla), restano i riempimenti e il controllo «si vedrà».
 
 ---
 
