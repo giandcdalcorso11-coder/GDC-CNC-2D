@@ -268,6 +268,88 @@ function rett(x, y, w, h, fessura) {
      r.zero === 0 && r.no === 90 && r.q === 45,
      r.zero + '°, ' + r.no + '°, ' + r.q + '°');
 
+  /* ============ H2. GLI ALTRI TIPI DI TRATTEGGIO ============
+     Sei tipi, e ognuno e' una resa diversa a parita' di forma. Quello che si
+     controlla qui e' che ognuno faccia la cosa che SOLO lui fa -- se no sono
+     sei nomi per la stessa riga -- e che nessuno entri nel buco. */
+  r = await page.evaluate((d) => {
+    const st = Riempi.stampino(d);
+    const reg = Riempi.regioneIn(st, { x: 15, y: 45 });
+    const buco = (t) => {
+      let dentro = 0;
+      t.polilinee.forEach((poli) => {
+        for (let i = 1; i < poli.length; i++) {
+          for (let k = 0; k <= 30; k++) {
+            const x = poli[i - 1].x + (poli[i].x - poli[i - 1].x) * k / 30;
+            const y = poli[i - 1].y + (poli[i].y - poli[i - 1].y) * k / 30;
+            if (x > 26 && x < 34 && y > 16 && y < 24) dentro++;
+          }
+        }
+      });
+      return dentro;
+    };
+    const fa = (tipo) => {
+      const t = Riempi.tratteggia(st, reg, { tipo, passo: 2, angolo: 0 });
+      const p0 = t.polilinee[0] || [];
+      const capo = p0.length ? p0[0] : null, coda = p0.length ? p0[p0.length - 1] : null;
+      return { metri: t.metri * 1000, alzate: t.alzate, buco: buco(t),
+               pezzi: t.polilinee.length,
+               nodi: p0.length,
+               chiuso: !!capo && Math.hypot(capo.x - coda.x, capo.y - coda.y) < 0.5 };
+    };
+    /* Quanti capi di punto finiscono FUORI dalla regione: un punto a cavallo
+       del bordo e` una sbavatura che sulla carta si vede, e che
+       l'anteprima a schermo non fa notare perche` e` grande due decimi. */
+    const sbavature = (function () {
+      const t = Riempi.tratteggia(st, reg, { tipo: 'punti', passo: 2, angolo: 0 });
+      let fuori = 0;
+      t.polilinee.forEach((p) => p.forEach((q) => {
+        if (Riempi.regioneIn(st, q) !== reg) fuori++;
+      }));
+      return fuori;
+    })();
+    return { dritto: fa('tratteggio'), serp: fa('serpentina'),
+             croce: fa('incrociato'), conc: fa('concentrico'),
+             spir: fa('spirale'), punti: fa('punti'), sbavature: sbavature };
+  }, CIAMBELLA);
+
+  /* L'incrociato e' DUE passate: la penna fa circa il doppio di strada. E`
+     il modo giusto di scurire -- dimezzare il passo costerebbe uguale ma
+     rischierebbe la macchia. */
+  ok('l\'incrociato fa due passate, non una piu` fitta',
+     r.croce.metri > r.dritto.metri * 1.7 && r.croce.metri < r.dritto.metri * 2.3,
+     r.croce.metri.toFixed(0) + ' mm contro ' + r.dritto.metri.toFixed(0));
+  /* I concentrici seguono la forma: su un anello sono anelli, cioe' pochi
+     pezzi lunghi invece di tante righe corte. */
+  /* Un anello e' CHIUSO e ha pochi nodi: su una forma squadrata ne bastano
+     otto. Un controllo che ne pretendesse tanti starebbe misurando il
+     rumore dello stampino, non la forma -- e si accenderebbe il giorno in
+     cui i nodi allineati si tolgono, che e' un miglioramento. */
+  ok('i concentrici fanno pochi anelli CHIUSI invece di tante righe',
+     r.conc.pezzi > 0 && r.conc.pezzi < r.dritto.pezzi / 2 &&
+     r.conc.chiuso && r.conc.nodi >= 4 && r.conc.nodi < 40,
+     r.conc.pezzi + ' anelli da ' + r.conc.nodi + ' nodi, contro ' +
+     r.dritto.pezzi + ' righe');
+  /* La spirale e' quegli stessi anelli uniti: meno alzate, stessa strada. */
+  ok('la spirale e` gli stessi anelli, con meno alzate',
+     r.spir.alzate < r.conc.alzate &&
+     Math.abs(r.spir.metri - r.conc.metri) < r.conc.metri * 0.35,
+     r.conc.alzate + ' alzate -> ' + r.spir.alzate);
+  /* I punti sono trattini corti: un punto di lunghezza zero il G-code lo
+     scrive e la macchina non lo esegue. */
+  ok('i punti sono trattini corti, uno per alzata',
+     r.punti.alzate > 20 && r.punti.nodi === 2 &&
+     r.punti.metri / r.punti.alzate < 1,
+     r.punti.alzate + ' punti da ' +
+     (r.punti.metri / Math.max(1, r.punti.alzate)).toFixed(2) + ' mm');
+  ok('e nessun punto sbava fuori dalla forma', r.sbavature === 0,
+     r.sbavature + ' capi di punto fuori');
+  ok('e nessuno dei sei entra nel buco della ciambella',
+     r.dritto.buco + r.serp.buco + r.croce.buco + r.conc.buco +
+     r.spir.buco + r.punti.buco === 0,
+     [r.dritto, r.serp, r.croce, r.conc, r.spir, r.punti]
+       .map((x) => x.buco).join(' '));
+
   /* ============ I. LA PORTA DELL'UTENTE: MIRA E CLIC ============
      Il motore qui sopra non sa niente dell'interfaccia. Questa parte prova
      il gesto che l'utente ha disegnato: pulsante, finestrella, il puntatore
@@ -529,6 +611,78 @@ function rett(x, y, w, h, fessura) {
   });
   ok('e con un riempimento da rifare la stampa non parte',
      !r.aperto && /da rifare/.test(r.detto), r.detto.slice(0, 70));
+
+  /* ============ N. LA PORTA ALL'INGROSSO ============
+     Un logo importato con quaranta forme piene sarebbero quaranta clic. Qui
+     si riempie tutto il livello in un colpo, e a dire che cosa e' dentro e
+     che cosa e' un buco non c'e' nessun clic: c'e' la regola pari-dispari. */
+  const CIAMBELLA_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="50mm" height="50mm" viewBox="0 0 50 50">
+<path fill="none" stroke="#1d1d1b" d="M5 5 L45 5 L45 45 L5 45 Z"/>
+<path fill="none" stroke="#1d1d1b" d="M20 20 L30 20 L30 30 L20 30 Z"/></svg>`;
+
+  await page.reload();
+  await page.waitForTimeout(400);
+  await page.evaluate((svg) => {
+    Artwork.load(svg, 'ciambella.svg');
+    Artwork.collocaA({ x: 20, y: 20, w: 50, h: 50 });
+    document.querySelector('.tab[data-tab="editor"]').click();
+  }, CIAMBELLA_SVG);
+  await page.waitForTimeout(500);
+  r = await page.evaluate(() => {
+    document.getElementById('ed-riempi').click();
+    document.getElementById('riem-passo').value = '1';
+    document.getElementById('riem-tutto').click();
+    const l = Artwork.livelli();
+    const f = l.filter((x) => x.padre)[0];
+    /* I tratti del figlio in millimetri del foglio: e` li` che si guarda se
+       il buco e` rimasto vuoto, perche` e` li` che la penna andra`. */
+    const miei = [];
+    State.data.art.forEach((poli, i) => {
+      if (f && State.data.artDi[i] === f.id) miei.push(poli);
+    });
+    let nelBuco = 0;
+    miei.forEach((poli) => {
+      for (let i = 1; i < poli.length; i++) {
+        for (let k = 0; k <= 20; k++) {
+          const x = poli[i - 1].x + (poli[i].x - poli[i - 1].x) * k / 20;
+          const y = poli[i - 1].y + (poli[i].y - poli[i - 1].y) * k / 20;
+          if (x > 40 && x < 50 && y > 40 && y < 50) nelBuco++;
+        }
+      }
+    });
+    return { livelli: l.length, figli: l.filter((x) => x.padre).length,
+             tratti: f ? f.tratti : 0, tutto: f ? !!f.ricetta.tutto : false,
+             nelBuco: nelBuco, quanti: miei.length };
+  });
+  ok('«Riempi tutto il livello» riempie in un colpo',
+     r.figli === 1 && r.tratti > 10,
+     r.tratti + ' tratti in ' + r.figli + ' sottolivello');
+  /* IL BUCO RESTA VUOTO. E` tutta la differenza fra la regola pari-dispari e
+     «riempi tutto quello che e` chiuso»: senza, una ciambella esce come un
+     disco. */
+  ok('e il buco della ciambella resta vuoto', r.nelBuco === 0,
+     r.nelBuco + ' punti dentro al buco');
+  ok('e la ricetta si ricorda che era all\'ingrosso', r.tutto);
+
+  /* E SI RIFA` ALL'INGROSSO: cambiando il contorno, quali spazi siano
+     «dentro» va RIDECISO, non ricordato. */
+  await page.evaluate(() => Editor.scegliForma(0));
+  const nodoC = await suTela({ x: 45, y: 5 });
+  const finC = await suTela({ x: 49, y: 5 });
+  await page.mouse.move(nodoC.x, nodoC.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) {
+    await page.mouse.move(nodoC.x + (finC.x - nodoC.x) * i / 6, nodoC.y);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+  r = await page.evaluate(() => {
+    const f = Artwork.livelli().filter((x) => x.padre)[0];
+    return { c: !!f, segnato: f ? f.daRifare : true, tratti: f ? f.tratti : 0 };
+  });
+  ok('il riempimento all\'ingrosso si rifa` come all\'ingrosso',
+     r.c && r.segnato === false && r.tratti > 10,
+     r.tratti + ' tratti, segnato ' + r.segnato);
 
   /* BUTTANDO IL DISEGNO SE NE VA ANCHE IL RIEMPIMENTO: un tratteggio senza
      il suo contorno e' una macchia a mezz'aria sul foglio. */

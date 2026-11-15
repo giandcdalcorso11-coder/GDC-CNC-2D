@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 117
-**Ultimo aggiornamento:** 2026-11-14 22:52
+**Versione:** 118
+**Ultimo aggiornamento:** 2026-11-15 08:07
 
 ## Regole di co-editing
 
@@ -972,7 +972,7 @@ quello che era.
 
 ### Step 14 — I riempimenti: riconoscere le forme chiuse e riempirle
 
-**Stato:** **in corso** — dal 2026-11-14 **si riempie davvero**: il motore (`webui/js/riempi.js`) e la porta dell'utente (pulsante «Riempi» nella tab Editor, finestrella dei parametri col tempo, anteprima sotto il puntatore, clic che disegna, sottolivello con la ricetta). Dal pomeriggio il riempimento **segue il contorno**: si rigenera al rilascio del gesto. Mancano la **porta all'ingrosso** dal livello pieno e gli altri tipi di tratteggio (incrociato, concentrico, spirale, punti). Aperto il 2026-11-09, cominciato il 2026-11-14 dalle parti piu' leggere: **la mira del doppio clic e' corretta** (due difetti, non uno) e **la spunta dice quando la scelta ricomincia**, prima del clic e dopo. Con queste il difetto segnalato l'11 novembre e' chiuso per intero. Restano **i riempimenti veri** e il controllo **«si vedra'»** con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
+**Stato:** **in corso** — dal 2026-11-14 **si riempie davvero**: il motore (`webui/js/riempi.js`) e la porta dell'utente (pulsante «Riempi» nella tab Editor, finestrella dei parametri col tempo, anteprima sotto il puntatore, clic che disegna, sottolivello con la ricetta). Dal 2026-11-15 ci sono **tutti e sei i tipi** (tratteggio, serpentina, incrociato, concentrici, spirale, punti) e la **porta all'ingrosso** («Riempi tutto il livello»). **Manca solo la prova sulla carta**, che aspetta la macchina. Aperto il 2026-11-09, cominciato il 2026-11-14 dalle parti piu' leggere: **la mira del doppio clic e' corretta** (due difetti, non uno) e **la spunta dice quando la scelta ricomincia**, prima del clic e dopo. Con queste il difetto segnalato l'11 novembre e' chiuso per intero. Restano **i riempimenti veri** e il controllo **«si vedra'»** con la soglia 1,8x. Aperto il 2026-11-09 su richiesta dell'utente. **Non è un'idea nuova:** sta in `webui/README.md` sotto «Cosa manca» da quando quel file esiste («Riempimento a tratteggio delle forme piene»), ed è il seguito dichiarato della decisione scritta lì accanto — «**Le forme piene diventano contorni.** Una penna non riempie. Il riempimento a tratteggio si potrà aggiungere più avanti». È la prima volta che entra nella Pipeline.
 
 **Obiettivo:** che un livello «pieno» si possa stampare **pieno**, con un tipo di riempimento scelto, e non solo come contorno vuoto.
 
@@ -1043,6 +1043,8 @@ valore:
 
 - [2026-11-14] **Il ricalcolo al rilascio, e i cinque pulsanti che diventano segni.** Vedi la seconda parte della voce di storico di questa giornata. In breve: il riempimento si rigenera dalla ricetta quando il gesto finisce, resta segnato «da rifare» se il contorno nel frattempo si è aperto, e un riempimento da rifare **blocca la stampa**; lo stampino non prende più i riempimenti per muri; annulla, rifai, taglia, copia e incolla sono diventati icone da 40 px con la scorciatoia nel titolo, perché esistevano già ma dall'iPad non si trovavano.
 
+- [2026-11-15] **Gli altri cinque tipi, e la porta all'ingrosso.** **I tipi.** `incrociato` sono due passate a novanta gradi — è il modo giusto di scurire: dimezzare il passo costerebbe uguale ma rischierebbe la macchia, incrociare raddoppia soltanto. `concentrico` segue la forma invece di tagliarla, e non si ricava dai poligoni ma dalla **mappa delle distanze** dal bordo della regione: l'anello k è la linea di livello a (k + ½) passi — mezzo passo sul primo, perché la penna copre mezzo tratto per parte e a un passo intero resterebbe una riga bianca lungo il contorno. La linea di livello si estrae con le **marching squares**, che interpolano dentro alla cella: senza, gli anelli verrebbero a scalini di un decimo di millimetro, e lì sopra non c'è nessun contorno a coprirli. `spirale` sono quegli stessi anelli uniti dall'esterno all'interno dove il collegamento resta dentro: su una forma convessa diventa **un tratto solo**, su una a ferro di cavallo resta un concentrico — e quello è il comportamento giusto, non una rinuncia. `punti` sono trattini lunghi quanto il tratto della penna, perché un segmento di lunghezza zero il G-code lo scrive e la macchina non lo esegue: sarebbe un riempimento che sullo schermo c'è e sulla carta no. **La porta all'ingrosso.** «Riempi tutto il livello» nella finestrella: a dire che cosa è dentro e che cosa è un buco non c'è nessun clic, c'è la **regola pari-dispari** applicata ai pixel (`regioniPiene`) — la stessa di `fill-rule: evenodd`, ed è il motivo per cui la ciambella esce giusta. Usa **solo i tratti del suo livello**: con l'inchiostro di un altro in mezzo, pari-dispari conterebbe tratti che non sono di quel contorno e direbbe «buco» dove c'è pieno. Esce **un** sottolivello solo, e rifacendolo la scelta delle regioni si **ridecide**, non si ricorda. **Due cose imparate:** (a) cambiare il tipo predefinito del motore da «tratteggio» a «serpentina» ha rotto tre controlli in silenzio — un valore di partenza che cambia il comportamento di chi non l'ha chiesto è il modo più silenzioso di rompere qualcosa, ed è tornato «tratteggio»; (b) un anello teneva **754 nodi** di cui l'ottanta per cento allineati: con Douglas-Peucker a mezzo pixel sono **otto**, stessa resa e stessi metri. Il controllo che pretendeva «più di venti nodi» misurava il **rumore** dello stampino, non la forma, e si sarebbe acceso proprio il giorno del miglioramento. **Dove ho deviato dal disegno:** il pulsante all'ingrosso sta nella finestrella e non sulla riga del livello, perché lì ci sono già i parametri che gli servono; spostarlo sulla riga è mezz'ora, se l'utente lo preferisce lì. Banco a 41 controlli, mutazioni a **293** (cinque nuove), tutte viste.
+
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
 **Stato:** da fare — **da cominciare quando gli altri lavori sono chiusi**, per decisione dell'utente il 2026-11-09. Si segna adesso perché è il tipo di lavoro che non si ricorda da sé, e perché farlo prima della fine vorrebbe dire buttare via roba che serve ancora.
@@ -1111,6 +1113,24 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-15 08:07] Tutti i tipi di riempimento, e il riempimento all'ingrosso
+
+**Riepilogo:** chiusi gli ultimi due pezzi dello Step 14 — i cinque tipi di tratteggio che mancavano (incrociato, concentrici, spirale, punti, oltre ai due che c'erano) e il «Riempi tutto il livello» con la regola pari-dispari a distinguere i pieni dai buchi.
+
+**Cosa è stato fatto:** vedi la nota del 2026-11-15 nello Step 14, che tiene il dettaglio. In breve: mappa delle distanze + marching squares per gli anelli, Douglas-Peucker per non portarsi dietro ottocento nodi allineati, pari-dispari sui pixel per la porta all'ingrosso, e il ricalcolo al rilascio che per un riempimento all'ingrosso **ridecide** quali spazi sono dentro invece di ricordarlo.
+
+**Decisioni prese:**
+- Contesto: il pulsante all'ingrosso, nel disegno del 9 novembre, stava «nell'elenco dei livelli».
+- Decisione: sta nella **finestrella del riempimento**, dove ci sono già tipo, passo, angolo e tolleranza che gli servono.
+- Alternative scartate: un pulsante sulla riga del livello — vorrebbe dire una seconda finestrella dei parametri, o un riempimento fatto con numeri che l'utente non vede.
+- Da rivedere se: l'utente lo cerca sulla riga. Spostarlo è mezz'ora.
+
+**File consegnati/modificati:** `webui/js/riempi.js`, `webui/js/editor.js`, `webui/index.html`, `webui/tools/prova-riempimenti.js`, `webui/tools/rompi.py`, `documento-sessione-cnc-2d.md`.
+
+**Impatto su Vision/Pipeline:** Step 14 — resta solo la **prova sulla carta**, che aspetta la macchina.
+
+---
 
 ### [2026-11-14 15:02] I riempimenti: il clic disegna
 

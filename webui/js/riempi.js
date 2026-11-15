@@ -111,11 +111,13 @@ var Riempi = (function () {
 
     var nreg = 0;
     var tocca = [false];          // per etichetta: tocca il bordo del foglio?
+    var campione = [-1];          // per etichetta: una sua cella, per pari-dispari
     var pila = new Int32Array(W * H);
     for (var s = 0; s < W * H; s++) {
       if (inchiostro[s] || lab[s]) continue;
       nreg++;
       tocca.push(false);
+      campione.push(s);          // una cella qualunque di questa regione
       var cima = 0;
       pila[cima++] = s;
       lab[s] = nreg;
@@ -142,7 +144,8 @@ var Riempi = (function () {
     }
 
     return { W: W, H: H, mmPerPx: mmPerPx, lab: lab, regioni: nreg,
-             tocca: tocca, w: dati.w, h: dati.h, tolleranza: tol,
+             tocca: tocca, campione: campione, inchiostro: inchiostro,
+             w: dati.w, h: dati.h, tolleranza: tol,
              off: dati.off || { x: 0, y: 0 } };
   }
 
@@ -209,19 +212,59 @@ var Riempi = (function () {
   function tratteggia(st, reg, par) {
     par = par || {};
     var passo = Math.max(st.mmPerPx, +par.passo || 1);
-    var ang = (+par.angolo || 0) * Math.PI / 180;
     var sotto = par.sotto === undefined ? SOTTO : +par.sotto;
-    var serpentina = par.tipo === 'serpentina';
+    /* Chi non dice il tipo ha il TRATTEGGIO, cioe' righe staccate: e' il
+       caso base da cui nascono tutti gli altri, ed e' anche quello che
+       questo modulo faceva da sempre. Un valore di partenza che cambia il
+       comportamento di chi non l'ha chiesto e' il modo piu' silenzioso di
+       rompere qualcosa. */
+    var tipo = par.tipo || 'tratteggio';
+    var ang = +par.angolo || 0;
 
     if (scappata(st, reg)) {
       return { polilinee: [], metri: 0, alzate: 0, scappata: true,
                dove: fuga(st, reg) };
     }
 
+    var out;
+    if (tipo === 'punti') {
+      out = punti(st, reg, passo, ang, par);
+    } else if (tipo === 'concentrico' || tipo === 'spirale') {
+      out = anelli(st, reg, passo, tipo === 'spirale');
+    } else if (tipo === 'incrociato') {
+      /* DUE PASSATE A NOVANTA GRADI. Copre di piu' senza stringere il passo,
+         che e' il modo giusto di scurire: dimezzare il passo raddoppia il
+         tempo E rischia la macchia, incrociare lo raddoppia soltanto. */
+      out = unisci(st, reg, righeDi(st, reg, ang, passo), true)
+        .concat(unisci(st, reg, righeDi(st, reg, ang + 90, passo), true));
+    } else {
+      out = unisci(st, reg, righeDi(st, reg, ang, passo), tipo === 'serpentina');
+    }
+
+    /* I CAPI SI INFILANO SOTTO IL CONTORNO. Senza, fra l'ultimo tratto del
+       riempimento e il bordo resta una riga bianca larga mezzo passo: si
+       vede, ed e' la prima cosa che si nota in una forma riempita.
+       Non per gli anelli, che sono chiusi e non hanno capi da infilare --
+       allungarli li farebbe sbordare dalla forma --, e non per i punti. */
+    if (tipo !== 'punti' && tipo !== 'concentrico' && tipo !== 'spirale') {
+      for (var o = 0; o < out.length; o++) allunga(out[o], sotto);
+    }
+
+    var metri = 0;
+    for (var m = 0; m < out.length; m++) metri += lunghezza(out[m]);
+    return { polilinee: out, metri: metri / 1000, alzate: out.length,
+             scappata: false, dove: null };
+  }
+
+  /* Le CORSE di ogni riga: dove la riga entra nella regione e dove esce.
+     Separata dal resto perche' il tratteggio incrociato la chiama due volte
+     e i tipi nuovi non la chiamano affatto. */
+  function righeDi(st, reg, gradi, passo) {
+    var ang = gradi * Math.PI / 180;
     var ux = Math.cos(ang), uy = Math.sin(ang);     // lungo la riga
     var vx = -uy, vy = ux;                          // da una riga all'altra
 
-    /* L'estensione delle righe si prende dai quattro angoli del foglio
+    /* L'estensione delle righe si prende dai quattro angoli dello stampino
        proiettati sui due assi: la regione ci sta dentro per forza, e costa
        meno che cercarne il contorno. */
     var o = st.off;
@@ -230,12 +273,12 @@ var Riempi = (function () {
     var tmin = Infinity, tmax = -Infinity, smin = Infinity, smax = -Infinity;
     for (var i = 0; i < 4; i++) {
       var t = ang4[i].x * vx + ang4[i].y * vy;
-      var s = ang4[i].x * ux + ang4[i].y * uy;
+      var sp = ang4[i].x * ux + ang4[i].y * uy;
       if (t < tmin) tmin = t; if (t > tmax) tmax = t;
-      if (s < smin) smin = s; if (s > smax) smax = s;
+      if (sp < smin) smin = sp; if (sp > smax) smax = sp;
     }
 
-    var campione = st.mmPerPx;          // si assaggia la riga un pixel alla volta
+    var campione = st.mmPerPx;        // si assaggia la riga un pixel alla volta
     var righe = [];
     for (var tt = tmin; tt <= tmax; tt += passo) {
       var corse = [], dentro = false, p0 = null, ultimo = null;
@@ -249,16 +292,17 @@ var Riempi = (function () {
       if (dentro) corse.push([p0, ultimo]);
       if (corse.length) righe.push(corse);
     }
+    return righe;
+  }
 
-    /* SERPENTINA: si unisce il capo di una riga al capo della riga dopo, ma
-       SOLO se il collegamento resta dentro alla regione. Unire alla cieca
-       vorrebbe dire attraversare il buco di una ciambella con la penna
-       abbassata, che e' esattamente il difetto che il riempimento deve non
-       avere. Per questo il controllo c'e' anche quando la forma sembra
-       semplice: «sembra» lo decide chi guarda, non il programma. */
-    var out = [];
-    var corrente = null;
-    var verso = 1;
+  /* SERPENTINA: si unisce il capo di una riga al capo della riga dopo, ma
+     SOLO se il collegamento resta dentro alla regione. Unire alla cieca
+     vorrebbe dire attraversare il buco di una ciambella con la penna
+     abbassata, che e' esattamente il difetto che il riempimento deve non
+     avere. Per questo il controllo c'e' anche quando la forma sembra
+     semplice: «sembra» lo decide chi guarda, non il programma. */
+  function unisci(st, reg, righe, serpentina) {
+    var out = [], corrente = null, verso = 1;
     for (var r = 0; r < righe.length; r++) {
       var corse2 = righe[r].slice();
       if (verso < 0) {
@@ -278,16 +322,305 @@ var Riempi = (function () {
       }
     }
     if (corrente) out.push(corrente);
+    return out;
+  }
 
-    /* I CAPI SI INFILANO SOTTO IL CONTORNO. Senza, fra l'ultimo tratto del
-       riempimento e il bordo resta una riga bianca larga mezzo passo: si
-       vede, ed e' la prima cosa che si nota in una forma riempita. */
-    for (var o = 0; o < out.length; o++) allunga(out[o], sotto);
+  /* ------------------------------- i punti ------------------------------ */
 
-    var metri = 0;
-    for (var m = 0; m < out.length; m++) metri += lunghezza(out[m]);
-    return { polilinee: out, metri: metri / 1000, alzate: out.length,
-             scappata: false, dove: null };
+  /* PUNTI (stippling). Una penna il punto non lo fa: appoggia e rialza, e
+     quello che resta e' una macchia grande quanto la punta. Qui ogni punto e'
+     un trattino corto -- lungo come lo spessore del tratto, se non si dice
+     altro -- perche' un segmento di lunghezza zero il generatore di G-code lo
+     scrive e la macchina non lo esegue: sarebbe un riempimento che sullo
+     schermo c'e' e sulla carta no.
+     Si percorrono a serpentina riga per riga: il disegno e' lo stesso, ma la
+     penna fa meno strada a vuoto fra un punto e l'altro. */
+  function punti(st, reg, passo, gradi, par) {
+    var lungo = par && par.punto !== undefined ? +par.punto : 0.35;
+    var ang = gradi * Math.PI / 180;
+    var ux = Math.cos(ang), uy = Math.sin(ang);
+    var out = [];
+    var righe = righeDi(st, reg, gradi, passo);
+    var verso = 1;
+    for (var r = 0; r < righe.length; r++) {
+      var dots = [];
+      for (var c = 0; c < righe[r].length; c++) {
+        var a = righe[r][c][0], b = righe[r][c][1];
+        var d = Math.sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y));
+        var quanti = Math.max(1, Math.round(d / passo));
+        for (var k = 0; k <= quanti; k++) {
+          var t = quanti ? k / quanti : 0.5;
+          var cx = a.x + (b.x - a.x) * t, cy = a.y + (b.y - a.y) * t;
+          var p1 = { x: cx - ux * lungo / 2, y: cy - uy * lungo / 2 };
+          var p2 = { x: cx + ux * lungo / 2, y: cy + uy * lungo / 2 };
+          /* Il trattino deve stare TUTTO dentro: un punto a cavallo del
+             bordo e' una sbavatura fuori dalla forma. */
+          if (regioneIn(st, p1) !== reg || regioneIn(st, p2) !== reg) continue;
+          dots.push([p1, p2]);
+        }
+      }
+      if (verso < 0) dots.reverse();
+      verso = -verso;
+      for (var i = 0; i < dots.length; i++) out.push(dots[i]);
+    }
+    return out;
+  }
+
+  /* ------------------------------- gli anelli --------------------------- */
+
+  /* CONTORNI CONCENTRICI. Seguono la forma invece di tagliarla, ed e' la resa
+     che somiglia al disegno a mano. Si ricavano dalla MAPPA DELLE DISTANZE
+     dal bordo della regione: l'anello numero k e' la linea di livello a
+     (k + 1/2) passi dal bordo. Mezzo passo sul primo, e non uno intero,
+     perche' la penna copre mezzo tratto da una parte e mezzo dall'altra: a un
+     passo intero resterebbe una riga bianca lungo il contorno.
+     La linea di livello si estrae con le «marching squares», che interpolano
+     dentro alla cella: senza, il contorno verrebbe a scalini di un decimo di
+     millimetro -- che si vedrebbero, perche' qui non c'e' nessun contorno
+     sopra a coprirli. */
+  function anelli(st, reg, passo, spirale) {
+    var D = distanze(st, reg);
+    var maxD = 0;
+    for (var i = 0; i < D.length; i++) if (D[i] > maxD) maxD = D[i];
+    var passoPx = passo / st.mmPerPx;
+    var out = [];
+    for (var L = passoPx / 2; L < maxD; L += passoPx) {
+      var pezzi = cuci(marching(st, D, L));
+      for (var j = 0; j < pezzi.length; j++) {
+        var poli = snellisci(pezzi[j], 0.2 / st.mmPerPx).map(function (q) {
+          return { x: st.off.x + (q.x + 0.5) * st.mmPerPx,
+                   y: st.off.y + (st.H - q.y - 0.5) * st.mmPerPx };
+        });
+        if (poli.length > 2) out.push(poli);
+      }
+    }
+
+    /* SPIRALE: gli stessi anelli, uniti dal piu' esterno al piu' interno dove
+       il collegamento resta dentro alla forma. Su una forma convessa diventa
+       un tratto solo; su una a ferro di cavallo non si unisce quasi mai, e
+       resta un concentrico -- che e' il comportamento giusto, non una
+       rinuncia: la spirale «vera» su quelle forme dovrebbe uscire dalla
+       figura. */
+    if (spirale && out.length > 1) {
+      var uniti = [], corrente = out[0];
+      for (var k = 1; k < out.length; k++) {
+        var fine = corrente[corrente.length - 1], inizio = out[k][0];
+        if (dirittoDentro(st, reg, fine, inizio)) {
+          corrente = corrente.concat(out[k]);
+        } else {
+          uniti.push(corrente);
+          corrente = out[k];
+        }
+      }
+      uniti.push(corrente);
+      out = uniti;
+    }
+    return out;
+  }
+
+  /* La distanza di ogni cella dal bordo della regione, in pixel. Due
+     passate con i pesi 1 e 1,414 (chamfer): sbaglia meno del due per cento
+     rispetto alla distanza vera, e costa due scorrimenti dell'immagine
+     invece di una coda di propagazione. */
+  function distanze(st, reg) {
+    var W = st.W, H = st.H, D = new Float32Array(W * H);
+    var GRANDE = 1e9, R2 = Math.SQRT2;
+    var i;
+    for (i = 0; i < D.length; i++) D[i] = st.lab[i] === reg ? GRANDE : 0;
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        i = y * W + x;
+        if (!D[i]) continue;
+        var v = D[i];
+        if (y > 0) {
+          if (D[i - W] + 1 < v) v = D[i - W] + 1;
+          if (x > 0 && D[i - W - 1] + R2 < v) v = D[i - W - 1] + R2;
+          if (x < W - 1 && D[i - W + 1] + R2 < v) v = D[i - W + 1] + R2;
+        }
+        if (x > 0 && D[i - 1] + 1 < v) v = D[i - 1] + 1;
+        D[i] = v;
+      }
+    }
+    for (y = H - 1; y >= 0; y--) {
+      for (x = W - 1; x >= 0; x--) {
+        i = y * W + x;
+        if (!D[i]) continue;
+        v = D[i];
+        if (y < H - 1) {
+          if (D[i + W] + 1 < v) v = D[i + W] + 1;
+          if (x > 0 && D[i + W - 1] + R2 < v) v = D[i + W - 1] + R2;
+          if (x < W - 1 && D[i + W + 1] + R2 < v) v = D[i + W + 1] + R2;
+        }
+        if (x < W - 1 && D[i + 1] + 1 < v) v = D[i + 1] + 1;
+        D[i] = v;
+      }
+    }
+    return D;
+  }
+
+  /* La linea di livello L della mappa, cella per cella: ogni cella dove il
+     livello passa da' uno o due segmentini, con i capi interpolati fra i
+     suoi quattro angoli. */
+  function marching(st, D, L) {
+    var W = st.W, H = st.H, segs = [];
+    var fra = function (va, vb, xa, ya, xb, yb) {
+      var t = (L - va) / (vb - va);
+      if (!isFinite(t)) t = 0.5;
+      if (t < 0) t = 0; if (t > 1) t = 1;
+      return { x: xa + (xb - xa) * t, y: ya + (yb - ya) * t };
+    };
+    for (var y = 0; y < H - 1; y++) {
+      for (var x = 0; x < W - 1; x++) {
+        var i = y * W + x;
+        var a = D[i], b = D[i + 1], c = D[i + W + 1], d = D[i + W];
+        var idx = (a >= L ? 8 : 0) | (b >= L ? 4 : 0) |
+                  (c >= L ? 2 : 0) | (d >= L ? 1 : 0);
+        if (idx === 0 || idx === 15) continue;
+        var alto = fra(a, b, x, y, x + 1, y);
+        var destra = fra(b, c, x + 1, y, x + 1, y + 1);
+        var basso = fra(d, c, x, y + 1, x + 1, y + 1);
+        var sinistra = fra(a, d, x, y, x, y + 1);
+        switch (idx) {
+          case 1: case 14: segs.push([sinistra, basso]); break;
+          case 2: case 13: segs.push([basso, destra]); break;
+          case 3: case 12: segs.push([sinistra, destra]); break;
+          case 4: case 11: segs.push([alto, destra]); break;
+          case 6: case 9:  segs.push([alto, basso]); break;
+          case 7: case 8:  segs.push([sinistra, alto]); break;
+          /* I due casi ambigui: due angoli opposti dentro e due fuori. Si
+             sceglie di separarli, che e' la scelta che non unisce due parti
+             della forma attraverso uno spigolo di un pixel. */
+          case 5:  segs.push([sinistra, alto], [basso, destra]); break;
+          case 10: segs.push([alto, destra], [sinistra, basso]); break;
+        }
+      }
+    }
+    return segs;
+  }
+
+  /* I segmentini si cuciono in polilinee attaccandoli per i capi. Non si
+     guarda il verso: le marching squares lo darebbero, ma dipende da come si
+     scrive la tabella, e una cucitura che non ci bada regge anche se la
+     tabella e' scritta storta. */
+  function cuci(segs) {
+    var chiave = function (p) {
+      return Math.round(p.x * 64) + ',' + Math.round(p.y * 64);
+    };
+    var mappa = {}, i, k;
+    for (i = 0; i < segs.length; i++) {
+      for (k = 0; k < 2; k++) {
+        var c = chiave(segs[i][k]);
+        (mappa[c] || (mappa[c] = [])).push(i);
+      }
+    }
+    var usato = new Uint8Array(segs.length), out = [];
+    for (i = 0; i < segs.length; i++) {
+      if (usato[i]) continue;
+      usato[i] = 1;
+      var poli = [segs[i][0], segs[i][1]];
+      /* Si allunga dalla coda finche' si trova chi si attacca. */
+      for (;;) {
+        var fine = poli[poli.length - 1];
+        var vicini = mappa[chiave(fine)] || [];
+        var trovato = -1;
+        for (k = 0; k < vicini.length; k++) {
+          if (!usato[vicini[k]]) { trovato = vicini[k]; break; }
+        }
+        if (trovato < 0) break;
+        usato[trovato] = 1;
+        var sg = segs[trovato];
+        poli.push(chiave(sg[0]) === chiave(fine) ? sg[1] : sg[0]);
+      }
+      out.push(poli);
+    }
+    return out;
+  }
+
+  /* Punti piu' vicini di `minimo` non dicono niente in piu': a un decimo di
+     millimetro per pixel un anello ne avrebbe migliaia, e il G-code
+     diventerebbe lungo come il disegno. L'ultimo si tiene sempre, se no
+     l'anello non chiude. */
+  function snellisci(poli, minimo) {
+    if (poli.length < 3) return poli;
+    var out = [poli[0]], ultimo = poli[0];
+    for (var i = 1; i < poli.length - 1; i++) {
+      var dx = poli[i].x - ultimo.x, dy = poli[i].y - ultimo.y;
+      if (dx * dx + dy * dy >= minimo * minimo) { out.push(poli[i]); ultimo = poli[i]; }
+    }
+    out.push(poli[poli.length - 1]);
+    return dritti(out, 0.5);
+  }
+
+  /* E POI SI TOLGONO I PUNTI CHE STANNO SU UNA RIGA DRITTA. Un anello attorno
+     a una forma squadrata, tenuto a un punto ogni due decimi, viene fuori con
+     ottocento nodi di cui l'ottanta per cento allineati: il G-code
+     diventerebbe lungo come il disegno e la macchina li percorrerebbe uno per
+     uno. Qui si tiene un punto solo quando scostarlo cambia la linea di piu'
+     di mezzo pixel -- cioe' di meno di quanto lo stampino stesso sappia
+     dire. E' Douglas-Peucker, scritto con una pila invece che per ricorsione:
+     su un anello da migliaia di punti la ricorsione finirebbe la pila di
+     chiamate. */
+  function dritti(poli, tol) {
+    var n = poli.length;
+    if (n < 3) return poli;
+    var tieni = new Uint8Array(n);
+    tieni[0] = tieni[n - 1] = 1;
+    var pila = [[0, n - 1]];
+    while (pila.length) {
+      var seg = pila.pop(), a = seg[0], b = seg[1];
+      if (b <= a + 1) continue;
+      var ax = poli[a].x, ay = poli[a].y;
+      var dx = poli[b].x - ax, dy = poli[b].y - ay;
+      var L = Math.sqrt(dx * dx + dy * dy);
+      var peggio = -1, dove = -1;
+      for (var i = a + 1; i < b; i++) {
+        var d;
+        if (L < 1e-9) {
+          d = Math.sqrt((poli[i].x - ax) * (poli[i].x - ax) +
+                        (poli[i].y - ay) * (poli[i].y - ay));
+        } else {
+          d = Math.abs((poli[i].x - ax) * dy - (poli[i].y - ay) * dx) / L;
+        }
+        if (d > peggio) { peggio = d; dove = i; }
+      }
+      if (peggio > tol) {
+        tieni[dove] = 1;
+        pila.push([a, dove], [dove, b]);
+      }
+    }
+    var out = [];
+    for (var k = 0; k < n; k++) if (tieni[k]) out.push(poli[k]);
+    return out;
+  }
+
+  /* --------------------- quali regioni sono DENTRO ---------------------- */
+
+  /* LA REGOLA PARI-DISPARI, sui pixel invece che sui segmenti. Serve alla
+     porta all'ingrosso -- «riempi tutto questo livello» --, dove non c'e'
+     nessun clic a dire quale spazio chiuso si intende e bisogna deciderlo da
+     soli. Si parte da una cella della regione e si va a sinistra fino al
+     bordo contando i TRATTI di inchiostro attraversati: dispari vuol dire
+     dentro, pari vuol dire fuori. E' la stessa regola di `fill-rule:
+     evenodd` degli SVG, ed e' il motivo per cui la ciambella viene giusta:
+     l'anello e' dentro (un tratto), il buco e' fuori (due).
+     Le regioni che toccano il bordo non si contano nemmeno: quelle sono il
+     fuori, o un contorno con una fessura. */
+  function regioniPiene(st) {
+    var out = [];
+    for (var reg = 1; reg <= st.regioni; reg++) {
+      if (st.tocca[reg]) continue;
+      var c = st.campione[reg];
+      if (c === undefined || c < 0) continue;
+      var x = c % st.W, y = (c - x) / st.W;
+      var tratti = 0, dentroInchiostro = false;
+      for (var k = x; k >= 0; k--) {
+        var qui = !!st.inchiostro[y * st.W + k];
+        if (qui && !dentroInchiostro) tratti++;
+        dentroInchiostro = qui;
+      }
+      if (tratti % 2 === 1) out.push(reg);
+    }
+    return out;
   }
 
   /* Il collegamento fra due capi resta dentro alla regione? Si assaggia, con
@@ -383,6 +716,6 @@ var Riempi = (function () {
 
   return { stampino: stampino, dalFoglio: dalFoglio, perTratti: perTratti,
            regioneIn: regioneIn, scappata: scappata, fuga: fuga,
-           tratteggia: tratteggia,
+           tratteggia: tratteggia, regioniPiene: regioniPiene,
            MM_PER_PX: MM_PER_PX, TRATTO: TRATTO, SOTTO: SOTTO };
 })();

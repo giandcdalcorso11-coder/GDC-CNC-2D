@@ -2626,6 +2626,48 @@ MUTAZIONI = [
         vede="sono segni",
         prova="prova-tocco.js",
     ),
+
+    # ---- I RIEMPIMENTI: gli altri tipi e la porta all'ingrosso (2026-11-15) ----
+    dict(
+        nome="l'incrociato fa una passata sola, come il tratteggio",
+        file="js/riempi.js",
+        da="      out = unisci(st, reg, righeDi(st, reg, ang, passo), true)\n        .concat(unisci(st, reg, righeDi(st, reg, ang + 90, passo), true));",
+        a="      out = unisci(st, reg, righeDi(st, reg, ang, passo), true);",
+        vede="l'incrociato fa due passate",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="gli anelli tengono tutti i nodi allineati",
+        file="js/riempi.js",
+        da="    return dritti(out, 0.5);",
+        a="    return out;",
+        vede="anelli CHIUSI",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="la spirale non unisce gli anelli",
+        file="js/riempi.js",
+        da="    if (spirale && out.length > 1) {",
+        a="    if (false && out.length > 1) {",
+        vede="la spirale e` gli stessi anelli",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="i punti si mettono anche a cavallo del bordo",
+        file="js/riempi.js",
+        da="          if (regioneIn(st, p1) !== reg || regioneIn(st, p2) !== reg) continue;",
+        a="",
+        vede="nessun punto sbava fuori",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="all'ingrosso si riempiono anche i buchi",
+        file="js/riempi.js",
+        da="      if (tratti % 2 === 1) out.push(reg);",
+        a="      if (tratti >= 1) out.push(reg);",
+        vede="il buco della ciambella resta vuoto",
+        prova="prova-riempimenti.js",
+    ),
 ]
 
 

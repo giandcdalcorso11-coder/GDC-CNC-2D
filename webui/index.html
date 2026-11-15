@@ -576,8 +576,12 @@
           <div class="ed-pannello-tit">Riempimento</div>
           <label>Tipo
             <select id="riem-tipo">
-              <option value="serpentina">Serpentina (un tratto solo)</option>
+              <option value="serpentina">Serpentina (righe unite)</option>
               <option value="tratteggio">Tratteggio (righe staccate)</option>
+              <option value="incrociato">Incrociato (due passate)</option>
+              <option value="concentrico">Concentrici (seguono la forma)</option>
+              <option value="spirale">Spirale (concentrici uniti)</option>
+              <option value="punti">Punti</option>
             </select>
           </label>
           <label>Passo (mm) <input type="number" id="riem-passo" value="1" min="0.05" max="20" step="0.05"></label>
@@ -586,6 +590,14 @@
             <input type="number" id="riem-tol" value="0" min="0" max="5" step="0.1"></label>
           <p class="hint" id="riem-nota"></p>
           <p class="hint" id="riem-conto"></p>
+          <!-- LA PORTA ALL'INGROSSO. Un logo importato con quaranta forme
+               piene sarebbero quaranta clic: qui si riempiono tutte in un
+               colpo, e a dire quali sono «dentro» e quali sono buchi e' la
+               regola pari-dispari -- la stessa di `fill-rule: evenodd` degli
+               SVG. Il clic resta per comporre; questo e' per sbrigare. -->
+          <button type="button" class="btn btn-ghost full" id="riem-tutto">Riempi tutto il livello</button>
+          <p class="hint" id="riem-tutto-nota">Tutti gli spazi chiusi di questo
+            livello, buchi esclusi, coi numeri qui sopra.</p>
         </div>
       </div>
     </div>

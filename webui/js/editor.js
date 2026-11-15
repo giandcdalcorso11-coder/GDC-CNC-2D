@@ -2639,7 +2639,14 @@ var Editor = (function () {
      questo. Una regione puo' essere chiusa da tratti di livelli diversi --
      dopo l'importazione per tinte capita spesso -- e lo stampino non ha
      bisogno di sapere di chi sono. */
-  function trattiPerStampino() {
+  /* `soloMio` tiene fuori gli altri livelli, e serve alla porta
+     all'ingrosso: «riempi tutto QUESTO livello» vuol dire gli spazi chiusi
+     dalle SUE forme. Con l'inchiostro di un altro livello in mezzo, la
+     regola pari-dispari conterebbe tratti che non sono di questo contorno e
+     direbbe «buco» dove c'e' pieno. Per il clic invece gli altri livelli
+     servono: una regione puo' essere chiusa da tratti di tre livelli
+     diversi, e chi clicca guarda il disegno, non il livello. */
+  function trattiPerStampino(soloMio) {
     var out = [], f = forme() || [], u = perPixel();
     var mm = mmPerUnita();
     var mio = Artwork.spessoreLivello ? Artwork.spessoreLivello(Artwork.sceltoId()) : null;
@@ -2649,7 +2656,7 @@ var Editor = (function () {
         out.push({ punti: poli, larghezza: largo });
       });
     }
-    if (Artwork.sfondoPer && Artwork.sceltoId) {
+    if (!soloMio && Artwork.sfondoPer && Artwork.sceltoId) {
       /* SOLO I CONTORNI: un riempimento e' inchiostro ma non e' un confine.
          Lasciandocelo, la forma che ha gia' riempito si spezzerebbe in cento
          corridoi fra una riga e l'altra, e il clic dopo troverebbe un
@@ -2833,31 +2840,48 @@ var Editor = (function () {
     var figli = Artwork.figliDi(padre).filter(function (f) { return f.ricetta; });
     if (!figli.length) return;
 
-    var tratti = trattiPerStampino();
-    if (!tratti.length) return;
     var mm = mmPerUnita();
-    var stampini = {};            // uno per tolleranza: le regioni cambiano solo con quella
+    var stampini = {};            // uno per «da dove» e tolleranza
     var rifatti = 0, persi = 0;
 
-    figli.forEach(function (f) {
-      var r = f.ricetta;
-      var chiave = String(r.tolleranza || 0);
-      if (!stampini[chiave]) {
-        stampini[chiave] = Riempi.perTratti(tratti, {
+    /* Lo stampino non e' uno solo: un riempimento nato dal clic ha per
+       confine TUTTI i livelli, uno nato all'ingrosso solo il suo. Rifarli
+       con lo stampino sbagliato vorrebbe dire cambiare la ricetta mentre la
+       si riesegue. */
+    function stampinoPer(r) {
+      var chiave = (r.tutto ? 'mio' : 'tutti') + ':' + (r.tolleranza || 0);
+      if (!(chiave in stampini)) {
+        var tratti = trattiPerStampino(!!r.tutto);
+        stampini[chiave] = tratti.length ? Riempi.perTratti(tratti, {
           mmPerPx: Riempi.MM_PER_PX / mm,
           tolleranza: (r.tolleranza || 0) / mm,
           margine: 4 / mm
-        });
+        }) : null;
       }
-      var st = stampini[chiave];
+      return stampini[chiave];
+    }
+
+    figli.forEach(function (f) {
+      var r = f.ricetta;
+      var st = stampinoPer(r);
       if (!st) { persi++; return; }
-      var reg = Riempi.regioneIn(st, r.punto);
-      var t = Riempi.tratteggia(st, reg, {
-        tipo: r.tipo, passo: r.passo / mm, angolo: r.angolo,
-        sotto: Riempi.SOTTO / mm
-      });
-      if (t.scappata || !t.polilinee.length) { persi++; return; }
-      if (Artwork.riempiDiNuovo(f.id, t.polilinee)) rifatti++;
+      var come = { tipo: r.tipo, passo: r.passo / mm, angolo: r.angolo,
+                   sotto: Riempi.SOTTO / mm };
+      var polilinee = [];
+      if (r.tutto) {
+        /* All'ingrosso si rifa' la SCELTA, non solo il tratteggio: il
+           contorno e' cambiato, quindi quali spazi siano «dentro» va
+           ridecisa con la regola pari-dispari, non ricordato. */
+        Riempi.regioniPiene(st).forEach(function (reg) {
+          var t = Riempi.tratteggia(st, reg, come);
+          if (!t.scappata) polilinee = polilinee.concat(t.polilinee);
+        });
+      } else {
+        var t2 = Riempi.tratteggia(st, Riempi.regioneIn(st, r.punto), come);
+        if (!t2.scappata) polilinee = t2.polilinee;
+      }
+      if (!polilinee.length) { persi++; return; }
+      if (Artwork.riempiDiNuovo(f.id, polilinee)) rifatti++;
       else persi++;
     });
 
@@ -2874,6 +2898,61 @@ var Editor = (function () {
               ' sul contorno nuovo.');
     }
     if (riempiAcceso) rifaiStampino();
+    renderLivelli();
+    disegna();
+  }
+
+  /* RIEMPI TUTTO IL LIVELLO. Un logo importato con quaranta forme piene
+     sarebbero quaranta clic: qui si fa in un colpo. Chi decide che cosa e'
+     dentro e che cosa e' un buco non e' il clic -- che qui non c'e' -- ma la
+     regola pari-dispari (`Riempi.regioniPiene`).
+     Esce UN sottolivello solo, con dentro tutte le forme: sono una cosa
+     sola, nata da un gesto solo, e si spegne o si butta come tale. */
+  function riempiTuttoIlLivello() {
+    var padre = Artwork.sceltoId();
+    if (!padre) return;
+    var tratti = trattiPerStampino(true);
+    if (!tratti.length) { Log.add('msg', 'Questo livello non ha tratti.'); return; }
+
+    var mm = mmPerUnita();
+    var par = parametriRiem();
+    var st = Riempi.perTratti(tratti, {
+      mmPerPx: Riempi.MM_PER_PX / mm,
+      tolleranza: par.tolleranza / mm,
+      margine: 4 / mm
+    });
+    if (!st) return;
+
+    var piene = Riempi.regioniPiene(st);
+    if (!piene.length) {
+      Log.add('err', 'Nessuno spazio chiuso in questo livello: o i contorni ' +
+              'sono aperti, e allora alza la tolleranza di chiusura, o ' +
+              'questo livello e` fatto di linee e basta.');
+      return;
+    }
+
+    var tutte = [], metri = 0, alzate = 0;
+    piene.forEach(function (reg) {
+      var t = Riempi.tratteggia(st, reg, {
+        tipo: par.tipo, passo: par.passo / mm, angolo: par.angolo,
+        sotto: Riempi.SOTTO / mm
+      });
+      if (t.scappata) return;
+      tutte = tutte.concat(t.polilinee);
+      metri += t.metri * mm;
+      alzate += t.alzate;
+    });
+    if (!tutte.length) { Log.add('err', 'Non e` venuto fuori niente da riempire.'); return; }
+
+    var id = Artwork.riempimento(padre, tutte, {
+      tipo: par.tipo, passo: par.passo, angolo: par.angolo,
+      tolleranza: par.tolleranza, tutto: true
+    });
+    if (!id) { Log.add('err', 'Il riempimento non e` nato.'); return; }
+    Log.add('msg', 'Riempiti ' + piene.length + ' spazi chiusi di questo ' +
+            'livello: ' + metri.toFixed(1) + ' m di penna in ' + alzate +
+            ' tratti. I buchi sono rimasti vuoti.');
+    anteprima = null;
     renderLivelli();
     disegna();
   }
@@ -2954,6 +3033,8 @@ var Editor = (function () {
         else scriviContoRiem();
       });
     });
+    var tuttoB = document.getElementById('riem-tutto');
+    if (tuttoB) tuttoB.addEventListener('click', riempiTuttoIlLivello);
     var tolC = document.getElementById('riem-tol');
     if (tolC) tolC.addEventListener('input', function () { rifaiStampino(); disegna(); });
 
