@@ -2958,6 +2958,14 @@ MUTAZIONI = [
         vede="non lascia il tocco al browser",
         prova="prova-tocco.js",
     ),
+    dict(
+        nome="il riquadro attorno al piano lascia il tocco al browser",
+        file="css/components.css",
+        da=".bed-wrap { touch-action: none; }",
+        a=".bed-wrap { touch-action: auto; }",
+        vede="nemmeno quello attorno al piano",
+        prova="prova-tocco.js",
+    ),
 ]
 
 

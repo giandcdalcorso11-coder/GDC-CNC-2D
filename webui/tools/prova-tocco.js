@@ -642,6 +642,11 @@ const LARGHEZZA = (page, id) => page.evaluate((id) => {
   ok('il riquadro della tela non lascia il tocco al browser',
      await page.evaluate(() =>
        getComputedStyle(document.querySelector('.ed-tela')).touchAction === 'none'));
+  /* E lo stesso attorno al PIANO: e' lo stesso difetto in due posti, e
+     trovarne uno solo vuol dire tornarci. */
+  ok('e nemmeno quello attorno al piano',
+     await page.evaluate(() =>
+       getComputedStyle(document.querySelector('.bed-wrap')).touchAction === 'none'));
 
   if (errori.length) {
     console.log('\nerrori di pagina:');
