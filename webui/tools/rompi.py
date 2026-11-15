@@ -2881,6 +2881,83 @@ MUTAZIONI = [
         vede="su un livello nascosto la matita non disegna",
         prova="prova-matita.js",
     ),
+
+    # ---- LA MANO E LO ZOOM A PULSANTI nell'editor (2026-11-15) ----
+    dict(
+        nome="niente strumento mano: il dito non sposta lo sguardo",
+        file="js/editor.js",
+        da="""    if (strumento === 'mano') {
+      if (!vista) adatta();
+      if (!vista) return;
+      presa = { tipo: 'sguardo', x: e.clientX, y: e.clientY, v: vista };
+      e.preventDefault();
+      try { svg.setPointerCapture(e.pointerId); } catch (x) { /* non capita */ }
+      return;
+    }""",
+        a="",
+        vede="con la mano, un dito sposta lo sguardo",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="lo sguardo va al contrario del dito",
+        file="js/editor.js",
+        da="      vista = { x0: presa.v.x0 - (e.clientX - presa.x) * presa.v.w / r.width,\n                y0: presa.v.y0 - (e.clientY - presa.y) * presa.v.h / r.height,",
+        a="      vista = { x0: presa.v.x0 + (e.clientX - presa.x) * presa.v.w / r.width,\n                y0: presa.v.y0 + (e.clientY - presa.y) * presa.v.h / r.height,",
+        vede="il disegno segue il dito",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la mano si ferma sui livelli spenti come gli altri strumenti",
+        file="js/editor.js",
+        da="    if (!attivoVisibile() && e.button !== 1 && strumento !== 'mano') {",
+        a="    if (!attivoVisibile() && e.button !== 1) {",
+        vede="anche su un livello spento",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="la tela non dice col cursore che cosa fa il trascinamento",
+        file="js/editor.js",
+        da="    if (svg) svg.classList.toggle('ed-mano', s === 'mano');",
+        a="",
+        vede="col cursore che cosa fa",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="l'aiuto della mano non dice che non tocca niente",
+        file="js/editor.js",
+        da="            'niente di quello che c\\'è, sposta solo il punto da cui lo si ' +",
+        a="            'il disegno, sposta solo il punto da cui lo si ' +",
+        vede="non tocca niente",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="il «+» dello zoom non avvicina",
+        file="js/editor.js",
+        da="      else if (b.id === 'ed-zoom-piu') zooma(1 / 1.3);",
+        a="      else if (b.id === 'ed-zoom-piu') zooma(1);",
+        vede="il «+» avvicina",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="lo zoom si ancora all'origine del disegno, non al centro",
+        file="js/editor.js",
+        da="    vista = { x0: vista.x0 + vista.w * (1 - f) / 2,\n              y0: vista.y0 + vista.h * (1 - f) / 2,",
+        a="    vista = { x0: vista.x0,\n              y0: vista.y0,",
+        vede="attorno al centro di quello che si guardava",
+        prova="prova-tocco.js",
+    ),
+    dict(
+        nome="il riquadro della tela lascia il tocco al browser",
+        file="css/components.css",
+        # Il `touch-action` si CAMBIA invece di sparire: togliendo la riga, il
+        # valore resterebbe quello di `#ed-svg` per la tela e `auto` per il
+        # riquadro -- cioe' esattamente quello che si vuole simulare -- ma la
+        # mutazione toccherebbe anche il commento che la spiega.
+        da="     capitava. */\n  touch-action: none;\n}",
+        a="     capitava. */\n  touch-action: auto;\n}",
+        vede="non lascia il tocco al browser",
+        prova="prova-tocco.js",
+    ),
 ]
 
 

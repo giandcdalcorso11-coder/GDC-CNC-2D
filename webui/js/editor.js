@@ -628,6 +628,25 @@ var Editor = (function () {
 
   /* --------------------------- gli strumenti --------------------------- */
 
+  /* LO ZOOM A PULSANTI. La rotella e la pinzata restano, ma nessuna delle
+     due e' garantita: la rotella su un tablet non c'e', e la pinzata su iOS
+     Safari diventa lo zoom della pagina appena un dito cade fuori dalla
+     tela. Due pulsanti non dipendono da niente.
+     SI INGRANDISCE ATTORNO AL CENTRO di quello che si sta guardando, non
+     attorno all'origine del disegno: il pezzo che si ha davanti e' il pezzo
+     a cui si e' interessati, e deve restare davanti. Gli stessi limiti della
+     pinzata, se no due tocchi distratti portano a guardare un micron. */
+  function zooma(f) {
+    if (!vista) adatta();
+    if (!vista) return;
+    if (vista.w * f < 0.5) f = 0.5 / vista.w;
+    if (vista.w * f > 10000) f = 10000 / vista.w;
+    vista = { x0: vista.x0 + vista.w * (1 - f) / 2,
+              y0: vista.y0 + vista.h * (1 - f) / 2,
+              w: vista.w * f, h: vista.h * f };
+    applica();
+  }
+
   function scegliStrumento(s) {
     strumento = s;
     chiudiCostruzione(true);
@@ -635,10 +654,19 @@ var Editor = (function () {
       b.classList.toggle('attivo', b.dataset.str === s);
     });
     document.getElementById('ed-testo-campi').hidden = s !== 'testo';
+    /* Il cursore dice che cosa fa il trascinamento, prima di provarlo. */
+    if (svg) svg.classList.toggle('ed-mano', s === 'mano');
     scriviAiuto();
   }
 
   var AIUTO = {
+    mano:   '<b>Trascina per spostare lo sguardo</b> sul disegno: non tocca ' +
+            'niente di quello che c\'è, sposta solo il punto da cui lo si ' +
+            'guarda. I due pulsanti <b>+</b> e <b>\u2212</b> qui accanto ' +
+            'avvicinano e allontanano, e <b>Adatta</b> rimette tutto il ' +
+            'disegno nella tela. Col dito è l\'unico modo di girare per il ' +
+            'disegno: il tasto centrale del mouse fa la stessa cosa, ma su un ' +
+            'tablet non c\'è.',
     scegli: '<b>Clicca un tratto</b> e prendi quello, non la linea intera. ' +
             '<b>Ctrl+clic</b> ne somma altri — dieci linee e un Canc solo —, ' +
             '<b>Shift+clic</b> prende le forme intere, e trascinando nel vuoto ' +
@@ -754,7 +782,7 @@ var Editor = (function () {
     if (!f) return;
     /* Il tasto centrale sposta lo sguardo anche su un livello spento: quello
        non tocca niente. Tutto il resto no. */
-    if (!attivoVisibile() && e.button !== 1) {
+    if (!attivoVisibile() && e.button !== 1 && strumento !== 'mano') {
       Log.add('err', 'Questo livello è nascosto: accendi il suo occhio per ' +
                      'poterlo modificare.');
       return;
@@ -788,6 +816,23 @@ var Editor = (function () {
       return;
     }
     if (e.button !== 0) return;
+
+    /* LA MANO. Lo stesso trascinamento del tasto centrale, ma raggiungibile
+       da un dito: su un iPad il tasto centrale non esiste e la rotella
+       neanche, quindi fino a qui -- con «Scegli» in mano -- lo sguardo non
+       si poteva spostare affatto. Un gesto che il browser si prende (la
+       pinzata, che su iOS Safari diventa lo zoom della PAGINA quando le dita
+       non cadono esattamente sulla tela) non si contratta: si sostituisce con
+       un pulsante, che nessuno puo' portare via. Chiesto dall'utente dopo
+       averci sbattuto. */
+    if (strumento === 'mano') {
+      if (!vista) adatta();
+      if (!vista) return;
+      presa = { tipo: 'sguardo', x: e.clientX, y: e.clientY, v: vista };
+      e.preventDefault();
+      try { svg.setPointerCapture(e.pointerId); } catch (x) { /* non capita */ }
+      return;
+    }
 
     if (strumento === 'scegli') return giuScegli(e, p, u);
     if (strumento === 'curva') return giuCurva(e, p, u);
@@ -3222,6 +3267,8 @@ var Editor = (function () {
       }
       else if (b.id === 'ed-riempi') accendiRiempimento(!riempiAcceso);
       else if (b.id === 'ed-matita') accendiMatita(!matitaAccesa);
+      else if (b.id === 'ed-zoom-piu') zooma(1 / 1.3);
+      else if (b.id === 'ed-zoom-meno') zooma(1.3);
       else if (b.id === 'ed-somma') {
         somma = !somma;
         b.classList.toggle('attivo', somma);

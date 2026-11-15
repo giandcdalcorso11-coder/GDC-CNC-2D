@@ -682,6 +682,7 @@ label.stack { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px
 /* Senza questo, su un dispositivo tattile il trascinamento del foglio fa
    scorrere la pagina invece di spostare il foglio. */
 #bed-svg { touch-action: none; }
+
 .sheet-out { stroke: var(--danger); stroke-width: .8; stroke-dasharray: 2 1.5; }
 
 /* Dove la penna arriva, segnato sulla carta. Tratteggiato e non pieno perche'
@@ -1894,8 +1895,19 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
   border: 1px solid var(--line-soft);
   border-radius: var(--r-lg);
   overflow: hidden;
+  /* `touch-action` ANCHE SUL RIQUADRO, non solo sulla tela. `#ed-svg` ce
+     l'aveva, il riquadro attorno no: un dito appoggiato nel margine fra il
+     bordo e la tela finiva al browser, e su iOS Safari diventava lo
+     scorrimento o lo zoom della pagina. Da fuori sembra la stessa
+     superficie, quindi la differenza non si poteva nemmeno vedere mentre
+     capitava. */
+  touch-action: none;
 }
 #ed-svg { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+/* IL CURSORE DELLA MANO: dice che cosa fa il trascinamento prima di
+   provarlo, ed e' la stessa grammatica del foglio sul piano. */
+#ed-svg.ed-mano { cursor: grab; }
+#ed-svg.ed-mano:active { cursor: grabbing; }
 
 .ed-aiuto {
   position: absolute;

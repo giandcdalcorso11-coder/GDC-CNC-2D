@@ -518,6 +518,131 @@ const LARGHEZZA = (page, id) => page.evaluate((id) => {
      r.every((b) => b.w >= 40 && b.h >= 40),
      r.map((b) => b.w + '×' + b.h).join(' '));
 
+  /* ============ LA MANO E I DUE DELLO ZOOM, nell'editor ============
+     Il buco che l'utente ha trovato dall'iPad il 2026-11-15: nella tab Edit,
+     con «Scegli» in mano, lo sguardo non si poteva spostare affatto. Lo
+     spostamento stava sul TASTO CENTRALE del mouse -- che su un iPad non
+     esiste -- e la pinzata su iOS Safari diventa lo zoom della PAGINA appena
+     un dito cade fuori dalla tela.
+
+     SI PROVA COL DITO E NON COL MOUSE, ed e' il punto: col mouse lo
+     spostamento c'era gia' (tasto centrale), quindi una prova col mouse non
+     avrebbe visto niente di quello che mancava. */
+  const SVG2 = `<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40">
+<path fill="none" stroke="#1d1d1b" d="M5 5 L35 5 L35 35 L5 35 Z"/></svg>`;
+  await page.evaluate((svg) => {
+    Artwork.load(svg, 'quadrato.svg');
+    document.querySelector('.tab[data-tab="editor"]').click();
+  }, SVG2);
+  await page.waitForTimeout(500);
+  await page.evaluate(() => Editor.adatta());
+  await page.waitForTimeout(150);
+
+  const VISTA = () => page.evaluate(() => {
+    const v = document.getElementById('ed-svg').getAttribute('viewBox').split(/\s+/).map(Number);
+    return { x0: v[0], y0: v[1], w: v[2], h: v[3] };
+  });
+  const telaCentro = await page.evaluate(() => {
+    const b = document.getElementById('ed-svg').getBoundingClientRect();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  });
+
+  /* PRIMA: con «Scegli», un dito che trascina non sposta lo sguardo -- e non
+     deve, perche' con quello strumento il trascinamento prende le forme. E'
+     la riga che dice PERCHE' serviva un pulsante. */
+  await page.evaluate(() => document.querySelector('.ed-str[data-str="scegli"]').click());
+  const s0 = await VISTA();
+  await trascina(cdp, { x: telaCentro.x - 60, y: telaCentro.y - 40 },
+                      { x: telaCentro.x + 60, y: telaCentro.y + 40 });
+  await page.waitForTimeout(150);
+  const s1 = await VISTA();
+  ok('con «Scegli» il dito non sposta lo sguardo: serviva un altro modo',
+     Math.abs(s1.x0 - s0.x0) < 0.01 && Math.abs(s1.y0 - s0.y0) < 0.01);
+
+  /* LA MANO: lo stesso trascinamento, e adesso lo sguardo si sposta. Del
+     VERSO: tirando il dito a destra il disegno segue il dito, cioe' la
+     finestra va a SINISTRA. Un segno sbagliato qui e' il difetto piu' facile
+     da fare e il piu' fastidioso da usare. */
+  const m = await page.evaluate(() => {
+    const b = document.querySelector('.ed-str[data-str="mano"]');
+    if (b) b.click();
+    return {
+      c: !!b,
+      acceso: b ? b.classList.contains('attivo') : false,
+      segno: b ? !!b.querySelector('svg') : false,
+      largo: b ? Math.round(b.getBoundingClientRect().width) : 0,
+      cursore: document.getElementById('ed-svg').classList.contains('ed-mano'),
+      aiuto: document.getElementById('ed-aiuto').textContent
+    };
+  });
+  ok('c\'è un pulsante a forma di mano, e si accende',
+     m.c && m.acceso && m.segno);
+  ok('ed è grande almeno 40 px, come tutti gli altri bersagli col dito',
+     m.largo >= 40, m.largo + ' px');
+  ok('la tela dice col cursore che cosa fa il trascinamento', m.cursore);
+  ok('e l\'aiuto spiega che non tocca niente',
+     /spostare lo sguardo/i.test(m.aiuto) && /non tocca niente/i.test(m.aiuto),
+     m.aiuto.slice(0, 80));
+
+  const p0 = await VISTA();
+  await trascina(cdp, { x: telaCentro.x - 60, y: telaCentro.y },
+                      { x: telaCentro.x + 60, y: telaCentro.y });
+  await page.waitForTimeout(150);
+  const p1 = await VISTA();
+  ok('con la mano, un dito sposta lo sguardo', Math.abs(p1.x0 - p0.x0) > 0.5,
+     'x0 da ' + p0.x0.toFixed(2) + ' a ' + p1.x0.toFixed(2));
+  ok('e il disegno segue il dito invece di scappargli', p1.x0 < p0.x0,
+     'dito verso destra, finestra verso sinistra');
+  ok('e la larghezza non cambia: si sposta, non si ingrandisce',
+     Math.abs(p1.w - p0.w) < 0.01, 'largo ' + p1.w.toFixed(2));
+
+  /* I DUE DELLO ZOOM, e la cosa che si guarda non e' «cambia la larghezza»:
+     e' che il CENTRO di quello che si sta guardando resta dov'era. Uno zoom
+     ancorato all'origine del disegno porta via dallo schermo proprio il
+     pezzo a cui si era interessati. */
+  const z0 = await VISTA();
+  const c0 = { x: z0.x0 + z0.w / 2, y: z0.y0 + z0.h / 2 };
+  await page.evaluate(() => document.getElementById('ed-zoom-piu').click());
+  await page.waitForTimeout(150);
+  const z1 = await VISTA();
+  const c1 = { x: z1.x0 + z1.w / 2, y: z1.y0 + z1.h / 2 };
+  ok('il «+» avvicina', z1.w < z0.w * 0.95,
+     'da ' + z0.w.toFixed(2) + ' a ' + z1.w.toFixed(2));
+  ok('e lo fa attorno al centro di quello che si guardava',
+     Math.abs(c1.x - c0.x) < 0.01 && Math.abs(c1.y - c0.y) < 0.01,
+     'centro (' + c1.x.toFixed(2) + ', ' + c1.y.toFixed(2) + ')');
+  await page.evaluate(() => document.getElementById('ed-zoom-meno').click());
+  await page.waitForTimeout(150);
+  const z2 = await VISTA();
+  ok('e il «−» riporta indietro', Math.abs(z2.w - z0.w) < 0.01,
+     'largo ' + z2.w.toFixed(2) + ' contro ' + z0.w.toFixed(2));
+
+  /* LO SGUARDO SI SPOSTA ANCHE SU UN LIVELLO SPENTO. Tutti gli altri
+     strumenti si fermano -- modificare quello che non si vede e' il guaio
+     peggiore che un editor possa fare -- ma la mano non modifica niente, e
+     fermarla vorrebbe dire restare bloccati a guardare un angolo del foglio
+     fino a riaccendere l'occhio. Il tasto centrale del mouse aveva gia'
+     questa eccezione: la mano e' lo stesso gesto, e deve averla uguale. */
+  await page.evaluate(() => Artwork.commutaVisibile(Artwork.sceltoId()));
+  await page.waitForTimeout(150);
+  const n0 = await VISTA();
+  await trascina(cdp, { x: telaCentro.x + 50, y: telaCentro.y },
+                      { x: telaCentro.x - 50, y: telaCentro.y });
+  await page.waitForTimeout(150);
+  const n1 = await VISTA();
+  ok('e si sposta anche su un livello spento: la mano non modifica niente',
+     Math.abs(n1.x0 - n0.x0) > 0.5,
+     'x0 da ' + n0.x0.toFixed(2) + ' a ' + n1.x0.toFixed(2));
+  await page.evaluate(() => Artwork.commutaVisibile(Artwork.sceltoId()));
+
+  /* IL MARGINE ATTORNO ALLA TELA non e' del browser. Un dito appoggiato fra
+     il bordo del riquadro e la tela, da fuori, e' la stessa superficie: se
+     quello scorre la pagina, l'utente non ha modo di capire perche' a volte
+     il disegno si muove e a volte si muove la pagina. */
+  ok('il riquadro della tela non lascia il tocco al browser',
+     await page.evaluate(() =>
+       getComputedStyle(document.querySelector('.ed-tela')).touchAction === 'none'));
+
   if (errori.length) {
     console.log('\nerrori di pagina:');
     errori.forEach((e) => console.log('  ' + e));
