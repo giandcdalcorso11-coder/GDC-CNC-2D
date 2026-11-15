@@ -2572,6 +2572,50 @@ button.tinta:hover { box-shadow: 0 0 0 2px var(--accent); }
 .ed-pannello .hint { margin: 0; line-height: 1.45; }
 .ed-pannello .hint.guaio { color: var(--warn); }
 
+/* LA SPUNTA DELLA FINESTRELLA sta in riga, non in colonna: `.ed-pannello
+   label` impila etichetta e campo, che per una casella da spuntare vorrebbe
+   dire la casella sotto alla sua domanda. */
+.ed-pannello label.ed-spunta {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--text);
+}
+.ed-pannello label.ed-spunta input {
+  width: auto;
+  flex: none;
+  margin-top: 1px;
+}
+/* La «mano ferma» e' uno slider, e uno slider con un bordo e un fondo
+   sembra un campo di testo rotto. */
+.ed-pannello input[type="range"] {
+  background: none;
+  border: none;
+  padding: 0;
+}
+/* Il nome del parametro e il suo numero sulla STESSA riga, ai due capi:
+   `.ed-pannello label` impila i figli in colonna, quindi dentro ci vuole una
+   riga vera -- un `float` fra due figli di un flex non fa niente. */
+.ed-riga-lab { display: flex; justify-content: space-between; gap: 8px; }
+.ed-pannello output {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* IL TRATTO CHE LA MANO STA FACENDO. Si distingue dal disegno finito perche'
+   e' quello che sta succedendo adesso: finche' la penna e' giu' e' una
+   promessa, al rilascio diventa una forma. Non e' toccabile -- la penna gli
+   sta sopra. */
+.ed-matita-ora {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
 /* L'anteprima del riempimento: si vede che e' un'anteprima e non il disegno.
    Stesso colore del tratteggio vero, ma piu' chiaro -- se fosse identica,
    l'utente non saprebbe se ha gia' cliccato. */

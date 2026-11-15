@@ -202,6 +202,55 @@ var Tracciato = (function () {
     return b;
   }
 
+  /* ------------------------- TOGLIERE I NODI ------------------------- */
+
+  /* DOUGLAS-PEUCKER: si tiene un punto solo quando togliendolo la linea si
+   * sposterebbe di piu' della tolleranza. Scritto con una PILA invece che per
+   * ricorsione: una polilinea da migliaia di punti -- un anello dei
+   * riempimenti, un tratto fatto a mano con la Pencil -- finirebbe la pila
+   * delle chiamate.
+   *
+   * STA QUI, e non nei due posti che lo usano, perche' e' la stessa
+   * aritmetica: i riempimenti la chiamano per snellire gli anelli
+   * (`riempi.js`) e la matita per togliere i nodi che la mano ha messo di
+   * troppo (`matita.js`). Due copie divergerebbero alla prima correzione, e
+   * l'errore si vedrebbe in uno dei due posti soltanto.
+   *
+   * La tolleranza e' nelle stesse unita' dei punti: chi chiama sa se sono
+   * pixel dello stampino o unita' del file. */
+  function dritti(poli, tol) {
+    var n = poli.length;
+    if (n < 3) return poli;
+    var tieni = new Uint8Array(n);
+    tieni[0] = tieni[n - 1] = 1;
+    var pila = [[0, n - 1]];
+    while (pila.length) {
+      var seg = pila.pop(), a = seg[0], b = seg[1];
+      if (b <= a + 1) continue;
+      var ax = poli[a].x, ay = poli[a].y;
+      var dx = poli[b].x - ax, dy = poli[b].y - ay;
+      var L = Math.sqrt(dx * dx + dy * dy);
+      var peggio = -1, dove = -1;
+      for (var i = a + 1; i < b; i++) {
+        var d;
+        if (L < 1e-9) {
+          d = Math.sqrt((poli[i].x - ax) * (poli[i].x - ax) +
+                        (poli[i].y - ay) * (poli[i].y - ay));
+        } else {
+          d = Math.abs((poli[i].x - ax) * dy - (poli[i].y - ay) * dx) / L;
+        }
+        if (d > peggio) { peggio = d; dove = i; }
+      }
+      if (peggio > tol) {
+        tieni[dove] = 1;
+        pila.push([a, dove], [dove, b]);
+      }
+    }
+    var out = [];
+    for (var k = 0; k < n; k++) if (tieni[k]) out.push(poli[k]);
+    return out;
+  }
+
   function conta(forme) {
     var n = { forme: 0, nodi: 0, curve: 0, testi: 0 };
     (forme || []).forEach(function (f) {
@@ -220,7 +269,8 @@ var Tracciato = (function () {
     rettangolo: rettangolo, cerchio: cerchio, ellisse: ellisse, testo: testo,
     appiattisci: appiattisci, appiattisciTutte: appiattisciTutte,
     appiattisciSub: appiattisciSub,
-    trasforma: trasforma, bbox: bbox, conta: conta, TOLLERANZA: TOLLERANZA
+    trasforma: trasforma, bbox: bbox, conta: conta, dritti: dritti,
+    TOLLERANZA: TOLLERANZA
   };
 })();
 

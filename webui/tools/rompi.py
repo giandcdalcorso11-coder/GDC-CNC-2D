@@ -2668,6 +2668,219 @@ MUTAZIONI = [
         vede="il buco della ciambella resta vuoto",
         prova="prova-riempimenti.js",
     ),
+
+    # ---- LA MATITA: il tratto fatto a mano con la Pencil (2026-11-15) ----
+    dict(
+        nome="la media mobile in un verso solo, cioe' col ritardo",
+        file="js/matita.js",
+        da="    var out = rovescia(media(rovescia(media(punti, a)), a));",
+        a="    var out = media(punti, a);",
+        vede="NON ritarda rispetto alla mano",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="i due capi restano dove li ha spostati la media",
+        file="js/matita.js",
+        da="""    if (out.length > 1) {
+      out[0] = { x: punti[0].x, y: punti[0].y };
+      out[out.length - 1] = { x: punti[punti.length - 1].x,
+                              y: punti[punti.length - 1].y };
+    }""",
+        a="",
+        vede="il capo del tratto si attacca al nodo vicino",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="il tratto tiene tutti i nodi che la mano ha messo",
+        file="js/matita.js",
+        da="    p = Tracciato.dritti(p, tolPx(f) * u);",
+        a="",
+        vede="i nodi diventano pochi",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la mano ferma non addolcisce niente",
+        file="js/matita.js",
+        da="  function alfa(f) { return 1 / (1 + 0.45 * Math.max(0, f)); }",
+        a="  function alfa(f) { return 1; }",
+        vede="TOGLIE il tremolio della riga",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la mano ferma addolcisce sempre, anche a zero",
+        file="js/matita.js",
+        da="  function alfa(f) { return 1 / (1 + 0.45 * Math.max(0, f)); }",
+        a="  function alfa(f) { return 0.2; }",
+        vede="a zero lo LASCIA",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="addolcire si mangia il disegno, non solo il tremolio",
+        file="js/matita.js",
+        da="  function alfa(f) { return 1 / (1 + 0.45 * Math.max(0, f)); }",
+        a="  function alfa(f) { return f > 0 ? 0.01 : 1; }",
+        vede="onda lenta resta",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="il tratto esce a spigoli: nessuna maniglia",
+        file="js/matita.js",
+        da="    var n = nodi.length;\n    if (n < 3) return nodi;",
+        a="    var n = nodi.length;\n    if (n < 3 || n) return nodi;",
+        vede="esce curva: le maniglie ci sono",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="le soglie in unita' del file invece che in pixel",
+        file="js/matita.js",
+        da="    var u = opt.unitaPerPx > 0 ? opt.unitaPerPx : 1;",
+        a="    var u = 1;",
+        vede="nodi: le soglie sono in pixel",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="un tratto che torna all'inizio non si chiude mai",
+        file="js/matita.js",
+        da="    if (opt.chiudi && punti.length > 2 &&",
+        a="    if (false && punti.length > 2 &&",
+        vede="si CHIUDE",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="ogni tratto si chiude, anche quello che finisce altrove",
+        file="js/matita.js",
+        da="        dist(punti[0], punti[punti.length - 1]) * mm <= CHIUDE_MM) {",
+        a="        true) {",
+        vede="finisce altrove resta aperto",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="un tocco solo diventa un tratto di lunghezza zero",
+        file="js/matita.js",
+        da="    if (p.length < 2) return null;\n\n    p = addolcisci(p, alfa(f));",
+        a="    p = addolcisci(p, alfa(f));",
+        # Lo stesso rifiuto e' difeso in DUE punti -- prima e dopo lo
+        # snellimento -- e romperne uno solo lascia il programma corretto.
+        piu=[("js/matita.js",
+              "    if (p.length < 2) return null;\n    if (p.length === 2 && dist(p[0], p[1]) < MINIMO_PX * u) return null;",
+              "")],
+        vede="un tocco solo non diventa un tratto",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la lunghezza misurata sui nodi invece che sulla curva",
+        file="js/matita.js",
+        da="    Tracciato.appiattisci(forma, 0.02).forEach(function (poli) {",
+        a="    [forma.sub[0].nodi].forEach(function (poli) {",
+        vede="in millimetri del foglio",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la lunghezza senza il fattore dei millimetri",
+        file="js/matita.js",
+        da="      lunghezza: lunghezza(forma) * mm",
+        a="      lunghezza: lunghezza(forma)",
+        vede="segue la scala del livello",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la mano gia' appoggiata conta come un dito",
+        file="js/editor.js",
+        da="    if (window.Tocco && Tocco.scorda) Tocco.scorda(svg);",
+        a="",
+        vede="la mano appoggiata non sposta",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="i tocchi che arrivano MENTRE la penna scrive si registrano",
+        file="js/tocco.js",
+        da="      if (c.ignora && c.ignora(e)) return;",
+        a="",
+        vede="tratto non conta come dita",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la mano che sfiora il disegno se lo prende",
+        file="js/editor.js",
+        # La guardia si SVUOTA invece di sparire: togliendo la riga intera il
+        # blocco `if (matitaAccesa) {` restava senza il suo primo ramo e il
+        # file non si componeva piu', quindi la mutazione non misurava il
+        # controllo -- misurava se stessa.
+        da="      if (e.pointerType === 'touch') { if (manoPosata()) return; }",
+        a="      if (e.pointerType === 'touch') { if (false) return; }",
+        vede="sfiora il disegno non se lo porta via",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="il palmo lascia in piedi il gesto che aveva fatto partire",
+        file="js/editor.js",
+        da="    if (presa) { presa = null; guide = []; }\n    costruendo = null;",
+        a="",
+        # Puntata sul controllo che PUO' vederla: con lo strumento «scegli»
+        # il gesto che il palmo lascia in piedi e' un lazo, che finito a
+        # vuoto non crea niente. Col rettangolo diventa una forma.
+        vede="il palmo non lascia in piedi una forma",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la penna disegna anche a matita spenta",
+        file="js/editor.js",
+        da="    if (matitaAccesa) {\n      if (e.pointerType === 'touch') { if (manoPosata()) return; }",
+        a="    if (true) {\n      if (e.pointerType === 'touch') { if (matitaAccesa && manoPosata()) return; }",
+        vede="a matita SPENTA la penna non disegna",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="riempimento e matita possono stare accesi insieme",
+        file="js/editor.js",
+        da="    if (acceso && riempiAcceso) accendiRiempimento(false);",
+        a="",
+        piu=[("js/editor.js",
+              "    if (acceso && matitaAccesa) accendiMatita(false);", "")],
+        vede="spegne la matita, e viceversa",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="il tratto non si vede mentre la mano lo fa",
+        file="js/editor.js",
+        da="    if (matita && matita.lisci.length > 1) {",
+        a="    if (false) {",
+        vede="il tratto si vede mentre lo fa",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="il tratto a mano non e' un passo della storia",
+        file="js/editor.js",
+        da="    segna();\n    forme().push(t.forma);\n    ultimoTratto = t;",
+        a="    forme().push(t.forma);\n    ultimoTratto = t;",
+        vede="un annulla toglie il tratto intero",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la matita disegna anche dove non c'e' nessun livello",
+        file="js/editor.js",
+        # L'ancora si porta dietro la coda del commento: la riga della
+        # guardia, da sola, compare in tre funzioni diverse.
+        da="""       matita esce da `giu` prima di arrivarci. */
+    if (!forme()) return;""",
+        a="       matita esce da `giu` prima di arrivarci. */",
+        vede="sulla tela vuota la matita non fa niente",
+        prova="prova-matita.js",
+    ),
+    dict(
+        nome="la matita disegna anche su un livello nascosto",
+        file="js/editor.js",
+        # Ancorata al MESSAGGIO, che e' di questa funzione sola: «if
+        # (!attivoVisibile()) {» da solo compare in tre posti.
+        da="""    if (!attivoVisibile()) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio per ' +
+                     'poterci disegnare.');""",
+        a="""    if (false) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio per ' +
+                     'poterci disegnare.');""",
+        vede="su un livello nascosto la matita non disegna",
+        prova="prova-matita.js",
+    ),
 ]
 
 

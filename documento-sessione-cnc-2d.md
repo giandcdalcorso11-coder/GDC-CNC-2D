@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 119
-**Ultimo aggiornamento:** 2026-11-15 08:33
+**Versione:** 120
+**Ultimo aggiornamento:** 2026-11-15 16:22
 
 ## Regole di co-editing
 
@@ -106,6 +106,24 @@ volte, e le tre precisazioni valgono quanto la regola:
   vista. La scena giusta vuole il foglio del disegno **misurato**, cioè fermo,
   così il clic non lo rende quello in uso. Vale per ogni gesto composto: prima
   di scrivere la scena, chiedersi che cosa cambia il primo pezzo del gesto.
+- **[2026-11-15] Il banco può avere un limite SUO, e prenderlo per un difetto
+  del programma costa un'ora.** Quattro mutazioni sul rifiuto della mano
+  appoggiata non si vedevano tutte insieme — un numero troppo alto per essere
+  quattro controlli distratti. La prima spiegazione che mi sono dato era un
+  difetto del codice (la Pencil contata come un dito), e l'ho corretto; le
+  mutazioni continuavano a non vedersi. La causa vera: **Chromium non apre un
+  secondo punto di tocco mentre una penna è premuta**, quindi in una scena
+  dove la penna sta scrivendo una pinzata non si forma *nemmeno volendo* —
+  l'ingrandimento che il controllo guardava non poteva cambiare, qualunque
+  cosa si rompesse. *Le due regole che ne restano:* **(a)** quando più
+  mutazioni vicine non si vedono, prima di toccare il codice si fa una sonda
+  che chieda al banco se quel difetto può manifestarsi — dieci righe di
+  Playwright che stampano lo stato, non un ragionamento; **(b)** quando il
+  banco non può guardare l'effetto, si guarda lo **stato** che l'effetto
+  produrrebbe, se è uno stato che il programma legge per davvero: qui le
+  **dita contate** da `tocco.js`, che sono il numero su cui `muovi` e il piano
+  decidono «sono due dita, fermati». È la differenza fra un controllo per
+  procura e un controllo su un'altra faccia della stessa cosa.
 - **[2026-11-14] Una mutazione va puntata sul controllo che PUÒ vederla**, e
   non sul controllo che parla della stessa cosa. Due su tre, lo stesso giorno:
   quella sul conteggio a mano dei due clic guardava la scena del foglio
@@ -1074,23 +1092,45 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 **Note (cronologia dello step):**
 - [2026-11-09] Step aperto su richiesta dell'utente, da fare **per ultimo**: «lo faremo quando avremo finito, intanto segnatela». Nessuna scansione fatta: a questo punto c'è solo il censimento grossolano per cartella scritto qui sopra.
 - [2026-11-09] **Era lo Step 14, rinumerato a 15** nella stessa giornata quando è arrivato il lavoro sui riempimenti: la pulizia deve restare l'ultima della fila, e il numero lo dice senza doverlo spiegare.
+- [2026-11-15] **Due cose da sistemare in `webui/README.md`, trovate passando:** la tabella **«I file»** elenca diciotto file e ne mancano una decina — fra cui `editor.js`, `fogli.js`, `selezione.js`, `tocco.js`, `riempi.js`, `matita.js`, cioè metà di quello che l'applicazione fa oggi; e l'elenco **«Cosa manca»** promette ancora cose fatte da settimane (l'invio del programma alla macchina, il riempimento a tratteggio). Non toccati adesso di proposito: aggiungere una riga a una tabella che ne ha dieci di buchi la fa sembrare aggiornata senza esserlo, ed è esattamente il genere di mezza verità che questo step esiste per togliere. Si rifanno entrambi in un colpo, qui.
 
 ### Step 17 — Disegnare a mano libera con la Apple Pencil
 
-**Stato:** **da discutere** — idea dell'utente del 2026-11-14, detta a fine giornata: «un tasto che dato attivo dà la possibilità alla penna di creare un tracciato». Nessuna riga di codice, e nessun disegno deciso: «ne parleremo poi». Sta in pipeline perché le idee dette a voce si perdono, non perché sia cominciata.
+**Stato:** **in corso** — idea dell'utente del 2026-11-14, discussa e **cominciata il 2026-11-15**: la **matita funziona** (interruttore nella barra dell'editor, finestrella con la «mano ferma», tratto che nasce sotto la punta e al distacco diventa una forma con i suoi nodi e le sue maniglie), con il rifiuto della **mano appoggiata**. Resta la prova sull'iPad vero — qui c'è solo quella del banco — e resta per intero la **fase 2**, l'iPad come tavoletta grafica del PC, che l'utente ha chiesto il 2026-11-15 e rimandato lui stesso a quando saremo davanti al computer.
 
-**Obiettivo (come si capisce oggi):** una **terza porta** per far nascere un disegno, accanto all'importazione di un SVG e agli strumenti dell'editor — la mano, su un iPad, con la Apple Pencil.
+**Obiettivo:** una **terza porta** per far nascere un disegno, accanto all'importazione di un SVG e agli strumenti dell'editor — la mano, su un iPad, con la Apple Pencil. Chiuso quando un tratto fatto a mano si stampa e si corregge come tutti gli altri.
 
-**Quello che si sa già, e che non va riscoperto quando si comincerà:**
-- L'editor è già scritto con i **pointer event**, e una Apple Pencil arriva come `pointerType: 'pen'`, distinguibile da un dito. Il riconoscimento «è la penna o è la mano appoggiata» quindi non è da inventare: è da usare.
-- L'evento porta anche **pressione e inclinazione**. Da decidere se servono: su un plotter a penna la pressione non si può rendere con lo spessore (la punta è una sola), ma potrebbe scegliere la penna o il tipo di riempimento.
-- Il tracciato a mano nasce come una **sequenza fittissima di punti**: va ridotto (semplificazione) e probabilmente addolcito in curve, se no un segno di dieci centimetri diventa mille micro-segmenti che l'ottimizzatore deve digerire e la macchina percorrere a scatti.
-- Il **tasto** che l'utente chiede è la cosa giusta: senza un modo esplicito di entrare in «la penna disegna», ogni appoggio della mano diventa un tratto.
+**Decisioni progettuali** (tutte dall'utente, il 2026-11-15, in risposta a tre domande):
 
-**Criterio di completamento:** da definire con l'utente.
+- **L'interruttore non blocca niente.** Acceso, la penna disegna *e le dita continuano a fare quello che facevano* — pinzano, scelgono, trascinano. Spento, la penna torna a comportarsi come un dito. Parole sue: «non blocca il resto, semplicemente quando il tasto è attivo la penna disegna e le dita funzionano per pinzate e il resto, a tasto non attivo la penna funziona come un dito». *Alternativa scartata:* il modo esclusivo, come il riempimento, dove acceso il resto non risponde. Con la Pencil in mano si disegna *e* si corregge, e un modo esclusivo vorrebbe dire spegnerlo e riaccenderlo a ogni correzione.
+- **La mano che disegna si può appoggiare, l'altra muove il foglio.** «La mano con cui disegno si può appoggiare, ma con l'altra posso muovere il foglio all'occorrenza.» È la richiesta più difficile delle tre, perché il palmo tocca il vetro **prima** della punta e nel momento in cui arriva non c'è niente che lo distingua da un dito — la larghezza del contatto che Safari dichiara è un valore fisso. Quindi non si riconosce prima: si riconosce **dopo**. Appena la penna comincia a scrivere, tutto quello che era appoggiato era la mano, e per **300 ms** dopo ogni punto della penna nessun tocco nuovo conta. L'altra mano, che arriva quando la penna si è fermata, funziona.
+- **Un parametro, in una finestrella come quella del tratteggio.** «Quando si accende il pulsante penna si apre un popup come quello del tratteggio dal quale si possono scegliere i dettagli della penna, inserirei sicuramente il "grado di liscezza" (non con questo nome).» Si chiama **«Mano ferma»**, va da 0 a 10, di serie 4. Più la spunta «chiudi il tratto se torna all'inizio».
+- **Pressione e inclinazione si leggono e si buttano**, ed è una decisione, non una dimenticanza. Una penna a sfera ha **una** larghezza: premere di più non fa un segno più grosso. Metterle fra i parametri vorrebbe dire promettere sulla carta una cosa che la macchina non fa. (Supera quanto si ipotizzava il 2026-11-14, dove si scriveva che la pressione «potrebbe scegliere la penna o il tipo di riempimento»: si può, ma è un comando nascosto in un gesto analogico, e si decide meglio guardandolo dopo.)
+- **Nessun angolo vivo a mano libera.** Il tratto esce come curva liscia che passa per tutti i nodi, quindi un angolo retto fatto a mano esce arrotondato. A mano libera un angolo è tondo comunque, e chi lo vuole vivo prende il nodo e lo rende d'angolo col pulsante che c'è già.
+
+**Criterio di completamento:** l'utente disegna a mano libera sull'iPad **con la mano appoggiata**, il tratto esce come se l'avesse fatto, lo corregge coi nodi senza accorgersi che non viene da un file, e **la macchina lo stampa**. La prova sulla carta aspetta il 23 novembre come quella dei riempimenti.
 
 **Note (cronologia dello step):**
 - [2026-11-14] Idea detta dall'utente subito dopo aver dato il via ai riempimenti, e **rimandata da lui stesso**: «ne parleremo poi». Registrata e basta.
+- [2026-11-15] **Discussa e fatta, fase 1.** Tre domande, tre risposte (sopra), e il lavoro: `webui/js/matita.js` è il motore — punti della mano dentro, nodi fuori — e sta fuori dall'editor perché è aritmetica, e l'aritmetica si prova da sola. Quattro passi, in ordine: si buttano i punti fermi (il vetro manda un punto ogni pochi millisecondi anche a penna immobile), si addolcisce **avanti e poi indietro**, si tolgono i nodi di troppo con Douglas-Peucker, si mettono le maniglie. **Le soglie sono in pixel dello schermo e non in millimetri del foglio:** il tremolio è un fatto dello schermo, e guardando il disegno da vicino un tremolio di un pixel vale un centesimo di millimetro e va *tenuto*. Trecento punti di mano diventano una ventina di nodi — non per far piccolo il file, ma perché un tratto con trecento nodi **non si corregge**.
+- [2026-11-15] **Perché la media si fa due volte, ed è la cosa che il banco ha dimostrato.** Una media mobile che corre in un verso solo **ritarda**: il tratto esce girato indietro rispetto alla mano, e su un cerchio il ritardo si vede come una spirale che non si chiude. Rifatta al contrario sullo stesso tratto il ritardo si annulla. Misurato: **-0,02° di sfasamento con i due passaggi, -7,09° con uno solo**. È anche il motivo per cui si addolcisce **al rilascio** e non mentre si disegna — indietro, mentre la mano va avanti, non si può andare — e per cui mentre si disegna si vede la media in avanti, che è la stessa cosa a meno di un pixel.
+- [2026-11-15] **Difetto trovato dal banco: i capi del tratto si spostavano.** *Sintomo:* coi magneti accesi il capo di un tratto non si attaccava al nodo vicino, restava a un'unità. *Causa:* la media in avanti tiene il primo punto, quella all'indietro tiene l'ultimo, e ognuna delle due sposta il capo che l'altra aveva tenuto — su un tratto corto lo sposta di tanto. *Fix:* i due capi si rimettono esatti dov'era la mano. Sono gli unici due punti che la mano ha messo di **proposito**: uno è dove ha appoggiato, l'altro dove ha staccato, e sono quelli su cui si decide se il tratto si chiude e quelli che i magneti devono poter attaccare. Verificato dal banco.
+- [2026-11-15] **E un difetto trovato dal banco nel banco.** Il controllo «le maniglie ripassano sopra la curva» confrontava il tratto con maniglie e lo stesso tratto senza, appiattendoli entrambi — ma `appiattisci` di un segmento dritto restituisce i due capi **e niente in mezzo**, quindi misurava dove stanno i *nodi*, che stanno sulla curva per costruzione. Diceva che le maniglie *peggioravano* il disegno. Misurato come si deve (nei punti di mezzo dei segmenti, dove la corda si scosta di più): **0,36 unità con le maniglie contro 1,02 senza**, su un quarto di cerchio da 200. Tre volte meglio. Vale come caso della regola del 2026-11-08: *anche un controllo può passare — o cadere — guardando la cosa sbagliata.*
+- [2026-11-15] **Una guardia tolta perché era una decorazione.** Ce n'era una in `muovi()` contro il dito appoggiato, e non poteva cambiare niente: un dito che si appoggia mentre la penna scrive non arriva a prendere nulla, perché `giu` lo manda via prima, e mentre un tratto è in corso il movimento non arriva nemmeno fin lì. Tolta, e al suo posto c'è scritto **perché** non serve — che è l'unica cosa che impedisce di rimetterla fra sei mesi. Regola del 2026-11-07, seconda metà.
+- [2026-11-15] **Douglas-Peucker è passato in `tracciato.js`.** Lo usavano i riempimenti (per snellire gli anelli) e ora anche la matita: due copie della stessa aritmetica divergono alla prima correzione, e l'errore si vedrebbe in uno dei due posti soltanto. `riempi.js` adesso lo chiama da lì.
+- [2026-11-15] **Una diagnosi sbagliata, e come è venuta fuori.** Quattro mutazioni sul rifiuto della mano appoggiata restavano «non viste». Ho creduto a un difetto del codice — `tocco.js` scarta il mouse e tiene tutto il resto, quindi una Pencil le risulta un dito, e un contatto solo del palmo più la punta farebbero «due dita», cioè una pinzata mentre si disegna — e l'ho corretto. **Le mutazioni continuavano a non vedersi**, e una sonda ha detto perché: **Chromium non apre un secondo punto di tocco mentre una penna è premuta**, quindi in quella scena la pinzata non si forma nemmeno volendo, e l'ingrandimento che il controllo guardava non poteva cambiare qualunque cosa si rompesse. La correzione è rimasta — con la matita accesa la penna disegna, e una cosa che disegna non è un dito — ma nel codice c'è scritto che **non si è mai vista fare la differenza**: chi impedisce davvero la pinzata è `Tocco.scorda` all'inizio del tratto. Vedi la nota del 2026-11-15 nelle convenzioni della Pipeline: il banco può avere un limite suo.
+- [2026-11-15] **Il controllo rifatto su un'altra faccia della stessa cosa.** Non potendo guardare l'ingrandimento, il controllo guarda le **dita che `tocco.js` conta** mentre la penna scrive: devono essere zero. Non è una procura — è il numero che `muovi` e il piano leggono per decidere «sono due dita, fermati», quindi un contatto contato lì vale un gesto bloccato o una pinzata altrove. Con quella misura la mutazione si vede.
+- [2026-11-15] **Collaudo:** `webui/tools/prova-matita.js`, **35 controlli**, due metà. La prima è aritmetica pura — punti inventati dentro, nodi fuori — e la seconda è il gesto, con eventi di **penna veri** (`pointerType: 'pen'` consegnato dal browser, non costruito a mano) e di tocco veri. Due scene per la mano appoggiata, e sono due perché una non basta: nella prima il palmo si appoggia **prima** della punta (che è quello che fa una mano), nella seconda i contatti arrivano **mentre** la penna scrive e uno cade sopra al disegno. Sono difetti diversi — l'uno fa scappare la vista, l'altro porta via un nodo — e nessuna delle due scene manifesta quello dell'altra. **Quattro scene in tutto** per la mano, contando quella a un contatto solo e quella con lo strumento rettangolo in mano — dove il gesto che il palmo lascia in piedi diventa una forma vera invece di un lazo che finisce a vuoto. **23 mutazioni** nuove in `rompi.py`, tutte viste.
+
+#### Step 17.2 — L'iPad come tavoletta grafica del PC
+
+**Stato:** **da fare** — chiesto dall'utente il 2026-11-15 nello stesso messaggio della fase 1, e rimandato da lui: «mi piacerebbe una futura particolare ma che si utilizza solo in presenza di computer e iPad: utilizzo dell'iPad come tavoletta grafica, ma lo implementeremo più avanti quando saremo al pc».
+
+**Obiettivo:** disegnare con la Pencil **sull'iPad** mentre il disegno vive nello SLICER **sul PC** — l'iPad come superficie, il computer come posto dove il lavoro sta.
+
+**Quello che si sa già, e che non va riscoperto:** il PC è **Windows**, quindi Sidecar (che è di Apple e solo fra Mac e iPad) non c'è. Le due pagine non possono parlarsi da sole: una pagina web non apre una connessione verso un'altra pagina senza qualcuno in mezzo. **Di posti in mezzo ne abbiamo già due**, e sono entrambi nostri: il **telecomando** (che un server ce l'ha, e dal 23 novembre avrà anche la SD) e il **serverino dello strumento stampe** su `127.0.0.1` (`stampe/strumento/strumento.py`), che per lo stesso motivo deve già imparare una riga di CORS. Il che vuol dire che questa fase è molto meno lavoro di quanto sembri, **dopo** che quei due pezzi esistono — ed è una ragione in più per non cominciarla adesso.
+
+**Criterio di completamento:** da definire con l'utente.
 
 ### Step 16 — Metodo di lavoro delle stampe: scheda, catalogo, controllo
 
@@ -1117,6 +1157,51 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-15 16:22] La matita: disegnare a mano libera con la Apple Pencil
+
+**Riepilogo:** chiesto dall'utente di rifare la pipeline di qui al 23 novembre e di decidere da dove ripartire; filtrandola per **quello che si può provare avendo in mano solo l'iPad** il primo lavoro è risultato lo Step 17 — la Apple Pencil — perché è il solo che perde valore ad aspettare. Discusso con tre domande, e fatto: la matita disegna, con il rifiuto della mano appoggiata.
+
+**Cosa è stato fatto:**
+- **La pipeline rifatta col filtro degli otto giorni.** Non «cosa manca» ma «cosa si può *provare* con solo l'iPad»: di là non funzionano il collegamento alla macchina e lo scaricamento di file, quindi un lavoro che finisce in un file scaricato lo si può scrivere ma l'utente non può dire se è giusto. Ne è uscito un ordine diverso da quello del numero degli step: **①** Pencil e metà locale del salvataggio automatico (si fanno e si provano), **②** i quattro pezzi del collegamento allo strumento stampe (si fanno alla cieca — rimandati), **③** carta, telecomando e pulizia (impossibili prima del 23).
+- **`webui/js/matita.js`, il motore:** punti della mano dentro, nodi fuori. Quattro passi — si buttano i punti fermi, si addolcisce avanti e indietro, Douglas-Peucker, le maniglie — e le soglie in **pixel dello schermo**, non in millimetri del foglio. Dettaglio nelle note dello Step 17.
+- **La porta nell'editor:** interruttore «Matita» nella barra, finestrella con la «mano ferma» e la spunta della chiusura, tratto che si vede nascere sotto la punta, al distacco una forma con i suoi nodi. Un tratto è **un** passo della storia, non cinquanta. I due capi passano dai magneti, quando sono accesi: è così che un tratto fatto a mano si innesta su un disegno che c'è già.
+- **Il rifiuto della mano appoggiata**, che era la parte difficile: il palmo tocca il vetro **prima** della punta, e nel momento in cui arriva non c'è niente che lo distingua da un dito. Si riconosce dopo — appena la penna scrive, quello che era appoggiato era la mano — e per 300 ms dopo ogni punto della penna nessun tocco nuovo conta.
+- **Douglas-Peucker spostato in `tracciato.js`**, perché ora lo usano in due (riempimenti e matita).
+
+**Bug: i capi del tratto si spostavano**
+
+**Sintomo:** coi magneti accesi, il capo di un tratto fatto a mano non si attaccava al nodo vicino — restava a circa un'unità, cioè visibilmente staccato.
+**Causa:** la media mobile si fa due volte, avanti e indietro, per non far ritardare il tratto. Ognuno dei due passaggi tiene fermo il **primo** punto della lista che gli arriva, cioè ognuno dei due sposta il capo che l'altro aveva tenuto. Su un tratto corto lo sposta di tanto.
+**Fix applicato:** i due capi si rimettono esatti dov'era la mano. Sono gli unici due punti messi di proposito — uno è dove la penna ha appoggiato, l'altro dove ha staccato — e sono quelli su cui si decide se il tratto si chiude. Verificato dal banco (primo nodo a 5,000 esatto) e dalla mutazione che lo rimette.
+
+**Bug: un controllo che diceva che le maniglie peggioravano il disegno**
+
+**Sintomo:** il controllo «le maniglie ripassano sopra la curva» andava KO, e i numeri dicevano che il tratto con le maniglie si scostava dal cerchio della mano **quattro volte più** di quello fatto di segmenti dritti.
+**Causa:** il confronto appiattiva entrambi i tracciati, ma `Tracciato.appiattisci` di un segmento dritto restituisce i due capi **e niente in mezzo**. Quindi del tracciato senza maniglie misurava dove stanno i *nodi*, che stanno sulla curva per costruzione, e non dove passa la linea.
+**Fix applicato:** si misura nei punti di mezzo dei segmenti, dove la corda si scosta di più. Risultato vero: **0,36 unità con le maniglie contro 1,02 senza**, su un quarto di cerchio da 200 — tre volte meglio. Nel frattempo le maniglie sono passate alla forma proporzionale (ogni maniglia lunga un terzo del *suo* lato invece di un sesto della corda), che è la formula giusta per nodi non equidistanti; su quella scena vale poco (0,36 contro 0,39), e nel codice c'è scritto così.
+
+**Una diagnosi sbagliata, raccontata perché è la parte utile**
+
+**Sintomo:** quattro mutazioni sul rifiuto della mano appoggiata restavano «non viste» — quattro controlli ciechi tutti insieme, che è un numero troppo alto per essere una coincidenza.
+**Prima spiegazione, mia, sbagliata:** un difetto del codice. `tocco.js` scarta il mouse e tiene tutto il resto, quindi una Pencil le risulta un dito, e un contatto solo del palmo più la punta farebbero «due dita», cioè una pinzata mentre si disegna. L'ho corretto, e **le mutazioni continuavano a non vedersi**.
+**Causa vera, trovata con una sonda da dieci righe:** **Chromium non apre un secondo punto di tocco mentre una penna è premuta.** In una scena dove la penna sta scrivendo, una pinzata non si forma nemmeno volendo: l'ingrandimento che il controllo guardava non poteva cambiare, qualunque cosa si rompesse. Era un limite del banco, non un difetto del programma.
+**Cosa resta:** la correzione (con la matita accesa la penna non è un dito) perché è giusta, ma con scritto nel codice che **non si è mai vista fare la differenza** — chi impedisce la pinzata è `Tocco.scorda` all'inizio del tratto. E il controllo rifatto su un'altra faccia della stessa cosa: non l'ingrandimento, ma le **dita che `tocco.js` conta** mentre la penna scrive, che devono essere zero. Non è una procura, è il numero su cui `muovi` e il piano decidono «sono due dita, fermati». Due regole nuove nelle convenzioni della Pipeline.
+
+**Decisioni prese:**
+- Contesto: l'utente aveva detto «un tasto che dato attivo dà la possibilità alla penna di creare un tracciato», e andavano deciso tre cose — cosa fa il tasto, cosa fa la mano appoggiata, cosa c'è nella finestrella.
+- Decisione (sua, su tre domande): **l'interruttore non blocca niente** — acceso la penna disegna e le dita continuano a pinzare, scegliere e trascinare; spento la penna fa quello che fa un dito. **La mano che disegna si può appoggiare e l'altra muove il foglio.** **Una finestrella come quella del tratteggio**, con dentro il «grado di liscezza» («non con questo nome»): si chiama **«Mano ferma»**, da 0 a 10.
+- Alternative scartate: il modo esclusivo come il riempimento, dove acceso il resto non risponde — con la Pencil in mano si disegna *e* si corregge, e sarebbe da spegnere e riaccendere a ogni correzione. E il rifiuto del palmo fatto a manico d'ombrello — «con la matita accesa le dita non fanno niente» — che avrebbe buttato via metà della richiesta, cioè l'altra mano.
+- Da rivedere se: sull'iPad vero la finestra dei 300 ms risulta troppo corta (il palmo passa) o troppo lunga (l'altra mano deve aspettare). È un numero solo, in un posto solo.
+- E una seconda, mia e scritta nel codice: **pressione e inclinazione si leggono e si buttano.** Una penna a sfera ha una larghezza. Supera l'ipotesi del 2026-11-14, dove si scriveva che la pressione «potrebbe scegliere la penna o il tipo di riempimento».
+
+**Collaudo:** `webui/tools/prova-matita.js`, **35 controlli**, tutti verdi; gli altri quindici banchi rifatti e verdi. **23 mutazioni nuove** in `rompi.py` (totale **316**), tutte viste. Due scene per la mano appoggiata, perché una non basta: nella prima il palmo si appoggia prima della punta, nella seconda i contatti arrivano mentre la penna scrive e uno cade sopra al disegno — e nessuna delle due manifesta il difetto dell'altra. Una guardia è stata **tolta** perché non poteva cambiare niente, e al suo posto c'è scritto perché non serve.
+
+**File consegnati/modificati:** `webui/js/matita.js` (nuovo), `webui/js/editor.js`, `webui/js/tocco.js`, `webui/js/tracciato.js`, `webui/js/riempi.js`, `webui/index.html`, `webui/css/components.css`, `webui/tools/prova-matita.js` (nuovo), `webui/tools/rompi.py`, `documento-sessione-cnc-2d.md`. Pagina ripubblicata sullo stesso indirizzo per la prova dall'iPad.
+
+**Impatto su Vision/Pipeline:** **Step 17** da «da discutere» a **in corso**, con le decisioni progettuali e il criterio di completamento scritti; aperto **Step 17.2 — l'iPad come tavoletta grafica del PC**, idea dell'utente di oggi che lui stesso ha rimandato a quando saremo al computer, con dentro l'unica cosa che serviva registrare: il PC è Windows, quindi niente Sidecar, e il pezzo in mezzo che serve lo abbiamo già due volte (il telecomando e il serverino dello strumento stampe). Allo **Step 15** aggiunta una riga su due elenchi scaduti in `webui/README.md`, trovati passando e non toccati di proposito.
+
+---
 
 ### [2026-11-15 08:07] Tutti i tipi di riempimento, e il riempimento all'ingrosso
 

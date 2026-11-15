@@ -557,40 +557,11 @@ var Riempi = (function () {
      diventerebbe lungo come il disegno e la macchina li percorrerebbe uno per
      uno. Qui si tiene un punto solo quando scostarlo cambia la linea di piu'
      di mezzo pixel -- cioe' di meno di quanto lo stampino stesso sappia
-     dire. E' Douglas-Peucker, scritto con una pila invece che per ricorsione:
-     su un anello da migliaia di punti la ricorsione finirebbe la pila di
-     chiamate. */
+     dire. E' Douglas-Peucker, e sta in `tracciato.js` perche' la matita fa la
+     stessa cosa sui punti che arrivano dalla mano: una copia per uno
+     divergerebbe alla prima correzione. */
   function dritti(poli, tol) {
-    var n = poli.length;
-    if (n < 3) return poli;
-    var tieni = new Uint8Array(n);
-    tieni[0] = tieni[n - 1] = 1;
-    var pila = [[0, n - 1]];
-    while (pila.length) {
-      var seg = pila.pop(), a = seg[0], b = seg[1];
-      if (b <= a + 1) continue;
-      var ax = poli[a].x, ay = poli[a].y;
-      var dx = poli[b].x - ax, dy = poli[b].y - ay;
-      var L = Math.sqrt(dx * dx + dy * dy);
-      var peggio = -1, dove = -1;
-      for (var i = a + 1; i < b; i++) {
-        var d;
-        if (L < 1e-9) {
-          d = Math.sqrt((poli[i].x - ax) * (poli[i].x - ax) +
-                        (poli[i].y - ay) * (poli[i].y - ay));
-        } else {
-          d = Math.abs((poli[i].x - ax) * dy - (poli[i].y - ay) * dx) / L;
-        }
-        if (d > peggio) { peggio = d; dove = i; }
-      }
-      if (peggio > tol) {
-        tieni[dove] = 1;
-        pila.push([a, dove], [dove, b]);
-      }
-    }
-    var out = [];
-    for (var k = 0; k < n; k++) if (tieni[k]) out.push(poli[k]);
-    return out;
+    return Tracciato.dritti(poli, tol);
   }
 
   /* --------------------- quali regioni sono DENTRO ---------------------- */

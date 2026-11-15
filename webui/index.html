@@ -525,6 +525,13 @@
       <button type="button" class="ed-str" id="ed-riempi"
               title="Riempi uno spazio chiuso: il puntatore lo anticipa, il clic lo disegna">Riempi</button>
 
+      <!-- LA MATITA. Acceso, la penna disegna a mano libera e le dita
+           continuano a fare quello che facevano: con la Pencil in mano si
+           disegna con la penna e si guarda con le dita. Spento, la penna
+           torna a comportarsi come un dito. -->
+      <button type="button" class="ed-str" id="ed-matita"
+              title="La penna (Apple Pencil) disegna a mano libera; le dita continuano a pinzare e scegliere">Matita</button>
+
       <!-- Prendere PIU' tratti era affidato solo a Ctrl, che su un tablet
            non esiste. Adesso c'e' questo interruttore e Ctrl lo capovolge. -->
       <button type="button" class="ed-str" id="ed-somma"
@@ -572,6 +579,25 @@
              piu' di un'ora. Saperlo dopo e' una brutta sorpresa, saperlo prima
              costa niente -- ed e' anche l'argomento che mette la serpentina subito
              dopo il tratteggio. -->
+        <!-- LA FINESTRELLA DELLA MATITA. Un parametro solo, piu' una
+             domanda: tutto il resto di quello che una Pencil sa dire -- la
+             pressione, l'inclinazione -- non si puo' mettere sulla carta,
+             perche' una penna a sfera ha UNA larghezza. Promettere di la'
+             una cosa che la macchina non fa sarebbe la bugia piu' facile da
+             scrivere e la piu' difficile da spiegare dopo. -->
+        <div class="ed-pannello" id="ed-matita-pannello" hidden>
+          <div class="ed-pannello-tit">Matita</div>
+          <label><span class="ed-riga-lab">Mano ferma
+              <output id="mat-fermezza-n">4</output></span>
+            <input type="range" id="mat-fermezza" value="4" min="0" max="10" step="1"></label>
+          <p class="hint">0 = il tratto come l&rsquo;hai fatto, tremolio
+            compreso. 10 = molto addolcito, e i nodi diventano pochi.</p>
+          <label class="ed-spunta"><input type="checkbox" id="mat-chiudi" checked>
+            Chiudi il tratto se torna all&rsquo;inizio</label>
+          <p class="hint">Entro 3 mm dal punto di partenza: serve a fare un
+            anello senza dover azzeccare il punto.</p>
+          <p class="hint" id="mat-conto"></p>
+        </div>
         <div class="ed-pannello" id="ed-riempi-pannello" hidden>
           <div class="ed-pannello-tit">Riempimento</div>
           <label>Tipo
@@ -1109,6 +1135,7 @@
 
 <script src="js/tocco.js"></script>
 <script src="js/riempi.js"></script>
+<script src="js/matita.js"></script>
 <script src="js/paper.js"></script>
 <script src="js/righelli.js"></script>
 <script src="js/artwork.js"></script>

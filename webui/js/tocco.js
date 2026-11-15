@@ -41,7 +41,7 @@ var Tocco = (function () {
     for (var i = 0; i < registri.length; i++) {
       if (registri[i].el === el) return registri[i];
     }
-    var r = { el: el, giu: {} };
+    var r = { el: el, giu: {}, base: null };
     registri.push(r);
     return r;
   }
@@ -60,17 +60,33 @@ var Tocco = (function () {
     return 0;
   }
 
+  /* SCORDA LE DITA CHE SONO GIA' GIU'. La chiama la matita quando la penna
+     comincia un tratto: il PALMO della mano che disegna si appoggia PRIMA
+     della punta -- si abbassa la mano, il palmo tocca, poi la penna -- quindi
+     non c'e' modo di riconoscerlo quando arriva. Si riconosce dopo: appena la
+     penna scrive, tutto quello che era appoggiato era la mano. Da qui in poi
+     quelle dita non contano piu' per niente, nemmeno se si muovono, e una
+     pinzata eventualmente in corso viene abbandonata -- chi sta disegnando ha
+     la precedenza su chi stava guardando. */
+  function scorda(el) {
+    var r = registro(el);
+    r.giu = {};
+    r.base = null;
+  }
+
   /* `c` dice al modulo come lavorare sul disegno di chi chiama:
        leggi()            -> la finestra di adesso, {x0, y0, w, h}
        scrivi(f)          -> posa la finestra nuova e ridisegna
        dove(cx, cy)       -> dove cade un punto dello SCHERMO nel disegno
+       ignora(e)          -> opzionale: vero quando questo tocco non va
+                             nemmeno registrato (la mano appoggiata mentre la
+                             Pencil disegna -- vedi scorda())
        minimo() massimo() -> quanto puo' diventare stretta e larga la finestra
                              (gli stessi limiti della rotella: senza, due dita
                               distratte portano a guardare un micron o una
                               provincia, e tornare indietro e' un lavoro) */
   function pizzica(el, c) {
     var r = registro(el);
-    var base = null;   // com'era il mondo quando le due dita si sono posate
 
     /* Fotografa l'inizio della pinzata: le due dita, la finestra di adesso,
        il punto del disegno che sta in mezzo, e quanto vale un pixel -- con
@@ -89,8 +105,8 @@ var Tocco = (function () {
       var m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       var q0 = c.dove(m.x, m.y);
       var q1 = c.dove(m.x + 100, m.y + 100);
-      base = { d: d, m: m, v: v0, ancora: q0,
-               kx: (q1.x - q0.x) / 100, ky: (q1.y - q0.y) / 100 };
+      r.base = { d: d, m: m, v: v0, ancora: q0,
+                 kx: (q1.x - q0.x) / 100, ky: (q1.y - q0.y) / 100 };
     }
 
     /* IN CATTURA, cioe' prima dei gestori di chi sta sotto: il dito va
@@ -98,8 +114,14 @@ var Tocco = (function () {
        se no il conto arriva sempre un gesto in ritardo. */
     el.addEventListener('pointerdown', function (e) {
       if (e.pointerType === 'mouse') return;
+      /* LA MANO CHE DISEGNA NON CONTA COME UN DITO. Chi chiama puo' dire che
+         in questo momento i tocchi non si registrano -- e' la finestra in cui
+         la Pencil sta scrivendo e il palmo e' appoggiato sul vetro. Senza
+         questa riga il palmo e la punta sarebbero «due dita», cioe' una
+         pinzata, e il disegno scapperebbe sotto la penna. */
+      if (c.ignora && c.ignora(e)) return;
       r.giu[e.pointerId] = { x: e.clientX, y: e.clientY };
-      base = null;
+      r.base = null;
       /* LA PINZATA SI FONDA QUANDO IL SECONDO DITO SI APPOGGIA, non al primo
          movimento, e la differenza si vede. Le dita arrivano una alla volta
          anche quando si posano insieme: aspettando il primo movimento, il
@@ -123,10 +145,11 @@ var Tocco = (function () {
       var m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       if (!d) return;
 
-      if (!base) { fonda(); return; }
+      if (!r.base) { fonda(); return; }
 
       /* Dita che si allargano = finestra che si stringe: il fattore e' il
          rapporto fra la distanza di PARTENZA e quella di adesso. */
+      var base = r.base;
       var f = base.d / d;
       var min = c.minimo ? c.minimo() : 0;
       var max = c.massimo ? c.massimo() : Infinity;
@@ -146,10 +169,10 @@ var Tocco = (function () {
     ['pointerup', 'pointercancel'].forEach(function (ev) {
       el.addEventListener(ev, function (e) {
         delete r.giu[e.pointerId];
-        if (quante(r.giu) < 2) base = null;
+        if (quante(r.giu) < 2) r.base = null;
       }, true);
     });
   }
 
-  return { pizzica: pizzica, dita: dita };
+  return { pizzica: pizzica, dita: dita, scorda: scorda };
 })();

@@ -298,6 +298,14 @@ var Editor = (function () {
       });
     }
 
+    /* IL TRATTO CHE LA MANO STA FACENDO. Si disegnano i punti GIA'
+       ADDOLCITI: quello che si vede sotto la punta deve essere quello che
+       resta, se no il tratto si riscriverebbe da solo al rilascio e la mano
+       non avrebbe modo di correggersi mentre va. */
+    if (matita && matita.lisci.length > 1) {
+      out += '<polyline class="ed-matita-ora" points="' + via(matita.lisci) + '"></polyline>';
+    }
+
     /* I nodi e le maniglie della forma scelta. Si mostrano solo di quella:
        tutti insieme sarebbero un tappeto di quadratini in cui non si trova
        più il disegno. */
@@ -673,6 +681,18 @@ var Editor = (function () {
         'l\'anteprima. Premi di nuovo <b>Riempi</b> per spegnere.';
       return;
     }
+    if (matitaAccesa) {
+      aiuto.innerHTML = '<b>Matita accesa.</b> La <b>penna</b> disegna a mano ' +
+        'libera: tieni premuto e il tratto nasce, stacca e diventa una forma ' +
+        'con i suoi nodi, da correggere come tutte le altre. Le <b>dita</b> ' +
+        'fanno quello che fanno sempre \u2014 pinzano, scelgono, trascinano \u2014 ' +
+        'e la mano appoggiata mentre la penna scrive non conta. ' +
+        (magneti ? 'Coi <b>magneti</b> accesi i due capi si attaccano ai nodi ' +
+                   'vicini: \u00e8 il modo per innestare un tratto su un disegno ' +
+                   'che c\'\u00e8 gi\u00e0. ' : '') +
+        'Premi di nuovo <b>Matita</b> per spegnere.';
+      return;
+    }
     var coda = magneti
       ? '  ·  Magneti accesi: Alt per spegnerli un momento, Shift per forzare ' +
         'l\'angolo.'
@@ -716,6 +736,15 @@ var Editor = (function () {
   /* ------------------------------ eventi ------------------------------ */
 
   function giu(e) {
+    /* CON LA MATITA ACCESA la penna (e il mouse, che in questo modo fa la
+       stessa cosa) disegna; il DITO no -- il dito continua a scegliere, a
+       trascinare e a pinzare come sempre, perche' con la Pencil in mano si
+       disegna con la penna e si guarda con le dita. L'unico dito che non fa
+       niente e' quello appoggiato mentre la penna scrive, cioe' il palmo. */
+    if (matitaAccesa) {
+      if (e.pointerType === 'touch') { if (manoPosata()) return; }
+      else if (e.button === 0) { giuMatita(e); return; }
+    }
     /* Col riempimento acceso il clic ha un solo significato, e non e' quello
        di prima: non sceglie e non disegna, riempie. Messo in cima apposta --
        sotto ci sono dodici strade e una qualunque di loro porterebbe a
@@ -931,6 +960,13 @@ var Editor = (function () {
   }
 
   function muovi(e) {
+    /* QUI NON C'E' NESSUNA GUARDIA PER LA MANO APPOGGIATA, e non per
+       dimenticanza: ce n'era una, e non poteva cambiare niente -- cioe' era
+       una decorazione. Un dito che si appoggia mentre la penna scrive non
+       arriva mai a prendere niente, perche' `giu` lo manda via prima; e
+       mentre un tratto e' in corso il movimento non arriva nemmeno fin qui,
+       perche' `pointermove` lo da' alla matita e si ferma la'. Senza una
+       `presa`, la riga sotto basta. */
     if (!presa) return;
     /* DUE DITA SULLA TELA SONO UNA PINZATA, non un trascinamento: quello che
        si stava muovendo resta fermo dov'era finche' le dita non tornano una.
@@ -1053,6 +1089,11 @@ var Editor = (function () {
   }
 
   function su(e) {
+    /* IL TRATTO A MANO SI CHIUDE QUI, prima di tutto il resto: non c'e'
+       nessuna `presa`, quindi nessuno dei rami sotto lo riguarda. Vale anche
+       per `pointercancel` -- il sistema che si prende il tocco non e' un
+       motivo per buttare via il tratto che la mano aveva gia' fatto. */
+    if (matita) { suMatita(e); return; }
     var mosso = presa && presa.mosso;
     var tipo = presa ? presa.tipo : null;
     if (presa) {
@@ -2957,8 +2998,180 @@ var Editor = (function () {
     disegna();
   }
 
+
+  /* ======================= LA MATITA (Apple Pencil) =======================
+   *
+   * PERCHE' C'E' UN INTERRUTTORE e non «la penna disegna sempre». Con la
+   * Pencil in mano si fanno due cose: si disegna, e si corregge quello che si
+   * e' disegnato -- prendere un nodo, tirare una maniglia, scegliere un
+   * tratto. Se la penna disegnasse sempre, correggere sarebbe impossibile
+   * senza posarla. L'interruttore e' la risposta dell'utente alla domanda:
+   * ACCESO la penna disegna, SPENTO la penna fa esattamente quello che fa un
+   * dito. Le DITA non cambiano mai comportamento: pinzano, scelgono,
+   * trascinano, acceso o spento. Cosi' le due mani non si litigano.
+   *
+   * LA MANO APPOGGIATA. Chi disegna appoggia il palmo, e il palmo tocca il
+   * vetro PRIMA della punta: si abbassa la mano, il palmo arriva, poi la
+   * penna. Non c'e' niente, al momento in cui arriva, che lo distingua da un
+   * dito -- la larghezza del contatto che Safari dichiara e' un valore fisso.
+   * Quindi non si riconosce prima: si riconosce DOPO. Appena la penna
+   * comincia a scrivere, tutto quello che era appoggiato era la mano
+   * (`Tocco.scorda`), e per i trecento millisecondi successivi a ogni punto
+   * della penna nessun tocco nuovo conta (`manoPosata`). L'altra mano, che
+   * arriva quando la penna si e' fermata, funziona: ed e' esattamente quello
+   * che l'utente ha chiesto -- «la mano con cui disegno si puo' appoggiare,
+   * ma con l'altra posso muovere il foglio all'occorrenza».
+   *
+   * LA FINESTRA E' DI TRECENTO MILLISECONDI e non di un secondo: un secondo
+   * vorrebbe dire che fra un tratto e l'altro il foglio non si sposta, cioe'
+   * che per muovere il disegno bisogna aspettare. Trecento coprono la pausa
+   * fra due punti della penna -- che a sessanta eventi al secondo sono
+   * sedici millisecondi -- con venti volte di margine.
+   */
+  var matitaAccesa = false;
+  var matita = null;        // il tratto in corso: { id, punti, lisci }
+  var manoFino = 0;         // fino a quando i tocchi nuovi sono «la mano»
+  var ultimoTratto = null;  // com'e' venuto l'ultimo: per la finestrella
+
+  var MANO_MS = 300;
+
+  function manoPosata() { return Date.now() < manoFino; }
+
+  function parametriMatita() {
+    var f = document.getElementById('mat-fermezza');
+    var c = document.getElementById('mat-chiudi');
+    return {
+      fermezza: f ? +f.value : 4,
+      chiudi: c ? !!c.checked : true
+    };
+  }
+
+  function scriviContoMat() {
+    var e = document.getElementById('mat-conto');
+    if (!e) return;
+    if (!ultimoTratto) {
+      e.textContent = 'Disegna un tratto tenendo premuto, e qui compare com’è venuto.';
+      return;
+    }
+    e.textContent = 'Ultimo tratto: ' + ultimoTratto.nodi + ' nodi, ' +
+      ultimoTratto.lunghezza.toFixed(1).replace('.', ',') + ' mm' +
+      (ultimoTratto.chiuso ? ', chiuso' : '');
+  }
+
+  /* IL TRATTO COMINCIA. Si prende il puntatore: la mano che disegna esce dal
+     rettangolo della tela piu' spesso di quanto si crede -- un tratto lungo
+     finisce sul bordo -- e senza la cattura gli eventi si fermerebbero li',
+     lasciando un tratto tagliato a meta' e la penna ancora giu'. */
+  function giuMatita(e) {
+    /* NIENTE LIVELLO, NIENTE TRATTO. Sulla tela vuota -- l'editor aperto
+       senza nessun disegno caricato -- non c'e' un posto dove metterlo, e
+       `forme()` torna niente: senza questa riga il tratto si farebbe tutto,
+       e al distacco la pagina si fermerebbe con un errore. Gli altri
+       strumenti hanno la stessa guardia qualche riga sopra, in `giu`; la
+       matita esce da `giu` prima di arrivarci. */
+    if (!forme()) return;
+    if (!attivoVisibile()) {
+      Log.add('err', 'Questo livello è nascosto: accendi il suo occhio per ' +
+                     'poterci disegnare.');
+      return;
+    }
+    e.preventDefault();
+    /* Tutto quello che era appoggiato sul vetro era la mano, non un dito. */
+    if (window.Tocco && Tocco.scorda) Tocco.scorda(svg);
+    /* E QUELLO CHE IL PALMO AVEVA FATTO PARTIRE SI ANNULLA. Il palmo tocca
+       il vetro PRIMA della punta, quindi quando la penna comincia c'e' gia'
+       un gesto in corso: uno spostamento dello sguardo, un lazo, o -- con lo
+       strumento rettangolo in mano -- un rettangolo a meta' che al
+       distacco della mano diventerebbe una forma vera. Il tratto a mano ha
+       la precedenza, e quel gesto non e' mai esistito. */
+    if (presa) { presa = null; guide = []; }
+    costruendo = null;
+    manoFino = Date.now() + MANO_MS;
+    var p = punto(e);
+    matita = { id: e.pointerId, punti: [{ x: p.x, y: p.y }],
+               lisci: [{ x: p.x, y: p.y }], stato: { x: p.x, y: p.y } };
+    try { svg.setPointerCapture(e.pointerId); } catch (x) { /* senza cattura si fa lo stesso */ }
+    disegna();
+  }
+
+  function muoviMatita(e) {
+    if (!matita || e.pointerId !== matita.id) return;
+    e.preventDefault();
+    manoFino = Date.now() + MANO_MS;
+    var p = punto(e);
+    matita.punti.push({ x: p.x, y: p.y });
+    /* L'ANTEPRIMA E' GIA' ADDOLCITA, se no il tratto cambierebbe forma al
+       rilascio e la mano non avrebbe modo di correggersi mentre va. */
+    matita.stato = Matita.passo(matita.stato, p, parametriMatita().fermezza);
+    matita.lisci.push({ x: matita.stato.x, y: matita.stato.y });
+    disegna();
+  }
+
+  function suMatita(e) {
+    if (!matita || (e && e.pointerId !== matita.id)) return;
+    var punti = matita.punti;
+    matita = null;
+    manoFino = Date.now() + MANO_MS;
+    if (e) { try { svg.releasePointerCapture(e.pointerId); } catch (x) { /* gia' rilasciato */ } }
+
+    var par = parametriMatita();
+    var t = Matita.tratto(punti, {
+      unitaPerPx: perPixel(),
+      mmPerUnita: mmPerUnita(),
+      fermezza: par.fermezza,
+      chiudi: par.chiudi
+    });
+    /* UN TOCCO SOLO NON E' UN TRATTO, e non e' un errore da raccontare:
+       appoggiare la punta e staccarla senza muoversi capita mentre si cerca
+       il punto da cui partire. Non si disegna niente e non si dice niente. */
+    if (!t) { disegna(); return; }
+
+    /* I DUE CAPI VANNO SUI MAGNETI, quando sono accesi: e' il modo in cui un
+       tratto fatto a mano si ATTACCA al disegno che c'e' gia' -- un ricciolo
+       che parte dalla fine di una linea importata ci parte davvero, e il
+       G-code non ci lascia in mezzo il salto di un decimo. In mezzo no: un
+       tratto di mano che si incolla alla griglia non sarebbe piu' un tratto
+       di mano. */
+    var nodi = t.forma.sub[0].nodi;
+    if (magneti && !t.chiuso && nodi.length > 1) {
+      [0, nodi.length - 1].forEach(function (i) {
+        var q = aggancia({ x: nodi[i].x, y: nodi[i].y }, null, null);
+        var dx = q.x - nodi[i].x, dy = q.y - nodi[i].y;
+        if (!dx && !dy) return;
+        nodi[i].x = q.x; nodi[i].y = q.y;
+        if (nodi[i].hi) { nodi[i].hi.x += dx; nodi[i].hi.y += dy; }
+        if (nodi[i].ho) { nodi[i].ho.x += dx; nodi[i].ho.y += dy; }
+      });
+      guide = [];
+    }
+
+    segna();
+    forme().push(t.forma);
+    ultimoTratto = t;
+    scriviContoMat();
+    cambiato();
+  }
+
+  /* I DUE MODI NON STANNO ACCESI INSIEME. Riempimento e matita si prendono
+     entrambi il gesto sulla tela e gli danno significati diversi: accesi
+     insieme, uno dei due vincerebbe sempre e l'altro sarebbe un pulsante
+     premuto che non fa niente -- il modo peggiore di spiegare una cosa. */
+  function accendiMatita(acceso) {
+    matitaAccesa = acceso;
+    if (acceso && riempiAcceso) accendiRiempimento(false);
+    var b = document.getElementById('ed-matita');
+    if (b) b.classList.toggle('attivo', acceso);
+    var pan = document.getElementById('ed-matita-pannello');
+    if (pan) pan.hidden = !acceso;
+    if (!acceso) { matita = null; manoFino = 0; }
+    scriviContoMat();
+    scriviAiuto();
+    disegna();
+  }
+
   function accendiRiempimento(acceso) {
     riempiAcceso = acceso;
+    if (acceso && matitaAccesa) accendiMatita(false);
     var b = document.getElementById('ed-riempi');
     if (b) b.classList.toggle('attivo', acceso);
     var pan = document.getElementById('ed-riempi-pannello');
@@ -3008,6 +3221,7 @@ var Editor = (function () {
           : 'Asse orizzontale: ribalta sopra-sotto. Clicca per cambiarlo.';
       }
       else if (b.id === 'ed-riempi') accendiRiempimento(!riempiAcceso);
+      else if (b.id === 'ed-matita') accendiMatita(!matitaAccesa);
       else if (b.id === 'ed-somma') {
         somma = !somma;
         b.classList.toggle('attivo', somma);
@@ -3033,6 +3247,14 @@ var Editor = (function () {
         else scriviContoRiem();
       });
     });
+    /* La mano ferma si cambia fra un tratto e l'altro, non durante: il
+       numero si legge al rilascio. Qui si aggiorna solo la scritta. */
+    var ferm = document.getElementById('mat-fermezza');
+    if (ferm) ferm.addEventListener('input', function () {
+      var n = document.getElementById('mat-fermezza-n');
+      if (n) n.textContent = ferm.value;
+    });
+
     var tuttoB = document.getElementById('riem-tutto');
     if (tuttoB) tuttoB.addEventListener('click', riempiTuttoIlLivello);
     var tolC = document.getElementById('riem-tol');
@@ -3048,6 +3270,8 @@ var Editor = (function () {
 
     svg.addEventListener('pointerdown', giu);
     svg.addEventListener('pointermove', function (e) {
+      /* Un tratto a mano in corso si prende il movimento e basta. */
+      if (matita) { muoviMatita(e); return; }
       /* Con il riempimento acceso il movimento non trascina niente: mira. */
       if (riempiAcceso && !presa) { miraRiempimento(e); return; }
       muovi(e); seguiSpezzata(e);
@@ -3078,6 +3302,26 @@ var Editor = (function () {
         leggi: function () { if (!vista) adatta(); return vista; },
         scrivi: function (f) { vista = f; applica(); },
         dove: function (cx, cy) { return punto({ clientX: cx, clientY: cy }); },
+        /* DUE COSE NON SONO UN DITO, con la matita accesa.
+           La MANO APPOGGIATA: due contatti del palmo sarebbero «due dita»,
+           cioe' una pinzata, e il disegno scapperebbe da sotto la penna
+           mentre la si usa. Questa e' la riga che conta, e il banco la
+           guarda contando le dita che `Tocco` vede mentre la penna scrive:
+           devono essere ZERO, perche' e' quel numero che `muovi` e il piano
+           leggono per decidere «due dita, fermati».
+           E LA PENNA STESSA, ma qui bisogna dire la verita': questa meta'
+           non si e' mai vista fare la differenza. Chi impedisce la pinzata
+           mentre si disegna e' `Tocco.scorda`, chiamato all'inizio del
+           tratto, che svuota il registro un istante dopo che la punta vi e'
+           entrata -- questo modulo gira in cattura, `giuMatita` in
+           risalita, e fra i due non c'e' niente che legga il conto. Resta
+           per coerenza, non per un difetto osservato: con la matita accesa
+           la penna disegna, e una cosa che disegna non e' un dito. Provato a
+           togliere: nessun controllo cambia, ed e' scritto qui perche' non
+           lo si rimetta fra sei mesi credendo di aver trovato un buco. */
+        ignora: function (e) {
+          return matitaAccesa && (e.pointerType === 'pen' || manoPosata());
+        },
         minimo: function () { return 0.5; },
         massimo: function () { return 10000; }
       });
