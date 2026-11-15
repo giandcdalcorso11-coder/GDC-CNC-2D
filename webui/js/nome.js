@@ -29,10 +29,13 @@ var Nome = (function () {
 
   function el(id) { return document.getElementById(id); }
 
-  /* `d`: { titolo, desc, valore, vuoto, ok }.
+  /* `d`: { titolo, desc, valore, vuoto, azione, ok }.
      `vuoto` è la scritta del pulsante che rimette il nome automatico — se
-     manca, quel pulsante non compare. `ok(nome)` riceve la stringa già
-     ripulita, o '' per «rimettilo com'era». */
+     manca, quel pulsante non compare. `azione` è la scritta del pulsante che
+     conferma: di serie «Rinomina», perché questa finestrella è nata per
+     rinominare, ma dal 2026-11-15 la usa anche il salvataggio — e un pulsante
+     che dice «Rinomina» mentre si salva è una bugia piccola e fastidiosa.
+     `ok(nome)` riceve la stringa già ripulita, o '' per «rimettilo com'era». */
   function chiedi(d) {
     ora = d;
     el('nome-titolo').textContent = d.titolo || 'Nome';
@@ -44,6 +47,7 @@ var Nome = (function () {
     var v = el('nome-vuoto');
     v.hidden = !d.vuoto;
     v.textContent = d.vuoto || '';
+    el('nome-ok').textContent = d.azione || 'Rinomina';
     el('nome-modal').hidden = false;
     c.focus();
     c.select();

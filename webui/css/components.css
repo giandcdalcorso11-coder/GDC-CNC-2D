@@ -1086,6 +1086,59 @@ code {
 .nome-campo { width: 100%; font-size: 14px; padding: 7px 9px; }
 .modal-stretto { max-width: 420px; }
 
+/* ------------------------- I DISEGNI RECENTI -------------------------
+   Due gruppi, e ogni riga e' un pulsante largo con dentro due righe di
+   testo: il nome, che e' quello che si cerca, e sotto quando e quanto, che
+   sono quello che distingue due nomi uguali. Il cestino sta a destra,
+   staccato, perche' il gesto che cancella non deve stare sulla strada del
+   gesto che apre. */
+#rec-elenco { display: flex; flex-direction: column; gap: 12px; max-height: 50vh;
+              overflow-y: auto; }
+.rec-gruppo { display: flex; flex-direction: column; gap: 4px; }
+.rec-tit { font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+           color: var(--text-dim); }
+.rec-gruppo .hint { margin: 0 0 4px; }
+.rec-riga { display: flex; align-items: stretch; gap: 6px; }
+.rec-apri {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  padding: 6px 9px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+}
+.rec-apri:hover { border-color: var(--accent); }
+.rec-nome { font-size: 13px; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; }
+.rec-quando { font-size: 11px; color: var(--text-dim); }
+.rec-via {
+  flex: 0 0 auto;
+  width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  color: var(--text-mute);
+  cursor: pointer;
+}
+.rec-via:hover { color: var(--danger); border-color: var(--danger); }
+.rec-via svg { width: 15px; height: 15px; fill: none; stroke: currentColor;
+               stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+/* Col dito valgono i quaranta pixel di tutto il resto. */
+@media (pointer: coarse) {
+  .rec-via { width: 40px; }
+  .rec-apri { padding: 9px 10px; }
+}
+
 /* LA SCELTA DEI LIVELLI nella finestrella del progetto. L'elenco scorre e
    la testa no: con diciotto livelli — nove magneti a due penne — la riga
    «quanti ne hai presi» deve restare sotto gli occhi mentre si spunta. */

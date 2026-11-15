@@ -2966,6 +2966,174 @@ MUTAZIONI = [
         vede="nemmeno quello attorno al piano",
         prova="prova-tocco.js",
     ),
+
+    # ---- I DISEGNI RECENTI: salvataggio automatico e menu (2026-11-15) ----
+    dict(
+        nome="uno slot nuovo a ogni scrittura, non uno per sessione",
+        file="js/recenti.js",
+        da="    if (!sessione) sessione = 'r' + Date.now().toString(36) +",
+        a="    if (true) sessione = 'r' + Date.now().toString(36) +",
+        vede="restano UN recupero",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="lo slot non si rinnova mai: si sovrascrive quello di stamattina",
+        file="js/artwork.js",
+        da="    if (window.Recenti) Recenti.nuovaSessione();",
+        a="",
+        vede="un file nuovo apre un altro slot",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="il recupero si riscrive anche se niente e' cambiato",
+        file="js/recenti.js",
+        da="    if (segno === scritto) return Promise.resolve(false);",
+        a="",
+        vede="cambiato non si riscrive",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="l'impronta guarda le virgolette normali, che nel file sono escapate",
+        file="js/recenti.js",
+        # E' il difetto vero: una regola scritta coi virgolettati normali non
+        # aggancia niente dentro a un SVG, e non da' nessun errore.
+        da='  var ORA_SALVATO = /salvato[^0-9]{0,16}\\d{4}-\\d{2}-\\d{2}T[\\d:.]+Z/;',
+        a='  var ORA_SALVATO = /"salvato"\\s*:\\s*"[^"]*"/;',
+        vede="l’impronta no",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="il piano vuoto consuma uno slot per salvare il nulla",
+        file="js/recenti.js",
+        da="    if (!i.livelli) return Promise.resolve(false);",
+        a="",
+        vede="il piano vuoto non consuma uno slot",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="si scrive anche durante una stampa",
+        file="js/recenti.js",
+        da="    if (State.data.stampa && State.data.stampa.stato !== 'fermo') {\n      return Promise.resolve(false);\n    }",
+        a="",
+        vede="durante una stampa non si scrive",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="la potatura tiene i primi arrivati invece dei piu' recenti",
+        file="js/recenti.js",
+        da="        tutti.sort(function (a, b) { return b.quando - a.quando; });",
+        a="        tutti.sort(function (a, b) { return a.quando - b.quando; });",
+        vede="recenti, non i primi arrivati",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="la potatura non guarda la data: niente scade",
+        file="js/recenti.js",
+        da="          if (i >= SLOT || v.quando < limite) { s.delete(v.id); via++; }",
+        a="          if (i >= SLOT) { s.delete(v.id); via++; }",
+        # Puntata sulla scena dei POCHI recuperi. Nella scena dei
+        # venticinque, il recupero vecchio e' anche il ventiseiesimo per
+        # data, quindi il taglio dei venti lo porta via comunque e il
+        # controllo rispondeva giusto per caso.
+        vede="scade per la data anche quando gli slot",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="la potatura tocca anche i progetti salvati a mano",
+        file="js/recenti.js",
+        da="        var tutti = (r.result || []).filter(function (v) {\n          return v.tipo === 'recupero';\n        });",
+        a="        var tutti = (r.result || []);",
+        # Due controlli guardano questa riga da due parti -- quanti progetti
+        # restano e se quello vecchio e' sopravvissuto -- e la mutazione deve
+        # accendere quello sul CONTEGGIO: e' il danno peggiore, perche' butta
+        # via il lavoro che l'utente ha chiesto di tenere.
+        vede="non si contano nei venti",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="una modifica salva subito, anche durante un trascinamento",
+        file="js/recenti.js",
+        da="    attesa = setTimeout(function () {\n      attesa = null;\n      recuperaOra();\n    }, ATTESA_MS);",
+        a="    recuperaOra();",
+        vede="non salva SUBITO",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="niente salvataggio da solo: il disegno cambia e non si scrive",
+        file="js/recenti.js",
+        da="    State.on('path', segnala);",
+        a="",
+        vede="si salva da sola poco dopo",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="il menu dei recenti si spegne col piano vuoto, come «Salva»",
+        file="index.html",
+        da="""          <button class="btn btn-ghost btn-small" id="btn-recenti"
+                  title="I disegni a cui hai lavorato e quelli che hai salvato col nome">Recenti</button>""",
+        a="""          <button class="btn btn-ghost btn-small" id="btn-recenti" disabled
+                  title="I disegni a cui hai lavorato e quelli che hai salvato col nome">Recenti</button>""",
+        vede="spento quando il piano",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="un elenco solo invece di due gruppi",
+        file="js/recenti.js",
+        da="""      box.innerHTML =
+        gruppo('Progetti salvati', 'Li hai salvati tu con un nome: non scadono.', prog) +""",
+        a="""      box.innerHTML =
+        gruppo('Progetti salvati', 'Li hai salvati tu con un nome: non scadono.', []) +""",
+        vede="DUE gruppi",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="il cestino cancella tutto invece di quella riga",
+        file="js/recenti.js",
+        da="          togli(v.dataset.via).then(disegna);",
+        a="          elenco().then(function (t) {\n            return Promise.all(t.map(function (x) { return togli(x.id); }));\n          }).then(disegna);",
+        vede="toglie quella riga, e una sola",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="riaprire un recente non rimette niente sul piano",
+        file="js/recenti.js",
+        da="      Artwork.load(v.testo, v.nome + '.svg');",
+        a="",
+        vede="rimette il disegno sul piano",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="il salvataggio decide il nome da se', come prima",
+        file="js/progetto.js",
+        da="    if (!window.Nome || !document.getElementById('nome-modal')) return salvaCon(null);",
+        a="    if (true) return salvaCon(null);",
+        vede="chiede il nome invece di deciderlo",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="il nome scritto non arriva al file",
+        file="js/progetto.js",
+        da="    if (n) State.data.artName = n;",
+        a="",
+        vede="diventa il nome del file",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="del progetto salvato non resta nessuna copia qui",
+        file="js/progetto.js",
+        da="      Recenti.salvaProgetto(nomeFile(false), corpo).then(function (fatto) {",
+        a="      Promise.resolve(false).then(function (fatto) {",
+        vede="resta anche qui, col nome dato",
+        prova="prova-recenti.js",
+    ),
+    dict(
+        nome="il pulsante della finestrella dice «Rinomina» anche salvando",
+        file="js/nome.js",
+        da="    el('nome-ok').textContent = d.azione || 'Rinomina';",
+        a="    el('nome-ok').textContent = 'Rinomina';",
+        vede="dice «Salva», non «Rinomina»",
+        prova="prova-recenti.js",
+    ),
 ]
 
 

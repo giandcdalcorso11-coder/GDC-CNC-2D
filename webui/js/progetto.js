@@ -199,13 +199,40 @@ var Progetto = (function () {
     return conEstensione ? n + '.cnc2d.svg' : n;
   }
 
+  /* SI CHIEDE IL NOME, e prima non si poteva. Il nome usciva da
+     `State.data.artName`, cioe' dal nome del PRIMO file importato: nove
+     magneti composti a partire da «magnete 1.svg» si salvavano come
+     «magnete 1.cnc2d.svg», e per chiamarli «lavagna» bisognava rinominare il
+     file fuori dalla pagina. Chiesto dall'utente il 2026-11-12 insieme ai
+     disegni recenti, e sono la stessa cosa vista da due parti: un nome serve
+     a ritrovare, e ritrovare e' il mestiere del menu.
+     La finestrella e' quella dei nomi di livelli e fogli (`js/nome.js`): una
+     sola, perche' di finestrelle che chiedono un nome ne basta una. */
   function salva() {
     if (!Artwork.progetto().livelli.length) {
       Log.add('err', 'Non c\'è niente da salvare: nessun livello.');
       return;
     }
+    if (!window.Nome || !document.getElementById('nome-modal')) return salvaCon(null);
+    Nome.chiedi({
+      titolo: 'Salva il disegno',
+      desc: 'Il nome del file, e quello con cui lo ritrovi nei disegni ' +
+            'recenti. Finisce in .cnc2d.svg: questa pagina lo riapre dov\'era, ' +
+            'altrove è un SVG come un altro.',
+      valore: nomeFile(false),
+      vuoto: 'Come il file di partenza',
+      azione: 'Salva',
+      ok: function (n) { salvaCon(n); }
+    });
+  }
+
+  /* `n` vuoto vuol dire «il nome che il programma sa dare da se'», come in
+     tutte le altre finestrelle dei nomi di questa pagina. */
+  function salvaCon(n) {
+    if (n) State.data.artName = n;
     var nome = nomeFile(true);
-    var blob = new Blob([testo()], { type: 'image/svg+xml' });
+    var corpo = testo();
+    var blob = new Blob([corpo], { type: 'image/svg+xml' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = nome;
@@ -218,6 +245,17 @@ var Progetto = (function () {
                    ' fogli dove stanno e i cambi penna. ' +
                    'Ricaricandolo qui si riprende da dove eri; aperto altrove ' +
                    'è un SVG come un altro.');
+    /* E UNA COPIA RESTA QUI, nei disegni recenti. Il file scaricato e' quello
+       che si porta via; questa e' quella che si ritrova senza cercare fra i
+       Download -- e su un iPad, dove il visore alle pagine non concede il
+       permesso di consegnare file, e' l'unica che resta. Due cose, e ne basta
+       una perche' il lavoro non si perda. */
+    if (window.Recenti) {
+      Recenti.salvaProgetto(nomeFile(false), corpo).then(function (fatto) {
+        if (fatto) Log.add('msg', 'Ed è anche nei «Disegni recenti», col nome ' +
+                                  '«' + nomeFile(false) + '».');
+      });
+    }
   }
 
   /* ------------------------------- lettura ------------------------------- */
@@ -781,6 +819,7 @@ var Progetto = (function () {
     });
   }
 
-  return { init: init, salva: salva, leggi: leggi, applica: applica,
+  return { init: init, salva: salva, salvaCon: salvaCon,
+           leggi: leggi, applica: applica,
            chiedi: chiedi, testo: testo, MARCA: MARCA };
 })();

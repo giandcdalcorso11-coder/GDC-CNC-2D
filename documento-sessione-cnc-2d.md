@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 122
-**Ultimo aggiornamento:** 2026-11-15 20:49
+**Versione:** 123
+**Ultimo aggiornamento:** 2026-11-15 21:50
 
 ## Regole di co-editing
 
@@ -106,6 +106,35 @@ volte, e le tre precisazioni valgono quanto la regola:
   vista. La scena giusta vuole il foglio del disegno **misurato**, cioè fermo,
   così il clic non lo rende quello in uso. Vale per ogni gesto composto: prima
   di scrivere la scena, chiedersi che cosa cambia il primo pezzo del gesto.
+- **[2026-11-15] «Il controllo non c'è» vuol dire quasi sempre che l'ANCORA è
+  scritta male**, non che il controllo manchi. `rompi.py` trova il controllo
+  da accendere cercando un pezzo del suo nome nell'**uscita** del banco, e
+  tre mutazioni su diciannove hanno detto «non c'è» per un accento: il banco
+  scrive «non **è** cambiato» e l'ancora diceva «non e\` cambiato». Non è un
+  errore che si vede leggendo — i due testi si somigliano — e costa un giro
+  di collaudo per ognuna. *Regola:* un'ancora si prende su un tratto di
+  lettere semplici, senza accenti, apostrofi né virgolette («cambiato non si
+  riscrive», non «non è cambiato»). *E una cosa provata e scartata:* ho
+  scritto un controllo automatico che confrontasse ogni `vede` col sorgente
+  dei banchi, e dà **più falsi allarmi che segnalazioni** — nel sorgente le
+  stesse stringhe sono scritte con gli apostrofi escapati (`dell\'editor`) e
+  con gli accenti come `\uXXXX`, mentre `rompi.py` confronta l'uscita, dove
+  sono caratteri normali. Non c'è, e non va rifatto: la regola dell'ancora
+  semplice costa meno e non mente.
+- **[2026-11-15] Una regola che non aggancia niente non dà errore**, e questo
+  vale per ogni confronto scritto a mano su un testo che qualcun altro ha
+  composto. L'impronta del salvataggio automatico cercava
+  `"salvato":"..."` dentro al file del progetto, dove quel JSON ha le
+  virgolette **escapate come entità HTML** perché sta in un documento SVG:
+  la sostituzione non trovava nulla, non si lamentava, e il controllo diceva
+  KO senza dire perché. Si è visto solo confrontando i due testi **carattere
+  per carattere** — dieci righe di sonda, non un ragionamento. *Due
+  conseguenze operative:* una regola del genere si aggancia a quello che non
+  cambia (il nome del campo, la forma del valore) e non alla punteggiatura
+  intorno; e quando esiste perché due pezzi devono restare d'accordo, **le si
+  scrive accanto un controllo che prova l'accordo**, non il risultato — qui:
+  due testi dello stesso disegno a un secondo di distanza devono essere
+  diversi, e la loro impronta uguale.
 - **[2026-11-15] Il banco può avere un limite SUO, e prenderlo per un difetto
   del programma costa un'ora.** Quattro mutazioni sul rifiuto della mano
   appoggiata non si vedevano tutte insieme — un numero troppo alto per essere
@@ -495,6 +524,8 @@ mano a mano che le misure arrivano):
 
 - [2026-11-14] **L'adattamento al dito, prima parte: la pinzata e i bersagli.** Chiesto dall'utente di anticiparlo ai riempimenti, e la ragione è buona: il gesto del tocco è un **ingresso** del disegno dei riempimenti — «il mouse anticipa il riempimento» su un touch non esiste —, quindi deciderlo prima costa mezza riga e deciderlo dopo costa un rifacimento. **Che cosa mancava davvero** (guardato, non ricordato): il layout si riorganizza già da solo e i gesti sono già scritti con i pointer event, quindi trascinare un foglio o un livello **funziona già col dito**; mancano invece la **pinzata** (il piano e la tela si ingrandivano solo con la rotella, che su un tablet non c'è), i **bersagli da dito** (il quadratino di un livello è 18 × 18 px), le alternative a **Ctrl/Shift** (15 punti fra `editor.js` e `selezione.js`) e al **tasto destro**, e le **34 regole di `:hover`**, cioè informazioni che col dito non compaiono mai. **Fatto oggi:** la pinzata, in un modulo solo (`webui/js/tocco.js`) usato dal piano e dalla tela, perché l'aritmetica dell'ancoraggio sbagliata non si vede subito — si vede che il disegno «scappa» mentre si allargano le dita — e due copie divergono alla prima correzione; i bersagli a **40 px** sotto `pointer: coarse`, che è la domanda giusta (un iPad da tredici pollici è larghissimo e resta un dito) e non la larghezza della finestra; e il passaggio del mouse che col dito diventa `:active`. **Due cose imparate rompendo:** gli eventi del tocco arrivano **un dito alla volta**, quindi una pinzata fondata al primo movimento misura un dito già partito e uno ancora fermo — mezzo passo, che ingrandendo di tre volte diventa i dieci pixel di cui il disegno scappa; e il conto va tenuto **assoluto** sull'inizio del gesto, così due dita che tornano dov'erano riportano il disegno esattamente dov'era. Il verso della y non è scritto da nessuna parte nel modulo: si **misura**, chiedendo due punti alla mappa di chi chiama — ed è il motivo per cui ce n'è uno solo per il piano (y in su) e la tela (y in giù). Banco nuovo `webui/tools/prova-tocco.js`, **12 controlli** col tocco emulato davvero via CDP, e **dieci mutazioni** in `rompi.py` (da 246 a 256) tutte viste. **Poi, dopo la prova dell'utente:** le **proporzioni** del riquadro diventano una spunta che Shift capovolge (erano solo Shift, cioè niente su un tablet), e ogni maniglia d'angolo prende una **presa trasparente da 30 px** sotto al quadratino visibile da 9, perché col dito quei nove pixel non si prendono. **Poi, lo stesso giorno:** i due ultimi comandi che vivevano solo in un tasto — i **magneti fra i fogli** (spunta nella colonna, Alt la capovolge) e **«Somma»** nell'editor (interruttore nella barra, Ctrl lo capovolge). **Resta della parte (a):** le informazioni affidate al solo passaggio del mouse, e il giro delle **schermate strette** (il telefono), che è impaginazione e non gesti.
 - [2026-11-15] **Un buco trovato dall'utente usando il programma dall'iPad: nella tab Edit lo sguardo non si poteva spostare.** Sue parole: «una volta che ho lo strumento scegli non posso più muovermi nello spazio dove disegnare, e anche lo zoom fatto da Safari apre e chiude tutta la pagina web». Due cause, e nessuna delle due era un difetto scritto di fresco: **(1)** lo spostamento dello sguardo nell'editor stava sul **tasto centrale del mouse**, che su un iPad non esiste — con «Scegli» in mano il trascinamento prende le forme, giustamente, quindi non restava nessun modo di girare per il disegno con un dito; **(2)** la **pinzata su iOS Safari diventa lo zoom della PAGINA** appena un dito cade fuori dalla tela, e `touch-action: none` stava su `#ed-svg` ma non sul riquadro attorno — che da fuori è la stessa superficie, quindi la differenza non si poteva nemmeno vedere mentre capitava. **La sua soluzione, ed è quella giusta:** «inserisci un'icona di una mano così lo spostamento è coperto». *Un gesto che il browser si prende non si contratta: si sostituisce con un pulsante, che nessuno può portare via.* Fatti: lo strumento **Mano** in testa alla barra (trascina e sposta lo sguardo, non tocca niente — e funziona anche su un livello spento, perché non modifica nulla, come già faceva il tasto centrale), i due pulsanti **+** e **−** dello zoom accanto (ancorati al **centro di quello che si sta guardando**, non all'origine del disegno), e `touch-action: none` anche sul riquadro. La rotella e la pinzata restano: non si toglie niente, si aggiunge la strada che non dipende da nessuno. **13 controlli nuovi** in `prova-tocco.js` — provati **col dito** e non col mouse, perché col mouse lo spostamento c'era già e una prova col mouse non avrebbe visto niente di quello che mancava — e 8 mutazioni in `rompi.py`. **Lo stesso `touch-action` mancava attorno al piano** (`.bed-wrap`) e è stato messo insieme a questo: il piano non ha il buco dello spostamento — là un dito sul fondo sposta già lo sguardo, perché nessuno strumento gli contende il trascinamento — ma il margine era dello stesso tipo. Nove mutazioni in tutto.
+- [2026-11-15] **Il salvataggio automatico e i «disegni recenti»: fatta la metà locale**, quella che non ha bisogno della scheda SD. Chiesto il 2026-11-12, e il disegno di quel giorno è stato eseguito senza cambiarlo: **continuo** e non «alla chiusura della pagina» (alla chiusura il browser non garantisce niente, e una scheda che il sistema uccide — su un iPad capita — non manda alcun evento); **IndexedDB** e non `localStorage` (cinque megabyte e sole stringhe); **venti slot** più un taglio a **30 giorni**; **un recupero per sessione di lavoro**, con uno slot nuovo al caricamento di un file e dopo una pausa di mezz'ora; **recuperi e progetti in due gruppi**, perché mescolarli vorrebbe dire che un recupero di dieci minuti fa può spingere fuori dall'elenco un progetto a cui si teneva. La scrittura è **rimandata di quattro secondi dall'ultima modifica**, quindi durante un trascinamento non si scrive niente e un attimo dopo che la mano si ferma si scrive una volta sola. Il piano vuoto non consuma uno slot, e durante una stampa non si scrive — là il disegno non cambia e il processore sta mandando il programma. **Il rinomina al salvataggio** usa la finestrella dei nomi di livelli e fogli (`js/nome.js`), che ha guadagnato una cosa sola: il suo pulsante di conferma ora può dire **«Salva»** invece di «Rinomina», che mentre si salva era una bugia piccola e fastidiosa. **Una conseguenza che vale la pena sapere:** sull'iPad lo scaricamento di un file non funziona, quindi fino a ieri, da là, «Salva» non salvava niente; da adesso il progetto resta comunque **nei disegni recenti**, e si riapre. Il file e la copia locale sono due cose, e perché il lavoro non si perda ne basta una. **Manca il secondo livello** — la copia sulla SD del telecomando, cioè il «da ogni dispositivo» — che è il passo 3 del lavoro 1 dello Step 13 e arriva col telecomando. **32 controlli** in `prova-recenti.js`, **19 mutazioni** in `rompi.py`, tutte viste.
+- [2026-11-15] **Due difetti nel salvataggio automatico, trovati dal banco uno dopo l'altro, e sono la stessa storia a due livelli.** *Sintomo:* il recupero si riscriveva a ogni notifica, anche su un disegno che non era stato toccato — e `path` lo emette pure a ogni cambio di **selezione**, cioè a ogni clic in giro. *Causa, primo strato:* il confronto «è cambiato qualcosa?» guardava il testo intero del progetto, e dentro quel testo c'è l'**ora in cui è stato scritto** (`salvato`): due chiamate a un secondo di distanza danno due testi diversi su un disegno immobile, quindi la risposta era sempre sì. *Fix:* si confronta un'**impronta**, cioè il testo senza quel campo. *Causa, secondo strato — ed è quella che insegna qualcosa:* la prima impronta cercava `"salvato":"..."` con i virgolettati normali, e **dentro al file quel JSON ha le virgolette escapate come entità HTML** (`&quot;salvato&quot;:&quot;2026-...&quot;`), perché sta dentro a un documento SVG. La regola non agganciava niente, **non dava nessun errore**, e il controllo continuava a dire KO senza dire perché. Si vede solo guardando i due testi carattere per carattere, che è quello che è servito fare. *Fix:* si aggancia il nome del campo e la **forma della data**, non le virgolette, così vale in entrambe le scritture. L'impronta resta un accordo con la forma che `progetto.js` dà a quel campo, quindi è fragile per costruzione: **c'è un controllo dedicato a lei**, che confronta due testi dello stesso disegno a un secondo di distanza e pretende testi diversi e impronta uguale. Se un giorno quel campo cambia nome, il banco lo dice invece di lasciare il recupero a riscriversi in silenzio.
 
 ### Step 5 — Struttura meccanica
 
@@ -1158,6 +1189,30 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-15 21:50] Il salvataggio che non si perde, e i disegni recenti
+
+**Riepilogo:** fatta la **metà locale** del salvataggio automatico chiesto il 2026-11-12 — il menu «Recenti» in due gruppi, il recupero scritto da solo con uno slot per sessione di lavoro, e il **nome chiesto al salvataggio**, che prima usciva dal nome del primo file importato. Resta fuori il secondo livello, la copia sulla SD, che arriva col telecomando.
+
+**Cosa è stato fatto:** vedi le due note del 2026-11-15 nello Step 4, che tengono il dettaglio. In breve: `webui/js/recenti.js` (IndexedDB, venti slot, taglio a 30 giorni, scrittura rimandata di quattro secondi dall'ultima modifica, niente sul piano vuoto, niente durante una stampa), il menu con i due gruppi e il «quando» detto a parole, il rinomina al salvataggio attraverso la finestrella dei nomi, e una copia locale di ogni progetto salvato a mano.
+
+**Bug: il recupero si riscriveva a ogni clic**
+
+**Sintomo:** il salvataggio automatico scriveva a ogni notifica, anche su un disegno immobile — e `path` lo emette pure a ogni cambio di selezione.
+**Causa, due strati.** Il confronto «è cambiato qualcosa?» guardava il testo intero del progetto, e dentro c'è l'**ora in cui è stato scritto**: due testi dello stesso disegno non sono mai uguali. Messa un'impronta che togliesse quel campo, non cambiava nulla: dentro al file quel JSON ha le **virgolette escapate come entità HTML** (`&quot;salvato&quot;`), perché sta in un documento SVG, quindi la regola non agganciava niente — e **non dava nessun errore**.
+**Fix applicato:** l'impronta si aggancia al nome del campo e alla forma della data, non alle virgolette. E le sta accanto un controllo che prova **l'accordo fra i due moduli**: due testi dello stesso disegno a un secondo di distanza devono essere diversi, e la loro impronta uguale. Se un giorno quel campo cambia nome, il banco lo dice.
+
+**Decisioni prese:**
+- Contesto: il piano era del 2026-11-12 e andava solo eseguito; una cosa però non era decisa — che fine fa un progetto salvato a mano.
+- Decisione: **ne resta una copia anche in locale**, accanto al file scaricato. Non era nel disegno originale, e la ragione è l'iPad: là lo scaricamento non funziona, quindi fino a ieri «Salva» non salvava niente. Due posti, e perché il lavoro non si perda ne basta uno.
+- Alternative scartate: tenere solo il file, cioè lasciare «Salva» rotto su metà dei dispositivi; e tenere solo la copia locale, che butterebbe via l'unica copia che si può portare altrove.
+- Da rivedere se: i venti slot risultano pochi o troppi all'uso — sono un numero in un posto solo.
+
+**Collaudo:** `webui/tools/prova-recenti.js`, **32 controlli**; gli altri sedici banchi rifatti e verdi. **19 mutazioni nuove** in `rompi.py` (totale **344**), tutte viste — ma cinque solo al secondo giro: quattro per errori miei nelle mutazioni (tre ancore scritte con gli apici ASCII dove il banco scrive gli accenti, una col file sbagliato) e **una per una scena cieca davvero**, il taglio a 30 giorni provato in una scena dove il recupero vecchio era anche il ventiseiesimo per data e il taglio dei venti lo portava via comunque. Tre regole nuove nelle convenzioni della Pipeline.
+
+**File consegnati/modificati:** `webui/js/recenti.js` (nuovo), `webui/js/progetto.js`, `webui/js/nome.js`, `webui/js/artwork.js`, `webui/js/app.js`, `webui/index.html`, `webui/css/components.css`, `webui/tools/prova-recenti.js` (nuovo), `webui/tools/rompi.py`, `documento-sessione-cnc-2d.md`. Pagina ripubblicata sullo stesso indirizzo.
+
+---
 
 ### [2026-11-15 20:44] La mano: dall'iPad lo sguardo si poteva pinzare ma non spostare
 

@@ -207,6 +207,13 @@
              Vedi js/progetto.js. -->
         <div class="card-testa">
           <h2>Disegno</h2>
+          <!-- I DISEGNI RECENTI, accanto a «Salva» perche' sono la stessa
+               cosa vista dall'altra parte: uno mette via, l'altro ritrova.
+               Non e' disabilitato come «Salva» -- l'elenco serve proprio
+               quando sul piano non c'e' niente, cioe' appena aperta la
+               pagina. Vedi js/recenti.js. -->
+          <button class="btn btn-ghost btn-small" id="btn-recenti"
+                  title="I disegni a cui hai lavorato e quelli che hai salvato col nome">Recenti</button>
           <button class="btn btn-ghost btn-small" id="btn-save-prog" disabled
                   title="Salva il lavoro in un SVG che si puo' riaprire qui e continuare">Salva</button>
         </div>
@@ -1162,6 +1169,7 @@
 <script src="js/tocco.js"></script>
 <script src="js/riempi.js"></script>
 <script src="js/matita.js"></script>
+<script src="js/recenti.js"></script>
 <script src="js/paper.js"></script>
 <script src="js/righelli.js"></script>
 <script src="js/artwork.js"></script>
@@ -1266,6 +1274,24 @@
      fogli. Non e' una casella dentro alla riga perche' gli elenchi di questa
      pagina si ridisegnano interi a ogni modifica, e si porterebbero via
      quello che si sta scrivendo. Vedi js/nome.js. -->
+<!-- I DISEGNI RECENTI. Due gruppi e non un elenco solo: i recuperi li
+     scrive il programma e scadono, i progetti li salva l'utente con un nome e
+     restano. Mescolarli vorrebbe dire che un recupero di dieci minuti fa puo'
+     spingere fuori dall'elenco un progetto a cui si teneva. Vedi
+     js/recenti.js. -->
+<div class="modal" id="rec-modal" hidden>
+  <div class="modal-box modal-stretto" role="dialog" aria-modal="true"
+       aria-labelledby="rec-titolo">
+    <header class="modal-head"><h2 id="rec-titolo">Disegni recenti</h2></header>
+    <div class="modal-body">
+      <div id="rec-elenco"></div>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn btn-ghost" id="rec-chiudi">Chiudi</button>
+    </footer>
+  </div>
+</div>
+
 <div class="modal" id="nome-modal" hidden>
   <div class="modal-box modal-stretto" role="dialog" aria-modal="true"
        aria-labelledby="nome-titolo">

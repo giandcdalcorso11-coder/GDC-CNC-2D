@@ -99,6 +99,11 @@ var Artwork = (function () {
    * aprirlo. È la stessa mappa di rigenera(), per la stessa ragione.
    */
   function load(text, nome) {
+    /* UN FILE NUOVO E` UN'ALTRA SESSIONE DI LAVORO: il recupero apre uno slot
+       suo invece di sovrascrivere quello del disegno di prima. Senza questa
+       riga, caricare un file alle cinque cancellerebbe il punto in cui si era
+       arrivati alle tre. Vedi js/recenti.js. */
+    if (window.Recenti) Recenti.nuovaSessione();
     /* UN PROGETTO SALVATO NON SI IMPORTA: SI RIPRENDE. Dentro c'è lo stato
        com'era — forme con le loro curve, livelli, rettangoli, ritagli,
        foglio — e rileggerne i tracciati disegnati vorrebbe dire tornare a un
