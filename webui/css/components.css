@@ -1086,6 +1086,25 @@ code {
 .nome-campo { width: 100%; font-size: 14px; padding: 7px 9px; }
 .modal-stretto { max-width: 420px; }
 
+/* LA VOCE DELLO STRUMENTO STAMPE nell'elenco dei collegamenti: la spia
+   prima del nome, e la matita per cambiare l'indirizzo sempre visibile --
+   non al passaggio del mouse come le altre, perche' qui non e' un comando
+   secondario: e' l'unica cosa che si puo' cambiare di questa voce, e col
+   dito il passaggio del mouse non esiste. */
+.sorgente-locale { display: flex; align-items: center; gap: 7px; }
+.sorgente-locale > a { flex: 1 1 auto; min-width: 0; overflow: hidden;
+                       text-overflow: ellipsis; white-space: nowrap; }
+.sorgente-locale .led { padding: 0; cursor: pointer; }
+.sorgente-locale .mini-edit {
+  position: static;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+@media (pointer: coarse) {
+  .sorgente-locale .led { width: 16px; height: 16px; }
+  .sorgente-locale .mini-edit { width: 28px; height: 28px; }
+}
+
 /* ------------------------- I DISEGNI RECENTI -------------------------
    Due gruppi, e ogni riga e' un pulsante largo con dentro due righe di
    testo: il nome, che e' quello che si cerca, e sotto quando e quanto, che

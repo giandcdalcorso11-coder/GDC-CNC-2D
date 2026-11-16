@@ -3134,6 +3134,173 @@ MUTAZIONI = [
         vede="dice «Salva», non «Rinomina»",
         prova="prova-recenti.js",
     ),
+
+    # ---- IL COLLEGAMENTO ALLO STRUMENTO STAMPE (2026-11-16) ----
+    dict(
+        nome="lo strumento prende il nome dall'indirizzo, come gli altri",
+        file="js/sorgenti.js",
+        da="                    { url: STRUMENTO.url, nome: STRUMENTO.nome, locale: true });",
+        a="                    { url: STRUMENTO.url, nome: nomeDa(STRUMENTO.url), locale: true });",
+        vede="un nome suo, non",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="la voce dello strumento non si aggiunge a chi aveva gia' l'elenco",
+        file="js/sorgenti.js",
+        da="    if (!c) {\n      elenco.splice(Math.min(1, elenco.length), 0,",
+        a="    if (false) {\n      elenco.splice(Math.min(1, elenco.length), 0,",
+        vede="la voce dello strumento si aggiunge",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="lo strumento si mette in cima, davanti a Book of Shapes",
+        file="js/sorgenti.js",
+        da="      elenco.splice(Math.min(1, elenco.length), 0,",
+        a="      elenco.splice(0, 0,",
+        vede="sta dopo Book of Shapes",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="la voce dello strumento ha il cestino come un segnalibro",
+        file="js/sorgenti.js",
+        da="      if (s.locale) {",
+        a="      if (false) {",
+        vede="non ha il cestino",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="la spia chiede con le regole normali invece che no-cors",
+        file="js/sorgenti.js",
+        # E' la scommessa del modulo: senza `no-cors` il browser pretende
+        # l'intestazione CORS, che `strumento.py` non manda, e la spia resta
+        # spenta anche a strumento acceso.
+        da="    var opt = { mode: 'no-cors', cache: 'no-store' };",
+        a="    var opt = { mode: 'cors', cache: 'no-store' };",
+        vede="la spia si accende, SENZA CORS",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="la spia resta accesa una volta accesa",
+        file="js/sorgenti.js",
+        da="    return fetch(base, opt).then(function () { return true; },\n                                 function () { return false; })",
+        a="    return fetch(base, opt).then(function () { return true; },\n                                 function () { return risponde === true; })",
+        vede="si rispegne quando lo strumento si chiude",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="la spia non dice che cosa fare quando e' spenta",
+        file="js/sorgenti.js",
+        da="                           : 'Lo strumento non risponde: avvialo col file .bat qui sotto. Clicca per riprovare') +",
+        a="                           : 'Lo strumento non risponde') +",
+        vede="dice che cosa fare",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="la pagina interroga la porta appena si apre",
+        file="js/sorgenti.js",
+        da="      if (cercato && serve()) pinga();\n    });",
+        a="      if (serve()) pinga();\n    });\n    pinga();\n    cercato = true;",
+        vede="non interroga nessuna porta",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="il battito chiede anche durante una stampa",
+        file="js/sorgenti.js",
+        da="    if (State.data.stampa && State.data.stampa.stato !== 'fermo') return false;",
+        a="",
+        vede="durante una stampa",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="il battito chiede anche da un'altra tab",
+        file="js/sorgenti.js",
+        da="    var t = document.getElementById('tab-disegno');\n    if (t && !t.classList.contains('is-active')) return false;",
+        a="",
+        vede="durante una stampa",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'indirizzo non si puo' cambiare",
+        file="js/sorgenti.js",
+        da="        var m = e.target.closest('[data-sorg-mod]');\n        if (m) { e.preventDefault(); cambiaIndirizzo(+m.dataset.sorgMod); return; }",
+        a="",
+        vede="apre la finestrella",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="un indirizzo che non e' un indirizzo si prende lo stesso",
+        file="js/sorgenti.js",
+        # E' il difetto che il banco ha trovato: `new URL` da solo accetta
+        # `http://ht!tp://:::`, con «ht!tp» come nome di macchina.
+        da="        if (!uu || !/^https?:$/.test(uu.protocol) ||\n            !/^[a-z0-9.-]+$/i.test(uu.hostname)) {",
+        a="        if (!uu) {",
+        vede="non sostituisce quello buono",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'avviatore si consegna anche da un indirizzo web",
+        file="js/sorgenti.js",
+        da="    if (h.indexOf('file:///') !== 0) return null;",
+        a="    if (false) return null;",
+        # La scena serve la pagina a `/webui/dist/cnc2d-ui.html`, cioe' con
+        # la FORMA delle cartelle del progetto: con un indirizzo qualunque le
+        # guardie sulla forma rifiutavano comunque, e questa non si vedeva
+        # lavorare. Con la forma giusta, lei e' l'unica cosa che impedisce di
+        # scrivere «/7.0.0.1:9124» dentro a un .bat.
+        vede="la cartella non si ricava",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'avviatore si consegna anche aprendo la pagina da altrove",
+        file="js/sorgenti.js",
+        da="    if (pezzi[pezzi.length - 1] !== 'webui') return null;",
+        a="",
+        # Puntata sulla scena della COPIA fuori dal progetto: dalla cartella
+        # vera il risultato veniva uguale con o senza questa riga, quindi il
+        # controllo di prima rispondeva giusto per caso.
+        vede="fuori dal progetto non genera",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'avviatore chiude la finestra, cioe' spegne lo strumento",
+        file="js/sorgenti.js",
+        da="      'start /min \"Strumento stampe\" cmd /k python -B strumento.py',",
+        a="      'python -B strumento.py',",
+        vede="lascia aperta la finestra",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'avviatore non dice niente se non trova lo strumento",
+        file="js/sorgenti.js",
+        da="      'if not exist strumento.py goto manca',",
+        a="",
+        vede="non trova lo strumento lo scrive",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'avviatore ha i fine riga di Unix",
+        file="js/sorgenti.js",
+        da="    ].join('\\r\\n') + '\\r\\n';",
+        a="    ].join('\\n') + '\\n';",
+        vede="fine riga di Windows",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'avviatore entra nella cartella sbagliata",
+        file="js/sorgenti.js",
+        da="      'cd /d \"' + radice + barra(radice) + 'stampe' + barra(radice) + 'strumento\"',",
+        a="      'cd /d \"' + radice + '\"',",
+        vede="entra nella cartella dello strumento",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="il rifiuto non spiega da dove va aperta la pagina",
+        file="js/sorgenti.js",
+        da="      Log.add('err', 'L\\'avviatore si può generare solo aprendo questa pagina ' +\n                     'dalla cartella del progetto sul computer ' +",
+        a="      Log.add('err', 'L\\'avviatore non si può generare qui. ' +\n                     'Non so dove sia ' +",
+        vede="spiega che la pagina va aperta",
+        prova="prova-strumento.js",
+    ),
 ]
 
 

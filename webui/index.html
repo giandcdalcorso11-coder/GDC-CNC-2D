@@ -295,6 +295,20 @@
                    placeholder="Incolla un indirizzo" autocomplete="off" spellcheck="false">
             <button class="btn btn-small" type="submit" title="Aggiungi questo collegamento">+</button>
           </form>
+          <!-- L'AVVIATORE DELLO STRUMENTO. Una pagina web non lancia
+               programmi sul computer, e non e' una mancanza da aggirare: e' il
+               confine che impedisce a qualunque pagina di farlo. Quello che si
+               puo' fare e' generare un file e darlo: a eseguirlo e' il comando
+               «apri» del browser, cioe' un click dell'utente. Strada scelta
+               con lui il 2026-11-13.
+               Il pulsante RESTA in pagina invece di consegnare il file una
+               volta: il percorso del progetto e' scritto dentro all'avviatore
+               una volta sola, quindi se la cartella si sposta va rigenerato. -->
+          <button class="btn btn-ghost btn-small full" id="btn-avviatore"
+                  title="Genera il file che avvia lo strumento, col percorso di questa copia del progetto">Scarica l&rsquo;avviatore dello strumento</button>
+          <p class="hint">Si scarica una volta. Da lì in poi <b>Ctrl+J</b> e un
+            click sul file, ogni volta che serve. La finestrella nera che
+            compare <b>deve restare aperta</b>: chiuderla spegne lo strumento.</p>
         </div>
 
         <p class="placeholder-note">La conversione da fotografia a tracciato vettoriale non è ancora implementata: per ora si carica un SVG già vettoriale. Le forme piene vengono disegnate come contorni, perché una penna non riempie.</p>
