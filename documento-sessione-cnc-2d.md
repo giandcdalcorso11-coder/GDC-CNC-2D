@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 126
-**Ultimo aggiornamento:** 2026-11-16 18:22
+**Versione:** 127
+**Ultimo aggiornamento:** 2026-11-16 18:30
 
 ## Regole di co-editing
 
@@ -180,6 +180,41 @@ volte, e le tre precisazioni valgono quanto la regola:
   cieco?» ma «questa scena può manifestare questo difetto?».
 
 **Come si prova la pagina mentre la macchina non c'è (dal 2026-11-14).** Dal 23 novembre questa riga non servirà più, e proprio per questo va scritta adesso: in questi giorni l'utente è lontano dal PC, dalla macchina e dal telecomando, e l'unica cosa che ha in mano è l'iPad. **Su iOS Safari non apre una pagina HTML locale** — dai File parte l'anteprima, che disegna la pagina ma non è un browser: niente memoria del sito, eventi a metà. Quindi mandargli `dist/cnc2d-ui.html` non serve a provarlo. Serve un **indirizzo**: la pagina si pubblica così com'è (https://claude.ai/artifact/AiQso1ui7LAiRemMtsFHpU, privata sua) e si ripubblica sullo stesso link dopo ogni giro, così lui ricarica e trova la versione nuova. **Due cose non funzionano di là, e non sono difetti del SLICER:** il collegamento alla macchina (è su un'altra rete — c'è la modalità finta) e lo **scaricamento di file** — salvare il progetto, scaricare il G-code —, perché quel visore alle pagine non concede il permesso di consegnare file. Sul PC quei pulsanti funzionano.
+
+**Che cosa aspetta il 23 novembre (scritto il 2026-11-16).** Dal 14 al 16
+novembre si è lavorato senza macchina, senza PC e senza telecomando, e il
+risultato è una coda di verifiche che arrivano tutte insieme il giorno in cui
+l'hardware torna. Sono sparse su cinque step — questo blocco non le duplica,
+le mette in **ordine di dipendenza**, perché l'informazione c'è ma cercarla
+quel giorno costa più che scriverla adesso.
+
+**(1) Sulla carta, con la macchina.** Chiude il criterio di completamento di
+**due** step: lo Step 14 (riempimenti: una **A in grassetto** riempita nel
+corpo e nel triangolo, più una forma piena importata da un SVG **con buchi**)
+e lo Step 17 (un **tratto fatto a mano** con la Pencil, stampato). *Vale la
+pena farle sullo stesso foglio e nella stessa sessione:* la parte lenta della
+procedura non è disegnare, sono i due popup di inizio stampa — l'origine XY e
+l'altezza di appoggio della penna — e misurarli una volta per due prove è
+l'unica economia disponibile. Finché non passano, **nessuno dei due step è
+chiuso**, per bene che funzionino sullo schermo.
+
+**(2) Al PC, senza macchina.** Lo Step 4 pezzo 2: aprire la pagina da
+`webui/dist/cnc2d-ui.html`, premere **«Scarica l'avviatore»**, `Ctrl+J`, click
+sul `.bat`, e tornare sulla pagina a vedere la **spia** accendersi da sola.
+Questa va **prima** dei pezzi 3 e 4, e non è un ordine arbitrario: quei due
+— la riga di CORS in `strumento.py` e «Apri nello SLICER» — si possono provare
+solo con lo strumento **in funzione**, cioè dopo che l'avviatore ha funzionato.
+
+**(3) Col telecomando.** I tre lavori aperti dello Step 13 (la SD e il
+multi-dispositivo, le interfacce dei dispositivi, l'interruttore), più il
+profilo sulla scheda e il registro stampe. Dentro al lavoro 1 c'è un passo che
+ne sblocca un altro: il **passo 3** (i progetti salvati sulla scheda) è la
+seconda metà del salvataggio automatico — vedi la nota del 2026-11-16 in quel
+blocco.
+
+**(4) Per ultima, la pulizia dello Step 15**, per decisione dell'utente del
+2026-11-09: farla prima vorrebbe dire decidere che cosa buttare mentre il
+lavoro è ancora in corso.
 
 **Il repository GitHub si chiama `GDC-CNC-2D`** (rinominato dall'utente il
 2026-10-15; GitHub non accetta spazi nei nomi e li sostituisce con trattini).
@@ -1041,6 +1076,7 @@ quello che era.
 - [2026-11-09] **Lavori 3 e 5 fatti, e provati sulla macchina.** Il firmware è stato caricato dall'utente e una stampa a due fogli è andata in porto **a batteria**: «tutto ha funzionato correttamente». Con quel caricamento sono arrivate sulla scheda anche tutte le correzioni di mezzo — vedi la voce di storico del 2026-11-09, perché fra il caricamento e la stampa buona ci sono stati due guasti e tre difetti trovati.
 - [2026-11-12] **La copia del profilo sulla SD smette di essere un «uso minore».** Domanda dell'utente: aprendo il SLICER dall'iPad o dall'iPhone, cosa manca di quello che sta solo sul PC? La risposta divide in due. **Quello che non manca mai:** origine, altezza di contatto e angolo del foglio sono chiesti dai popup **a ogni stampa, su ogni dispositivo**, perché dipendono da dove hai appoggiato il foglio oggi e per questo non stanno nel profilo (`popup.js`). **Quello che manca:** tutto il profilo macchina, che vive in `localStorage` ed è **per dispositivo e per browser** — corse in passi, margine, ostacolo, angoli del servo (cioè **quanto si alza la penna**), gioco, zero della tavola, velocità — più penne, spessori, segnalibri, indirizzo e volume del telecomando. Un dispositivo nuovo non parte da zero: parte dai **valori di fabbrica compilati nella pagina**, che sono le misure vere al momento del build. Il rischio quindi non è il vuoto, è lo **scostamento silenzioso** fra quella fotografia e quello che l'utente ha cambiato dopo sul PC. Da qui: la copia del profilo sulla scheda diventa **l'ossatura del multi-dispositivo**, non un contorno, e va fatta col lavoro 1. **Regola proposta: il PC resta il padrone**, la scheda ne tiene la copia, gli altri dispositivi la **leggono** e non la scrivono se non quando l'utente lo chiede — una sincronizzazione a due vie fra tre dispositivi è una gara a chi salva per ultimo.
 - [2026-11-12] **Il passo 3 del lavoro 1 (i progetti salvati sulla scheda) ha un consumatore preciso**, chiesto dall'utente: il menù «disegni recenti» e il salvataggio automatico, descritti nella nota del 2026-11-12 dello Step 4. Cambia la priorità interna del lavoro 1 — l'endpoint di caricamento non serve più solo a «salvare dalla macchina», serve a far esistere il menù su tutti i dispositivi — ma **non** l'ordine dei tre passi. E la data: la scheda da **32 GB** l'utente l'ha (è il massimo che il lettore accetta), ma fino al **23 novembre** non è a casa con scheda, telecomando, PC e macchina, quindi il lavoro 1 non può cominciare prima. Da verificare allora che la scheda sia formattata **FAT32** e non exFAT, che la libreria non legge: il sintomo sarebbe «la scheda non c'è», non «la scheda è sbagliata».
+- [2026-11-16] **Quel consumatore adesso esiste, ed è fatto a metà: il passo 3 è l'altra metà.** Il 2026-11-15 è stato costruito il salvataggio automatico coi «disegni recenti» (vedi le note di quel giorno nello Step 4), e l'utente l'ha provato e confermato il 2026-11-16. Ma è la **metà locale**: IndexedDB sul dispositivo che si sta usando. La richiesta del 2026-11-12 diceva «raggiungibile **da ogni dispositivo** attraverso la SD del telecomando», e quella metà è esattamente il passo 3 di questo lavoro. **Che cosa manca, in concreto:** scrivere sulla scheda la copia dei progetti salvati (ritmo lento, mai durante una stampa — la SPI è divisa col vetro) e leggerla all'apertura della pagina, fondendola con l'elenco locale. **Che cosa non manca più:** il formato (è il progetto in SVG, già scritto da `Progetto.testo()`), il menù, i due gruppi, la potatura e il rinomina al salvataggio — tutto già costruito e provato. Quando la scheda arriva, questo passo è un trasporto, non una funzione nuova.
 - [2026-11-09] **Lavoro 5 fatto: il tasto che chiude il racconto.** `FINE` e `FERMATA` hanno un tasto in alto a sinistra che riporta alla schermata Pronta; i tre minuti restano, e sono per chi passa domani. Consegnato all'utente il file da caricare, che porta anche il **lavoro 3** — il firmware sulla scheda è fermo al 2026-11-03, quindi con lo stesso caricamento arrivano il «FOGLIO 3/9» della fase 3d e tutto quello di mezzo. **L'utente ha confermato che non l'aveva ancora caricato:** il dubbio aperto nello Step 12 è quindi sciolto nel verso previsto — durante la stampa dei nove magneti il vetro il numero del foglio NON l'ha detto, perché quel firmware non c'era.
 
 ### Step 14 — I riempimenti: riconoscere le forme chiuse e riempirle
@@ -1212,6 +1248,19 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-16 18:30] Documento: la coda del 23 novembre, messa in un posto solo
+
+**Riepilogo:** passata di manutenzione del documento alla fine di tre giorni di lavoro senza hardware. Nessun codice: chiusi due buchi di registrazione, e verificati i numeri contandoli.
+
+**Cosa è stato fatto:**
+- **Aggiunto alla Pipeline il blocco «Che cosa aspetta il 23 novembre».** L'informazione c'era tutta, sparsa su cinque step — «23 novembre» compariva **quindici volte** nel documento — e da nessuna parte c'era l'ordine in cui farle. Il blocco non duplica le note: le mette in **ordine di dipendenza**, con due cose che quel giorno si pagherebbero a scoprirle sul posto. *Primo:* le prove sulla carta dello Step 14 e dello Step 17 conviene farle sullo **stesso foglio e nella stessa sessione**, perché la parte lenta non è disegnare, sono i due popup di inizio stampa (origine XY e altezza di appoggio) e misurarli una volta per due prove è l'unica economia disponibile. *Secondo:* la prova dell'avviatore va **prima** dei pezzi 3 e 4 del collegamento allo strumento, perché quelli si possono provare solo con lo strumento in funzione.
+- **Chiuso un buco di riferimento incrociato nello Step 13.** C'era una nota del 2026-11-12 che diceva che il passo 3 del lavoro 1 «ha un consumatore preciso», il menù dei disegni recenti. Quel consumatore adesso **esiste e funziona**, ma per metà: lo Step 13 non lo sapeva, e chi fosse arrivato a quel blocco il 23 novembre non avrebbe saputo che metà del lavoro è già in piedi. Aggiunta la nota con **che cosa manca in concreto** (scrivere e rileggere la copia sulla scheda, fondendola con l'elenco locale) e che cosa non manca più (formato, menù, gruppi, potatura, rinomina): quando la scheda arriva, quel passo è un **trasporto**, non una funzione nuova.
+- **Verificati i numeri contandoli**, non ricordandoli: `prova-tocco` 38 controlli, `prova-matita` 35, `prova-recenti` 32, `prova-strumento` 31, `prova-riempimenti` 43, `rompi.py` 363 mutazioni. **Corrispondono a quello che il documento dichiara** — niente da correggere, al contrario del controllo del 2026-11-15, dove «41 controlli» erano 43. Vale la pena scriverlo: un controllo che passa è un'informazione come quello che trova qualcosa.
+
+**Impatto su Vision/Pipeline:** Pipeline — aggiunto il blocco «Che cosa aspetta il 23 novembre» alle convenzioni valide per tutta la pipeline; Step 13 — aggiunta la nota del 2026-11-16 sul passo 3 del lavoro 1.
+
+---
 
 ### [2026-11-16 18:22] Il collegamento allo strumento stampe: i due pezzi lato SLICER
 
