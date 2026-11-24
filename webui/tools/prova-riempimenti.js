@@ -489,6 +489,50 @@ function rett(x, y, w, h, fessura) {
   ok('e sta PRIMA del padre, perche` il contorno si stampa per ultimo', r.prima);
   ok('la scelta resta sul disegno, non salta sul riempimento',
      r.scelto === r.padre, 'scelto ' + r.scelto);
+  /* ====== L'ANNULLA DEL RIEMPIMENTO ======
+     Segnalato dall'utente il 2026-11-24: «Ctrl+Z non funziona coi
+     riempimenti». Non era una dimenticanza da una riga. La storia
+     dell'annulla fotografa le FORME DEL LIVELLO ATTIVO, e un riempimento
+     quelle non le tocca: fa nascere un livello figlio. Una fotografia del
+     padre non sa niente del figlio, quindi chiamare `segna()` avrebbe
+     acceso il pulsante senza disfare niente -- peggio del difetto.
+     SI CONTANO I LIVELLI, non lo stato del pulsante: un annulla che si
+     accende e non toglie niente e' esattamente il modo in cui questo
+     difetto si sarebbe ripresentato travestito da correzione. */
+  r = await page.evaluate(() => {
+    const quanti = () => (Artwork.livelli() || []).length;
+    const dopoRiempimento = quanti();
+    document.getElementById('ed-annulla').click();
+    const dopoAnnulla = quanti();
+    document.getElementById('ed-rifai').click();
+    const dopoRifai = quanti();
+    const l = Artwork.livelli() || [];
+    const figlio = l.filter((x) => x.padre)[0];
+    return { dopoRiempimento: dopoRiempimento, dopoAnnulla: dopoAnnulla,
+             dopoRifai: dopoRifai,
+             tratti: figlio ? figlio.tratti : 0,
+             padre: figlio ? figlio.padre : null };
+  });
+  ok('l’annulla toglie il riempimento, non solo il pulsante',
+     r.dopoAnnulla === r.dopoRiempimento - 1,
+     r.dopoRiempimento + ' livelli, dopo l’annulla ' + r.dopoAnnulla);
+  /* E RIFARLO LO RIMETTE DAVVERO, con le sue righe: il livello rinasce con
+     un id nuovo, e se il passo non si riscrivesse con quello un secondo
+     annulla cercherebbe di togliere un livello che non esiste piu'. */
+  ok('e il rifai lo rimette, col suo tratteggio e sotto lo stesso padre',
+     r.dopoRifai === r.dopoRiempimento && r.tratti > 0 && r.padre !== null,
+     r.dopoRifai + ' livelli, ' + r.tratti + ' tratti');
+  /* E UN SECONDO GIRO, che e' il caso in cui l'id vecchio farebbe danno. */
+  r = await page.evaluate(() => {
+    const quanti = () => (Artwork.livelli() || []).length;
+    document.getElementById('ed-annulla').click();
+    const giu = quanti();
+    document.getElementById('ed-rifai').click();
+    return { giu: giu, su: quanti() };
+  });
+  ok('e il secondo giro di annulla e rifai fa la stessa cosa',
+     r.giu === r.su - 1, 'annullato ' + r.giu + ', rifatto ' + r.su);
+
 
   /* IL RIEMPIMENTO STA SOPRA AL SUO DISEGNO, non da un'altra parte: e' il
      difetto piu' facile da fare qui, perche' un livello nuovo di solito si

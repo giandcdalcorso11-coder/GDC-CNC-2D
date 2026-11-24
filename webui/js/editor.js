@@ -154,10 +154,38 @@ var Editor = (function () {
     aggiornaStorici();
   }
 
+  /* DUE TIPI DI PASSO NELLA STESSA STORIA. Quasi tutti sono fotografie delle
+     forme del livello attivo; il riempimento no, perche' non cambia quelle
+     forme -- fa nascere un livello figlio. Disfarlo vuol dire toglierlo,
+     rifarlo vuol dire ricrearlo con la stessa ricetta. Il resto dell'editor
+     non deve saperlo: lo sanno solo queste due funzioni. */
+  function passoRiempimento(passo) {
+    return !!passo && passo.tipo === 'riempimento';
+  }
+
+  function chiudiPasso() {
+    nessunaForma();
+    aggiornaStorici();
+    renderLivelli();
+    /* Le forme del padre non sono cambiate, ma le REGIONI si': il
+       riempimento tolto non fa piu' da confine. Senza questa riga
+       l'anteprima continuerebbe a mostrare lo spazio di un attimo fa. */
+    if (riempiAcceso) rifaiStampino();
+    disegna();
+    scriviPiede();
+  }
+
   function annulla() {
     if (!storia.length) return;
+    var passo = storia.pop();
+    if (passoRiempimento(passo)) {
+      Artwork.rimuovi(passo.id);
+      rifare.push(passo);
+      chiudiPasso();
+      return;
+    }
     var ora = Artwork.istantanea();
-    Artwork.ripristina(storia.pop());
+    Artwork.ripristina(passo);
     if (ora) rifare.push(ora);
     nessunaForma();
     aggiornaStorici();
@@ -167,8 +195,24 @@ var Editor = (function () {
 
   function rifai() {
     if (!rifare.length) return;
+    var passo = rifare.pop();
+    if (passoRiempimento(passo)) {
+      /* Il livello rinasce con un id NUOVO: quello di prima se n'e' andato
+         con lui. Il passo si riscrive con l'id nuovo, se no un secondo
+         annulla cercherebbe di togliere un livello che non esiste piu'. */
+      var id = Artwork.riempimento(passo.padre, passo.polilinee, passo.ricetta);
+      if (id) {
+        storia.push({ tipo: 'riempimento', id: id, padre: passo.padre,
+                      polilinee: passo.polilinee, ricetta: passo.ricetta });
+      } else {
+        Log.add('err', 'Il riempimento non si e` potuto rifare: il contorno ' +
+                       'che riempiva non c\'e` piu`.');
+      }
+      chiudiPasso();
+      return;
+    }
     var ora = Artwork.istantanea();
-    Artwork.ripristina(rifare.pop());
+    Artwork.ripristina(passo);
     if (ora) storia.push(ora);
     nessunaForma();
     aggiornaStorici();
@@ -2876,11 +2920,27 @@ var Editor = (function () {
       return true;
     }
     var par = parametriRiem();
-    var id = Artwork.riempimento(Artwork.sceltoId(), anteprima.polilinee, {
-      tipo: par.tipo, passo: par.passo, angolo: par.angolo,
-      tolleranza: par.tolleranza, punto: { x: p.x, y: p.y }
-    });
+    var padre = Artwork.sceltoId();
+    var poli = anteprima.polilinee;
+    var ric = { tipo: par.tipo, passo: par.passo, angolo: par.angolo,
+                tolleranza: par.tolleranza, punto: { x: p.x, y: p.y } };
+    var id = Artwork.riempimento(padre, poli, ric);
     if (!id) { Log.add('err', 'Il riempimento non e` nato.'); return true; }
+    /* L'ANNULLA DEL RIEMPIMENTO, chiesto dall'utente il 2026-11-24: «Ctrl+Z
+       non funziona con i riempimenti».
+       NON BASTAVA CHIAMARE `segna()`, ed e' il motivo per cui mancava. La
+       storia dell'annulla fotografa le FORME DEL LIVELLO ATTIVO; un
+       riempimento quelle non le tocca: ne crea uno NUOVO, figlio. Una
+       fotografia del padre non sa niente del figlio, quindi un passo
+       normale avrebbe disfatto nulla -- e sarebbe stato peggio, perche'
+       l'annulla si sarebbe acceso senza fare niente.
+       Serve un passo di tipo diverso, che dice «e' nato quel livello» e si
+       porta dietro quanto basta per RIFARLO: padre, polilinee e ricetta. */
+    storia.push({ tipo: 'riempimento', id: id, padre: padre,
+                  polilinee: poli, ricetta: ric });
+    if (storia.length > MAX_STORIA) storia.shift();
+    rifare = [];
+    aggiornaStorici();
     Log.add('msg', 'Riempito: ' + anteprima.metri.toFixed(1) + ' m di penna in ' +
             anteprima.alzate + ' tratt' + (anteprima.alzate === 1 ? 'o' : 'i') +
             '. E` un sottolivello, con la sua penna.');

@@ -3196,6 +3196,28 @@ MUTAZIONI = [
         prova="prova-strumento.js",
     ),
     dict(
+        # L'ANNULLA DEL RIEMPIMENTO. Senza questo passo nella storia, Ctrl+Z
+        # dopo un riempimento non trova niente da disfare: e' il difetto
+        # segnalato dall'utente il 2026-11-24.
+        nome="il riempimento non lascia traccia nella storia dell'annulla",
+        file="js/editor.js",
+        da="    storia.push({ tipo: 'riempimento', id: id, padre: padre,\n                  polilinee: poli, ricetta: ric });\n    if (storia.length > MAX_STORIA) storia.shift();\n    rifare = [];\n    aggiornaStorici();",
+        a="",
+        vede="toglie il riempimento, non solo il pulsante",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        # LA VARIANTE TRAVESTITA DA CORREZIONE: il passo c'e', ma e' una
+        # fotografia normale. Il pulsante si accende e non toglie niente,
+        # perche' la fotografia e' del padre e il riempimento e' un figlio.
+        nome="il riempimento si segna come un passo qualunque",
+        file="js/editor.js",
+        da="    if (passoRiempimento(passo)) {\n      Artwork.rimuovi(passo.id);",
+        a="    if (false) {\n      Artwork.rimuovi(passo.id);",
+        vede="toglie il riempimento, non solo il pulsante",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
         # `hidden` CHE NON NASCONDE. Senza questa riga bastano sette regole di
         # classe col `display` perche' sette elementi restino in pagina col
         # loro `hidden` addosso: la fascia d'avviso vuota coi pulsanti morti e
