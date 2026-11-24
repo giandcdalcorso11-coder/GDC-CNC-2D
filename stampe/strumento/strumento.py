@@ -170,6 +170,31 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
+    def origine(self):
+        """L'origine della pagina che chiede, SE ha il diritto di leggere.
+
+        Lo SLICER gira da `file://` e un browser, per quelle pagine, manda
+        `Origin: null`. Senza questa intestazione il browser gli consegna la
+        risposta ma NON gliela fa leggere: la spia funziona lo stesso (le
+        basta sapere che qualcuno ha risposto), il prelievo del risultato no,
+        perche' quello il contenuto lo deve aprire.
+
+        NON SI SCRIVE `*`, e la differenza non e' formale. Questo server sta
+        sul computer dell'utente e conosce le sue cartelle: con `*` QUALUNQUE
+        sito aperto in un'altra scheda potrebbe leggere l'elenco dei lavori e
+        scaricarsi i disegni generati. Si risponde solo a `null` (una pagina
+        aperta da file, cioe' lo SLICER) e a 127.0.0.1/localhost (lo SLICER
+        servito in locale, e la pagina di questo stesso strumento). Un sito
+        vero ha un'origine vera, quindi non rientra in nessuno dei due casi e
+        il browser gli blocca la lettura.
+        """
+        o = self.headers.get('Origin')
+        if o is None:
+            return None            # nessuna origine: non e' una lettura da fuori
+        if o == 'null' or re.match(r'^https?://(127\.0\.0\.1|localhost)(:\d+)?$', o):
+            return o
+        return None
+
     def invia(self, codice, corpo, tipo='application/json', extra=None):
         if not isinstance(corpo, bytes):
             corpo = json.dumps(corpo, ensure_ascii=False).encode('utf-8') if tipo == 'application/json' else str(corpo).encode('utf-8')
@@ -177,6 +202,12 @@ class H(BaseHTTPRequestHandler):
         self.send_header('Content-Type', tipo + ('; charset=utf-8' if tipo.startswith('text') or tipo == 'application/json' else ''))
         self.send_header('Content-Length', str(len(corpo)))
         self.send_header('Cache-Control', 'no-store')
+        o = self.origine()
+        if o:
+            self.send_header('Access-Control-Allow-Origin', o)
+            # La risposta cambia con l'origine: senza questa riga una cache
+            # potrebbe servire a un'origine il permesso dato a un'altra.
+            self.send_header('Vary', 'Origin')
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
