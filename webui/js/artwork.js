@@ -3181,16 +3181,24 @@ var Artwork = (function () {
 
     /* IL MARCHIO DELLA MACCHINA, dalla stessa strada del suo vicino: entra
        come livello nuovo, importato come un file qualsiasi.
-       Il disegno viene dall'SVG CHE STA GIA' NELLA PAGINA, quello
-       dell'intestazione: una copia sola, e quando il logo cambia cambiano
-       insieme il marchio in alto e quello che finisce sul foglio. Un secondo
-       file vorrebbe dire due copie, e la seconda e' sempre quella vecchia.
-       Dentro a quell'SVG c'e' una maschera col suo rettangolo di fondo:
-       l'importatore non la prende, perche' quello che sta in <defs> non e'
-       nel disegno. Vedi `nascosto()` in svgimport.js. */
+       IL DISEGNO E' UN ALTRO FILE, E NON E' UNA SVISTA. Fino al 2026-11-24
+       si prendeva il marchio dell'intestazione e lo si convertiva al volo,
+       per avere una copia sola. La regola era buona, la premessa no: quel
+       marchio e' fatto di aree piene e di una MASCHERA che ci ritaglia i
+       contrografici, e una maschera una penna non sa disegnarla. Quello che
+       finiva sul foglio non era il logo.
+       Adesso i file sono due perche' sono due cose: `logo/cnc2d.svg` da
+       GUARDARE (pieni, maschera, segue il tema) e `logo/cnc2d-tratti.svg` da
+       TRACCIARE (solo linee), corretto a mano dall'utente dentro allo SLICER.
+       IL PREZZO: non si aggiornano a vicenda. Se un giorno cambia il marchio
+       vanno rifatti tutti e due, e sta scritto in logo/README.md e nella
+       testata di quel file.
+       Il disegno sta comunque GIA' NELLA PAGINA, nascosto: logo.py ce lo
+       mette, perche' la pagina e' un file solo e da `file://` non si puo'
+       andare a prendere niente da fuori. */
     var marchio = document.getElementById('btn-logo-cnc2d');
     if (marchio) {
-      var dentro = document.querySelector('.brand .marchio');
+      var dentro = document.querySelector('.marchio-tratti');
       if (!dentro) marchio.hidden = true;
       else marchio.addEventListener('click', function () {
         load(marchioDaDisegnare(dentro), 'cnc2d.svg');
@@ -3295,28 +3303,22 @@ var Artwork = (function () {
     mostraCampi();
   }
 
-  /* IL MARCHIO, RIDOTTO A UN COLORE SOLO prima di darlo all'importatore.
+  /* IL DISEGNO, RIDOTTO A UN COLORE SOLO prima di darlo all'importatore.
    *
-   * Sullo schermo il logo e' fatto di forme nere con dentro dei contrografici
-   * BIANCHI, ritagliati con una maschera. Sono due colori, e l'importatore
-   * divide per colore: dato cosi', il marchio arrivava su DUE livelli — le
-   * lettere in uno e i buchi nell'altro — e sul foglio si vedeva un «2 D»
-   * che galleggiava senza il resto.
+   * L'IMPORTATORE DIVIDE PER COLORE, perche' nei file veri un colore e' una
+   * penna. Qui no: il logo e' una cosa sola e deve arrivare come UN livello.
+   * Basterebbe che il file avesse due tinte -- un contorno di un grigio
+   * diverso, un tratto rimasto nero -- e sul foglio comparirebbero due
+   * livelli da stampare con due penne, che e' esattamente il difetto che si
+   * vedeva prima del 2026-11-24, quando il marchio a forme piene arrivava
+   * spezzato fra lettere e contrografici.
    *
-   * Ma quei due colori non sono due penne: sono il modo in cui si ritaglia
-   * un buco in un disegno fatto di aree piene. Su carta non esistono - una
-   * penna sola traccia il contorno delle lettere E il contorno dei buchi, e
-   * il bianco e' la carta. Quindi si tolgono i colori, si toglie la
-   * maschera, e tutto diventa un colore solo: un livello, una penna, il
-   * marchio intero.
+   * Quindi si tolgono tinte, stili e maschere e si lascia la sola geometria:
+   * un livello, una penna, il logo intero. Vale anche per il disegno a
+   * tratti, che oggi un colore solo ce l'ha gia': la pulizia serve perche'
+   * continui a valere se quel file un giorno viene rifatto.
    *
-   * I COLORI SONO DUE VOLTE DUE. Oltre ai pieni c'e' un gruppo con un bordo
-   * sottile — la «cucitura» che chiude le fessure fra forme accostate — e
-   * quel bordo e' un terzo colore per l'importatore, che divide per TRATTO.
-   * Togliendo solo i riempimenti restavano ancora due livelli: via anche i
-   * bordi.
-   *
-   * Si lavora su una COPIA: quello nell'intestazione deve restare com'e'. */
+   * Si lavora su una COPIA: quello che sta nella pagina non si tocca. */
   function marchioDaDisegnare(svgLogo) {
     var copia = svgLogo.cloneNode(true);
     var tutti = copia.querySelectorAll('*');

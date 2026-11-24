@@ -8,7 +8,8 @@ più — stavano in attesa di una scelta, e la scelta è questa. (`git show
 
 | file | che cos'è | quando si usa |
 |---|---|---|
-| `cnc2d.svg` | **il logo** | pagina, favicon, stampa, plotter: qualunque cosa |
+| `cnc2d.svg` | **il logo** | pagina, favicon, stampa: tutto quello che si guarda |
+| `cnc2d-tratti.svg` | **il logo da tracciare** | il pulsante «Inserisci il logo CNC 2D» dello SLICER |
 | `cnc2d-illustrator.svg` | l'esportazione intatta | per confronto, e per rifare `cnc2d.svg` |
 | `cnc2d.ai` | il sorgente di Illustrator | **è della prima versione**: da sostituire |
 | `pulisci.py` | fa il primo dal secondo | dopo ogni riesportazione |
@@ -20,6 +21,32 @@ python3 pulisci.py cnc2d-illustrator.svg cnc2d.svg 56.69 195.75 487.03 158.49
 I quattro numeri sono il riquadro del disegno, misurato col browser
 (`getBBox()`), perché l'esportazione è grande quanto il foglio di lavoro: un
 A4 con 370 punti di margine vuoto.
+
+## I due file sono due cose, e non si aggiornano a vicenda
+
+`cnc2d.svg` è fatto di **aree piene** e di una **maschera** che ci ritaglia i
+contrografici. È giusto così per una cosa da guardare — ma una maschera un
+pennino non sa disegnarla, e fino al 24 novembre 2026 il pulsante dello SLICER
+convertiva quel marchio al volo e sul foglio arrivava il logo senza i buchi.
+
+`cnc2d-tratti.svg` è lo stesso logo ridotto a **linee**, corretto a mano
+dall'utente dentro allo SLICER e consegnato il 24 novembre 2026. È quello che
+il pulsante traccia.
+
+> **Se cambi il logo, rifai tutti e due.** Non c'è niente che lo faccia da sé e
+> non c'è niente che se ne accorga: il disegno a tratti continuerebbe a
+> tracciare il logo vecchio senza dare nessun errore.
+
+Due regole per chi rifà `cnc2d-tratti.svg`:
+
+- **niente `transform`**. L'importatore dello SLICER le trasformazioni non le
+  guarda, e lo SLICER salva con la Y verso l'alto (`scale(1 -1)`): un file
+  riesportato così entra **sottosopra**, e il riquadro è identico a quello
+  giusto, quindi non se ne accorge nessuno. Il capovolgimento va cotto dentro
+  alle coordinate. Un controllo in `prova-editor.js` lo verifica.
+- **un colore solo**. L'importatore divide per colore, perché nei file veri un
+  colore è una penna: due tinte vorrebbero dire due livelli e due penne per un
+  logo solo.
 
 ## Che cosa fa `pulisci.py`, e perché serve
 

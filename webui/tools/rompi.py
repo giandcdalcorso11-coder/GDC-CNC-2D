@@ -3193,6 +3193,30 @@ MUTAZIONI = [
         prova="prova-strumento.js",
     ),
     dict(
+        # LA SCORCIATOIA DI PRIMA: tornare a tracciare il marchio a forme
+        # piene. E' quello che si faceva fino al 2026-11-24, e sul foglio il
+        # logo arrivava senza i contrografici, perche' la maschera che li
+        # ritaglia una penna non sa disegnarla.
+        nome="il pulsante traccia di nuovo il marchio a forme piene",
+        file="js/artwork.js",
+        da="      var dentro = document.querySelector('.marchio-tratti');",
+        a="      var dentro = document.querySelector('.brand .marchio');",
+        vede="tutto il logo, non una scatola",
+        prova="prova-editor.js",
+    ),
+    dict(
+        # LA TRAPPOLA CHE E' QUASI PASSATA. Lo SLICER salva con la Y verso
+        # l'alto, quindi avvolge il disegno in uno `scale(1 -1)`; svgimport.js
+        # le trasformazioni non le guarda, e il logo entrerebbe sottosopra
+        # senza che niente lo segnali -- il riquadro e' identico.
+        nome="il disegno da tracciare torna ad avere la trasformazione",
+        file="index.html",
+        da='<svg class="marchio-tratti" hidden style="display:none" xmlns="http://www.w3.org/2000/svg" version="1.1" width="185mm" height="160mm" viewBox="0 0 185 160">',
+        a='<svg class="marchio-tratti" hidden style="display:none" xmlns="http://www.w3.org/2000/svg" version="1.1" width="185mm" height="160mm" viewBox="0 0 185 160" transform="translate(0 160) scale(1 -1)">',
+        vede="non porta trasformazioni",
+        prova="prova-editor.js",
+    ),
+    dict(
         # LA SCELTA DI SICUREZZA DELLO SCHEMA cnc2d:. Uno schema lo puo'
         # chiamare qualunque pagina web, e Windows gli passa l'indirizzo
         # cliccato. Puntandolo al .bat, cmd rileggerebbe quell'indirizzo e una

@@ -242,12 +242,10 @@ function lunghezza(punti) {
     Artwork.seleziona(liv[liv.length - 1].id);
     const f = Artwork.forme() || [];
     const b = Tracciato.bbox(f, 0.02);
-    const svg = document.querySelector('.brand .marchio').getAttribute('viewBox').split(' ');
     const c = Tracciato.conta(f);
     return { nuovi: liv.length - prima, forme: c.forme, nodi: c.nodi,
-             rapporto: +(b.w / b.h).toFixed(4),
-             atteso: +(parseFloat(svg[2]) / parseFloat(svg[3])).toFixed(4),
-             scarti: SvgImport.scartate() };
+             sub: ((f[0] || {}).sub || []).length,
+             largo: +b.w.toFixed(1), alto: +b.h.toFixed(1) };
   });
   /* UN livello e non due: sullo schermo il marchio e' fatto di due colori -
      le lettere piene e i contrografici ritagliati - ma quelli non sono due
@@ -256,13 +254,59 @@ function lunghezza(punti) {
      che galleggiava senza il resto. */
   ok('il marchio entra come UN livello solo', r.nuovi === 1,
      r.nuovi + ' livello, ' + r.forme + ' forme, ' + r.nodi + ' nodi');
-  ok('ed e` tutto il logo, non una scatola', r.forme >= 8 && r.nodi >= 100,
-     r.forme + ' forme e ' + r.nodi + ' nodi (una scatola sarebbe 1 e 4)');
-  ok('coi contrografici, che stanno in una maschera',
-     r.scarti && r.scarti.nascoste === 0,
-     r.scarti ? r.scarti.nascoste + ' forme saltate come magazzino' : '?');
-  ok('e senza il fondo della maschera', r.scarti && r.scarti.sfondi >= 1,
-     r.scarti ? r.scarti.sfondi + ' forme saltate perche` grandi quanto il foglio' : '?');
+  /* UN TRACCIATO SOLO, MA CON I SUOI 21 SOTTOTRATTI. Il disegno a tratti e'
+     un `<path>` unico con dentro 21 pezzi staccati: se l'importatore li
+     fondesse in una polilinea sola, fra una lettera e l'altra comparirebbe
+     una riga -- e sul foglio quella riga la penna la traccia davvero. Si
+     contano i sottotratti, non le forme: una scatola sarebbe 1 e 4 nodi. */
+  ok('ed e` tutto il logo, non una scatola',
+     r.sub >= 15 && r.nodi >= 200,
+     r.sub + ' sottotratti e ' + r.nodi + ' nodi (una scatola sarebbe 1 e 4)');
+  /* LE LETTERE RESTANO STACCATE: largo piu' del doppio dell'alto e' la forma
+     del logo. Un disegno capovolto passerebbe questo controllo, e infatti non
+     e' lui a guardare il verso: il verso lo fissa il file, dove la
+     trasformazione `scale(1 -1)` e' stata cotta dentro alle coordinate
+     perche' l'importatore le trasformazioni NON le guarda. */
+  ok('e ha la forma del logo, largo piu` del doppio dell\u2019alto',
+     r.largo > r.alto * 2.5 && r.largo > 150,
+     r.largo + ' x ' + r.alto + ' mm');
+
+  /* NIENTE TRASFORMAZIONI NEL DISEGNO DA TRACCIARE, e questo controllo e'
+     nato da un errore vero: il file consegnato dall'utente arrivava dallo
+     SLICER, che salva con la Y verso l'alto e quindi avvolge tutto in un
+     `scale(1 -1)`. L'IMPORTATORE LE TRASFORMAZIONI NON LE GUARDA -- non una
+     riga, in tutto svgimport.js -- quindi quel disegno sarebbe entrato
+     SOTTOSOPRA, e niente se ne sarebbe accorto: il riquadro di un logo
+     capovolto e' identico. Il capovolgimento e' stato cotto dentro alle
+     coordinate. Questo controllo guarda la causa invece dell'effetto, perche'
+     l'effetto non si misura: se un domani il file viene rifatto esportandolo
+     di nuovo dallo SLICER, la trasformazione torna e qui si ferma. */
+  r = await page.evaluate(() => {
+    const t = document.querySelector('.marchio-tratti');
+    return { c: !!t, trasf: t ? /transform\s*=/.test(t.outerHTML) : null,
+             quanti: t ? t.querySelectorAll('path').length : 0 };
+  });
+  ok('il disegno da tracciare non porta trasformazioni',
+     r.c && r.trasf === false,
+     r.c ? (r.trasf ? 'ne ha almeno una' : 'nessuna') + ', ' + r.quanti + ' path'
+         : 'il disegno non c\u2019e\u0300');
+
+  /* ---------- 5-bis. la maschera del marchio ----------
+     Il pulsante NON passa piu' di qui -- dal 2026-11-24 traccia un file suo,
+     fatto di linee -- ma l'importatore la maschera la deve ancora saper
+     saltare: il marchio a forme piene resta nella pagina, e un giorno
+     qualcuno potrebbe importarlo. Il controllo c'era e la sua ragione non e'
+     sparita insieme al pulsante: cambia la strada per arrivarci, non la
+     domanda. Si importa il marchio DIRITTO, con SvgImport. */
+  r = await page.evaluate(() => {
+    const testa = document.querySelector('.brand .marchio');
+    SvgImport.parse(new XMLSerializer().serializeToString(testa));
+    return SvgImport.scartate();
+  });
+  ok('il marchio importato a mano tiene i contrografici della maschera',
+     r && r.nascoste === 0, r ? r.nascoste + ' forme saltate come magazzino' : '?');
+  ok('e lascia fuori il fondo della maschera', r && r.sfondi >= 1,
+     r ? r.sfondi + ' forme saltate perche` grandi quanto il foglio' : '?');
 
   /* ---------- 4. ruota e scala (2026-11-08) ----------
    *
