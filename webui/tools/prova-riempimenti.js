@@ -377,15 +377,68 @@ function rett(x, y, w, h, fessura) {
   }, SVG);
   await page.waitForTimeout(500);
 
+  /* ====== IL POPUP NON STA IN MEZZO FINCHE' NON SERVE ======
+     SI GUARDA LO SCHERMO, NON L'ATTRIBUTO. Il controllo qui sotto esisteva
+     gia' e leggeva `.hidden`: l'attributo era giusto, e intanto l'utente
+     vedeva la finestrella aperta appena entrava nella tab. Il motivo stava
+     nel CSS -- `.ed-pannello { display: flex }` batte `[hidden]` -- e un
+     controllo che legge l'attributo non puo' vederlo, per costruzione.
+     Dal 2026-11-24 si misura `display`, che e' quello che l'occhio vede. */
+  r = await page.evaluate(() => {
+    const p = document.getElementById('ed-riempi-pannello');
+    return { attr: p.hidden === true,
+             visto: getComputedStyle(p).display !== 'none' };
+  });
+  ok('entrando nell’editor la finestrella del riempimento non si vede',
+     r.attr && !r.visto,
+     'hidden ' + r.attr + ', sullo schermo ' + (r.visto ? 'c’è' : 'non c’è'));
+
   r = await page.evaluate(() => {
     document.getElementById('ed-riempi').click();
+    const p = document.getElementById('ed-riempi-pannello');
     return {
       acceso: document.getElementById('ed-riempi').classList.contains('attivo'),
-      pannello: !document.getElementById('ed-riempi-pannello').hidden
+      pannello: !p.hidden,
+      visto: getComputedStyle(p).display !== 'none'
     };
   });
   ok('il pulsante accende il riempimento e apre la finestrella',
-     r.acceso && r.pannello);
+     r.acceso && r.pannello && r.visto,
+     'acceso ' + r.acceso + ', sullo schermo ' + r.visto);
+  /* ====== LA VIA D'USCITA RESTA APERTA MENTRE SI RIEMPIE ======
+     Col riempimento acceso il clic ha un solo significato, e per garantirlo
+     `giu()` se ne andava PRIMA di arrivare al tasto centrale: la tela
+     diventava immobile, e per tornare a vedere il resto del disegno bisognava
+     spegnere lo strumento. Segnalato dall'utente il 2026-11-24.
+     Si guarda il `viewBox` della tela, che e' lo sguardo reso visibile; e si
+     controlla anche che quel trascinamento NON abbia riempito niente,
+     perche' «la tela si muove» e «il clic non riempie» sono due cose, e una
+     correzione che tenesse solo la prima sarebbe peggio del difetto. */
+  /* IL PUNTO DEVE STARE DENTRO LA VISTA, non solo dentro al foglio: in
+     questa scena la tela mostra fino a ~38 mm, e un trascinamento che
+     comincia a 45 non tocca nemmeno l'elemento. Il primo giro di questo
+     controllo falliva proprio cosi', e la correzione funzionava gia'. */
+  const centro = await suTela({ x: 20, y: 20 });
+  r = await page.evaluate(() => ({
+    vista: document.getElementById('ed-svg').getAttribute('viewBox'),
+    livelli: (Artwork.livelli() || []).length
+  }));
+  await page.mouse.move(centro.x, centro.y);
+  await page.mouse.down({ button: 'middle' });
+  await page.mouse.move(centro.x + 70, centro.y + 45, { steps: 6 });
+  await page.mouse.up({ button: 'middle' });
+  await page.waitForTimeout(200);
+  const dopo = await page.evaluate(() => ({
+    vista: document.getElementById('ed-svg').getAttribute('viewBox'),
+    livelli: (Artwork.livelli() || []).length,
+    acceso: document.getElementById('ed-riempi').classList.contains('attivo')
+  }));
+  ok('col riempimento acceso il tasto centrale sposta ancora lo sguardo',
+     dopo.vista !== r.vista, r.vista + '  ->  ' + dopo.vista);
+  ok('e quel trascinamento non riempie niente',
+     dopo.livelli === r.livelli && dopo.acceso,
+     r.livelli + ' livelli prima, ' + dopo.livelli + ' dopo');
+
 
   const dentro = await suTela({ x: 20, y: 20 });
   await page.mouse.move(dentro.x, dentro.y);

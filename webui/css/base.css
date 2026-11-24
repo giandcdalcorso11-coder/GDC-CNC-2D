@@ -35,6 +35,20 @@
 
 * { box-sizing: border-box; }
 
+/* `hidden` VINCE SEMPRE, E SERVE UN `!important` PER DIRLO.
+   L'attributo `hidden` nasce apposta per dire «questo non si vede», ma lo fa
+   con una regola del browser (`[hidden] { display: none }`) che QUALUNQUE
+   regola nostra batte: basta un `.pannello { display: flex }` e quell'elemento
+   resta in pagina per sempre, col suo `hidden` addosso. Il codice che lo
+   mette e lo toglie continua a funzionare e non se ne accorge nessuno.
+   Scoperto il 2026-11-24 dall'utente, che sul PC vedeva una fascia d'avviso
+   VUOTA coi pulsanti morti: il codice l'aveva nascosta e se n'era andato
+   senza attaccare i gestori, il CSS la teneva visibile. Stessa causa per il
+   popup del riempimento, che nella tab Edit si vedeva sempre.
+   Erano sette elementi in tutta la pagina. Questa riga li chiude tutti e
+   impedisce all'ottavo di nascere. */
+[hidden] { display: none !important; }
+
 html, body {
   height: 100%;
   margin: 0;

@@ -776,8 +776,15 @@ var Editor = (function () {
     /* Col riempimento acceso il clic ha un solo significato, e non e' quello
        di prima: non sceglie e non disegna, riempie. Messo in cima apposta --
        sotto ci sono dodici strade e una qualunque di loro porterebbe a
-       cambiare il disegno mentre si credeva di riempirlo. */
-    if (riempiAcceso) { clicRiempimento(e); return; }
+       cambiare il disegno mentre si credeva di riempirlo.
+       IL TASTO CENTRALE E' L'ECCEZIONE, e non e' un dettaglio: dodici righe
+       piu' sotto c'e' scritto che sposta lo sguardo «qualunque strumento sia
+       attivo», e con questa riga davanti non era vero -- col riempimento
+       acceso la tela diventava immobile, e l'unico modo di tornare a vedere
+       il resto del disegno era spegnere lo strumento. Segnalato dall'utente
+       il 2026-11-24. Il tasto centrale non riempie niente: la via d'uscita
+       deve restare aperta proprio quando serve, cioe' mentre si lavora. */
+    if (riempiAcceso && e.button !== 1) { clicRiempimento(e); return; }
     var f = forme();
     if (!f) return;
     /* Il tasto centrale sposta lo sguardo anche su un livello spento: quello

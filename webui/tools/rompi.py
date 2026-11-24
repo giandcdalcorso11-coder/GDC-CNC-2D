@@ -2523,7 +2523,10 @@ MUTAZIONI = [
     dict(
         nome="col riempimento acceso il clic fa quello di prima",
         file="js/editor.js",
-        da="    if (riempiAcceso) { clicRiempimento(e); return; }",
+        # Ancora rifatta il 2026-11-24: la riga ha guadagnato l'eccezione per
+        # il tasto centrale, e senza questo aggiornamento la regola avrebbe
+        # smesso di agganciare -- cioe' di provare qualcosa -- in silenzio.
+        da="    if (riempiAcceso && e.button !== 1) { clicRiempimento(e); return; }",
         a="",
         vede="il clic disegna il riempimento",
         prova="prova-riempimenti.js",
@@ -3191,6 +3194,38 @@ MUTAZIONI = [
         a="    return fetch(base, opt).then(function () { return true; },\n                                 function () { return risponde === true; })",
         vede="si rispegne quando lo strumento si chiude",
         prova="prova-strumento.js",
+    ),
+    dict(
+        # `hidden` CHE NON NASCONDE. Senza questa riga bastano sette regole di
+        # classe col `display` perche' sette elementi restino in pagina col
+        # loro `hidden` addosso: la fascia d'avviso vuota coi pulsanti morti e
+        # il popup del riempimento sempre aperto, visti dall'utente il
+        # 2026-11-24, erano questo.
+        nome="hidden torna a non nascondere niente",
+        file="css/base.css",
+        da="[hidden] { display: none !important; }",
+        a="[hidden] { display: none; }",
+        vede="la finestrella del riempimento non si vede",
+        prova="prova-riempimenti.js",
+    ),
+    dict(
+        nome="hidden torna a non nascondere la fascia",
+        file="css/base.css",
+        da="[hidden] { display: none !important; }",
+        a="[hidden] { display: none; }",
+        vede="niente fascia vuota coi pulsanti morti",
+        prova="prova-profilo.js",
+    ),
+    dict(
+        # La via d'uscita chiusa: col riempimento acceso la tela diventa
+        # immobile, e per rivedere il resto del disegno bisogna spegnere lo
+        # strumento.
+        nome="col riempimento acceso il tasto centrale non sposta piu'",
+        file="js/editor.js",
+        da="    if (riempiAcceso && e.button !== 1) { clicRiempimento(e); return; }",
+        a="    if (riempiAcceso) { clicRiempimento(e); return; }",
+        vede="il tasto centrale sposta ancora lo sguardo",
+        prova="prova-riempimenti.js",
     ),
     dict(
         # LA SCORCIATOIA DI PRIMA: tornare a tracciare il marchio a forme

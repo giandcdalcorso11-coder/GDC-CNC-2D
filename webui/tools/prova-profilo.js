@@ -67,6 +67,22 @@ function ok(nome, vero, extra) {
   ok('ma i campi sono pieni di numeri plausibili, e per questo serve dirlo',
      r.corsa > 200 && r.alzata > 1, 'corsa ' + r.corsa.toFixed(1) +
      ' mm, alzata ' + r.alzata.toFixed(2) + ' mm');
+  /* LA FASCIA SI VEDE, ED E' PIENA. Due cose, non una: che compaia, e che
+     dentro ci sia la frase. Il 2026-11-24 l'utente sul PC ha trovato la
+     fascia VUOTA coi due pulsanti morti -- `.fascia-fabbrica { display:
+     flex }` batteva l'attributo `hidden`, quindi su un dispositivo CON
+     profilo il codice la nascondeva, il CSS la teneva in pagina, e i gestori
+     non venivano nemmeno attaccati perche' la funzione se n'era gia' andata.
+     Si misura `display`, non `hidden`: l'attributo era giusto anche quando il
+     difetto c'era. */
+  r = await page.evaluate(() => {
+    const f = document.getElementById('fascia-profilo');
+    return { visto: getComputedStyle(f).display !== 'none',
+             testo: (document.getElementById('fascia-profilo-testo').textContent || '').trim() };
+  });
+  ok('senza profilo suo la fascia d’avviso si vede davvero',
+     r.visto && r.testo.length > 40, r.testo.slice(0, 60) + '…');
+
 
   /* ============ B. LA FASCIA ALL'APERTURA ============ */
 
@@ -161,12 +177,26 @@ function ok(nome, vero, extra) {
        localStorage, non dalla memoria di questa pagina. */
     await page.reload();
     await page.waitForTimeout(400);
-    r = await page.evaluate(() => ({
-      fabbrica: Profile.diFabbrica(),
-      fascia: document.getElementById('fascia-profilo').hidden
-    }));
+    r = await page.evaluate(() => {
+      const f = document.getElementById('fascia-profilo');
+      return { fabbrica: Profile.diFabbrica(),
+               fascia: f.hidden,
+               /* QUELLO CHE SI VEDE, non quello che l'attributo dichiara.
+                  Questo controllo esisteva e leggeva solo `hidden`: era vero,
+                  e intanto sul PC dell'utente la fascia stava li', vuota, coi
+                  due pulsanti morti -- perche' una regola di classe col
+                  `display` batte `hidden`, e la funzione che l'aveva
+                  «nascosta» se n'era andata senza attaccare i gestori.
+                  Un controllo cieco al difetto che deve trovare non e' un
+                  controllo. Dal 2026-11-24 si misura il display. */
+               visto: getComputedStyle(f).display !== 'none',
+               vai: !!document.getElementById('fascia-profilo-vai') };
+    });
     ok('riaprendo la pagina il profilo salvato si ritrova', r.fabbrica === false);
     ok('e la fascia non si accende', r.fascia === true);
+    ok('e soprattutto non si vede: niente fascia vuota coi pulsanti morti',
+       r.visto === false && r.vai,
+       r.visto ? 'la fascia e` ancora sullo schermo' : 'via dallo schermo');
 
     r = await page.evaluate((svg) => {
       Artwork.load(svg, 'prova.svg');
