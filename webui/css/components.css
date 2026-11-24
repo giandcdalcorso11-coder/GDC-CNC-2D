@@ -1095,14 +1095,37 @@ code {
 .sorgente-locale > a { flex: 1 1 auto; min-width: 0; overflow: hidden;
                        text-overflow: ellipsis; white-space: nowrap; }
 .sorgente-locale .led { padding: 0; cursor: pointer; }
-.sorgente-locale .mini-edit {
+.sorgente-locale .mini-edit,
+.sorgente-locale .mini-avvia,
+.sorgente-locale .mini-giu {
   position: static;
   display: inline-flex;
   flex: 0 0 auto;
 }
+/* IL ▶ STA PRIMA DELLA SPIA perche' e' l'ordine in cui si usano: accendo,
+   guardo se e' acceso, entro. */
+.sorgente-locale .mini-avvia { order: -1; font-size: 11px; }
+/* L'AVVIATORE E' PIU' SPENTO DEGLI ALTRI: dopo la prima volta non serve piu',
+   ma non puo' sparire -- il percorso del progetto e' scritto dentro di lui una
+   volta sola, e se la cartella si sposta va rifatto. */
+.sorgente-locale .mini-giu { opacity: .55; }
+.sorgente-locale .mini-giu:hover { opacity: 1; }
+/* LA SPIA HA TRE STATI, NON DUE. Verde: risponde. Spenta piena: ha chiesto e
+   non risponde nessuno. Vuota tratteggiata: NON HA ANCORA CHIESTO -- che non
+   e' la stessa cosa, ed e' lo stato in cui la pagina si apre sempre, perche'
+   finche' l'utente non dice che lo strumento gli interessa non si interroga
+   nessuna porta. Senza questa differenza «spento» vorrebbe dire due cose
+   opposte con lo stesso disegno. */
+.sorgente-locale .led.is-boh {
+  background: transparent;
+  border-style: dashed;
+  box-shadow: none;
+}
 @media (pointer: coarse) {
   .sorgente-locale .led { width: 16px; height: 16px; }
-  .sorgente-locale .mini-edit { width: 28px; height: 28px; }
+  .sorgente-locale .mini-edit,
+  .sorgente-locale .mini-avvia,
+  .sorgente-locale .mini-giu { width: 28px; height: 28px; }
 }
 
 /* ------------------------- I DISEGNI RECENTI -------------------------

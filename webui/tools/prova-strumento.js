@@ -145,7 +145,7 @@ const LEGGISPIA = `(() => {
   ok('con lo strumento spento la spia è spenta',
      r.risponde === false && r.spia.c && !r.acceso);
   ok('e dice che cosa fare, invece di stare spenta in silenzio',
-     /avvialo|\.bat/i.test(r.titolo) && /riprovare/i.test(r.titolo),
+     /accendilo|avvialo|\.bat/i.test(r.titolo) && /riprovare/i.test(r.titolo),
      r.titolo.slice(0, 80));
 
   /* ============ C. LA SPIA, CON LO STRUMENTO ACCESO ============
@@ -173,11 +173,11 @@ const LEGGISPIA = `(() => {
      lascerebbe all'utente una finestra con un errore che non spiega niente.
      Questo e' anche l'unico ramo che il banco puo' percorrere per intero:
      l'altro va a un indirizzo `cnc2d:` e porterebbe via la pagina. */
-  r = await page.evaluate(() => {
+  r = await page.evaluate(async () => {
     window.__dette = [];
     const v = Log.add;
     Log.add = function (t, m) { window.__dette.push(t + ': ' + m); return v(t, m); };
-    const fatto = Sorgenti.avviaStrumento();
+    const fatto = await Sorgenti.avviaStrumento();
     Log.add = v;
     return { fatto: fatto, dette: window.__dette.join(' | ') };
   });
@@ -305,7 +305,7 @@ const LEGGISPIA = `(() => {
      /if not defined PY goto avvia/.test(r) && /^:avvia$/m.test(r));
 
   const quantiPrima = scaricati.length;
-  await page.click('#btn-avviatore');
+  await page.click('[data-sorg-avviatore]');
   await page.waitForTimeout(900);
   ok('il pulsante consegna il file, col nome che si riconosce',
      scaricati.length === quantiPrima + 1 &&
@@ -339,8 +339,8 @@ const LEGGISPIA = `(() => {
   /* E STA SCRITTO ANCHE ACCANTO AL PULSANTE, perche' il registro lo si legge
      solo se lo si guarda: chi scarica e clicca subito quel messaggio lo salta. */
   r = await page.evaluate(() =>
-    document.getElementById('btn-avviatore').parentElement.textContent);
-  ok('e lo stesso avviso sta accanto al pulsante',
+    document.querySelector('[data-sorg-avviatore]').title);
+  ok('e lo stesso avviso sta scritto sul pulsante che lo scarica',
      /Annulla blocco/.test(r) && /Propriet/.test(r), r.slice(-110));
 
   /* ============ G. DA UN INDIRIZZO WEB NON SI CONSEGNA ============

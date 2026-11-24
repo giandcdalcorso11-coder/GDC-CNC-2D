@@ -295,44 +295,12 @@
                    placeholder="Incolla un indirizzo" autocomplete="off" spellcheck="false">
             <button class="btn btn-small" type="submit" title="Aggiungi questo collegamento">+</button>
           </form>
-          <!-- IL PULSANTE DI AVVIO. Non contraddice il commento qui sotto: la
-               pagina continua a non lanciare niente. Chiama un indirizzo
-               `cnc2d:`, e chi avvia il programma e' Windows, che quello schema
-               lo conosce solo perche' l'avviatore glielo ha registrato. Senza
-               aver mai eseguito l'avviatore, questo pulsante non fa nulla --
-               ed e' il motivo per cui sta SOPRA di lui e non al suo posto.
-               Scelto dall'utente il 2026-11-24, preferito all'avvio automatico
-               al login. -->
-          <button class="btn btn-small full" id="btn-avvia-strumento"
-                  title="Accende lo strumento stampe, se l'avviatore è già stato eseguito una volta">Avvia lo strumento</button>
-          <p class="hint">Funziona dopo aver eseguito <b>una volta</b>
-            l'avviatore qui sotto. La prima volta il browser chiede il permesso
-            di aprire <code>cnc2d</code>: dagliélo, e spunta «consenti sempre».</p>
-          <!-- L'AVVIATORE DELLO STRUMENTO. Una pagina web non lancia
-               programmi sul computer, e non e' una mancanza da aggirare: e' il
-               confine che impedisce a qualunque pagina di farlo. Quello che si
-               puo' fare e' generare un file e darlo: a eseguirlo e' il comando
-               «apri» del browser, cioe' un click dell'utente. Strada scelta
-               con lui il 2026-11-13.
-               Il pulsante RESTA in pagina invece di consegnare il file una
-               volta: il percorso del progetto e' scritto dentro all'avviatore
-               una volta sola, quindi se la cartella si sposta va rigenerato. -->
-          <button class="btn btn-ghost btn-small full" id="btn-avviatore"
-                  title="Genera il file che avvia lo strumento, col percorso di questa copia del progetto">Scarica l&rsquo;avviatore dello strumento</button>
-          <p class="hint">Si scarica una volta. Da lì in poi <b>Ctrl+J</b> e un
-            click sul file, ogni volta che serve. La finestrella nera che
-            compare <b>deve restare aperta</b>: chiuderla spegne lo strumento.</p>
-          <!-- L'«ANNULLA BLOCCO». Windows marchia ogni file arrivato da
-               internet e si rifiuta di eseguire un `.bat` che ha quel marchio:
-               esce «a causa delle impostazioni di sicurezza Internet non e'
-               possibile aprire uno o piu' file», e di nostro non c'e' niente da
-               correggere. Sta scritto qui perche' senza questa riga l'utente
-               vede un programma che non parte e nessuna spiegazione — successo
-               il 2026-11-24, alla prima prova su Windows vero. -->
-          <p class="hint">La <b>prima volta</b> Windows rifiuta di aprirlo
-            («impostazioni di sicurezza Internet»): tasto destro sul file →
-            <b>Proprietà</b> → spunta <b>Annulla blocco</b> in fondo → OK.
-            Capita a ogni file scaricato da internet, non solo a questo.</p>
+          <!-- I DUE PULSANTI DELLO STRUMENTO STANNO NELLA SUA RIGA, non qui:
+               il flusso e' «spia spenta -> avvio -> spia verde -> clicco il
+               nome», e tre gesti che si susseguono non vanno in tre posti.
+               Disposizione chiesta dall'utente il 2026-11-24. Si costruiscono
+               in js/sorgenti.js insieme alla voce, perche' quella riga si
+               ridisegna a ogni cambio di spia. -->
         </div>
 
         <p class="placeholder-note">La conversione da fotografia a tracciato vettoriale non è ancora implementata: per ora si carica un SVG già vettoriale. Le forme piene vengono disegnate come contorni, perché una penna non riempie.</p>

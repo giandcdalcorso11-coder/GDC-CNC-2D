@@ -118,18 +118,44 @@ var Sorgenti = (function () {
         /* La spia prima del nome: si guarda quella, non la scritta. Il titolo
            dice che cosa vuol dire e che si puo' riprovare, perche' una spia
            spenta senza spiegazioni e' indistinguibile da una spia rotta. */
+        /* TUTTO SU UNA RIGA, nell'ordine in cui si usa: accendo, guardo se
+           e' acceso, entro. Disposizione chiesta dall'utente il 2026-11-24,
+           dopo aver provato i due pulsanti grossi staccati dalla voce: il
+           flusso e' «spia spenta -> avvio -> spia verde -> clicco il nome»,
+           e tre gesti che si susseguono stavano in tre posti diversi.
+           L'AVVIATORE DIVENTA PICCOLO e sta in fondo accanto alla matita:
+           dopo la prima volta non serve piu', ma non puo' sparire -- il
+           percorso del progetto e' scritto dentro di lui una volta sola, e
+           se la cartella si sposta va rifatto. */
         h += '<li class="sorgente sorgente-locale">' +
+             '<button class="mini mini-avvia" data-sorg-avvia' +
+             ' title="Accendi lo strumento. Funziona dopo aver eseguito una' +
+             ' volta l\'avviatore, il pulsante ⇩ in fondo a questa riga."' +
+             ' aria-label="Avvia lo strumento">&#9654;</button>' +
              '<button type="button" class="led led-green' +
-             (risponde ? ' is-on' : '') + '" data-sorg-spia' +
-             ' title="' + (risponde === null ? 'Sto chiedendo allo strumento se c\'è'
+             (risponde === true ? ' is-on' : risponde === null ? ' is-boh' : '') +
+             '" data-sorg-spia' +
+             ' title="' + (risponde === null
+                           ? 'Non ho ancora chiesto se lo strumento c\'è. Clicca per chiedere'
                            : risponde ? 'Lo strumento risponde su ' + esc(s.url)
-                           : 'Lo strumento non risponde: avvialo col file .bat qui sotto. Clicca per riprovare') +
+                           : 'Lo strumento non risponde: accendilo col ▶ qui a sinistra. Clicca per riprovare') +
              '" aria-label="Lo strumento risponde?"></button>' +
              '<a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer" ' +
              'title="' + esc(s.url) + '">' + esc(s.nome) + '</a>' +
              '<button class="mini mini-edit" data-sorg-mod="' + i +
              '" title="Cambia l\'indirizzo: serve se avvii lo strumento su un\'altra porta"' +
              ' aria-label="Cambia indirizzo">&#9998;</button>' +
+             /* L'AVVISO DELL'«ANNULLA BLOCCO» VIVE QUI, nel titolo, e nel
+                messaggio che esce dopo lo scaricamento. Windows marchia i file
+                arrivati da internet e si rifiuta di eseguire un .bat marchiato:
+                senza una parola scritta l'utente vede un programma che non
+                parte e nessuna spiegazione. Successo il 2026-11-24. */
+             '<button class="mini mini-giu" data-sorg-avviatore' +
+             ' title="Scarica l\'avviatore: serve una volta sola, e di nuovo se' +
+             ' sposti la cartella del progetto. La prima volta Windows si rifiuta' +
+             ' di aprirlo: tasto destro sul file, Proprietà, spunta «Annulla' +
+             ' blocco», OK."' +
+             ' aria-label="Scarica l\'avviatore">&#8681;</button>' +
              '</li>';
         continue;
       }
@@ -353,20 +379,31 @@ var Sorgenti = (function () {
      porta occupata, morirebbe subito e lascerebbe una finestra con un errore
      che non vuol dire niente a nessuno. */
   function avviaStrumento() {
-    if (risponde === true) {
-      Log.add('msg', 'Lo strumento è già acceso: la spia è verde.');
-      return false;
-    }
-    /* Prima la spia, poi la chiamata: cosi' quando il programma risponde la
-       pagina sta gia' guardando. */
+    /* SI CHIEDE PRIMA DI LANCIARE, e non e' una precauzione di troppo: la
+       spia non interroga nessuno finche' l'utente non glielo dice, quindi
+       appena aperta la pagina e' spenta ANCHE SE lo strumento e' acceso --
+       spenta vuol dire «non ho chiesto», non «non c'e' nessuno». Senza questa
+       richiesta, il flusso «spia spenta -> premo avvia» lancerebbe una
+       seconda copia su uno strumento gia' acceso: quella trova la porta
+       occupata, muore subito, e lascia all'utente una finestra con un errore
+       che non spiega niente. Buco visto il 2026-11-24 mentre si disegnava il
+       flusso, prima che capitasse.
+       `cerca()` accende il battito e fa la richiesta; qui si aspetta la
+       risposta di QUELLA richiesta prima di decidere. */
     cerca();
-    Log.add('msg', 'Chiesto a Windows di avviare lo strumento. Se il browser ' +
-                   'chiede il permesso di aprire «cnc2d», daglielo e spunta ' +
-                   '«consenti sempre». Se non succede niente, esegui una volta ' +
-                   'l\'avviatore qui sotto: è lui che insegna a Windows che ' +
-                   'cosa vuol dire cnc2d.');
-    window.location.href = 'cnc2d:avvia';
-    return true;
+    return pinga().then(function (c) {
+      if (c) {
+        Log.add('msg', 'Lo strumento è già acceso: la spia è verde.');
+        return false;
+      }
+      Log.add('msg', 'Chiesto a Windows di avviare lo strumento. Se il browser ' +
+                     'chiede il permesso di aprire «cnc2d», daglielo e spunta ' +
+                     '«consenti sempre». Se non succede niente, esegui una volta ' +
+                     'l\'avviatore (il pulsante ⇩ in fondo alla riga): è lui che ' +
+                     'insegna a Windows che cosa vuol dire cnc2d.');
+      window.location.href = 'cnc2d:avvia';
+      return true;
+    });
   }
 
   function scaricaAvviatore() {
@@ -485,6 +522,12 @@ var Sorgenti = (function () {
         /* La spia si clicca per riprovare: e' la cosa che si fa appena si e'
            avviato lo strumento, invece di aspettare il battito. */
         if (e.target.closest('[data-sorg-spia]')) { e.preventDefault(); cerca(); }
+        if (e.target.closest('[data-sorg-avvia]')) {
+          e.preventDefault(); avviaStrumento(); return;
+        }
+        if (e.target.closest('[data-sorg-avviatore]')) {
+          e.preventDefault(); scaricaAvviatore(); return;
+        }
       });
     }
 
@@ -505,11 +548,9 @@ var Sorgenti = (function () {
       });
     }
 
-    var av = document.getElementById('btn-avviatore');
-    if (av) av.addEventListener('click', scaricaAvviatore);
-
-    var sv = document.getElementById('btn-avvia-strumento');
-    if (sv) sv.addEventListener('click', avviaStrumento);
+    /* I due pulsanti stanno DENTRO la riga, che si ridisegna a ogni cambio di
+       spia: agganciarli per id qui li perderebbe al primo ridisegno. Vanno
+       per delega, come la matita e la spia. */
 
     State.on('path', aggiornaPulsante);
     aggiornaPulsante();

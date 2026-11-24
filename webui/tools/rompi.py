@@ -2569,7 +2569,12 @@ MUTAZIONI = [
         # tutti e due.
         nome="il contorno aperto svuota il riempimento di prima",
         file="js/editor.js",
-        da="      if (t.scappata || !t.polilinee.length) { persi++; return; }",
+        # ANCORA RIFATTA IL 2026-11-24: la riga citata e' sparita quando
+        # editor.js e' stato ristrutturato (la scelta di che cosa buttare si fa
+        # ora in due punti, non piu' in uno), e da allora questa mutazione non
+        # agganciava piu' niente -- cioe' non provava piu' niente, in silenzio.
+        # La riga di oggi che fa lo stesso lavoro e' questa.
+        da="      if (!polilinee.length) { persi++; return; }",
         a="      if (false) { persi++; return; }",
         piu=[("js/artwork.js",
               "    if (!polilinee || !polilinee.length) return false;",
@@ -3213,8 +3218,8 @@ MUTAZIONI = [
         # muore: l'utente vede una finestra con un errore che non spiega nulla.
         nome="il pulsante di avvio chiama anche a strumento acceso",
         file="js/sorgenti.js",
-        da="    if (risponde === true) {\n      Log.add('msg', 'Lo strumento \u00e8 gi\u00e0 acceso: la spia \u00e8 verde.');\n      return false;\n    }",
-        a="    if (false) {\n      Log.add('msg', 'Lo strumento \u00e8 gi\u00e0 acceso: la spia \u00e8 verde.');\n      return false;\n    }",
+        da="      if (c) {\n        Log.add('msg', 'Lo strumento è già acceso: la spia è verde.');\n        return false;\n      }",
+        a="      if (false) {\n        Log.add('msg', 'Lo strumento è già acceso: la spia è verde.');\n        return false;\n      }",
         vede="non chiama niente",
         prova="prova-strumento.js",
     ),
@@ -3232,16 +3237,16 @@ MUTAZIONI = [
     ),
     dict(
         nome="l'avviso dell'Annulla blocco sparisce dalla pagina",
-        file="index.html",
-        da="<b>Annulla blocco</b> in fondo",
-        a="<b>Sblocca</b> in fondo",
-        vede="accanto al pulsante",
+        file="js/sorgenti.js",
+        da="' di aprirlo: tasto destro sul file, Proprietà, spunta «Annulla' +",
+        a="' di aprirlo: tasto destro sul file, Proprietà, spunta «Sblocca' +",
+        vede="sul pulsante che lo scarica",
         prova="prova-strumento.js",
     ),
     dict(
         nome="la spia non dice che cosa fare quando e' spenta",
         file="js/sorgenti.js",
-        da="                           : 'Lo strumento non risponde: avvialo col file .bat qui sotto. Clicca per riprovare') +",
+        da="                           : 'Lo strumento non risponde: accendilo col ▶ qui a sinistra. Clicca per riprovare') +",
         a="                           : 'Lo strumento non risponde') +",
         vede="dice che cosa fare",
         prova="prova-strumento.js",
