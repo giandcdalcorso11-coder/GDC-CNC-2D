@@ -27,8 +27,39 @@ ROOT = Path(__file__).resolve().parent.parent
 FILE = ROOT / 'js' / 'versione.js'
 
 
+def tronca():
+    """Vero se questa copia del repository ha solo un pezzo della storia.
+
+    E' il buco scoperto il 2026-11-24. La difesa qui sotto copriva il caso in
+    cui git MANCA: niente git, niente conto, si tiene il numero che c'e'. Ma
+    una copia «shallow» -- quella che fanno i contenitori, `git clone
+    --depth 50` -- git ce l'ha, risponde `0`, e consegna un conto piu' piccolo
+    del vero senza che niente segnali l'errore. In un contenitore con 50
+    commit il numero e' uscito 22 al posto di 134, e quel 22 e' finito dentro
+    una pagina consegnata all'utente.
+
+    Il guasto e' peggio di uno sbaglio singolo: il numero diventa una
+    proprieta' della COPIA invece che del progetto, e lo stesso commit
+    numerato su due macchine da' due numeri. Un numero che cambia col
+    computer non dice piu' «quante volte la pagina e' cambiata»: e' esattamente
+    il «dice una cosa falsa invece di non dire niente» che questo file voleva
+    evitare.
+    """
+    try:
+        out = subprocess.run(
+            ['git', 'rev-parse', '--is-shallow-repository'],
+            cwd=ROOT.parent, capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return True          # nel dubbio non si scrive: il numero vecchio vale
+    if out.returncode != 0:
+        return True
+    return out.stdout.strip() == 'true'
+
+
 def conta():
     """Quanti commit hanno toccato webui/, piu' quello che si sta preparando."""
+    if tronca():
+        return None
     try:
         out = subprocess.run(
             ['git', 'log', '--oneline', '--', 'webui/'],
@@ -66,7 +97,8 @@ if __name__ == '__main__':
         n = vecchio()
         if n is None:
             raise SystemExit('niente git e niente versione.js: non so che numero mettere')
-        print('versione.js  v%d (git non raggiungibile: lasciato com\'era)' % n)
+        perche = ('storia tronca' if tronca() else 'git non raggiungibile')
+        print('versione.js  v%d (%s: lasciato com\'era)' % (n, perche))
     else:
         scrivi(n, datetime.date.today().isoformat())
         print('versione.js  v%d' % n)

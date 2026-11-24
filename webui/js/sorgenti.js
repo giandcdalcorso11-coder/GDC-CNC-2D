@@ -308,6 +308,27 @@ var Sorgenti = (function () {
       'rem cartella del progetto, riscarica questo file dalla pagina.',
       'cd /d "' + radice + barra(radice) + 'stampe' + barra(radice) + 'strumento"',
       'if not exist strumento.py goto manca',
+      '',
+      'rem ---- IL PULSANTE «AVVIA LO STRUMENTO» DELLA PAGINA ----',
+      'rem Queste righe registrano in Windows lo schema cnc2d:, che e\' quello',
+      'rem che il pulsante della pagina chiama. La voce sta in HKEY_CURRENT_USER',
+      'rem (solo il tuo utente, nessun diritto di amministratore) e si riscrive',
+      'rem identica a ogni avvio: spostare la cartella e rilanciare questo file',
+      'rem basta a rimetterla a posto.',
+      'rem PUNTA DIRITTO A python.exe, NON a questo .bat, ed e\' una scelta di',
+      'rem sicurezza: Windows passa allo schema l\'indirizzo che e\' stato',
+      'rem cliccato, e uno schema puo\' chiamarlo QUALUNQUE pagina web. Se a',
+      'rem riceverlo fosse cmd, un indirizzo costruito apposta potrebbe',
+      'rem infilarci dentro altri comandi. Python lo riceve come argomento, non',
+      'rem lo guarda, e nessuna shell lo rilegge.',
+      'set "PY="',
+      'for /f "delims=" %%P in (\'where python 2^>nul\') do if not defined PY set "PY=%%P"',
+      'if not defined PY goto avvia',
+      'reg add "HKCU\\Software\\Classes\\cnc2d" /ve /t REG_SZ /d "URL:GDC CNC 2D SLICER" /f >nul',
+      'reg add "HKCU\\Software\\Classes\\cnc2d" /v "URL Protocol" /t REG_SZ /d "" /f >nul',
+      'reg add "HKCU\\Software\\Classes\\cnc2d\\shell\\open\\command" /ve /t REG_SZ /d "\\"%PY%\\" -B \\"%CD%\\strumento.py\\"" /f >nul',
+      '',
+      ':avvia',
       'rem La finestra DEVE restare aperta: chiuderla spegne lo strumento.',
       'rem Parte ridotta a icona per non stare in mezzo.',
       'start /min "Strumento stampe" cmd /k python -B strumento.py',
@@ -318,6 +339,34 @@ var Sorgenti = (function () {
       'echo Scarica di nuovo l\'avviatore dalla pagina del SLICER.',
       'pause'
     ].join('\r\n') + '\r\n';
+  }
+
+  /* ACCENDERE LO STRUMENTO DALLA PAGINA, chiesto dall'utente il 2026-11-24
+     dopo aver provato la scorciatoia sul desktop e non averla digerita.
+     NON CONTRADDICE IL CONFINE: la pagina non lancia niente, va a un indirizzo
+     `cnc2d:` e a lanciare e' Windows. Lo schema esiste solo se l'avviatore e'
+     stato eseguito almeno una volta -- e' lui che lo registra -- e da qui non
+     si puo' sapere se c'e': una pagina non puo' interrogare il registro di
+     Windows. Quindi non si promette niente, si dice dove guardare se non
+     succede nulla.
+     SE E' GIA' ACCESO NON SI CHIAMA NIENTE: una seconda copia troverebbe la
+     porta occupata, morirebbe subito e lascerebbe una finestra con un errore
+     che non vuol dire niente a nessuno. */
+  function avviaStrumento() {
+    if (risponde === true) {
+      Log.add('msg', 'Lo strumento è già acceso: la spia è verde.');
+      return false;
+    }
+    /* Prima la spia, poi la chiamata: cosi' quando il programma risponde la
+       pagina sta gia' guardando. */
+    cerca();
+    Log.add('msg', 'Chiesto a Windows di avviare lo strumento. Se il browser ' +
+                   'chiede il permesso di aprire «cnc2d», daglielo e spunta ' +
+                   '«consenti sempre». Se non succede niente, esegui una volta ' +
+                   'l\'avviatore qui sotto: è lui che insegna a Windows che ' +
+                   'cosa vuol dire cnc2d.');
+    window.location.href = 'cnc2d:avvia';
+    return true;
   }
 
   function scaricaAvviatore() {
@@ -348,9 +397,17 @@ var Sorgenti = (function () {
     /* Chi si scarica l'avviatore sta per avviare lo strumento: da adesso la
        spia lo cerca, e si accendera' da se' quando risponde. */
     cerca();
+    /* L'AVVISO DELL'«ANNULLA BLOCCO» STA QUI E NON SOLO ACCANTO AL PULSANTE.
+       Windows marchia i file arrivati da internet e rifiuta di eseguire un
+       `.bat` marchiato: la prima volta non parte niente e non si capisce
+       perche'. Il messaggio arriva proprio nel momento in cui serve -- subito
+       dopo lo scaricamento, prima del click che fallira'. Scritto il
+       2026-11-24, dopo che e' successo davvero alla prima prova su Windows. */
     Log.add('msg', 'Scaricato ' + nome + ', con dentro ' + radice + '. ' +
                    'Aprilo per avviare lo strumento — da qui in poi basta ' +
-                   'Ctrl+J e un click sul file, ogni volta. La finestrella nera ' +
+                   'Ctrl+J e un click sul file, ogni volta. La prima volta ' +
+                   'Windows si rifiuta di aprirlo: tasto destro sul file, ' +
+                   'Proprietà, spunta «Annulla blocco», OK. La finestrella nera ' +
                    'che compare deve restare aperta: chiuderla spegne lo ' +
                    'strumento. Se sposti la cartella del progetto, riscarica ' +
                    'questo file.');
@@ -451,6 +508,9 @@ var Sorgenti = (function () {
     var av = document.getElementById('btn-avviatore');
     if (av) av.addEventListener('click', scaricaAvviatore);
 
+    var sv = document.getElementById('btn-avvia-strumento');
+    if (sv) sv.addEventListener('click', avviaStrumento);
+
     State.on('path', aggiornaPulsante);
     aggiornaPulsante();
 
@@ -473,5 +533,6 @@ var Sorgenti = (function () {
            risponde: function () { return risponde; },
            cercato: function () { return cercato; },
            cartellaProgetto: cartellaProgetto, testoAvviatore: testoAvviatore,
-           scaricaAvviatore: scaricaAvviatore, STRUMENTO: STRUMENTO };
+           scaricaAvviatore: scaricaAvviatore, avviaStrumento: avviaStrumento,
+           STRUMENTO: STRUMENTO };
 })();

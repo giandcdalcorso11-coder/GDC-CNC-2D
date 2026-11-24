@@ -3188,6 +3188,57 @@ MUTAZIONI = [
         prova="prova-strumento.js",
     ),
     dict(
+        # LA SCELTA DI SICUREZZA DELLO SCHEMA cnc2d:. Uno schema lo puo'
+        # chiamare qualunque pagina web, e Windows gli passa l'indirizzo
+        # cliccato. Puntandolo al .bat, cmd rileggerebbe quell'indirizzo e una
+        # pagina costruita apposta potrebbe infilarci dentro altri comandi.
+        # Questa mutazione e' la scorciatoia che un domani sembrera' comoda.
+        nome="lo schema cnc2d punta al .bat invece che a python",
+        file="js/sorgenti.js",
+        da='/d "\\\\"%PY%\\\\" -B \\\\"%CD%\\\\strumento.py\\\\""',
+        a='/d "\\\\"%~f0\\\\""',
+        vede="mai a una shell",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'avviatore non registra piu' lo schema cnc2d",
+        file="js/sorgenti.js",
+        da='      \'set "PY="\',\n      \'for /f "delims=" %%P in (\\\'where python 2^>nul\\\') do if not defined PY set "PY=%%P"\',\n      \'if not defined PY goto avvia\',\n      \'reg add "HKCU\\\\Software\\\\Classes\\\\cnc2d" /ve /t REG_SZ /d "URL:GDC CNC 2D SLICER" /f >nul\',\n      \'reg add "HKCU\\\\Software\\\\Classes\\\\cnc2d" /v "URL Protocol" /t REG_SZ /d "" /f >nul\',\n      \'reg add "HKCU\\\\Software\\\\Classes\\\\cnc2d\\\\shell\\\\open\\\\command" /ve /t REG_SZ /d "\\\\"%PY%\\\\" -B \\\\"%CD%\\\\strumento.py\\\\"" /f >nul\',\n      \'\',\n',
+        a="",
+        vede="che cosa vuol dire cnc2d",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        # A strumento gia' acceso una seconda copia trova la porta occupata e
+        # muore: l'utente vede una finestra con un errore che non spiega nulla.
+        nome="il pulsante di avvio chiama anche a strumento acceso",
+        file="js/sorgenti.js",
+        da="    if (risponde === true) {\n      Log.add('msg', 'Lo strumento \u00e8 gi\u00e0 acceso: la spia \u00e8 verde.');\n      return false;\n    }",
+        a="    if (false) {\n      Log.add('msg', 'Lo strumento \u00e8 gi\u00e0 acceso: la spia \u00e8 verde.');\n      return false;\n    }",
+        vede="non chiama niente",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        # L'AVVISO DELL'«ANNULLA BLOCCO». Windows rifiuta di eseguire un .bat
+        # arrivato da internet finche' non lo si sblocca a mano: senza queste
+        # due righe l'utente vede un programma che non parte e niente che
+        # glielo spieghi. Successo davvero il 2026-11-24.
+        nome="il messaggio non avvisa dell'Annulla blocco",
+        file="js/sorgenti.js",
+        da="                   'Ctrl+J e un click sul file, ogni volta. La prima volta ' +\n                   'Windows si rifiuta di aprirlo: tasto destro sul file, ' +\n                   'Propriet\u00e0, spunta \u00abAnnulla blocco\u00bb, OK. La finestrella nera ' +",
+        a="                   'Ctrl+J e un click sul file, ogni volta. La finestrella nera ' +",
+        vede="avvisa dell",
+        prova="prova-strumento.js",
+    ),
+    dict(
+        nome="l'avviso dell'Annulla blocco sparisce dalla pagina",
+        file="index.html",
+        da="<b>Annulla blocco</b> in fondo",
+        a="<b>Sblocca</b> in fondo",
+        vede="accanto al pulsante",
+        prova="prova-strumento.js",
+    ),
+    dict(
         nome="la spia non dice che cosa fare quando e' spenta",
         file="js/sorgenti.js",
         da="                           : 'Lo strumento non risponde: avvialo col file .bat qui sotto. Clicca per riprovare') +",

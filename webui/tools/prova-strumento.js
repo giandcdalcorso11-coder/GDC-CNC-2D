@@ -168,6 +168,22 @@ const LEGGISPIA = `(() => {
   ok('e la richiesta è arrivata al server, non è un\u2019ipotesi',
      finto.quante() >= 1, finto.quante() + ' ping');
 
+  /* IL PULSANTE «AVVIA LO STRUMENTO» NON CHIAMA NIENTE SE E' GIA' ACCESO.
+     Una seconda copia troverebbe la porta occupata, morirebbe subito e
+     lascerebbe all'utente una finestra con un errore che non spiega niente.
+     Questo e' anche l'unico ramo che il banco puo' percorrere per intero:
+     l'altro va a un indirizzo `cnc2d:` e porterebbe via la pagina. */
+  r = await page.evaluate(() => {
+    window.__dette = [];
+    const v = Log.add;
+    Log.add = function (t, m) { window.__dette.push(t + ': ' + m); return v(t, m); };
+    const fatto = Sorgenti.avviaStrumento();
+    Log.add = v;
+    return { fatto: fatto, dette: window.__dette.join(' | ') };
+  });
+  ok('a strumento acceso il pulsante di avvio non chiama niente',
+     r.fatto === false && /già acceso/.test(r.dette), r.dette.slice(0, 80));
+
   /* E SI SPEGNE DI NUOVO. Una spia che si accende e non si spegne piu' dice
      «acceso» anche a strumento chiuso, che e' il momento in cui mente. */
   await new Promise((f) => finto.srv.close(f));
@@ -263,6 +279,31 @@ const LEGGISPIA = `(() => {
      Unix sbaglia le etichette (`:manca`) su piu' di un cmd. */
   ok('e ha i fine riga di Windows', r.indexOf('\r\n') > 0 && !/[^\r]\n/.test(r));
 
+  /* ============ F-ter. LO SCHEMA cnc2d: CHE ACCENDE DALLA PAGINA ============
+     Il pulsante della pagina non lancia niente: va a un indirizzo `cnc2d:`, e
+     a lanciare e' Windows. Windows pero' quello schema lo conosce solo se
+     qualcuno glielo ha registrato, e quel qualcuno e' questo .bat. */
+  ok('l’avviatore insegna a Windows che cosa vuol dire cnc2d:',
+     /reg add "HKCU\\Software\\Classes\\cnc2d"/.test(r) &&
+     /URL Protocol/.test(r) &&
+     /shell\\open\\command/.test(r));
+  /* LA RIGA CHE CONTA, ed e' una scelta di sicurezza, non di comodita':
+     UNO SCHEMA PUO' CHIAMARLO QUALUNQUE PAGINA WEB, e Windows gli passa
+     l'indirizzo cliccato come argomento. Se a riceverlo fosse `cmd`, un
+     indirizzo costruito apposta potrebbe infilarci dentro altri comandi.
+     Puntando a python.exe l'indirizzo arriva come argomento e nessuna shell
+     lo rilegge: il peggio che una pagina estranea ottiene e' accendere lo
+     strumento. Se un domani qualcuno facesse puntare lo schema al .bat «per
+     semplicita'», questo controllo deve fermarlo. */
+  ok('e lo fa puntare a python, mai a una shell che rilegge l’indirizzo',
+     /\/d "\\"%PY%\\" -B /.test(r) && r.indexOf('%~f0') < 0);
+  ok('e l’avviatore non guarda mai l’indirizzo che Windows gli passa',
+     r.indexOf('%1') < 0 && r.indexOf('%*') < 0);
+  /* SENZA PYTHON NON SI REGISTRA NIENTE ma lo strumento parte lo stesso: il
+     pulsante e' un di piu', l'avviatore deve funzionare comunque. */
+  ok('e se python non si trova salta la registrazione e avvia lo stesso',
+     /if not defined PY goto avvia/.test(r) && /^:avvia$/m.test(r));
+
   const quantiPrima = scaricati.length;
   await page.click('#btn-avviatore');
   await page.waitForTimeout(900);
@@ -273,6 +314,34 @@ const LEGGISPIA = `(() => {
   ok('e dentro c\u2019è il percorso di QUESTA copia del progetto',
      /CNC-2D/.test(scaricati[scaricati.length - 1].testo),
      (scaricati[scaricati.length - 1].testo.split('\r\n')[5] || '').slice(0, 70));
+
+  /* ============ F-bis. L'«ANNULLA BLOCCO» DI WINDOWS ============
+     Windows marchia i file arrivati da internet e la shell SI RIFIUTA di
+     eseguire un `.bat` marchiato: esce «a causa delle impostazioni di
+     sicurezza Internet non e' possibile aprire uno o piu' file». Non c'e'
+     niente di nostro da correggere -- il file e' giusto -- ma senza una
+     parola scritta da qualche parte l'utente vede un programma che non parte
+     e nessuna spiegazione, e conclude che e' rotto. Successo davvero il
+     2026-11-24, alla prima prova su Windows vero.
+     IL MESSAGGIO DEVE ARRIVARE QUANDO SERVE: subito dopo lo scaricamento,
+     cioe' prima del click che fallira', non dopo. */
+  r = await page.evaluate(() => {
+    window.__dette = [];
+    const v = Log.add;
+    Log.add = function (t, m) { window.__dette.push(t + ': ' + m); return v(t, m); };
+    Sorgenti.scaricaAvviatore();
+    Log.add = v;
+    return window.__dette.join(' | ');
+  });
+  await page.waitForTimeout(500);
+  ok('e avvisa dell’«Annulla blocco», che la prima volta serve sempre',
+     /Annulla blocco/.test(r) && /Propriet/.test(r), r.slice(-120));
+  /* E STA SCRITTO ANCHE ACCANTO AL PULSANTE, perche' il registro lo si legge
+     solo se lo si guarda: chi scarica e clicca subito quel messaggio lo salta. */
+  r = await page.evaluate(() =>
+    document.getElementById('btn-avviatore').parentElement.textContent);
+  ok('e lo stesso avviso sta accanto al pulsante',
+     /Annulla blocco/.test(r) && /Propriet/.test(r), r.slice(-110));
 
   /* ============ G. DA UN INDIRIZZO WEB NON SI CONSEGNA ============
      E' la scena dell'iPad, ed e' il motivo per cui questo controllo esiste:
