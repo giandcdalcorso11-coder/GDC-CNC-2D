@@ -202,10 +202,17 @@ MUTAZIONI = [
         prova='prova-telecomando.js',
     ),
     dict(
-        nome="il messaggio parte lo stesso mentre si dovrebbe stare zitti",
+        # Le due serrature del silenzio si rompono INSIEME: una sola non
+        # cambia il comportamento osservabile, perche' il timer che resta
+        # armato troverebbe comunque `manda()` che esce subito. Vedi il
+        # commento dentro a `battito()`.
+        nome="nessuna delle due serrature del silenzio tiene",
         file='js/telecomando.js',
         da="    if (!indirizzo || inVolo || muto || zitto) return;",
         a="    if (!indirizzo || inVolo || muto) return;",
+        piu=[('js/telecomando.js',
+              "    if (!indirizzo || zitto) return;",
+              "    if (!indirizzo) return;")],
         vede='rompono il silenzio',
         prova='prova-telecomando.js',
     ),
@@ -215,14 +222,6 @@ MUTAZIONI = [
         da="    if (md) md.disabled = !t || !t.attivo || t.zitto;",
         a="    if (md) md.disabled = !t || !t.attivo;",
         vede='Manda adesso resta spento',
-        prova='prova-telecomando.js',
-    ),
-    dict(
-        nome="il battito si arma anche da zitto",
-        file='js/telecomando.js',
-        da="    if (!indirizzo || zitto) return;",
-        a="    if (!indirizzo) return;",
-        vede='risposta arrivata dopo non riarma il battito',
         prova='prova-telecomando.js',
     ),
     dict(

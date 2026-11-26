@@ -705,6 +705,15 @@ var Telecomando = (function () {
 
   function battito() {
     if (timer) clearTimeout(timer);
+    /* LA SECONDA DELLE DUE SERRATURE. La prima sta in `manda()`, e da sola
+       basta a non far uscire niente: un timer che scatta troverebbe `manda()`
+       che esce subito. Questa serve a non lasciare girare quel timer per
+       niente, e si raggiunge da una strada sola -- una risposta che torna
+       DOPO che il silenzio e' cominciato, e che in coda si riarma da se'.
+       Siccome una sola delle due non cambia il comportamento osservabile, la
+       mutazione che le prova le rompe TUTTE E DUE insieme (`piu` in
+       rompi.py): romperne una sola simulerebbe un difetto che non e' un
+       difetto. */
     if (!indirizzo || zitto) return;
     timer = setTimeout(function () {
       manda();
