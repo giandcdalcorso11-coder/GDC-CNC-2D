@@ -227,7 +227,7 @@ function ok(nome, vero, extra) {
 
   /* ============ ZITTO DURANTE UNA STAMPA (2026-11-26) ============
    *
-   * La sera del 25 l'operatore ha collegato il telecomando MENTRE stampava:
+   * La sera del 26 l'operatore ha collegato il telecomando MENTRE stampava:
    * `dove()` faceva partire il battito subito e al ritmo veloce, quattro
    * decimi. Tredici secondi dopo e' caduta la WebSocket di FluidNC e la
    * stampa si e' fermata alla riga 2170 di 7058.
@@ -388,7 +388,7 @@ function ok(nome, vero, extra) {
   /* ============ PERCHE' E' CADUTO IL COLLEGAMENTO (2026-11-26) ============
    *
    * Sta in questo banco e non in uno suo perche' e' la seconda meta' dello
-   * stesso guasto: quando la stampa del 25 e' morta, `ws.onclose` ignorava
+   * stesso guasto: quando la stampa del 26 e' morta, `ws.onclose` ignorava
    * l'evento e scriveva solo «collegamento caduto». Rete sparita e scheda
    * riavviata sono due cose diverse, con due rimedi diversi -- l'una si
    * ritenta, l'altra ha perso il `G92` e vuole l'origine rifatta -- e la

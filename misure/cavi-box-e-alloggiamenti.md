@@ -41,15 +41,29 @@ Un box alto 120 mm messo nel posto sbagliato viene preso in pieno dalla trave.
 
 ### Che cosa deve viaggiare
 
+> **Corretto il 2026-11-26.** La tabella qui sotto diceva che il motore
+> dell'asse Y è fisso e che quello dell'asse X sta sul portale. È falso, e il
+> CAD lo dimostra da solo: `cremagliera Y` (= asse X) è lunga **297 mm** e fissa
+> sotto la trave, `cremagliera X dx` (= asse Y) è lunga **283 mm** e fissa sulla
+> rotaia. Una cremagliera fissa lunga quanto la corsa vuol dire **pignone
+> mobile**, cioè motore che viaggia. Entrambi i motori si muovono.
+
 | Da | A | Fili | Si muove con |
 |---|---|---|---|
-| controller | motore asse Y | 4 | niente: il motore dell'asse Y è fisso |
-| controller | motore asse X | 4 | il portale (asse Y) |
+| controller | motore asse Y | 4 | il portale (asse Y): il pignone è sul carrello Y |
+| controller | motore asse X | 4 | il portale **e** il carrello (assi Y e X) |
 | controller | servo del pen-lift | 3 | il portale **e** il carrello (assi Y e X) |
 
-Il servo è l'unico che fa tutti e due i percorsi, e per questo il conto dei fili
-sulla trave è 7 e non 3: il motore dell'asse X sta sul portale ma il suo cavo
-arriva dal controller, quindi i due cavi corrono insieme per il primo tratto.
+Sulla trave viaggiano **7 fili** (motore X + servo) e arrivano tutti fino al
+carrello, non solo i 3 del servo. Sulla rotaia destra ne viaggiano **11**
+(motore Y + motore X + servo).
+
+**Conseguenza sulla scelta del 27 ottobre.** La proposta «cavo piatto sulla X»
+si reggeva su due premesse, e tutt'e due erano sbagliate: che sul carrello
+arrivassero 3 fili sottili, e che il carrello fosse leggero. Il carrello porta
+un NEMA17. Un cavo piatto che deve portare la corrente di un passo-passo è
+molto meno attraente, e il peso di una catena su una massa già di quell'ordine
+non è più l'argomento che era.
 
 ### I due percorsi, e perché non sono simmetrici
 
@@ -87,8 +101,18 @@ La lunghezza è `corsa / 2 + π · raggio + 40` di margine: metà corsa perché
 l'estremo fisso si mette a **metà corsa** e la catena lavora simmetrica, π·R per
 il mezzo giro dell'ansa, il margine per gli attacchi.
 
-**L'ansa è alta 84 mm** (2 × raggio + 2 × l'altezza esterna della maglia). Sulla
-destra non è un problema: lì il soffitto è il cielo. Sopra la trave nemmeno.
+> **Corretto il 2026-11-26.** La formula giusta è `2·R + h`, non `2·R + 2·h`: i
+> due rami hanno gli assi dei perni distanti 2R, e oltre a quelli sporge una
+> sola altezza di maglia. Per questa catena l'ansa è **72 mm**, non 84.
+
+**L'ansa è alta 72 mm** (2 × raggio + l'altezza esterna della maglia).
+
+E **a destra il soffitto non è il cielo**, che è il secondo errore di questa
+sezione: la trave spazza sopra la rotaia a ogni movimento dell'asse Y, con la
+faccia inferiore a **Z 104,18**. Il piano della rotaia è a Z 68,38, quindi
+sopra la rotaia ci sono **35,8 mm**, non infiniti. Una catena appoggiata lì
+sopra con un'ansa più alta di 36 mm viene presa in pieno dalla trave. Il posto
+giusto è **sulla tavola di fianco alla rotaia**, da Z 0.
 
 Sezione interna proposta: **10 × 8 mm**, pareti 2 mm, quindi **14 × 12 esterni**.
 Dieci millimetri di larghezza bastano per sette fili sottili affiancati; se si

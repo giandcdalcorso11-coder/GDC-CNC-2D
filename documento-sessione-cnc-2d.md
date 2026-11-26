@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 128
-**Ultimo aggiornamento:** 2026-11-24 20:05
+**Versione:** 129
+**Ultimo aggiornamento:** 2026-11-26 22:15
 
 ## Regole di co-editing
 
@@ -1283,6 +1283,83 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-26 22:15] Due stampe perse per il telecomando, e un consiglio dato guardando solo metà del problema
+
+**Riepilogo:** le catene portacavi misurate dal 3MF dell'utente smentiscono due dati scritti in `cavi-box-e-alloggiamenti.md` — il motore dell'asse X sta sul **carrello**, e l'ansa si calcola `2R + h` — e con quelli cade anche la raccomandazione del 27 ottobre; poi la serata si rompe: collegare il telecomando a stampa viva porta via **due stampe**, alla riga 2170 e alla riga 5679 di 7058, e la causa della caduta del collegamento **non è ancora accertata**.
+
+**Cosa è stato fatto:**
+
+**Le catene portacavi, misurate invece che stimate.** Dal 3MF: passo perno-perno **22 mm** (il «40» del nome è la lunghezza del corpo, che si sovrappone alla maglia vicina), sezione esterna 37 × 23, dentro **due canali** da ~12 × 18 separati da un setto, raggio minimo **35 mm** (35° per maglia, ricavato per collisione fra due maglie contigue), ansa **93 mm**, ~6,5 g a maglia cioè **~0,3 kg/m**. Stampata in **PETG**, che è il materiale giusto. Con le corse misurate — X 253,232 e Y 238,064 — servono **13 maglie per asse, 26 in tutto**: meno delle 33 previste con la catena piccola, perché il passo è più lungo.
+
+**Bug: `cavi-box-e-alloggiamenti.md` diceva che il motore X è sul portale**
+
+**Sintomo:** l'utente: «il motore è sul carrello, hai dimenticato i cad che ti ho mandato?»
+**Causa:** la tabella dei cavi era sbagliata. Il CAD lo dimostra da solo: `cremagliera Y` (= asse X) è lunga 297 mm e fissa sotto la trave, `cremagliera X dx` (= asse Y) 283 mm e fissa sulla rotaia. Cremagliera fissa lunga quanto la corsa ⇒ pignone mobile ⇒ **motore che viaggia**. Vale per tutti e due gli assi.
+**Fix applicato:** tabella corretta con nota datata. Sulla trave viaggiano 7 fili fino al carrello, non 3; sulla rotaia 11.
+
+**Bug: la formula dell'ansa e il «soffitto è il cielo»**
+
+**Sintomo:** nessuno — errore trovato rifacendo i conti.
+**Causa:** `2·R + 2·h` conta due volte l'altezza della maglia; e la sezione diceva che a destra non c'è soffitto, mentre la trave spazza sopra la rotaia con la faccia inferiore a Z 104,18.
+**Fix applicato:** formula corretta a `2·R + h` (l'ansa della catena piccola è 72 mm, non 84) e aggiunto che sopra la rotaia ci sono **35,8 mm**, non infiniti: una catena va appoggiata alla tavola di fianco, non sopra.
+
+**Bug: il telecomando non trovava lo SLICER**
+
+**Sintomo:** «Niente SLICER» sul vetro con la pagina aperta e la macchina collegata. L'utente sospetta le modifiche recenti e la cartella `dist`.
+**Causa:** nessuna delle due. L'indirizzo vive in `localStorage` sotto `cnc2d-telecomando`, cioè **nel browser, non nel file HTML**: sostituire `cnc2d-ui.html` non lo porta dietro, e un computer nuovo parte a zero. Con `indirizzo` vuoto `manda()` non parte mai. Verificato che il modulo c'è nella v144 costruita e che il firmware risponde `Access-Control-Allow-Origin: *`, quindi `file:///` non c'entra.
+**Fix applicato:** nessuno nel codice. **È lo stesso difetto della fascia arancione vuota del 24 novembre**: quella fascia diceva «questa copia non ha le impostazioni», ed era vero.
+
+**Bug: due stampe perse collegando il telecomando — causa NON accertata**
+
+**Sintomo:** (1) 21:26:19 telecomando collegato, 21:26:28 «pausa», 21:26:30 «riprendi», 21:26:32 collegamento caduto, stampa interrotta alla riga **2170 di 7058**. (2) 21:48:56 «il telecomando ha accettato la connessione e non ha risposto entro 2,5 s», 21:49:10 collegamento caduto, stampa interrotta alla riga **5679 di 7058**. In entrambi i casi penna rimasta giù sul foglio.
+**Causa:** i tasti accidentali della prima volta sono spiegati — il firmware rileva il fronte con `onTouchDown` e tiene il tasto finché lo SLICER non passa a prenderlo, e l'indirizzo si legge dallo schermo del telecomando, quindi lo si ha in mano e i pad sono capacitivi. **La caduta del collegamento no.** Escluso il percorso pausa/riprendi (`feedHold` e `cycleStart` sono due caratteri sulla WebSocket già aperta, e `Api` tiene al più `FINESTRA = 16` righe non confermate). Escluso che lo chiuda la pagina: `startPing()` manda `PING:` e non agisce sulla mancata risposta. Resta il sospetto del traffico aggiunto sui 2,4 GHz, rafforzato dalla seconda volta — il MKR ha **accettato la connessione** e poi non ce l'ha fatta a servirla, 14 secondi prima che morisse FluidNC: due apparecchi che degradano insieme.
+**Fix applicato:** tre riparazioni (`2135ee6`, `aeffc51`), nessuna delle quali attacca la causa, perché la causa non si conosce ancora. (a) `ws.onclose` riceve l'evento e scrive `code` e `wasClean` tradotti: 1006 rete sparita, 1001 scheda riavviata, 1000 chiusura concordata. (b) Con una stampa in corso l'indirizzo **si salva e non si parla**; il pannello lo dice e «Manda adesso» resta spento. (c) Il **primo tasto dopo un silenzio si butta** e lo si scrive. **Da dire chiaramente: (b) non avrebbe impedito la seconda perdita**, perché il telecomando era già armato prima che la stampa partisse — l'indirizzo persiste in `localStorage` e `init()` lo rimette in moto al caricamento della pagina.
+
+**Bug: dopo la caduta la stampa non si può riprendere**
+
+**Sintomo:** posizione azzerata dopo la prima caduta.
+**Causa:** FluidNC si è riavviato e con lui è sparito il `G92`. Il G-code generato **non contiene** l'origine: la mette l'operatore.
+**Fix applicato:** nessuno possibile su quel foglio. L'homing a mano contro i blocchi ha ripetibilità «quella del tuo occhio: qualche millimetro» (`accensione-e-taratura.md`): fra il 31% disegnato e il resto ci sarebbe uno scarto visibile.
+
+**Una cosa nuova vista nel registro dell'utente:** righe `[GC:G0 … F1200]` / `[GC:G1 … F600]` alternate ogni paio di secondi. **Nello SLICER non c'è niente che le chieda** — `$G` non compare in nessun modulo. È FluidNC che annuncia da sé lo stato del parser a ogni passaggio G0↔G1, cioè **a ogni alzata e abbassata di penna**. Nel `cnc2d-config.yaml` non c'è nessuna impostazione di report: siamo sui valori di fabbrica. Da capire se si può spegnere.
+
+**Sul banco, una lezione che vale oltre a questo caso.** Una delle mutazioni nuove risultava NON VISTA, e non perché il codice fosse giusto: rompendo il gestore della chiusura il **banco moriva** invece di stampare il KO, e un banco che muore non produce la riga che `rompi.py` cerca. Adesso l'eccezione si cattura. Una seconda mutazione era NON VISTA per il motivo opposto — il codice davvero non cambiava comportamento, perché le due guardie del silenzio si mascherano a vicenda: rotta una sola, il timer rimasto armato trova comunque l'altra. Risolta usando `piu`, l'arnese che `rompi.py` ha proprio per le difese doppie. 375 → 382 mutazioni, tutte viste.
+
+**Decisioni prese:**
+
+- **Contesto:** collegare il telecomando durante una stampa è il momento peggiore per aggiungere una seconda conversazione sulla rete, ed è anche quello in cui l'oggetto è per forza in mano.
+  **Decisione:** l'indirizzo si salva sempre, ma a stampa in corso il telecomando resta zitto fino alla fine.
+  **Alternative scartate:** un tempo di grazia — non avrebbe funzionato, i tocchi veri sono arrivati a 9 e 11 secondi dal collegamento; vietare il campo — toglie una cosa che si può fare in sicurezza semplicemente rimandandola.
+  **Da rivedere se:** il codice di chiusura, adesso registrato, dirà che il traffico del telecomando non c'entrava.
+
+- **Contesto:** due stampe perse, causa non accertata.
+  **Decisione:** la prova che decide si fa **con l'indirizzo del telecomando cancellato** (non basta spegnere il telecomando: l'indirizzo resta e lo SLICER continua a chiamarlo, e un IP senza nessuno che risponde fa cercare l'ARP a ripetizione) e **con la penna tolta dal morsetto**, così un terzo fallimento non costa un foglio.
+  **Alternative scartate:** cambiare due cose insieme; provare su un foglio buono.
+
+- **Contesto:** la raccomandazione del 27 ottobre era «cavo piatto sulla X, catena solo sulla Y», motivata dal peso sul carrello.
+  **Decisione:** **catena su tutti e due gli assi**, come proposto dall'utente.
+  **Supera la decisione del: 2026-10-27** — la motivazione si reggeva su due premesse sbagliate (3 fili sul carrello invece di 7, carrello leggero invece che con un NEMA17 sopra).
+  **Da rivedere se:** le due quote da confermare col metro (11 mm fra l'ansa Y e la trave, 26 mm dietro la trave) non ci sono.
+
+**Problemi aperti:**
+1. **Perché cade il collegamento.** Non accertato. La prova con l'indirizzo vuoto è in corso.
+2. **Una caduta non deve costare la stampa.** FluidNC continua a eseguire quello che ha ricevuto, la pagina si arrende, e il lavoro è perso. Serve **riconnessione automatica con ripresa**, che per essere pulita deve ritrovare lo stato modale, risalire all'inizio del tratto interrotto e ridisegnarlo da capo — ripassare un tratto con la stessa penna non si vede, una giunzione sì. Oggi non esiste: `Sender.avvia()` prende solo il testo intero.
+3. Le due quote delle catene da confermare col metro.
+4. Se i report `[GC:]` di FluidNC si possono spegnere.
+
+**File consegnati/modificati:**
+- `webui/js/api.js` — `onclose` riceve l'evento; tabella `CHIUSURA` e `perche()`
+- `webui/js/telecomando.js` — `zitto`, `daScartare`, guardie in `manda`, `battito`, `subito`, `dove`, `init`, `stato`, `segnala`
+- `webui/js/settings.js` — lo stato «zitto» detto prima di ogni altra diagnosi, «Manda adesso» spento
+- `webui/tools/prova-telecomando.js` — otto controlli nuovi
+- `webui/tools/rompi.py` — 375 → 382 mutazioni, una a due punti
+- `misure/cavi-box-e-alloggiamenti.md` — le due correzioni di fatto
+- consegnata in chat la pagina **v145**
+
+**Impatto su Vision/Pipeline:** nessuna modifica alla Vision. La prova su carta resta bloccata finché il collegamento non è affidabile: è la prima volta che il banco di prova non è il programma ma la rete.
+
+---
 
 ### [2026-11-24 20:05] Il PC torna, e in una giornata il programma mostra nove difetti
 

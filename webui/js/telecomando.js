@@ -77,7 +77,7 @@ var Telecomando = (function () {
   var timer = null, inVolo = false, falliti = 0;
 
   /* ZITTO: c'e' un indirizzo ma non si parla.
-     Serve per un caso solo, ed e' quello del 2026-11-25. Collegando il
+     Serve per un caso solo, ed e' quello del 2026-11-26. Collegando il
      telecomando a stampa viva, `dove()` faceva partire il battito subito e al
      ritmo veloce: quattro decimi, cioe' due connessioni TCP e mezzo al secondo
      verso un secondo apparecchio, aggiunte nel momento di massimo traffico

@@ -289,7 +289,7 @@ var Api = (function () {
          promesse si rompono tutte insieme.
 
          E VA DETTO ANCHE PERCHE'. Fino al 2026-11-26 questo gestore ignorava
-         l'evento: scriveva «collegamento caduto» e basta. La sera del 25 una
+         l'evento: scriveva «collegamento caduto» e basta. La sera del 26 una
          stampa è morta alla riga 2170 di 7058 e non si è potuto stabilire se
          fosse caduta la rete o se si fosse riavviato FluidNC -- due guasti
          diversi, con due rimedi diversi, e la differenza era dentro
