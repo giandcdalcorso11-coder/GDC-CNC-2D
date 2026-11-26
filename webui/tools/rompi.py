@@ -191,6 +191,73 @@ MUTAZIONI = [
         prova="prova-telecomando.js",
     ),
 
+    # --------------- zitto durante una stampa, e il perche' di una chiusura
+    #                 (la stampa persa del 2026-11-25)
+    dict(
+        nome="collegare il telecomando a stampa viva fa partire subito il battito",
+        file='js/telecomando.js',
+        da="    zitto = !!(indirizzo && window.Sender && Sender.inCorso && Sender.inCorso());",
+        a="    zitto = false;",
+        vede='indirizzo si salva e non parte niente',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome="il messaggio parte lo stesso mentre si dovrebbe stare zitti",
+        file='js/telecomando.js',
+        da="    if (!indirizzo || inVolo || muto || zitto) return;",
+        a="    if (!indirizzo || inVolo || muto) return;",
+        vede='rompono il silenzio',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome="il pulsante «Manda adesso» resta acceso mentre si sta zitti",
+        file='js/settings.js',
+        da="    if (md) md.disabled = !t || !t.attivo || t.zitto;",
+        a="    if (md) md.disabled = !t || !t.attivo;",
+        vede='Manda adesso resta spento',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome="il battito si arma anche da zitto",
+        file='js/telecomando.js',
+        da="    if (!indirizzo || zitto) return;",
+        a="    if (!indirizzo) return;",
+        vede='risposta arrivata dopo non riarma il battito',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome="finita la stampa il telecomando resta zitto per sempre",
+        file='js/telecomando.js',
+        da="    if (zitto) {\n      if (window.Sender && Sender.inCorso && Sender.inCorso()) return;\n      zitto = false;",
+        a="    if (zitto) {\n      return;\n      zitto = false;",
+        vede='finita la stampa comincia a parlare',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome="il tasto rimasto nel cassetto del firmware entra come un comando",
+        file='js/telecomando.js',
+        da="    daScartare = !zitto;",
+        a="    daScartare = false;",
+        vede='primo tasto dopo un silenzio viene scartato',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome="lo scarto non si spegne mai e nessun tasto arriva piu'",
+        file='js/telecomando.js',
+        da="      daScartare = false;",
+        a="",
+        vede='il secondo invece arriva al Sender',
+        prova='prova-telecomando.js',
+    ),
+    dict(
+        nome="la chiusura del collegamento non dice perche'",
+        file='js/api.js',
+        da="      ws.onclose = function (ev) {",
+        a="      ws.onclose = function () {",
+        vede='dice 1006',
+        prova='prova-telecomando.js',
+    ),
+
     # --------------- ritrovare la punta al cambio penna
     dict(
         nome="la correzione non viene mandata alla macchina",

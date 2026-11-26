@@ -286,8 +286,17 @@ var Api = (function () {
       /* La chiusura va raccontata forte: se succede mentre una stampa è in
          corso, quella stampa è interrotta e la macchina sta finendo le righe
          che ha già dentro. Chi sta stampando se ne accorge perché le sue
-         promesse si rompono tutte insieme. */
-      ws.onclose = function () {
+         promesse si rompono tutte insieme.
+
+         E VA DETTO ANCHE PERCHE'. Fino al 2026-11-26 questo gestore ignorava
+         l'evento: scriveva «collegamento caduto» e basta. La sera del 25 una
+         stampa è morta alla riga 2170 di 7058 e non si è potuto stabilire se
+         fosse caduta la rete o se si fosse riavviato FluidNC -- due guasti
+         diversi, con due rimedi diversi, e la differenza era dentro
+         all'evento che stavamo buttando via. `code` e `wasClean` costano una
+         riga e sono l'unica testimonianza che esista: quando il socket muore
+         non resta nient'altro da interrogare. */
+      ws.onclose = function (ev) {
         var stavaStampando = volo.length > 0 || coda.length > 0;
         rompiTutto(new Error('collegamento caduto'));
         stopPolling();
@@ -300,8 +309,35 @@ var Api = (function () {
         } else {
           Log.add('msg', 'Collegamento chiuso.');
         }
+        Log.add('msg', 'Chiusura: ' + perche(ev));
       };
     });
+  }
+
+  /* I codici di chiusura che si vedono davvero su questa macchina. Non sono
+     tutti quelli dello standard: sono quelli che un ESP32 su WiFi produce, e
+     ognuno punta altrove.
+       1006 è il peggiore da leggere e il più frequente: vuol dire che non è
+     arrivato nessun messaggio di chiusura, cioè che la connessione è sparita
+     sotto -- rete, portante WiFi, router. Non dice che FluidNC sia morto.
+       1001 vuol dire che l'altra parte se ne stava andando di sua volontà:
+     tipicamente la scheda che si riavvia. Se la posizione si è azzerata, il
+     `G92` è perso e l'origine va rifatta.
+       1000 è una chiusura concordata, che durante una stampa non dovrebbe
+     succedere mai: se compare, qualcosa l'ha chiesta. */
+  var CHIUSURA = {
+    1000: 'concordata',
+    1001: 'l\'altra parte se ne andava (riavvio della scheda?)',
+    1005: 'nessun codice',
+    1006: 'sparita senza salutare (rete o WiFi)'
+  };
+
+  function perche(ev) {
+    if (!ev || typeof ev.code !== 'number') return 'motivo non riportato dal browser';
+    var t = CHIUSURA[ev.code] || 'codice non previsto';
+    return 'codice ' + ev.code + ', ' + t +
+           (ev.wasClean ? ', pulita' : ', non pulita') +
+           (ev.reason ? ' -- ' + ev.reason : '');
   }
 
   function rompiTutto(err) {

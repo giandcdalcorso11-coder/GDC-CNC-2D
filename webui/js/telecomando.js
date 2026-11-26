@@ -75,6 +75,30 @@ var Telecomando = (function () {
 
   var indirizzo = '';
   var timer = null, inVolo = false, falliti = 0;
+
+  /* ZITTO: c'e' un indirizzo ma non si parla.
+     Serve per un caso solo, ed e' quello del 2026-11-25. Collegando il
+     telecomando a stampa viva, `dove()` faceva partire il battito subito e al
+     ritmo veloce: quattro decimi, cioe' due connessioni TCP e mezzo al secondo
+     verso un secondo apparecchio, aggiunte nel momento di massimo traffico
+     della rete. Tredici secondi dopo e' caduta la WebSocket di FluidNC e una
+     stampa si e' fermata alla riga 2170 di 7058. Che sia stata quella la causa
+     non e' accertato -- il browser buttava via il codice di chiusura, vedi
+     js/api.js -- ma il momento in cui si aggiunge traffico non si sceglie a
+     caso: l'indirizzo si salva lo stesso e si comincia a parlare a stampa
+     finita, dove non costa niente a nessuno. */
+  var zitto = false;
+
+  /* DA SCARTARE: il primo tasto dopo un silenzio non e' un comando.
+     Il firmware rileva il fronte (`onTouchDown`) e tiene il tasto in un
+     cassetto -- `daMandare` -- finche' lo SLICER non passa a prenderlo. Se
+     nessuno passa per un po', quel cassetto conserva una pressione vecchia, e
+     alla prima chiamata ce la consegna come se fosse appena successa. La
+     pressione vecchia esiste davvero: l'indirizzo lo si legge dallo schermo
+     del telecomando, quindi mentre lo si configura lo si ha in mano, e i pad
+     sono capacitivi. Il primo tasto si butta e si scrive che lo si e' buttato:
+     un tasto che sparisce in silenzio sembra un pad rotto. */
+  var daScartare = false;
   /* Quando è partito il messaggio in volo: è la rete di sicurezza della rete
      di sicurezza. Se un browser non facesse scattare l'interruzione su una
      connessione piantata, questo numero lo scopre lo stesso. */
@@ -195,7 +219,7 @@ var Telecomando = (function () {
 
   function manda() {
     sbloccaSeAppeso();
-    if (!indirizzo || inVolo || muto) return;
+    if (!indirizzo || inVolo || muto || zitto) return;
     var m = messaggio();
     firma = impronta(m);
     inVolo = true;
@@ -248,7 +272,14 @@ var Telecomando = (function () {
          diverso da «è a batteria». */
       carica = typeof risposta.carica === 'string' ? risposta.carica : null;
       segnala();
-      if (risposta.tasto) premuto(String(risposta.tasto));
+      if (risposta.tasto && daScartare) {
+        Log.add('msg', 'Telecomando: scartato un «' + String(risposta.tasto) +
+                       '» rimasto in sospeso da prima del collegamento. Il ' +
+                       'primo tasto dopo un silenzio non vale: premilo di nuovo.');
+      } else if (risposta.tasto) {
+        premuto(String(risposta.tasto));
+      }
+      daScartare = false;
     }).catch(function (e) {
       finita();
       falliti++;
@@ -656,7 +687,8 @@ var Telecomando = (function () {
       volumeVero: volumeVero,
       prova: !!timerProva,
       posa: posaOra,
-      spia: spiona
+      spia: spiona,
+      zitto: zitto
     });
   }
 
@@ -673,7 +705,7 @@ var Telecomando = (function () {
 
   function battito() {
     if (timer) clearTimeout(timer);
-    if (!indirizzo) return;
+    if (!indirizzo || zitto) return;
     timer = setTimeout(function () {
       manda();
       battito();
@@ -693,6 +725,20 @@ var Telecomando = (function () {
       Log.add('msg', 'È partita una stampa vera: le prove del telecomando si ' +
                      'fermano qui.');
       if (posaOra) posa(''); else prova(false);
+      return;
+    }
+    /* LA FINE DELLA STAMPA E' IL MOMENTO IN CUI SI COMINCIA A PARLARE, se si
+       era rimasti zitti perche' una stampa era in corso. Si passa da qui e non
+       da un timer perche' qui si sa davvero che e' finita. */
+    if (zitto) {
+      if (window.Sender && Sender.inCorso && Sender.inCorso()) return;
+      zitto = false;
+      daScartare = true;
+      Log.add('msg', 'Stampa finita: il telecomando comincia adesso a ' +
+                     'parlare, su ' + indirizzo + '.');
+      segnala();
+      manda();
+      battito();
       return;
     }
     if (!indirizzo || inVolo) return;
@@ -730,8 +776,19 @@ var Telecomando = (function () {
     falliti = 0;
     batteria = null;
     firma = '';
+
+    /* SI SALVA SEMPRE, SI PARLA DOPO. Vedi `zitto`. */
+    zitto = !!(indirizzo && window.Sender && Sender.inCorso && Sender.inCorso());
+    daScartare = !zitto;
     segnala();
-    if (indirizzo) { manda(); battito(); }
+
+    if (zitto) {
+      if (timer) { clearTimeout(timer); timer = null; }
+      Log.add('msg', 'Indirizzo salvato. C\'è una stampa in corso, quindi il ' +
+                     'telecomando resta zitto fino alla fine: non si aggiunge ' +
+                     'traffico alla rete mentre la macchina disegna, e i suoi ' +
+                     'tasti restano morti finché non parla.');
+    } else if (indirizzo) { manda(); battito(); }
     else if (timer) { clearTimeout(timer); timer = null; }
     return indirizzo;
   }
@@ -739,7 +796,7 @@ var Telecomando = (function () {
   function stato() {
     return { indirizzo: indirizzo, visto: visto, batteria: batteria,
              carica: carica, prova: !!timerProva, posa: posaOra,
-             spia: spiona };
+             spia: spiona, zitto: zitto };
   }
 
   function init() {
@@ -749,6 +806,7 @@ var Telecomando = (function () {
       if (vv !== null) volume = Math.max(0, Math.min(10, parseInt(vv, 10) || 0));
     } catch (e) { /* privata */ }
     segnala();
+    daScartare = !!indirizzo;
     if (indirizzo) { manda(); battito(); }
 
     State.on('stampa', subito);

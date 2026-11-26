@@ -225,6 +225,238 @@ function ok(nome, vero, extra) {
     await p2.close();
   }
 
+  /* ============ ZITTO DURANTE UNA STAMPA (2026-11-26) ============
+   *
+   * La sera del 25 l'operatore ha collegato il telecomando MENTRE stampava:
+   * `dove()` faceva partire il battito subito e al ritmo veloce, quattro
+   * decimi. Tredici secondi dopo e' caduta la WebSocket di FluidNC e la
+   * stampa si e' fermata alla riga 2170 di 7058.
+   *
+   * Due cose separate, e questa prova guarda la prima: non si aggiunge
+   * traffico alla rete nel momento in cui la macchina sta disegnando. Che
+   * sia stato il traffico a far cadere il collegamento non e' accertato --
+   * e' proprio per questo che la seconda riparazione fa scrivere il codice
+   * di chiusura. Ma il momento in cui si apre una seconda conversazione lo
+   * si puo' scegliere, e questo e' il peggiore possibile. */
+  {
+    const p3 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    const err3 = [];
+    p3.on('pageerror', (e) => err3.push(String(e)));
+    await p3.goto(PAGINA);
+    await p3.waitForTimeout(300);
+
+    const r3 = await p3.evaluate(async () => {
+      const aspetta = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__n = 0;
+      window.fetch = function () {
+        window.__n++;
+        return Promise.resolve({ ok: true, json: function () {
+          return Promise.resolve({ batteria: 50, carica: 'batteria' });
+        } });
+      };
+      /* La stampa in corso si finge dal Sender, che e' chi `dove()`
+         interroga: il resto della macchina qui non serve. */
+      Sender.inCorso = function () { return true; };
+      Telecomando.dove('192.0.2.7');
+      await aspetta(1500);
+      const durante = { n: window.__n, zitto: Telecomando.stato().zitto,
+                        salvato: Telecomando.stato().indirizzo };
+
+      /* LE DUE STRADE CHE RESTEREBBERO APERTE. `dove()` non chiama `manda()` e
+         `battito()` non arma il timer, quindi il silenzio regge da solo -- ma
+         il pulsante «Manda adesso» e il cursore del volume chiamano `manda()`
+         di loro, e senza la guardia dentro a `manda()` passerebbero. Il
+         2026-11-26 la mutazione che toglieva quella guardia non veniva vista
+         da nessuno: era vero che il codice era giusto, ed era vero che nessun
+         controllo lo diceva. */
+      Telecomando.manda();
+      Telecomando.volume(4);
+      await aspetta(350);
+      durante.forzati = window.__n;
+      durante.mandaSpento = document.getElementById('btn-tele-manda').disabled;
+
+      /* Finisce la stampa: il Sender lo dice, e lo stato cambia. */
+      Sender.inCorso = function () { return false; };
+      State.set('stampa', { stato: 'fine', nome: '', fatte: 9, totale: 9,
+                            percento: 100, rimanente: 0 });
+      await aspetta(900);
+      const dopo = { n: window.__n, zitto: Telecomando.stato().zitto };
+      const righe = [...document.querySelectorAll('#log-view .log-line')]
+        .map((x) => x.textContent);
+      return { durante: durante, dopo: dopo, righe: righe };
+    });
+
+    ok('con una stampa in corso l\'indirizzo si salva e non parte niente',
+       r3.durante.n === 0 && r3.durante.zitto === true &&
+       r3.durante.salvato === '192.0.2.7',
+       r3.durante.n + ' messaggi, zitto ' + r3.durante.zitto +
+       ', salvato "' + r3.durante.salvato + '"');
+    ok('nemmeno Manda adesso o il cursore del volume rompono il silenzio',
+       r3.durante.forzati === 0, r3.durante.forzati + ' messaggi forzati');
+    ok('e il pulsante Manda adesso resta spento',
+       r3.durante.mandaSpento === true, 'disabled ' + r3.durante.mandaSpento);
+    ok('e il registro dice perche\', invece di sembrare rotto',
+       r3.righe.some((t) => /stampa in corso.*resta zitto/i.test(t)),
+       (r3.righe.filter((t) => /zitto/i.test(t))[0] || '(niente)').slice(0, 110));
+    ok('finita la stampa comincia a parlare da solo',
+       r3.dopo.n > 0 && r3.dopo.zitto === false,
+       r3.dopo.n + ' messaggi dopo la fine, zitto ' + r3.dopo.zitto);
+
+    /* ---- IL PRIMO TASTO DOPO UN SILENZIO NON E' UN COMANDO ----
+     *
+     * Il firmware rileva il FRONTE (`onTouchDown`) e tiene il tasto in
+     * `daMandare` finche' lo SLICER non passa a prenderlo. L'indirizzo lo si
+     * legge dallo schermo del telecomando, quindi mentre lo si configura lo
+     * si ha in mano, e i pad sono capacitivi: nel cassetto c'e' quasi sempre
+     * qualcosa. Alla prima chiamata quel qualcosa arriverebbe come se fosse
+     * appena stato premuto -- e «pausa» o «riprendi» entrano dalla stessa
+     * porta da cui entrerebbe un dito sulla pagina. */
+    const r4 = await p3.evaluate(async () => {
+      const aspetta = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__tasto = 'pausa';
+      window.fetch = function () {
+        return Promise.resolve({ ok: true, json: function () {
+          return Promise.resolve({ batteria: 50, carica: 'batteria',
+                                   tasto: window.__tasto });
+        } });
+      };
+      /* Si stacca e si riattacca: e' il silenzio che arma lo scarto. */
+      Telecomando.dove('');
+      await aspetta(100);
+      const prima = document.querySelectorAll('#log-view .log-line').length;
+      Telecomando.dove('192.0.2.7');
+      /* Due giri buoni: a stampa ferma il ritmo e' RITMO_FERMO, due secondi,
+         e il secondo messaggio e' proprio quello che deve portare il tasto
+         vero dopo che il primo e' stato buttato. */
+      await aspetta(2600);
+      const nuove = [...document.querySelectorAll('#log-view .log-line')]
+        .map((x) => x.textContent).slice(prima);
+      return { nuove: nuove };
+    });
+
+    ok('il primo tasto dopo un silenzio viene scartato e scritto',
+       r4.nuove.some((t) => /scartato un .pausa./i.test(t)),
+       (r4.nuove.filter((t) => /scartato/i.test(t))[0] || '(niente)').slice(0, 110));
+    ok('e il secondo invece arriva al Sender',
+       r4.nuove.some((t) => /Telecomando: pausa\./.test(t)),
+       (r4.nuove.filter((t) => /Telecomando: pausa/.test(t))[0] || '(niente)'));
+
+    /* ---- UNA RISPOSTA IN VOLO NON RIARMA IL BATTITO ----
+     *
+     * E' l'unica strada per cui la guardia dentro a `battito()` serve davvero,
+     * e il 2026-11-26 non la guardava nessuno. Succede cosi': il telecomando
+     * sta gia' parlando, parte una stampa, e l'utente ritocca l'indirizzo.
+     * `dove()` spegne il timer, ma il messaggio gia' partito quando torna
+     * indietro chiama `battito()` in coda alla risposta -- e senza guardia il
+     * battito riparte in mezzo alla stampa, che e' esattamente la cosa che si
+     * voleva evitare. */
+    const r6 = await p3.evaluate(async () => {
+      const aspetta = (ms) => new Promise((r) => setTimeout(r, ms));
+      let sblocca = null;
+      window.__m = 0;
+      window.fetch = function () {
+        window.__m++;
+        return new Promise(function (res) {
+          sblocca = function () {
+            res({ ok: true, json: function () {
+              return Promise.resolve({ batteria: 50, carica: 'batteria' });
+            } });
+          };
+        });
+      };
+      Sender.inCorso = function () { return false; };
+      Telecomando.dove('192.0.2.8');        // parte, e resta in volo
+      await aspetta(200);
+      const inVolo = window.__m;
+
+      Sender.inCorso = function () { return true; };
+      Telecomando.dove('192.0.2.9');        // adesso si stampa: zitto
+      if (sblocca) sblocca();               // la risposta vecchia torna
+      await aspetta(1500);
+      return { inVolo: inVolo, dopo: window.__m,
+               zitto: Telecomando.stato().zitto };
+    });
+
+    ok('una risposta arrivata dopo non riarma il battito',
+       r6.inVolo === 1 && r6.dopo === 1 && r6.zitto === true,
+       r6.inVolo + ' in volo, ' + r6.dopo + ' in tutto, zitto ' + r6.zitto);
+
+    ok('nessun errore nella pagina dello zitto', err3.length === 0, err3.join(' | '));
+    await p3.close();
+  }
+
+  /* ============ PERCHE' E' CADUTO IL COLLEGAMENTO (2026-11-26) ============
+   *
+   * Sta in questo banco e non in uno suo perche' e' la seconda meta' dello
+   * stesso guasto: quando la stampa del 25 e' morta, `ws.onclose` ignorava
+   * l'evento e scriveva solo «collegamento caduto». Rete sparita e scheda
+   * riavviata sono due cose diverse, con due rimedi diversi -- l'una si
+   * ritenta, l'altra ha perso il `G92` e vuole l'origine rifatta -- e la
+   * differenza era dentro all'evento che stavamo buttando via.
+   *
+   * 1006 e' il codice che non arriva da nessuna parte: nessun messaggio di
+   * chiusura, cioe' la connessione e' sparita sotto. */
+  {
+    const p4 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    const err4 = [];
+    p4.on('pageerror', (e) => err4.push(String(e)));
+    await p4.addInitScript(() => {
+      /* Una WebSocket finta che si apre e si lascia chiudere a comando. */
+      window.WebSocket = function () {
+        window.__ws = this;
+        this.readyState = 1;
+        this.send = function () {};
+        this.close = function () {};
+        const me = this;
+        setTimeout(function () { if (me.onopen) me.onopen(); }, 10);
+      };
+      window.WebSocket.prototype = {};
+    });
+    await p4.goto(PAGINA);
+    await p4.waitForTimeout(300);
+
+    const r5 = await p4.evaluate(async () => {
+      const aspetta = (ms) => new Promise((r) => setTimeout(r, ms));
+      State.set('mock', false);
+      Api.connect();
+      await aspetta(200);
+      const prima = document.querySelectorAll('#log-view .log-line').length;
+      /* IL GESTORE SI CHIAMA DENTRO A UN try. Non e' prudenza generica: se
+         `onclose` perdesse il parametro, dentro esploderebbe un
+         ReferenceError, l'eccezione uscirebbe da `evaluate` e porterebbe giu'
+         tutto il banco -- e un banco che muore non stampa il KO, quindi la
+         mutazione risulterebbe NON VISTA pur avendo rotto davvero qualcosa.
+         E' successo il 2026-11-26. Qui l'errore si cattura e il controllo
+         sotto fallisce come deve. */
+      try { window.__ws.onclose({ code: 1006, wasClean: false }); }
+      catch (e) { window.__esploso = String(e); }
+      await aspetta(150);
+      const a = [...document.querySelectorAll('#log-view .log-line')]
+        .map((x) => x.textContent).slice(prima);
+
+      Api.connect();
+      await aspetta(200);
+      const prima2 = document.querySelectorAll('#log-view .log-line').length;
+      try { window.__ws.onclose({ code: 1001, wasClean: true }); }
+      catch (e) { window.__esploso = String(e); }
+      await aspetta(150);
+      const b = [...document.querySelectorAll('#log-view .log-line')]
+        .map((x) => x.textContent).slice(prima2);
+      return { rete: a, riavvio: b, esploso: window.__esploso || '' };
+    });
+
+    ok('una chiusura senza saluto dice 1006 e che e\' la rete',
+       r5.rete.some((t) => /1006/.test(t) && /rete o WiFi/i.test(t) &&
+                           /non pulita/.test(t)),
+       (r5.rete.filter((t) => /Chiusura/.test(t))[0] || '(niente)').slice(0, 120));
+    ok('e un riavvio della scheda dice 1001, che e\' un\'altra cosa',
+       r5.riavvio.some((t) => /1001/.test(t) && /riavvio della scheda/i.test(t)),
+       (r5.riavvio.filter((t) => /Chiusura/.test(t))[0] || '(niente)').slice(0, 120));
+    ok('e il gestore della chiusura non esplode', r5.esploso === '', r5.esploso);
+    ok('nessun errore nella pagina della chiusura', err4.length === 0, err4.join(' | '));
+    await p4.close();
+  }
+
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
   console.log(guai ? '\n' + guai + ' controlli KO' : '\ntutto a posto');

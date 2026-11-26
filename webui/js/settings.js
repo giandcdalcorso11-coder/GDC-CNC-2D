@@ -609,13 +609,26 @@ var Settings = (function () {
       bs[i].disabled = k ? !puo : !(t && t.posa);
       bs[i].classList.toggle('btn-primary', !!(k && t && t.posa === k));
     }
+    /* «Manda adesso» e' l'ultima strada che resterebbe aperta durante una
+       stampa: `dove()` non chiama `manda()` e `battito()` non arma il timer,
+       ma questo pulsante lo chiama di suo. Spento, e il perche' lo dice la
+       riga di stato qui sotto. */
     var md = document.getElementById('btn-tele-manda');
-    if (md) md.disabled = !t || !t.attivo;
+    if (md) md.disabled = !t || !t.attivo || t.zitto;
 
     if (!p) return;
     if (!t || !t.attivo) {
       p.textContent = 'Spento: senza indirizzo non si manda niente, e la ' +
                       'pagina funziona come ha sempre funzionato.';
+      return;
+    }
+    /* ZITTO viene per primo perche' spiega tutto il resto: con una stampa in
+       corso non si manda niente, quindi «non raggiungibile» qui sotto sarebbe
+       una diagnosi sbagliata di una cosa voluta. */
+    if (t.zitto) {
+      p.textContent = 'Indirizzo salvato, ma zitto: c\'è una stampa in corso e ' +
+                      'il telecomando non parla finché non finisce. I suoi tasti ' +
+                      'non funzionano adesso, e la stampa non ne risente.';
       return;
     }
     p.textContent = (t.prova ? 'PROVA IN BIANCO in corso: il telecomando recita ' +
