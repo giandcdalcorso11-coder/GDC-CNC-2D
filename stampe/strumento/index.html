@@ -389,7 +389,7 @@ function attesa(txt){P.innerHTML='<h2>'+esc(txt)+'</h2><div class="attesa"><div 
 function carica(){
   if(S.fileId)return Promise.resolve(S.fileId);
   attesa('Carico il file…');
-  return fetch('/api/file',{method:'POST',headers:{'X-Nome':S.file.name},body:S.file}).then(function(r){return r.json();}).then(function(j){if(j.errore)throw new Error(j.errore);S.fileId=j.id;return j.id;});
+  return fetch('/api/file',{method:'POST',headers:{'X-Nome':encodeURIComponent(S.file.name)},body:S.file}).then(function(r){return r.json();}).then(function(j){if(j.errore)throw new Error(j.errore);S.fileId=j.id;return j.id;});
 }
 function avvia(sc){
   $('genera').disabled=true;

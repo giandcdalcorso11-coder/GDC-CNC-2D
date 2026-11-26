@@ -14,6 +14,7 @@ Senza server la pagina funziona lo stesso, ma invece di generare prepara la sche
 import json
 import os
 import re
+import urllib.parse
 import subprocess
 import sys
 import tempfile
@@ -248,7 +249,7 @@ class H(BaseHTTPRequestHandler):
         p = self.path.split('?')[0]
         try:
             if p == '/api/file':
-                nome = pulito(self.headers.get('X-Nome'))
+                nome = pulito(urllib.parse.unquote(self.headers.get('X-Nome') or ''))
                 ext = os.path.splitext(nome)[1].lower()
                 if ext not in ESTENSIONI:
                     return self.invia(400, {'errore': 'formato non supportato (%s): .3mf, .png, .jpg, .webp' % ext})
