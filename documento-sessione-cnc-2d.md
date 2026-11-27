@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 129
-**Ultimo aggiornamento:** 2026-11-26 22:15
+**Versione:** 130
+**Ultimo aggiornamento:** 2026-11-27 16:40
 
 ## Regole di co-editing
 
@@ -231,7 +231,7 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 
 ### Step 1 — Bring-up alimentazione e logica ESP32
 
-**Stato:** completato
+**Stato:** in corso (riaperto il 2026-11-27: l'ESP32 si riavvia durante le stampe lunghe)
 
 **Obiettivo:** ESP32 funzionante e alimentabile sia da USB che da batteria, con GPIO verificati
 
@@ -280,6 +280,10 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
   **Causa:** il servo e la logica condividevano il 5 V del modulo 18650. Lo spunto del servo (700 mA, 1,4 A per un MG90S) faceva collassare quel ramo; l'ESP32 andava in brownout e, resettandosi, smetteva di generare il PWM — quindi il servo non arrivava mai in posizione. Nella seconda configurazione il collasso restava sul solo ramo servo e si vedeva per quello che era: **protezione che scatta e riparte in ciclo** (*hiccup mode*), con il servo alimentato a singhiozzo
   **Fix applicato:** due L7805CV separati dai 12 V, uno per la logica e uno per il servo. **Confermato dall'utente: tutti i test passano.** Il percorso diagnostico è costato due giorni perché l'alimentazione era stata classificata come causa poco probabile (vedi voce di storico del 2026-10-13)
 - [2026-10-13] **Mancano i condensatori ceramici e per ora si va avanti così.** Montati solo gli elettrolitici. Funziona, ma l'elettrolitico alle alte frequenze non c'è: senza un ceramico vicino ai piedini il 7805 può oscillare nei MHz, e il sintomo non è un guasto netto — è riscaldamento inspiegabile, rumore sul 5 V, qualche reset a caso. Da aggiungere: **100 nF su IN e su OUT di ogni regolatore**, più uno in parallelo ai 100 µF sul VMOT di ogni driver
+- [2026-11-27] **Lo stato torna «in corso»: l'ESP32 si riavvia da solo durante le stampe lunghe.** Quattro stampe interrotte (righe 2170, 5679, 6880, 7511 su ~7000), sempre nella parte fitta del disegno. Il registro dice `Chiusura: codice 1006` — nessun messaggio di chiusura, cioè nessuno dall'altra parte — e **la posizione risulta azzerata**, quindi la scheda è ripartita. Non è la rete, non è il telecomando (assente in due delle quattro), non è il carico della pagina.
+- [2026-11-27] **La causa più probabile era già scritta qui sopra, dal 2026-10-13, e nessuno l'ha riletta.** Quella nota dice che mancano i **100 nF ceramici su IN e OUT di ogni 7805** e prevede testualmente il sintomo: «riscaldamento inspiegabile, rumore sul 5 V, **qualche reset a caso**». Sei settimane dopo, è esattamente quello che succede. E la nota del 2026-10-12 chiude dicendo che quel percorso diagnostico era costato due giorni «perché l'alimentazione era stata classificata come causa poco probabile»: **lo stesso errore è stato rifatto**, e stavolta è costato tre serate e quattro fogli.
+- [2026-11-27] **Il conto termico, con i numeri veri del profilo (12 V, 3 A).** Un L7805 è lineare: dissipa `(Vin − 5) × I`. Ramo ESP32 ~250 mA → **1,75 W**, picchi in trasmissione ~400 mA → 2,8 W. Ramo servo in movimento ~600 mA → **4,2 W**. Un TO-220 **senza dissipatore** sta sui 50÷65 °C/W verso l'aria: a 1,75 W sono 90÷115 °C sopra l'ambiente, contro una protezione termica che scatta a ~150 °C di giunzione. La protezione stacca, raffredda e riattacca — la firma di una scheda che si riavvia dopo qualche minuto e poi riparte. Si somma all'oscillazione da ceramici mancanti, che scalda di suo.
+- [2026-11-27] **I tre numeri che mancano per chiudere:** se i due L7805 abbiano un dissipatore; il 5 V dell'ESP32 misurato col tester durante la parte fitta di una stampa; e se, montati i ceramici, il guasto sparisce. **Rimedio già deciso il 2026-10-13 e mai eseguito: 100 nF su IN e OUT di ogni regolatore**, più uno in parallelo ai 100 µF sul VMOT di ogni driver. L'upgrade a switching (LM2596) era già previsto come passo successivo.
 
 ### Step 2 — Bring-up driver A4988 e motori (X/Y)
 
@@ -606,6 +610,10 @@ mano a mano che le misure arrivano):
 - [2026-11-24] **Due regole di collaudo non provavano più niente, in silenzio.** Trovate controllando **tutte** le ancore di `rompi.py` dopo aver cambiato testi che le mutazioni citano a parola. *(1)* La mutazione «il contorno aperto svuota il riempimento di prima» era rimasta indietro a una ristrutturazione di `editor.js`: la riga che cita non esiste più da allora. **Non era mia e non era di oggi** — era lì da settimane. *(2)* Una mutazione scritta oggi agganciava il codice ma la sua **attesa** cercava un controllo che avevo rinominato: il codice si rompeva, il banco falliva come doveva, e `rompi.py` concludeva «non vista». È la stessa trappola spostata di un passo. **Il controllo meccanico va fatto sull'uscita del banco, non sul suo sorgente:** confrontando le attese col sorgente escono 28 falsi allarmi, tutti apostrofi scritti `’` — ed è il motivo per cui un controllore meccanico era stato scartato il 2026-11-15. Sull'uscita vera: **zero su 373**.
 
 - [2026-11-24] **Pezzo 3 fatto: lo SLICER può LEGGERE le risposte dello strumento, e solo lui.** Commit `bac169a` sul ramo delle stampe, con permesso esplicito dell'utente. Finora la pagina sapeva *che* lo strumento c'era — alla spia basta sapere che qualcuno ha risposto — ma non poteva aprire niente di suo, e il prelievo del risultato di una conversione il contenuto lo deve leggere. **Non si è scritto `Access-Control-Allow-Origin: *`,** e la differenza non è formale: quel server gira sul computer dell'utente e conosce le sue cartelle, quindi con l'asterisco qualunque sito aperto in un'altra scheda potrebbe leggersi l'elenco dei lavori e scaricare i disegni generati. Rispondono solo l'origine `null` (le pagine aperte da `file://`, cioè lo SLICER) e `127.0.0.1`/`localhost`. **Provato su un server acceso davvero**, inclusi i due travestimenti che il confronto deve rifiutare: `http://127.0.0.1.evil.com` e `https://null.evil.com`. Resta il **pezzo 4**, «Apri nello SLICER».
+- [2026-11-27] **Due riquadri che crescevano senza fine, trovati cercando la causa delle cadute.** `stampe.js registra()` tagliava l'**array** a 400 righe e il **DOM** no: un `<div>` per messaggio, migliaia in una stampa, e ogni riga leggeva `scrollTop`/`clientHeight`/`scrollHeight`, che forzano il ricalcolo della geometria. Costo misurato per riga: 0,142 ms a vuoto, 1,045 dopo 2000, 4,296 dopo 6000, **9,226 dopo 12000** — sessantacinque volte, andamento quadratico. `logview.js` rifaceva l'`innerHTML` di tutte le 800 righe a ogni messaggio (**13,82 ms**), e `Api.send()` scrive nel registro ogni riga di G-code, nove al secondo. Corretti: tetto anche sul DOM, e una riga si attacca invece di rifare l'elenco. Adesso 0,30 ms piatti e 0,69 ms; smaltire 14.000 messaggi passa da 72,4 s a 4,9 s. Commit `7a0e0c0`, cinque controlli nuovi, tre mutazioni, tutte viste. **Difetti veri, ma non erano la causa delle cadute.**
+- [2026-11-27] **Il banco può morire invece di segnalare, e allora la mutazione risulta «non vista».** Rompendo il gestore della chiusura, l'eccezione usciva da `evaluate` e portava giù tutto il banco: nessuna riga KO stampata, quindi `rompi.py` concludeva che il controllo non guardava niente — mentre il difetto c'era eccome. Adesso l'errore si cattura. È una trappola generale del metodo, non di questo controllo.
+- [2026-11-27] **Due guardie che si mascherano a vicenda non si possono rompere una per volta.** La guardia `zitto` in `manda()` e quella in `battito()` difendono la stessa cosa: tolta una sola, il comportamento osservabile non cambia. Risolto con `piu`, l'arnese di `rompi.py` per le difese doppie.
+- [2026-11-27] **Il campo per i comandi liberi esiste, in fondo alla tab Log.** Detto all'utente che non c'era, cercandolo nella tab Manuale. C'è, e serve per i comandi di diagnosi (`$#`, `G10 L20 P1`).
 
 ### Step 5 — Struttura meccanica
 
@@ -976,6 +984,7 @@ Quello che resta è lavoro nuovo, non il criterio: il **passo della punta sul te
 - [2026-11-03] **Il messaggio che restava appeso, ed è la spiegazione più probabile della fine stampa che non arrivava.** Sintomo: a stampa finita il telecomando restava sulla schermata della stampa, nessun suono, nessun «FATTO», e **niente nel registro**. Due volte, e la seconda col firmware nuovo e con tutti gli altri suoni funzionanti — fanfara alla partenza, tre colpi al cambio penna — quindi non era il dialogo a non esserci mai stato: aveva smesso. Causa (non dimostrata sul campo, ma è l'unica strada trovata che produce quei sintomi in silenzio): **`fetch` non scade da solo**. Se il telecomando accetta la connessione e poi non risponde — 32 kB di memoria, un WiFi solo, uno schermo da ridisegnare — la promessa resta appesa per sempre, `inVolo` resta vero con lei, e da quel momento `manda()` e `subito()` escono subito: il battito batte a vuoto e al telecomando non arriva più niente. Il vetro resta sull'ultima schermata che aveva. E non lo dice nemmeno il registro, perché il `catch` non scatta: **una cosa rotta che non dice di esserlo**. Fix: scadenza a 2,5 s con `AbortController`, una seconda rete che sblocca un messaggio appeso da troppo, e il riprova che parte dal momento del guasto invece che dal giro già in calendario. Se ricapita, adesso il registro scrive «ha accettato la connessione e non ha risposto entro 2,5 s»: da mistero diventa prova.
 - [2026-11-03] **La terza schermata del cambio penna.** Il passo nuovo della punta (Step 4) avrebbe lasciato il vetro a dire «MONTA» mentre il SLICER chiedeva l'angolo del foglio: una schermata che dice una cosa e una macchina che ne aspetta un'altra. Adesso c'è `PENNA3` — «ANGOLO / DAL PC» — e **su quella schermata non c'è nessun tasto**: ritrovare la punta vuol dire guidare la testina col tastierino e guardare dove cade, e un «FATTO» premibile senza aver mosso niente sarebbe il modo più facile di spostare il programma di venti millimetri. Quando il passo passerà sul telecomando ci vorranno le frecce. Caricato e provato dall'utente il 2026-11-03: funziona.
 - [2026-11-09] **Il volume del cicalino ha piantato il telecomando per giorni, e la strada era quella «non provata sulla scheda».** Sotto il volume 10 il suono passa dal PWM di TCC0, aggiunto il 2026-11-02 e collaudato solo al banco: dentro c'erano due `while (TCC0->SYNCBUSY.reg) { }` **senza uscita**. Sulla scheda vera il timer non rispondeva, e il giro principale moriva dentro al primo suono di ogni stampa — la fanfara della partenza. Adesso l'attesa conta ventimila giri e poi molla, e si torna a `tone()`: un cicalino troppo forte è un fastidio, un telecomando che non risponde è una stampa senza telecomando. Il racconto per intero sta nella voce del 2026-11-09.
+- [2026-11-27] **Il telecomando è scagionato.** Era il sospettato per le prime due stampe perse; le due successive sono cadute con il telecomando **senza batteria e con l'indirizzo cancellato**. Non c'entra, e non c'entrava. Resta buono il lavoro fatto per prudenza (zitto a stampa in corso, primo tasto scartato), ma per il motivo sbagliato.
 
 ### Step 10 — Progetti da stampare: i magneti della lavagna d'allenamento
 
@@ -1187,6 +1196,7 @@ valore:
 
 - [2026-11-24] **Due difetti dei riempimenti trovati dall'utente usando il programma sul PC, e nessuno dei due si poteva vedere dall'iPad.** *(1)* Il **popup del riempimento era sempre aperto** appena si entrava nella tab Edit: non era un difetto del riempimento ma del CSS, `[hidden]` che non nascondeva (vedi la nota dello Step 4 dello stesso giorno, sette elementi in tutta la pagina). *(2)* Col riempimento acceso la **tela non si spostava più** col tasto centrale: su un iPad quel tasto non esiste, quindi quel difetto era invisibile di là per costruzione. *(3)* **Ctrl+Z non disfaceva i riempimenti**, e non era una riga dimenticata: un riempimento non cambia le forme del livello attivo, fa nascere un livello figlio, e la storia dell'annulla fotografa le forme. È servito un passo di tipo diverso. Dettagli e pattern nelle note dello Step 4. **Quello che questi tre dicono insieme:** un dispositivo solo prova una cosa sola, e il lavoro fatto in otto giorni con l'iPad in mano era corretto per quello che l'iPad poteva mostrare.
 - [2026-11-24] **La prova sulla carta è rimasta l'unica cosa in coda, e ci va anche il logo.** La macchina è tornata e lo step è pronto da settimane sullo schermo; il criterio di completamento chiede la carta. Conviene mettere sullo stesso foglio **la A in grassetto, la forma con buchi, il tratto a mano libera e il logo nuovo**: la parte lenta sono i due popup di inizio stampa, e quattro disegni costano come uno.
+- [2026-11-27] **I riempimenti funzionano sulla carta.** Confermato dall'utente su una stampa vera arrivata al 97%: riempimenti, **sette cambi penna** e logo nuovo, tutti corretti. Quello che non regge non è il programma: è l'alimentazione della scheda.
 
 ### Step 15 — Pulizia su GitHub: cosa c'è, cosa resta, cosa va via
 
@@ -1257,6 +1267,7 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 - [2026-11-24] **La macchina è tornata: resta solo la carta.** Nessun commit di questa giornata ha toccato il percorso che porta il disegno alla penna — `gcode.js`, `api.js`, `sender.js`, `panel.js`, `jog.js`, `profile.js` e il firmware sono **tutti intatti** (verificato sul diff della giornata, non ricordato). Quindi il tratto a mano libera arriva alla macchina esattamente come ci arrivava l'ultimo disegno stampato bene. **Da stampare sullo stesso foglio dei riempimenti e del logo.**
 - [2026-11-24] **Stampare dall'iPad non si può con la pagina pubblicata, e il motivo non è quello che credevamo.** Vedi la correzione nelle convenzioni della Pipeline: non è la rete, è il *mixed content* — una pagina `https` non può aprire un `ws://`, e `api.js` costruisce sempre quello. Per stampare da un tablet la pagina va **servita in chiaro** da qualcosa sulla rete locale. Per la **prima** prova su carta è stato proposto all'utente di stampare **dal PC**: quella stampa mette alla prova tre cose mai passate dalla penna, e il trasporto dall'iPad sarebbe la quarta — con quattro novità in campo, un risultato storto non direbbe quale guardare. *In attesa della sua decisione al 2026-11-24 sera.*
+- [2026-11-27] **Il tratto a mano libera è andato in stampa.** Il biglietto dei 18 anni — scritte, riempimenti, logo — è stato stampato per intero tranne l'ultima lettera, e l'utente ha salvato il foglio tagliandolo col taglierino. Prova sulla carta sostanzialmente superata: manca solo arrivare in fondo senza che la scheda si riavvii.
 
 ### Step 16 — Metodo di lavoro delle stampe: scheda, catalogo, controllo
 
@@ -1283,6 +1294,69 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - [2026-11-13] **Il fronte SLICER ha letto questo lavoro e detto cosa integrare** (vedi le due note del 2026-11-13 nello Step 4): i motori restano qui, mentre controlli, penne, catalogo-come-cartella e provenienza passano di là. **Due disallineamenti trovati leggendo, da risolvere nella pulizia dello Step 15:** il codice delle stampe sta sul branch `claude/quirky-bohr-u9ktwd` mentre il documento sta su `claude/elegant-knuth-0396no`, dove `stampe/` contiene **solo** i 30 file di `.lavoro/` — immagini di lavorazione e un intero progetto 3MF, cioè residui — quindi il documento descrive settanta file che su quel branch non esistono; e va deciso se `stampe/` vive su un branch solo o su entrambi.
 
 ## Storico sessioni
+
+### [2026-11-27 16:40] La scheda si riavvia, e la causa era scritta nel documento da sei settimane
+
+**Riepilogo:** la quarta stampa persa dà finalmente il dato decisivo — `codice 1006` più posizione azzerata, cioè **l'ESP32 si riavvia** — e cercando l'architettura elettrica si scopre che la nota dello Step 1 del **2026-10-13** aveva già nominato la causa probabile (mancano i 100 nF ceramici sui 7805) e previsto il sintomo parola per parola, «qualche reset a caso»: tre serate e quattro fogli spesi a cercare in rete, nel browser e nel telecomando una cosa che era scritta in casa.
+
+**Cosa è stato fatto:**
+
+**Bug: l'ESP32 si riavvia durante le stampe lunghe — causa probabile individuata, non ancora verificata**
+
+**Sintomo:** quattro stampe interrotte alle righe 2170, 5679, 6880 e **7511 su 7559** (99%), sempre nella parte fitta del disegno. Dalla v145 il registro scrive il motivo: `Chiusura: codice 1006, sparita senza salutare, non pulita`. Dopo la caduta **la posizione è azzerata**.
+**Causa:** `1006` vuol dire che non è arrivato nessun messaggio di chiusura — e chi muore non saluta, quindi comprende anche una scheda che si resetta; la posizione azzerata lo conferma. Esclusi: la rete come primo anello, il telecomando (assente in due delle quattro), il carico della pagina, e la pagina stessa (`startPing()` non chiude mai il socket). **La causa probabile era già scritta nello Step 1 il 2026-10-13:** mancano i **100 nF ceramici su IN e OUT di ogni L7805**, e la nota prevedeva «riscaldamento inspiegabile, rumore sul 5 V, qualche reset a caso». Si somma il conto termico: con 12 V in ingresso un L7805 lineare dissipa 1,75 W sul ramo ESP32 e 4,2 W su quello del servo, contro i 50÷65 °C/W di un TO-220 nudo — la protezione termica stacca, raffredda e riattacca.
+**Fix applicato:** nessuno ancora. Il rimedio è quello deciso il 2026-10-13 e mai eseguito: 100 nF su IN e OUT di ogni regolatore, più uno in parallelo ai 100 µF sul VMOT di ogni driver. Da verificare col tester sul 5 V durante la parte fitta.
+
+**Bug: due riquadri che crescevano senza fine**
+
+**Sintomo:** nessuno visibile; trovati cercando la causa delle cadute.
+**Causa:** `stampe.js registra()` tagliava l'array a 400 righe e il DOM no, e ogni riga forzava il ricalcolo della geometria su un elemento sempre più grande — 0,142 ms a vuoto, **9,226 ms dopo dodicimila righe**, andamento quadratico. `logview.js` rifaceva tutte le 800 righe a ogni messaggio: 13,82 ms, nove volte al secondo durante una stampa.
+**Fix applicato:** tetto anche sul DOM, e una riga si attacca invece di rifare l'elenco. 0,30 ms piatti e 0,69 ms; 14.000 messaggi da 72,4 s a 4,9 s. Commit `7a0e0c0`, cinque controlli, tre mutazioni tutte viste. **Verificato in laboratorio, e non era la causa delle cadute.**
+
+**Prova sulla macchina: G54 sopravvive al riavvio, G92 no.** `G10 L20 P1 X0 Y0` → `[G54:55.000,55.000,0.000]`; dopo aver tolto corrente, `$#` restituisce lo stesso offset e `[G92:0.000,0.000,0.000]`. **Ma non basta**, e lo dimostra il DRO dell'utente: la penna non si era mossa e la lettura è passata da `0,0` a `−55,−55`, perché il riavvio azzera anche la **posizione macchina**. L'offset sopravvive, il punto da cui si misura no.
+
+**Scoperte minori, tutte dal registro dell'utente.** FluidNC annuncia da sé `[GC:…]` a ogni passaggio G0↔G1, cioè a ogni alzata di penna, e nello SLICER non c'è niente che lo chieda. A un client web che si collega **non dice il motivo del riavvio**: la «prova 1» prevista è stata abbandonata per questo. E tutte e quattro le cadute cadono nella parte fitta del disegno, dove le alzate al secondo sono di più — che è il collegamento con il ramo del servo.
+
+**Quello che funziona, e va detto:** sette cambi penna, i riempimenti e il logo nuovo, tutti corretti su carta vera, su una stampa arrivata al 99%. Il foglio l'utente l'ha salvato col taglierino.
+
+**Tre errori miei, tutti della stessa famiglia: fidarsi di una riga invece di guardare.**
+1. **«Una stampa interrotta non si può riprendere», detto tre volte.** Mi ero fondato sulla riga «la ripetibilità è quella del tuo occhio: qualche millimetro» — che il documento stesso smentisce due paragrafi dopo («per dove cade il disegno sul foglio non conta niente, perché quello lo decide il popup 3») e che è scaduta, perché i blocchi in battuta adesso ci sono. L'ha smontata l'utente, insistendo tre volte.
+2. **«Nel repository non c'è una riga sull'alimentazione».** Falso: c'è nello Step 1, più dettagliata di quella che ho poi scritto io — alimentatore DVE DSA-36W-12 da 12 V 3 A, due L7805CV separati, bilancio 2,15 A su 3, e le alternative scartate. Non l'ho trovata perché ho troncato il mio stesso `grep` con `head -20` e l'output era tutto di `schermo/`. Ho dato ragione all'utente sulla base di una ricerca fatta male, e nel farlo ho descritto male lo stato del progetto.
+3. **«Nella tab Manuale non c'è un campo per i comandi».** C'è, in fondo alla tab Log.
+
+**Decisioni prese:**
+
+- Contesto: l'architettura elettrica era descritta nello Step 1 e io ne ho creato una seconda copia in `misure/alimentazione.md`.
+  Decisione: **il file nuovo è stato rimosso**; il suo contenuto utile (conto termico, numeri mancanti) è finito nelle note dello Step 1, dove sta il resto.
+  Alternative scartate: tenere tutti e due — è esattamente la duplicazione che produce le righe scadute di cui sopra, e la lamentela dell'utente sull'ambiguità dei documenti nasce da lì.
+  Da rivedere se: l'alimentazione diventa un sottosistema abbastanza grande da meritare un file suo, e allora lo Step 1 deve puntarci invece di ripetere.
+
+- Contesto: la ripresa di una stampa interrotta.
+  Decisione: si fa, nella forma proposta dall'utente — alla caduta il Sender tiene programma e indice, la tab resta con «Riprendi questa stampa», e la ripresa chiede due cose: **rifare l'azzeramento ai blocchi** e **confermare che il foglio non si è mosso**. Riparte dall'**inizio del tratto interrotto**, non da metà: ripassare una linea con la stessa penna non si vede, una giunzione sì.
+  **Supera la decisione del: 2026-11-26** — lì era scritto che una ripresa pulita non era possibile per via della ripetibilità dell'origine. Era sbagliato: l'errore dell'homing si cancella perché il popup 3 rimisura il foglio nello stesso sistema di riferimento.
+  Alternative scartate: ancorare sull'angolo del foglio invece che sui blocchi (serve solo se i blocchi non fossero ripetibili); i finecorsa (sono un miglioramento, non un prerequisito, ora che i blocchi tengono).
+  Da rivedere se: la prova dei puntini mostrasse una dispersione di più di qualche decimo.
+
+- Contesto: capire se lo zero ai blocchi è davvero ripetibile.
+  Decisione: **misurarlo in puntini** — azzera ai blocchi, vai a un punto, abbassa la penna; libera i motori, riazzera, torna allo stesso punto, abbassa; quattro o cinque volte. La dispersione dei puntini è la risposta, nelle unità che contano.
+  Alternative scartate: discuterne a partire dalla documentazione, che su questo punto si contraddice.
+
+- Contesto: le prove diagnostiche in programma.
+  Decisione: **abbandonata la «prova 1»** (leggere il motivo del riavvio dall'avvio di FluidNC): a un client web non lo dice. **Abbandonata anche la stampa di controllo col telecomando acceso**: è scagionato, aggiungerebbe solo una variabile.
+
+**File consegnati/modificati:**
+- `webui/js/stampe.js`, `webui/js/logview.js` — i due tetti
+- `webui/tools/prova-stampe.js` — cinque controlli nuovi, sul meccanismo e non sul tempo
+- `webui/tools/rompi.py` — 382 → 385 mutazioni
+- `misure/accensione-e-taratura.md` — corretta con nota datata la sezione sull'origine macchina
+- `misure/alimentazione.md` — creato e poi **rimosso** (duplicava lo Step 1)
+- `documento-sessione-cnc-2d.md` — note agli Step 1, 4, 9, 14, 17
+- consegnata in chat la pagina **v149**
+- commit: `7a0e0c0`, `06b8330`, `978f31b`
+
+**Impatto su Vision/Pipeline:** **Step 1 torna «in corso»** dopo essere stato «completato»: l'alimentazione non regge le stampe lunghe. È il primo step riaperto del progetto, e la ragione per cui la prova sulla carta — per il resto superata — non si chiude.
+
+---
 
 ### [2026-11-26 22:15] Due stampe perse per il telecomando, e un consiglio dato guardando solo metà del problema
 
