@@ -886,6 +886,21 @@ imposta, e la taratura di questo popup deve cadere **dentro** quella banda.
 
 ## Quanto ci si può fidare dell'origine macchina
 
+> **Corretto il 2026-11-27.** Quello che segue era scritto quando i blocchi
+> ancora non c'erano, e nel frattempo è diventato falso: l'utente conferma che
+> **i blocchi sono montati e il carrello ci va in battuta**. L'origine non è
+> più «quella del tuo occhio»: è quella del blocchetto, cioè ripetibile. La
+> riga vecchia resta qui sotto perché le due metà del documento si
+> contraddicevano -- la procedura del passo 6 diceva già «appoggi i carrelli ai
+> blocchi di riferimento» e la configurazione parla di «blocco a 4,300 dalla
+> battuta» -- e averla letta come se valesse ancora ha fatto dire tre volte che
+> una stampa interrotta non si poteva riprendere. Si può.
+>
+> **Quanto sia ripetibile resta da misurare**, e si misura in puntini: azzera ai
+> blocchi, vai a un punto, abbassa la penna; libera i motori, riazzera ai
+> blocchi, torna allo stesso punto, abbassa. Quattro o cinque volte. La
+> dispersione dei puntini è la risposta, nelle unità che contano.
+
 Il punto del passo 6 lo porti a mano, quindi la sua ripetibilità è quella del
 tuo occhio: qualche millimetro. Per **dove cade il disegno sul foglio** non
 conta niente, perché quello lo decide il popup 3. Conta per i limiti.
