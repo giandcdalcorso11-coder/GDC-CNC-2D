@@ -1,7 +1,7 @@
 # Documento di Sessione — CNC 2D Plotter
 
-**Versione:** 131
-**Ultimo aggiornamento:** 2026-11-27 17:20
+**Versione:** 132
+**Ultimo aggiornamento:** 2026-11-27 18:05
 
 ## Regole di co-editing
 
@@ -285,6 +285,9 @@ creare un giorno un altro repository chiamato `CNC-2D` sullo stesso account.
 - [2026-11-27] ~~**La causa più probabile era già scritta qui sopra, dal 2026-10-13, e nessuno l'ha riletta.**~~ **Sbagliato anche questo, nello stesso giorno:** l'utente conferma che **i ceramici sono montati da tempo**. La riga del 2026-10-13 era scaduta, non trascurata, e io mi ci sono appoggiato senza chiedere. Resta valido il resto della nota qui sotto, e resta valido il conto termico, che dai ceramici non dipende. Testo originale conservato: la nota del 2026-10-13 prevedeva «qualche reset a caso» e nominava i 100 nF. Quella nota dice che mancano i **100 nF ceramici su IN e OUT di ogni 7805** e prevede testualmente il sintomo: «riscaldamento inspiegabile, rumore sul 5 V, **qualche reset a caso**». Sei settimane dopo, è esattamente quello che succede. E la nota del 2026-10-12 chiude dicendo che quel percorso diagnostico era costato due giorni «perché l'alimentazione era stata classificata come causa poco probabile»: **lo stesso errore è stato rifatto**, e stavolta è costato tre serate e quattro fogli.
 - [2026-11-27] **Il conto termico, con i numeri veri del profilo (12 V, 3 A).** Un L7805 è lineare: dissipa `(Vin − 5) × I`. Ramo ESP32 ~250 mA → **1,75 W**, picchi in trasmissione ~400 mA → 2,8 W. Ramo servo in movimento ~600 mA → **4,2 W**. Un TO-220 **senza dissipatore** sta sui 50÷65 °C/W verso l'aria: a 1,75 W sono 90÷115 °C sopra l'ambiente, contro una protezione termica che scatta a ~150 °C di giunzione. La protezione stacca, raffredda e riattacca — la firma di una scheda che si riavvia dopo qualche minuto e poi riparte. Si somma all'oscillazione da ceramici mancanti, che scalda di suo.
 - [2026-11-27] **Con i ceramici montati resta il calore, e resta la caduta sui 12 V.** La parte fitta del disegno non è solo quella con più alzate di penna: è quella in cui i segmenti sono così corti che i motori **accelerano e frenano di continuo senza mai andare a regime**, cioè dove la corrente sui 12 V è alta e costante invece che a strappi. Un L7805 vuole almeno ~7 V in ingresso per tenere i 5 in uscita: se il ramo a 12 V cala, l'ESP32 va in brownout. E qui si incrocia un'altra cosa scritta nelle decisioni di questo stesso Step e mai verificata come fatta: il ramo 12 V di potenza doveva andare **su morsetti a vite**, perché «un contatto di breadboard è dato per ~1 A e lì ne passano fino a 2». La resistenza di contatto cresce con la temperatura, quindi la caduta peggiora col passare dei minuti — e tutte le cadute sono tardive.
+- [2026-11-27] **Prova a vuoto, fatta dall'utente: il 7805 dell'ESP32 è già molto caldo dopo venti minuti a macchina FERMA, con lo SLICER nemmeno collegato.** È il carico più basso che vedrà mai: ESP32 associato al WiFi senza nessun client, ~100 mA, cioè ~0,7 W e ~45 °C sopra l'ambiente su una linguetta nuda da 62 °C/W. Sotto stampa si sale a 1,0÷1,8 W (65÷112 °C) con picchi a 2,8 W (~175 °C), contro una protezione termica a ~150 °C di giunzione.
+- [2026-11-27] **Due decisioni di questo Step risultavano prese e non sono mai state eseguite.** I due 7805 **non hanno dissipatore** — solo la linguetta del TO-220, che è il contenitore — mentre la decisione diceva «millefori saldata (sono la parte più calda e con più corrente)»; e il **ramo 12 V passa ancora dalla breadboard**, mentre la decisione diceva «morsetti a vite (un contatto di breadboard è dato per ~1 A e lì ne passano fino a 2)». Una decisione scritta e non eseguita è indistinguibile da una eseguita, per chi legge.
+- [2026-11-27] **Piano in tre passi, deciso:** (1) dissipatore su tutti e due i 7805 — una clip-on vale ~20 °C/W al posto di 62 e porta il salto da 112 a ~40 °C; (2) il disegno di sollecitazione (`webui/tools/sollecita.py`) come prova del nove, prima e dopo; (3) sostituzione con due moduli buck, già prevista nelle decisioni di questo Step come «l'upgrade».
 - [2026-11-27] **I numeri che mancano per chiudere:** se i due L7805 abbiano un dissipatore; il 5 V dell'ESP32 misurato col tester durante la parte fitta di una stampa; e se, montati i ceramici, il guasto sparisce. **Rimedio già deciso il 2026-10-13 e mai eseguito: 100 nF su IN e OUT di ogni regolatore**, più uno in parallelo ai 100 µF sul VMOT di ogni driver. L'upgrade a switching (LM2596) era già previsto come passo successivo.
 
 ### Step 2 — Bring-up driver A4988 e motori (X/Y)
@@ -1297,11 +1300,11 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 ## Storico sessioni
 
-### [2026-11-27 16:40] La scheda si riavvia, e la causa era scritta nel documento da sei settimane
+### [2026-11-27 18:05] La scheda si riavvia, e il dominio era quello elettrico fin dall'inizio
 
 > **Corretto il 2026-11-27 17:20, poche ore dopo averla scritta.** Questa voce dava per probabile che mancassero i condensatori ceramici sui 7805. **Non mancano: l'utente conferma che sono montati da tempo.** La nota del 2026-10-13 era scaduta e nessuno l'aveva chiusa — lo stesso difetto di metodo che oggi aveva già colpito due volte, e su cui mi sono appoggiato per la terza senza chiedere. Resta in piedi il conto termico, che dai ceramici non dipende, e si aggiunge il sospetto sulla caduta dei 12 V (vedi Step 1). Resta vero il punto generale: **la causa era nel dominio elettrico, e l'avevamo classificato come poco probabile per la seconda volta.**
 
-**Riepilogo:** la quarta stampa persa dà finalmente il dato decisivo — `codice 1006` più posizione azzerata, cioè **l'ESP32 si riavvia** — e cercando l'architettura elettrica si scopre che la nota dello Step 1 del **2026-10-13** aveva già nominato la causa probabile (mancano i 100 nF ceramici sui 7805) e previsto il sintomo parola per parola, «qualche reset a caso»: tre serate e quattro fogli spesi a cercare in rete, nel browser e nel telecomando una cosa che era scritta in casa.
+**Riepilogo:** la quarta stampa persa dà finalmente il dato decisivo — `codice 1006` più posizione azzerata, cioè **l'ESP32 si riavvia** — e cercando l'architettura elettrica si scopre che la nota dello Step 1 del **2026-10-13** aveva già nominato la causa probabile (mancano i 100 nF ceramici sui 7805) e previsto il sintomo parola per parola, «qualche reset a caso»: tre serate e quattro fogli spesi a cercare in rete, nel browser e nel telecomando una cosa che era scritta in casa. **Quella pista si rivela a sua volta scaduta** — i ceramici ci sono — ma il dominio era giusto: a fine giornata la prova a vuoto mostra che **il 7805 dell'ESP32 scalda già molto a macchina ferma e scollegata**, e due decisioni dello stesso Step (dissipatori, 12 V su morsetti) risultano prese e mai eseguite.
 
 **Cosa è stato fatto:**
 
@@ -1309,7 +1312,13 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 **Sintomo:** quattro stampe interrotte alle righe 2170, 5679, 6880 e **7511 su 7559** (99%), sempre nella parte fitta del disegno. Dalla v145 il registro scrive il motivo: `Chiusura: codice 1006, sparita senza salutare, non pulita`. Dopo la caduta **la posizione è azzerata**.
 **Causa:** `1006` vuol dire che non è arrivato nessun messaggio di chiusura — e chi muore non saluta, quindi comprende anche una scheda che si resetta; la posizione azzerata lo conferma. Esclusi: la rete come primo anello, il telecomando (assente in due delle quattro), il carico della pagina, e la pagina stessa (`startPing()` non chiude mai il socket). **La causa probabile era già scritta nello Step 1 il 2026-10-13:** mancano i **100 nF ceramici su IN e OUT di ogni L7805**, e la nota prevedeva «riscaldamento inspiegabile, rumore sul 5 V, qualche reset a caso». Si somma il conto termico: con 12 V in ingresso un L7805 lineare dissipa 1,75 W sul ramo ESP32 e 4,2 W su quello del servo, contro i 50÷65 °C/W di un TO-220 nudo — la protezione termica stacca, raffredda e riattacca.
-**Fix applicato:** nessuno ancora. Il rimedio è quello deciso il 2026-10-13 e mai eseguito: 100 nF su IN e OUT di ogni regolatore, più uno in parallelo ai 100 µF sul VMOT di ogni driver. Da verificare col tester sul 5 V durante la parte fitta.
+**Causa (aggiornata alle 18:00, dopo due risposte dell'utente):** i ceramici **ci sono già da tempo**, quindi quella pista è chiusa. Resta il **calore**, che dai ceramici non dipende, e si aggiunge la **caduta sui 12 V**. Due cose decise nello Step 1 e **mai eseguite** lo rendono molto più probabile di quanto sembrasse:
+- **i due L7805 non hanno dissipatore** — solo la linguetta del TO-220, che è il contenitore, non un'aletta. La decisione diceva «i due 7805 coi loro condensatori vanno su millefori saldata (sono la parte più calda e con più corrente)»;
+- **il ramo 12 V di potenza passa ancora dalla breadboard**, mentre la decisione diceva «morsetti a vite (un contatto di breadboard è dato per ~1 A e lì ne passano fino a 2)». La resistenza di contatto cresce con la temperatura, quindi la caduta peggiora coi minuti.
+
+**La prova a vuoto, fatta dall'utente il 2026-11-27:** venti minuti a macchina accesa e **ferma**, con lo SLICER **nemmeno collegato**, e il 7805 dell'ESP32 è già **molto caldo**. È il carico più basso che vedrà mai — l'ESP32 associato al WiFi senza nessun client, sui 100 mA, cioè ~0,7 W. Con 62 °C/W di una linguetta nuda sono ~45 °C sopra l'ambiente a riposo; sotto stampa il consumo sale a 150÷260 mA (1,0÷1,8 W, 65÷112 °C) con picchi in trasmissione a ~400 mA (2,8 W, ~175 °C), contro una protezione termica che scatta a ~150 °C di giunzione. Accanto c'è il secondo 7805, quello del servo, che a 4,2 W mentre si muove alza l'aria intorno a entrambi. **E spiega il «sempre tardi»:** un blocchetto di metallo non va a regime in trenta secondi, ci mette minuti, e tutte e quattro le cadute sono arrivate dopo almeno dieci.
+
+**Fix applicato:** nessuno ancora, ma il piano è deciso e in tre passi: **(1)** un dissipatore su tutti e due i 7805 — una clip-on vale ~20 °C/W al posto di 62, e a 1,8 W porta il salto da 112 a ~40 °C; **(2)** il disegno di sollecitazione come prova del nove; **(3)** la sostituzione con due moduli buck, che nelle decisioni dello Step 1 era già prevista come «l'upgrade». Restano da misurare il 5 V in uscita a caldo e la tensione d'ingresso durante la parte fitta.
 
 **Bug: due riquadri che crescevano senza fine**
 
@@ -1321,12 +1330,17 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 
 **Scoperte minori, tutte dal registro dell'utente.** FluidNC annuncia da sé `[GC:…]` a ogni passaggio G0↔G1, cioè a ogni alzata di penna, e nello SLICER non c'è niente che lo chieda. A un client web che si collega **non dice il motivo del riavvio**: la «prova 1» prevista è stata abbandonata per questo. E tutte e quattro le cadute cadono nella parte fitta del disegno, dove le alzate al secondo sono di più — che è il collegamento con il ramo del servo.
 
+**Costruito un disegno per far cadere la macchina in fretta, col tester attaccato** (`webui/tools/sollecita.py`). Aspettare che succeda su un disegno vero costa mezz'ora e un foglio per tentativo; questo concentra in **7,4 minuti** la sollecitazione che lì era diluita, e la divide in **due bande che accusano due sospetti diversi**: la banda A è fatta di 720 segmenti da mezzo millimetro con sole 4 alzate — i motori accelerano e frenano senza mai andare a regime, massima corrente **continua** sui 12 V; la banda B è fatta di 306 trattini staccati, **un'alzata ognuno** — massimo lavoro del servo. Dove cade dice che cos'è. I trattini sono distanti 3 mm, molto più di `JOIN_TOL` (0,15 mm): se si toccassero, `join()` li salderebbe e le alzate sparirebbero. Verificato facendo passare il disegno dal codice vero — 310 tratti prima della saldatura e **310 dopo**, 310 alzate, 7,4 minuti da `Optimize.stats`.
+
 **Quello che funziona, e va detto:** sette cambi penna, i riempimenti e il logo nuovo, tutti corretti su carta vera, su una stampa arrivata al 99%. Il foglio l'utente l'ha salvato col taglierino.
 
-**Tre errori miei, tutti della stessa famiglia: fidarsi di una riga invece di guardare.**
+**Quattro errori miei, tutti della stessa famiglia: fidarsi di una riga invece di guardare.** (Il quarto è in fondo, ed è arrivato dopo gli altri tre nello stesso giorno.)
 1. **«Una stampa interrotta non si può riprendere», detto tre volte.** Mi ero fondato sulla riga «la ripetibilità è quella del tuo occhio: qualche millimetro» — che il documento stesso smentisce due paragrafi dopo («per dove cade il disegno sul foglio non conta niente, perché quello lo decide il popup 3») e che è scaduta, perché i blocchi in battuta adesso ci sono. L'ha smontata l'utente, insistendo tre volte.
 2. **«Nel repository non c'è una riga sull'alimentazione».** Falso: c'è nello Step 1, più dettagliata di quella che ho poi scritto io — alimentatore DVE DSA-36W-12 da 12 V 3 A, due L7805CV separati, bilancio 2,15 A su 3, e le alternative scartate. Non l'ho trovata perché ho troncato il mio stesso `grep` con `head -20` e l'output era tutto di `schermo/`. Ho dato ragione all'utente sulla base di una ricerca fatta male, e nel farlo ho descritto male lo stato del progetto.
 3. **«Nella tab Manuale non c'è un campo per i comandi».** C'è, in fondo alla tab Log.
+4. **«Mancano i 100 nF, è quella la causa»**, detto poche ore dopo aver scritto questa stessa voce. I ceramici ci sono da tempo: la riga del 2026-10-13 era **scaduta**, non trascurata, e mi ci sono appoggiato senza chiedere. È il terzo caso in due giorni, e a quel punto non è più sfortuna: **il documento apre le cose da fare e non le chiude**, quindi restano scritte al presente anche dopo. La convenzione per chiuderle il progetto ce l'ha già — in `schermo/README.md` i lavori finiti sono barrati con un «fatto il …» — e nelle note degli Step non era applicata. Applicata adesso alla riga dei ceramici.
+
+**E la stessa malattia dall'altra parte:** due decisioni dello Step 1 (dissipatori su millefori, 12 V su morsetti a vite) risultavano prese e non sono mai state eseguite, senza che niente lo dicesse. Una decisione scritta e non fatta è indistinguibile da una fatta, per chi legge.
 
 **Decisioni prese:**
 
@@ -1345,6 +1359,15 @@ I sospetti, da verificare quando si arriva allo step e non prima:
   Decisione: **misurarlo in puntini** — azzera ai blocchi, vai a un punto, abbassa la penna; libera i motori, riazzera, torna allo stesso punto, abbassa; quattro o cinque volte. La dispersione dei puntini è la risposta, nelle unità che contano.
   Alternative scartate: discuterne a partire dalla documentazione, che su questo punto si contraddice.
 
+- Contesto: i due L7805 non hanno dissipatore e a riposo scaldano già.
+  Decisione: **dissipatore su tutti e due**, poi il disegno di sollecitazione come prova del nove, poi la sostituzione con **due moduli buck**.
+  Alternative scartate: partire direttamente dai buck — il dissipatore costa pochi euro e si monta subito, e se il guasto sparisce la diagnosi è confermata invece che solo risolta; alimentare il servo da una seconda presa, già rifiutato dall'utente in passato («una macchina si accende con una spina»).
+  Da rivedere se: col dissipatore il guasto resta — allora il sospetto passa alla caduta sui 12 V attraverso la breadboard.
+
+- Contesto: aspettare la caduta su un disegno vero costa mezz'ora e un foglio per tentativo.
+  Decisione: un **disegno di sollecitazione** in due bande, una che carica i motori e una che carica il servo, così che **dove cade dica che cos'è**.
+  Alternative scartate: rifare il biglietto col tester attaccato — stessa attesa, nessuna discriminazione fra i due sospetti.
+
 - Contesto: le prove diagnostiche in programma.
   Decisione: **abbandonata la «prova 1»** (leggere il motivo del riavvio dall'avvio di FluidNC): a un client web non lo dice. **Abbandonata anche la stampa di controllo col telecomando acceso**: è scagionato, aggiungerebbe solo una variabile.
 
@@ -1355,8 +1378,18 @@ I sospetti, da verificare quando si arriva allo step e non prima:
 - `misure/accensione-e-taratura.md` — corretta con nota datata la sezione sull'origine macchina
 - `misure/alimentazione.md` — creato e poi **rimosso** (duplicava lo Step 1)
 - `documento-sessione-cnc-2d.md` — note agli Step 1, 4, 9, 14, 17
+- `webui/tools/sollecita.py` — NUOVO, genera il disegno di sollecitazione
+- `sollecitazione.svg` — generato e consegnato in chat (100 × 112 mm, da mettere a quella misura esatta, senza penna)
 - consegnata in chat la pagina **v149**
-- commit: `7a0e0c0`, `06b8330`, `978f31b`
+- commit: `7a0e0c0`, `06b8330`, `978f31b`, `15a43c4`, `9e61d98`, `5ad7daf`
+
+**Problemi aperti:**
+1. **Perché si riavvia l'ESP32.** Ipotesi termica forte ma non dimostrata. Mancano: il 5 V in uscita misurato a caldo, la tensione d'ingresso durante la parte fitta, e l'esito del disegno di sollecitazione prima e dopo il dissipatore.
+2. **Le due decisioni dello Step 1 mai eseguite:** dissipatori / millefori saldata, e il ramo 12 V su morsetti a vite.
+3. **La ripresa di una stampa interrotta**, progettata e non ancora scritta: il Sender tiene programma e indice, la tab resta con «Riprendi questa stampa», due popup (azzeramento ai blocchi, conferma che il foglio non si è mosso), e si riparte dall'inizio del tratto interrotto.
+4. **La prova dei puntini** per misurare la ripetibilità vera dello zero ai blocchi.
+5. **Le catene portacavi:** restano da confermare col metro gli 11 mm fra l'ansa Y e la trave e i 26 mm dietro la trave (dal 2026-11-25).
+6. **I report `[GC:]` di FluidNC**, che arrivano non richiesti a ogni alzata di penna: da capire se si spengono.
 
 **Impatto su Vision/Pipeline:** **Step 1 torna «in corso»** dopo essere stato «completato»: l'alimentazione non regge le stampe lunghe. È il primo step riaperto del progetto, e la ragione per cui la prova sulla carta — per il resto superata — non si chiude.
 
