@@ -257,6 +257,32 @@ MUTAZIONI = [
         prova='prova-telecomando.js',
     ),
 
+    # --------------- i riquadri che crescevano senza fine (2026-11-27)
+    dict(
+        nome="il riquadro della stampa accumula un div per messaggio",
+        file='js/stampe.js',
+        da="    while (el.childElementCount >= TETTO_REG) el.removeChild(el.firstChild);",
+        a="",
+        vede='non accumula righe senza fine',
+        prova='prova-stampe.js',
+    ),
+    dict(
+        nome="il registro attacca righe e non ne toglie mai",
+        file='js/logview.js',
+        da="    while (view.childElementCount > MAX) view.removeChild(view.firstChild);",
+        a="",
+        vede='tiene il suo tetto attaccando',
+        prova='prova-stampe.js',
+    ),
+    dict(
+        nome="la riga nuova del registro finisce in cima invece che in fondo",
+        file='js/logview.js',
+        da="    view.insertAdjacentHTML('beforeend', unaRiga(l));",
+        a="    view.insertAdjacentHTML('afterbegin', unaRiga(l));",
+        vede='con in fondo l',
+        prova='prova-stampe.js',
+    ),
+
     # --------------- ritrovare la punta al cambio penna
     dict(
         nome="la correzione non viene mandata alla macchina",

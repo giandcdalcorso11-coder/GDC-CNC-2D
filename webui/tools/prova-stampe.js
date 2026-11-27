@@ -375,6 +375,65 @@ const PROGRAMMA = (conPausa) => {
   ok('e non e` semplicemente il primo foglio', r.accesi[0] === 2,
      'acceso il ' + r.accesi[0] + ' su ' + r.visti.length + ' passaggi visti');
 
+  /* ============ IL RIQUADRO NON CRESCE SENZA FINE (2026-11-27) ============
+   *
+   * Tre stampe vere sono morte al 31%, all'80% e al 97%, sempre piu' avanti
+   * man mano che si toglieva altro carico. La causa candidata era qui:
+   * `registra()` tagliava l'ARRAY a 400 righe e il DOM no, quindi il riquadro
+   * accumulava un `<div>` per messaggio per tutta la stampa -- migliaia. E
+   * siccome ogni riga legge `scrollTop`, `clientHeight` e `scrollHeight`, che
+   * obbligano il browser a ricalcolare la geometria subito, il costo di una
+   * riga cresceva col numero di righe gia' dentro: 0,14 ms a vuoto, 9,2 ms
+   * dopo dodicimila. Quadratico, e peggiore proprio verso la fine.
+   *
+   * Qui non si misura il tempo -- una soglia di millisecondi su una macchina
+   * qualunque e' un controllo che un giorno fallisce da solo. Si guarda il
+   * MECCANISMO: quanti nodi restano. Col tetto il costo resta quello della
+   * prima riga, e questo e' il numero che lo garantisce. */
+  r = await page.evaluate(async (prog) => {
+    const aspetta = (ms) => new Promise((r) => setTimeout(r, ms));
+    /* SERVE UNA STAMPA IN CORSO: il registro di una tab raccoglie solo
+       finche' quella stampa succede, quindi su una gia' finita non
+       entrerebbe niente e il controllo misurerebbe il vuoto. Una col cambio
+       penna si ferma e resta in corso. */
+    Sender.avvia(prog, 'tetto.svg');
+    await aspetta(80);
+    const aperte = Stampe.aperte();
+    const t = aperte[aperte.length - 1];
+    const el = document.getElementById('reg-' + t.id);
+    const prima = el ? el.childElementCount : -1;
+    for (let i = 0; i < 1500; i++) Log.add('cmd', 'G1 X1' + i + '.5 Y2' + i + '.5 F600');
+    await aspetta(50);
+    return { corso: Sender.inCorso(), prima: prima,
+             dopo: el ? el.childElementCount : -1,
+             ultima: el && el.lastElementChild
+               ? el.lastElementChild.textContent : '' };
+  }, PROGRAMMA(true));
+  ok('la stampa di prova e` davvero in corso', r.corso === true, 'inCorso ' + r.corso);
+  ok('il riquadro della stampa non accumula righe senza fine',
+     r.dopo > 0 && r.dopo <= 400,
+     r.prima + ' righe prima, ' + r.dopo + ' dopo averne aggiunte 1500');
+  ok('e quella che si vede in fondo e` l\'ultima arrivata',
+     /X11499\.5/.test(r.ultima), r.ultima.slice(-40));
+
+  /* Lo stesso per la tab Log, che fino al 2026-11-27 rifaceva tutte le 800
+     righe a ogni messaggio: 13,8 ms per riga, con `Api.send()` che ne scrive
+     una per ogni riga di G-code. Adesso ne attacca una sola. */
+  r = await page.evaluate(async () => {
+    const aspetta = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelector('.tab[data-tab="log"]').click();
+    await aspetta(80);
+    for (let i = 0; i < 1200; i++) Log.add('msg', 'riga numero ' + i);
+    await aspetta(50);
+    const v = document.getElementById('log-view');
+    return { nodi: v.childElementCount,
+             ultima: v.lastElementChild ? v.lastElementChild.textContent : '' };
+  });
+  ok('e il registro tiene il suo tetto attaccando invece di rifare',
+     r.nodi > 0 && r.nodi <= 800, r.nodi + ' righe nel registro');
+  ok('con in fondo l\'ultima arrivata',
+     /riga numero 1199/.test(r.ultima), r.ultima.slice(-30));
+
   ok('nessun errore in pagina', errori.length === 0, errori.join(' | '));
   await browser.close();
   console.log(guai ? '\n' + guai + ' controlli KO' : '\ntutto a posto');

@@ -541,11 +541,32 @@ var Stampe = (function () {
     el.innerHTML = out;
   }
 
+  /* QUANTE RIGHE RESTANO NEL RIQUADRO. Lo stesso numero dell'array: erano
+     due tetti diversi, e uno dei due non c'era.
+
+     IL GUASTO, misurato il 2026-11-27. L'array si fermava a 400, il DOM no:
+     `insertAdjacentHTML` attaccava un `<div>` per ogni messaggio e non ne
+     toglieva mai nessuno. In tredici minuti di stampa sono migliaia di
+     elementi. E siccome ogni riga legge `scrollTop`, `clientHeight` e
+     `scrollHeight` -- tre letture che obbligano il browser a ricalcolare la
+     geometria SUBITO -- il costo di una riga cresceva col numero di righe
+     gia' dentro: 0,14 ms a vuoto, 1,0 ms dopo duemila, 9,2 ms dopo
+     dodicimila. Sessantacinque volte, e in totale un andamento quadratico.
+
+     Non e' un difetto di eleganza: la pagina diventa sempre piu' lenta MAN
+     MANO CHE LA STAMPA AVANZA, cioe' proprio quando non deve. Tre stampe
+     sono morte al 31%, all'80% e al 97%, sempre piu' avanti via via che si
+     toglieva altro carico, e questa e' l'unica cosa trovata finora che
+     spieghi quella progressione. Col tetto, il costo resta quello della
+     prima riga per tutta la stampa. */
+  var TETTO_REG = 400;
+
   function registra(t, riga) {
     t.registro.push(riga);
-    if (t.registro.length > 400) t.registro.shift();
+    if (t.registro.length > TETTO_REG) t.registro.shift();
     var el = document.getElementById('reg-' + t.id);
     if (!el) return;
+    while (el.childElementCount >= TETTO_REG) el.removeChild(el.firstChild);
     var attaccato = el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
     el.insertAdjacentHTML('beforeend',
       '<div class="log-line"><span class="log-time">' + riga.time + '</span>' +

@@ -33,7 +33,31 @@ var Log = (function () {
     }
     lines.push({ kind: kind, text: text, time: ts() });
     if (lines.length > MAX) lines.splice(0, lines.length - MAX);
-    render();
+    aggiungi(riga);
+  }
+
+  /* UNA RIGA SI ATTACCA, NON SI RIFA' L'ELENCO.
+     Fino al 2026-11-27 `add` chiamava `render()`, che ricostruiva l'intero
+     innerHTML di tutte le 800 righe a ogni messaggio: 13,8 ms misurati, e
+     `Api.send()` scrive nel registro OGNI riga di G-code -- settemila in una
+     stampa, nove al secondo. Erano ventimila elementi creati e distrutti al
+     secondo per tredici minuti, per mostrare una riga in piu'.
+     `render()` resta, e serve ancora: quando cambiano i filtri l'elenco va
+     rifatto davvero, perche' cambia quali righe si vedono. */
+  function aggiungi(l) {
+    if (!view) return;
+    if (!visible(l.kind)) return;
+    var vuoto = view.querySelector('.log-empty');
+    if (vuoto) view.innerHTML = '';
+    view.insertAdjacentHTML('beforeend', unaRiga(l));
+    while (view.childElementCount > MAX) view.removeChild(view.firstChild);
+    if (autoscroll && autoscroll.checked) view.scrollTop = view.scrollHeight;
+  }
+
+  function unaRiga(l) {
+    return '<div class="log-line"><span class="log-time">' + l.time +
+           '</span><span class="log-' + l.kind + '">' + escape(l.text) +
+           '</span></div>';
   }
 
   function visible(kind) {
@@ -48,8 +72,7 @@ var Log = (function () {
     for (var i = 0; i < lines.length; i++) {
       var l = lines[i];
       if (!visible(l.kind)) continue;
-      html += '<div class="log-line"><span class="log-time">' + l.time +
-              '</span><span class="log-' + l.kind + '">' + escape(l.text) + '</span></div>';
+      html += unaRiga(l);
     }
     view.innerHTML = html || '<p class="log-empty">Nessun messaggio.</p>';
     if (autoscroll && autoscroll.checked) view.scrollTop = view.scrollHeight;
